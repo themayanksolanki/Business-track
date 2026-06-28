@@ -26,3 +26,25 @@ export const avatarUpload = multer({
   limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter,
 }).single('avatar');
+
+const chatStorage = multer.diskStorage({
+  destination: path.join(__dirname, '../uploads/chat'),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `chat-${req.user._id}-${Date.now()}${ext}`);
+  },
+});
+
+const chatFileFilter = (_req, file, cb) => {
+  if (['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new AppError('Only image files are allowed', 400));
+  }
+};
+
+export const chatImageUpload = multer({
+  storage: chatStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: chatFileFilter,
+}).single('image');

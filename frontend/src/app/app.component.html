@@ -42,6 +42,11 @@
               <i class="bi bi-list-task me-2"></i>Tasks
             </a>
           </li>
+          <li class="nav-item">
+            <a routerLink="/chat" class="nav-link nav-pill" routerLinkActive="nav-pill-active">
+              <i class="bi bi-chat-dots me-2"></i>Chat
+            </a>
+          </li>
           @if (auth.getUser()?.role === 'Manager') {
             <li class="nav-item">
               <a routerLink="/users" class="nav-link nav-pill" routerLinkActive="nav-pill-active">

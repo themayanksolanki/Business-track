@@ -47,6 +47,11 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'chat',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/chat/chat.component').then((m) => m.ChatComponent),
+  },
+  {
     path: 'profile',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/profile/profile.component').then((m) => m.ProfileComponent),
