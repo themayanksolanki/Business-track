@@ -14,6 +14,8 @@ function addToken(req: HttpRequest<unknown>, token: string | null): HttpRequest<
 export const tokenInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
 
+  if (req.url.includes('/uploads/')) return next(req);
+
   return next(addToken(req, auth.getToken())).pipe(
     catchError((err: HttpErrorResponse) => {
       const isRefreshOrLogin = req.url.includes('/auth/refresh') || req.url.includes('/auth/login');
