@@ -52,6 +52,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   private pc: RTCPeerConnection | null = null;
   private pendingCandidates: RTCIceCandidateInit[] = [];
   private remoteDescSet = false;
+  private pendingOffer: { from: string; offer: RTCSessionDescriptionInit } | null = null;
   private callTimeout: any;
 
   private subs = new Subscription();
@@ -231,20 +232,19 @@ export class ChatComponent implements OnInit, OnDestroy {
       });
       this.attachLocal();
       this.createPeerConnection();
-
       this.socketSvc.requestCall(
         this.callWith,
         this.me?.username ?? 'Someone',
         type
       );
-
-      // Auto-cancel after 30s
       this.callTimeout = setTimeout(() => {
         if (this.callState === 'calling') this.cancelCall();
       }, 30000);
-    } catch {
-      this.callState = 'idle';
+    } catch (err) {
+      this.cleanupCall();
+      this.showCallNotice('Could not access your camera or microphone.');
     }
+    this.cdr.detectChanges();
   }
 
   cancelCall() {
@@ -267,22 +267,30 @@ export class ChatComponent implements OnInit, OnDestroy {
     if (!this.incomingCall) return;
     this.callWith  = this.incomingCall.from;
     this.callType  = this.incomingCall.callType;
-    this.callState = 'in-call';
     this.incomingCall = null;
-
-    this.socketSvc.acceptCall(this.callWith);
+    this.callState = 'in-call';
+    this.cdr.detectChanges();
 
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: this.callType === 'video',
       });
-      this.attachLocal();
       this.createPeerConnection();
-    } catch {
-      this.endCall();
+      this.attachLocal();
+      this.socketSvc.acceptCall(this.callWith);
+
+      if (this.pendingOffer) {
+        const offer = this.pendingOffer;
+        this.pendingOffer = null;
+        await this.answerOffer(offer);
+      }
+    } catch (err) {
+      const caller = this.callWith;
+      if (caller) this.socketSvc.rejectCall(caller);
+      this.cleanupCall();
+      this.showCallNotice('Could not access your camera or microphone.');
     }
-    this.cdr.detectChanges();
   }
 
   rejectCall() {
@@ -300,10 +308,12 @@ export class ChatComponent implements OnInit, OnDestroy {
   private async onCallAccepted() {
     clearTimeout(this.callTimeout);
     this.callState = 'in-call';
-    // Caller creates and sends offer
-    const offer = await this.pc!.createOffer();
-    await this.pc!.setLocalDescription(offer);
-    this.socketSvc.sendOffer(this.callWith!, offer);
+    this.cdr.detectChanges();
+    this.attachLocal();
+    if (!this.pc || !this.callWith) return;
+    const offer = await this.pc.createOffer();
+    await this.pc.setLocalDescription(offer);
+    this.socketSvc.sendOffer(this.callWith, offer);
     this.cdr.detectChanges();
   }
 
@@ -327,15 +337,30 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   private async onCallOffer(data: { from: string; offer: RTCSessionDescriptionInit }) {
-    await this.pc!.setRemoteDescription(new RTCSessionDescription(data.offer));
+    if (!this.pc) {
+      this.pendingOffer = data;
+      return;
+    }
+
+    await this.answerOffer(data);
+  }
+
+  private async answerOffer(data: { from: string; offer: RTCSessionDescriptionInit }) {
+    if (!this.pc) {
+      this.pendingOffer = data;
+      return;
+    }
+
+    await this.pc.setRemoteDescription(new RTCSessionDescription(data.offer));
     await this.processPendingCandidates();
-    const answer = await this.pc!.createAnswer();
-    await this.pc!.setLocalDescription(answer);
-    this.socketSvc.sendAnswer(this.callWith!, answer);
+    const answer = await this.pc.createAnswer();
+    await this.pc.setLocalDescription(answer);
+    this.socketSvc.sendAnswer(this.callWith ?? data.from, answer);
   }
 
   private async onCallAnswer(data: { answer: RTCSessionDescriptionInit }) {
-    await this.pc!.setRemoteDescription(new RTCSessionDescription(data.answer));
+    if (!this.pc) return;
+    await this.pc.setRemoteDescription(new RTCSessionDescription(data.answer));
     await this.processPendingCandidates();
   }
 
@@ -357,33 +382,49 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   // ── Call helpers ──────────────────────────────────────────────
   private createPeerConnection() {
+    this.pc?.close();
+    this.remoteDescSet = false;
     this.pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 
-    this.localStream?.getTracks().forEach((t) => this.pc!.addTrack(t, this.localStream!));
+    const pc = this.pc;
+    this.localStream?.getTracks().forEach((track) => pc.addTrack(track, this.localStream!));
 
-    this.pc.onicecandidate = (e) => {
+    pc.onicecandidate = (e) => {
       if (e.candidate && this.callWith) {
         this.socketSvc.sendIceCandidate(this.callWith, e.candidate);
       }
     };
 
-    this.pc.ontrack = (e) => {
-      this.remoteStream = e.streams[0];
-      setTimeout(() => {
-        if (this.remoteVideo?.nativeElement) {
-          this.remoteVideo.nativeElement.srcObject = this.remoteStream;
-        }
-      }, 100);
+    pc.ontrack = (e) => {
+      if (e.streams[0]) {
+        this.remoteStream = e.streams[0];
+      } else {
+        this.remoteStream ??= new MediaStream();
+        this.remoteStream.addTrack(e.track);
+      }
+      this.attachRemote();
       this.cdr.detectChanges();
     };
   }
 
   private attachLocal() {
     setTimeout(() => {
-      if (this.localVideo?.nativeElement) {
-        this.localVideo.nativeElement.srcObject = this.localStream;
+      const video = this.localVideo?.nativeElement;
+      if (video && this.localStream && video.srcObject !== this.localStream) {
+        video.srcObject = this.localStream;
+        void video.play().catch(() => {});
       }
-    }, 100);
+    });
+  }
+
+  private attachRemote() {
+    setTimeout(() => {
+      const video = this.remoteVideo?.nativeElement;
+      if (video && this.remoteStream && video.srcObject !== this.remoteStream) {
+        video.srcObject = this.remoteStream;
+        void video.play().catch(() => {});
+      }
+    });
   }
 
   private cleanupCall() {
@@ -395,11 +436,18 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.pc           = null;
     this.pendingCandidates = [];
     this.remoteDescSet = false;
+    this.pendingOffer = null;
     this.callState    = 'idle';
     this.callWith     = null;
     this.incomingCall = null;
     this.isMuted      = false;
     this.isCamOff     = false;
+  }
+
+  private showCallNotice(message: string) {
+    this.callNotice = message;
+    setTimeout(() => (this.callNotice = ''), 3500);
+    this.cdr.detectChanges();
   }
 
   toggleMute() {

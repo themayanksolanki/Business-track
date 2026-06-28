@@ -5,9 +5,20 @@ import Message from './models/Message.js';
 const onlineUsers = new Map(); // userId (string) → socketId
 
 export function setupSocket(server) {
+  const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:4200')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   const io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL,
+      origin: (origin, cb) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          return cb(null, true);
+        }
+
+        return cb(new Error('CORS: origin not allowed'));
+      },
       credentials: true,
     },
   });
