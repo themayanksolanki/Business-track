@@ -76,8 +76,9 @@ export class ChatComponent implements OnInit, OnDestroy {
   callWith:  string | null = null;
   incomingCall: IncomingCall | null = null;
 
-  isMuted    = false;
-  isCamOff   = false;
+  isMuted      = false;
+  isCamOff     = false;
+  remoteMuted  = false;
 
   private localStream:  MediaStream | null = null;
   private remoteStream: MediaStream | null = null;
@@ -87,8 +88,9 @@ export class ChatComponent implements OnInit, OnDestroy {
   private pendingOffer: { from: string; offer: RTCSessionDescriptionInit } | null = null;
   private callTimeout: any;
 
-  private readonly ringAudio     = Object.assign(new Audio('assets/ring.mp3'),     { loop: true });
-  private readonly ringtoneAudio = Object.assign(new Audio('assets/ringtone.mp3'), { loop: true });
+  private readonly ringAudio     = Object.assign(new Audio('/assets/ring.mp3'),     { loop: true, preload: 'auto' });
+  private readonly ringtoneAudio = Object.assign(new Audio('/assets/ringtone.mp3'), { loop: true, preload: 'auto' });
+  private audioUnlocked = false;
 
   private subs = new Subscription();
   private me: User | null = null;
@@ -121,6 +123,15 @@ export class ChatComponent implements OnInit, OnDestroy {
       this.showEmojiPicker = false;
       this.cdr.detectChanges();
     }
+    this.unlockAudio();
+  }
+
+  private unlockAudio() {
+    if (this.audioUnlocked) return;
+    this.audioUnlocked = true;
+    [this.ringAudio, this.ringtoneAudio].forEach((a) => {
+      a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+    });
   }
 
   // ── Contacts ──────────────────────────────────────────────────
@@ -288,6 +299,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.subs.add(this.socketSvc.callOffer$.subscribe((d) => this.onCallOffer(d)));
     this.subs.add(this.socketSvc.callAnswer$.subscribe((d) => this.onCallAnswer(d)));
     this.subs.add(this.socketSvc.iceCandidate$.subscribe((d) => this.onIceCandidate(d)));
+    this.subs.add(this.socketSvc.remoteMuted$.subscribe((m) => { this.remoteMuted = m; this.cdr.detectChanges(); }));
   }
 
   // ── Initiate call ─────────────────────────────────────────────
@@ -525,6 +537,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.incomingCall = null;
     this.isMuted      = false;
     this.isCamOff     = false;
+    this.remoteMuted  = false;
   }
 
   private showCallNotice(message: string) {
@@ -536,6 +549,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   toggleMute() {
     this.isMuted = !this.isMuted;
     this.localStream?.getAudioTracks().forEach((t) => (t.enabled = !this.isMuted));
+    if (this.callWith) this.socketSvc.sendMuteState(this.callWith, this.isMuted);
   }
 
   toggleCamera() {

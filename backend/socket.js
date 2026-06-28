@@ -104,6 +104,11 @@ export function setupSocket(server) {
       if (target) io.to(target).emit('call:ice-candidate', { candidate });
     });
 
+    socket.on('call:mute', ({ to, muted }) => {
+      const target = onlineUsers.get(to);
+      if (target) io.to(target).emit('call:mute', { muted });
+    });
+
     // ── Disconnect ────────────────────────────────────────────────
     socket.on('disconnect', () => {
       onlineUsers.delete(userId);

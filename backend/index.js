@@ -43,8 +43,9 @@ app.use(globalLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
+//authLimiter
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/chat', chatRoutes);

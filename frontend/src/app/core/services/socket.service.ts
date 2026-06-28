@@ -26,6 +26,7 @@ export class SocketService {
   readonly callOffer$     = new Subject<{ from: string; offer: RTCSessionDescriptionInit }>();
   readonly callAnswer$    = new Subject<{ answer: RTCSessionDescriptionInit }>();
   readonly iceCandidate$  = new Subject<{ candidate: RTCIceCandidateInit }>();
+  readonly remoteMuted$   = new Subject<boolean>();
 
   connect(token: string) {
     if (this.socket?.connected) return;
@@ -46,6 +47,7 @@ export class SocketService {
     this.socket.on('call:offer',        (d) => this.callOffer$.next(d));
     this.socket.on('call:answer',       (d) => this.callAnswer$.next(d));
     this.socket.on('call:ice-candidate',(d) => this.iceCandidate$.next(d));
+    this.socket.on('call:mute',         (d: { muted: boolean }) => this.remoteMuted$.next(d.muted));
   }
 
   disconnect() {
@@ -73,5 +75,9 @@ export class SocketService {
   }
   sendIceCandidate(to: string, candidate: RTCIceCandidateInit) {
     this.socket?.emit('call:ice-candidate', { to, candidate });
+  }
+
+  sendMuteState(to: string, muted: boolean) {
+    this.socket?.emit('call:mute', { to, muted });
   }
 }

@@ -226,6 +226,12 @@
     <!-- Remote video / audio placeholder -->
     <video #remoteVideo class="remote-video" autoplay playsinline [muted]="false"></video>
 
+    @if (remoteMuted) {
+      <div class="remote-muted-badge">
+        <i class="bi bi-mic-mute-fill"></i>
+      </div>
+    }
+
     @if (callState === 'calling') {
       <div class="call-status-overlay">
         <div class="call-spinner"></div>
@@ -244,7 +250,13 @@
           }
         </div>
         <div class="audio-name">{{ selected?.user?.username }}</div>
-        <div class="audio-status">Connected</div>
+        <div class="audio-status">
+          @if (remoteMuted) {
+            <i class="bi bi-mic-mute-fill me-1" style="color:#ef4444"></i>Muted
+          } @else {
+            Connected
+          }
+        </div>
       </div>
     }
 
