@@ -14,7 +14,8 @@
 
           <div class="contact-avatar-wrap">
             @if (avatarUrl(c.user)) {
-              <img class="contact-avatar-img" [src]="avatarUrl(c.user)!" [alt]="c.user.username" />
+              <img class="contact-avatar-img" [src]="avatarUrl(c.user)!" [alt]="c.user.username"
+                   (error)="onAvatarError(contactId(c))" />
             } @else {
               <span class="contact-avatar" [class]="'ca-' + roleClass(c.user.role)">
                 {{ c.user.username[0].toUpperCase() }}
@@ -67,7 +68,8 @@
         <div class="d-flex align-items-center gap-3">
           <div class="contact-avatar-wrap">
             @if (avatarUrl(selected.user)) {
-              <img class="contact-avatar-img" [src]="avatarUrl(selected.user)!" [alt]="selected.user.username" />
+              <img class="contact-avatar-img" [src]="avatarUrl(selected.user)!" [alt]="selected.user.username"
+                   (error)="onAvatarError(contactId(selected))" />
             } @else {
               <span class="contact-avatar" [class]="'ca-' + roleClass(selected.user.role)">
                 {{ selected.user.username[0].toUpperCase() }}
@@ -138,6 +140,35 @@
       <div class="chat-input-area">
         <input #imageInput type="file" accept="image/*" class="d-none" (change)="onImageSelected($event)" />
 
+        <!-- Emoji picker -->
+        <div class="emoji-wrap">
+          <button class="input-action-btn" (click)="toggleEmojiPicker($event)" title="Emoji">
+            <i class="bi bi-emoji-smile"></i>
+          </button>
+
+          @if (showEmojiPicker) {
+            <div class="emoji-panel" (click)="$event.stopPropagation()">
+              <!-- Category tabs -->
+              <div class="emoji-cats">
+                @for (cat of emojiCategories; track cat.label; let i = $index) {
+                  <button class="emoji-cat-btn"
+                          [class.emoji-cat-active]="activeCatIdx === i"
+                          (click)="activeCatIdx = i"
+                          [title]="cat.label">
+                    {{ cat.icon }}
+                  </button>
+                }
+              </div>
+              <!-- Emoji grid -->
+              <div class="emoji-grid">
+                @for (e of emojiCategories[activeCatIdx].emojis; track e) {
+                  <button class="emoji-item" (click)="insertEmoji($event, e)">{{ e }}</button>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
         <button class="input-action-btn" (click)="triggerImageInput()" [disabled]="imageUploading" title="Send image">
           @if (imageUploading) {
             <span class="spinner-border spinner-border-sm"></span>
@@ -146,7 +177,7 @@
           }
         </button>
 
-        <textarea class="chat-input" rows="1"
+        <textarea #chatInput class="chat-input" rows="1"
                   placeholder="Type a message…"
                   [(ngModel)]="messageText"
                   (keydown)="onKeydown($event)"></textarea>

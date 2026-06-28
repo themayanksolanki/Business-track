@@ -1,5 +1,5 @@
 import {
-  Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef,
+  Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef, HostListener,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -27,6 +27,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   @ViewChild('localVideo')  localVideo!:  ElementRef<HTMLVideoElement>;
   @ViewChild('remoteVideo') remoteVideo!: ElementRef<HTMLVideoElement>;
   @ViewChild('imageInput')  imageInput!:  ElementRef<HTMLInputElement>;
+  @ViewChild('chatInput')   chatInput!:   ElementRef<HTMLTextAreaElement>;
 
   contacts: ContactData[] = [];
   selected: ContactData | null = null;
@@ -37,6 +38,37 @@ export class ChatComponent implements OnInit, OnDestroy {
   messagesLoading = false;
   imageUploading = false;
   callNotice = '';
+
+  // ── Emoji picker ──────────────────────────────────────────────
+  showEmojiPicker = false;
+  activeCatIdx = 0;
+
+  readonly emojiCategories: { icon: string; label: string; emojis: string[] }[] = [
+    {
+      icon: '😀', label: 'Smileys',
+      emojis: ['😀','😁','😂','🤣','😃','😄','😅','😆','😉','😊','😋','😎','😍','🥰','😘','😗','😙','😚','☺️','🙂','🤗','🤩','🤔','🤨','😐','😑','😶','🙄','😏','😣','😥','😮','🤐','😯','😪','😫','🥱','😴','😌','😛','😜','😝','🤤','😒','😓','😔','😕','🙃','🤑','😲','☹️','🙁','😖','😞','😟','😤','😢','😭','😦','😧','😨','😩','🤯','😬','😰','😱','🥵','🥶','😳','🤪','😵','🥴','😠','😡','🤬','😷','🤒','🤕','🤢','🤮','🤧','😇','🥳','🥸','🤠','🤡','🤥','🤫','🤭','🧐','🤓'],
+    },
+    {
+      icon: '👋', label: 'People',
+      emojis: ['👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','💪','🦾','🫂','💅','🤳','👀','👅','👄','💋','👶','🧒','👦','👧','🧑','👱','👨','🧔','👩','🧓','👴','👵'],
+    },
+    {
+      icon: '❤️', label: 'Hearts',
+      emojis: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','❤️‍🔥','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','🫶','💌','💯','✨','🌟','⭐','🔥','💫','🎯','💥','🎊','🎉','🎈','🏆','🥇','🏅','🎁','🎀'],
+    },
+    {
+      icon: '🐶', label: 'Animals',
+      emojis: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🦋','🐌','🐞','🐜','🦗','🐢','🐍','🦎','🐙','🦑','🐡','🐠','🐟','🐬','🐳','🦈','🐊','🐅','🐆','🦓','🐘','🦒','🦘','🐃','🐄','🐎','🐑','🦙','🐐','🌸','🌺','🌻','🌹','🌷','🌱','🌿','🍀','🌴','🌵','🌊','🌈','🌙','☀️','❄️','⚡','🌪️'],
+    },
+    {
+      icon: '🍕', label: 'Food',
+      emojis: ['🍕','🍔','🌮','🌯','🥗','🍜','🍣','🍱','🍛','🍝','🥪','🥙','🍿','🍲','🥘','🧇','🥞','🍳','🥚','🥓','🥩','🍗','🍖','🌭','🍟','🍞','🥐','🧀','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍑','🥭','🍍','🥝','🥥','🥑','🍆','🥔','🌽','🍅','🧄','🥕','☕','🍵','🧋','🥤','🍺','🍻','🥂','🍷','🍹','🍸'],
+    },
+    {
+      icon: '🎮', label: 'Objects',
+      emojis: ['🎮','🕹️','🎲','🧩','🎯','🎳','🎸','🎹','🥁','🎷','🎺','🎤','🎧','🎼','📱','💻','⌨️','🖥️','📺','📻','📷','📸','📹','📡','🔭','🔬','💡','🔦','📚','📖','✏️','📝','🖊️','📌','📎','✂️','🔑','🗝️','🔧','🔨','🛠️','🧲','💊','💉','🩺','🩹','🧸','🖼️','🎨','🚀','✈️','🚗','🚂','⛵','🏠','🏔️','🗺️','🌍'],
+    },
+  ];
 
   // ── Call state ────────────────────────────────────────────────
   callState: 'idle' | 'calling' | 'incoming' | 'in-call' = 'idle';
@@ -54,6 +86,9 @@ export class ChatComponent implements OnInit, OnDestroy {
   private remoteDescSet = false;
   private pendingOffer: { from: string; offer: RTCSessionDescriptionInit } | null = null;
   private callTimeout: any;
+
+  private readonly ringAudio     = Object.assign(new Audio('assets/ring.mp3'),     { loop: true });
+  private readonly ringtoneAudio = Object.assign(new Audio('assets/ringtone.mp3'), { loop: true });
 
   private subs = new Subscription();
   private me: User | null = null;
@@ -80,8 +115,18 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.socketSvc.disconnect();
   }
 
+  @HostListener('document:click')
+  onDocumentClick() {
+    if (this.showEmojiPicker) {
+      this.showEmojiPicker = false;
+      this.cdr.detectChanges();
+    }
+  }
+
   // ── Contacts ──────────────────────────────────────────────────
   loadContacts() {
+    const cached = this.chatSvc.contacts();
+    if (cached.length) this.contacts = cached;
     this.chatSvc.getContacts().subscribe({
       next: (c) => (this.contacts = c),
     });
@@ -118,7 +163,16 @@ export class ChatComponent implements OnInit, OnDestroy {
     return (c.user._id ?? c.user.id) as string;
   }
 
+  private brokenAvatarIds = new Set<string>();
+
+  onAvatarError(userId: string) {
+    this.brokenAvatarIds.add(userId);
+    this.cdr.detectChanges();
+  }
+
   avatarUrl(user: User): string | null {
+    const id = (user._id ?? user.id) as string;
+    if (this.brokenAvatarIds.has(id)) return null;
     return this.auth.avatarUrl(user);
   }
 
@@ -163,6 +217,24 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   openImage(url: string) {
     window.open(url, '_blank');
+  }
+
+  toggleEmojiPicker(event: MouseEvent) {
+    event.stopPropagation();
+    this.showEmojiPicker = !this.showEmojiPicker;
+  }
+
+  insertEmoji(event: MouseEvent, emoji: string) {
+    event.stopPropagation();
+    const el = this.chatInput?.nativeElement;
+    if (el) {
+      const start = el.selectionStart ?? this.messageText.length;
+      const end   = el.selectionEnd   ?? this.messageText.length;
+      this.messageText = this.messageText.slice(0, start) + emoji + this.messageText.slice(end);
+      setTimeout(() => { el.focus(); el.setSelectionRange(start + [...emoji].length, start + [...emoji].length); });
+    } else {
+      this.messageText += emoji;
+    }
   }
 
   private scrollToBottom() {
@@ -227,7 +299,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         video: type === 'video',
       });
       this.attachLocal();
@@ -237,6 +309,7 @@ export class ChatComponent implements OnInit, OnDestroy {
         this.me?.username ?? 'Someone',
         type
       );
+      void this.ringAudio.play().catch(() => {});
       this.callTimeout = setTimeout(() => {
         if (this.callState === 'calling') this.cancelCall();
       }, 30000);
@@ -260,6 +333,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     }
     this.incomingCall = data;
     this.callState = 'incoming';
+    void this.ringtoneAudio.play().catch(() => {});
     this.cdr.detectChanges();
   }
 
@@ -269,11 +343,12 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.callType  = this.incomingCall.callType;
     this.incomingCall = null;
     this.callState = 'in-call';
+    this.stopAllAudio();
     this.cdr.detectChanges();
 
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         video: this.callType === 'video',
       });
       this.createPeerConnection();
@@ -297,6 +372,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     if (this.incomingCall) this.socketSvc.rejectCall(this.incomingCall.from);
     this.incomingCall = null;
     this.callState = 'idle';
+    this.stopAllAudio();
   }
 
   endCall() {
@@ -308,6 +384,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   private async onCallAccepted() {
     clearTimeout(this.callTimeout);
     this.callState = 'in-call';
+    this.stopAllAudio();
     this.cdr.detectChanges();
     this.attachLocal();
     if (!this.pc || !this.callWith) return;
@@ -411,6 +488,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     setTimeout(() => {
       const video = this.localVideo?.nativeElement;
       if (video && this.localStream && video.srcObject !== this.localStream) {
+        video.muted = true;
         video.srcObject = this.localStream;
         void video.play().catch(() => {});
       }
@@ -427,8 +505,13 @@ export class ChatComponent implements OnInit, OnDestroy {
     });
   }
 
+  private stopAllAudio() {
+    [this.ringAudio, this.ringtoneAudio].forEach((a) => { a.pause(); a.currentTime = 0; });
+  }
+
   private cleanupCall() {
     clearTimeout(this.callTimeout);
+    this.stopAllAudio();
     this.localStream?.getTracks().forEach((t) => t.stop());
     this.pc?.close();
     this.localStream  = null;

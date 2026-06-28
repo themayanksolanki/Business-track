@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { TaskService } from '../../core/services/task.service';
+import { ChatService } from '../../core/services/chat.service';
 import { Task } from '../../models/task.model';
 import { User } from '../../models/user.model';
 
@@ -18,12 +19,14 @@ export class DashboardComponent implements OnInit {
 
   constructor(
     private auth: AuthService,
-    private taskService: TaskService
+    private taskService: TaskService,
+    private chatService: ChatService,
   ) {}
 
   ngOnInit() {
     this.user = this.auth.getUser();
     this.taskService.getTasks().subscribe({ next: (tasks) => (this.tasks = tasks) });
+    this.chatService.prefetch();
   }
 
   get todo() { return this.tasks.filter((t) => t.status === 'todo').length; }

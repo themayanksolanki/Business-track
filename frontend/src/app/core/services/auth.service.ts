@@ -62,7 +62,9 @@ export class AuthService {
 
   avatarUrl(user?: User | null): string | null {
     const img = (user ?? this.currentUser())?.profileImage;
-    return img ? `${BASE_URL}/uploads/avatars/${img}` : null;
+    if (!img) return null;
+    const filename = img.includes('/') ? img.split('/').pop() : img;
+    return filename ? `${BASE_URL}/uploads/avatars/${filename}` : null;
   }
 
   uploadAvatar(file: File) {

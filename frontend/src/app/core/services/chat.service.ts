@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { ContactData, Message } from '../../models/message.model';
 
@@ -9,10 +10,22 @@ const BASE = environment.apiUrl.replace('/api', '');
 export class ChatService {
   private readonly api = `${environment.apiUrl}/chat`;
 
+  private readonly _contacts = signal<ContactData[]>([]);
+  readonly contacts = this._contacts.asReadonly();
+
   constructor(private http: HttpClient) {}
 
+  prefetch() {
+    if (this._contacts().length) return;
+    this.http.get<ContactData[]>(`${this.api}/contacts`).subscribe({
+      next: (c) => this._contacts.set(c),
+    });
+  }
+
   getContacts() {
-    return this.http.get<ContactData[]>(`${this.api}/contacts`);
+    return this.http.get<ContactData[]>(`${this.api}/contacts`).pipe(
+      tap((c) => this._contacts.set(c))
+    );
   }
 
   getMessages(userId: string) {
