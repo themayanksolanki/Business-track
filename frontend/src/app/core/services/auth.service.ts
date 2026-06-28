@@ -126,6 +126,12 @@ export class AuthService {
     this.router.navigate(['/login']);
   }
 
+  clearSessionSilent() {
+    this.accessToken.set(null);
+    localStorage.removeItem(this.USER_KEY);
+    this.currentUser.set(null);
+  }
+
   private loadUser(): User | null {
     const raw = localStorage.getItem(this.USER_KEY);
     return raw ? JSON.parse(raw) : null;

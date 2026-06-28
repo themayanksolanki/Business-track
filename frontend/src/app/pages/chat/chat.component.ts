@@ -38,6 +38,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   messagesLoading = false;
   imageUploading = false;
   callNotice = '';
+  mobileShowChat = false;
 
   // ── Emoji picker ──────────────────────────────────────────────
   showEmojiPicker = false;
@@ -143,8 +144,13 @@ export class ChatComponent implements OnInit, OnDestroy {
     });
   }
 
+  backToContacts() {
+    this.mobileShowChat = false;
+  }
+
   selectContact(c: ContactData) {
     this.selected = c;
+    this.mobileShowChat = true;
     c.unreadCount = 0;
     this.messagesLoading = true;
     const uid = (c.user._id ?? c.user.id) as string;

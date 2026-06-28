@@ -342,6 +342,24 @@
 .send-btn:hover:not(:disabled) { background: #2563eb; }
 .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* ══ Back button (mobile only) ═══════════════════════════════════ */
+.back-btn {
+  display: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.back-btn:hover { background: #e2e8f0; }
+
 /* ══ Emoji picker ════════════════════════════════════════════════ */
 .emoji-wrap {
   position: relative;
@@ -654,4 +672,116 @@
 .ctrl-btn:hover   { background: rgba(255,255,255,0.25); }
 .ctrl-active      { background: rgba(255,255,255,0.35) !important; }
 .ctrl-end         { background: #ef4444; }
+
+/* ══ Responsive / Mobile ═════════════════════════════════════════ */
+@media (max-width: 767px) {
+  /* ── Layout: only one panel at a time ── */
+  .chat-page {
+    margin: -16px;
+    width: calc(100% + 32px);
+    height: calc(100dvh - 64px - 36px);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .chat-sidebar {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    border-right: none;
+    z-index: 2;
+    transform: translateX(0);
+    transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+  }
+
+  .chat-sidebar.mobile-hidden {
+    transform: translateX(-100%);
+    pointer-events: none;
+  }
+
+  .chat-main {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    z-index: 1;
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+  }
+
+  .chat-main.mobile-active {
+    transform: translateX(0);
+    z-index: 2;
+  }
+
+  /* ── Back button visible on mobile ── */
+  .back-btn {
+    display: inline-flex;
+  }
+
+  /* ── Chat header ── */
+  .chat-header {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .chat-header-name {
+    font-size: 0.85rem;
+    max-width: 140px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── Messages ── */
+  .messages-area {
+    padding: 12px;
+  }
+
+  .msg-bubble {
+    max-width: 82%;
+  }
+
+  .msg-image {
+    max-width: 200px;
+    max-height: 200px;
+  }
+
+  /* ── Input ── */
+  .chat-input-area {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .chat-input {
+    font-size: 0.85rem;
+    padding: 8px 12px;
+  }
+
+  /* ── Emoji panel: constrain width on small screens ── */
+  .emoji-panel {
+    width: min(300px, calc(100vw - 24px));
+  }
+
+  /* ── Incoming call card ── */
+  .incoming-call-card {
+    left: 12px;
+    right: 12px;
+    bottom: 64px;
+    min-width: unset;
+  }
+
+  /* ── Call controls: smaller buttons ── */
+  .ctrl-btn {
+    width: 46px;
+    height: 46px;
+    font-size: 1rem;
+  }
+
+  .local-video {
+    width: 100px;
+    height: 75px;
+    bottom: 80px;
+    right: 12px;
+  }
+}
 .ctrl-end:hover   { background: #dc2626; }
