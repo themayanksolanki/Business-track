@@ -1,0 +1,58 @@
+<div class="page">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">New Task</h1>
+  </div>
+
+  @if (error) {
+    <div class="alert alert-danger py-2">{{ error }}</div>
+  }
+
+  <div class="card form-card shadow-sm">
+    <div class="card-body p-4">
+      <form [formGroup]="form" (ngSubmit)="submit()">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Title <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" formControlName="title" placeholder="Task title" />
+          @if (form.get('title')?.touched && form.get('title')?.invalid) {
+            <div class="text-danger small mt-1">Title is required</div>
+          }
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Description</label>
+          <textarea class="form-control" formControlName="description" rows="4"
+                    placeholder="Optional description"></textarea>
+        </div>
+
+        @if (!isEmployee && assignableUsers.length > 0) {
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Assign To</label>
+            <div class="dropdown">
+              <button type="button" class="btn btn-light dropdown-toggle w-100 text-start"
+                      data-bs-toggle="dropdown" aria-expanded="false">
+                {{ selectedAssigneeLabel }}
+              </button>
+              <ul class="dropdown-menu w-100">
+                <li><a class="dropdown-item text-muted" (click)="selectAssignee(null)">-- Assign to self --</a></li>
+                @for (u of assignableUsers; track u.id) {
+                  <li><a class="dropdown-item" (click)="selectAssignee(u)">{{ u.username }} ({{ u.role }})</a></li>
+                }
+              </ul>
+            </div>
+          </div>
+        }
+
+        @if (isEmployee) {
+          <div class="alert alert-info py-2 small mb-3">Task will be automatically assigned to you.</div>
+        }
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary" [disabled]="loading">
+            {{ loading ? 'Creating...' : 'Create Task' }}
+          </button>
+          <a routerLink="/tasks" class="btn btn-light">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

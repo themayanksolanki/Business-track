@@ -1,0 +1,211 @@
+/* ── Layout ── */
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* ── Navbar shell ── */
+.app-navbar {
+  background: #0f172a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  min-height: 60px;
+}
+
+/* ── Brand ── */
+.navbar-brand {
+  text-decoration: none;
+}
+
+.brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 1rem;
+}
+
+.brand-text {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+/* ── Nav pills ── */
+.nav-pill {
+  color: #94a3b8 !important;
+  font-size: 0.875rem;
+  border-radius: 8px;
+  padding: 6px 12px !important;
+  transition: background 0.15s, color 0.15s;
+}
+
+.nav-pill:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.nav-pill-active {
+  color: #fff !important;
+  background: rgba(59, 130, 246, 0.18) !important;
+}
+
+/* ── Avatar ── */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.avatar-sm {
+  width: 28px;
+  height: 28px;
+  font-size: 0.75rem;
+}
+
+/* ── User menu button ── */
+.user-menu-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 6px 12px 6px 8px;
+  color: #fff;
+  transition: background 0.15s;
+}
+
+.user-menu-btn:hover,
+.user-menu-btn:focus,
+.user-menu-btn.show {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: none;
+}
+
+.user-menu-btn::after {
+  margin-left: 6px;
+  opacity: 0.6;
+}
+
+.user-name {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.user-role {
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+/* ── User dropdown ── */
+.user-dropdown {
+  min-width: 200px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 4px 0;
+  margin-top: 6px;
+}
+
+.user-dropdown .dropdown-header {
+  color: #1e293b;
+}
+
+.user-dropdown .dropdown-item {
+  font-size: 0.875rem;
+  padding: 8px 16px;
+  color: #374151;
+}
+
+.user-dropdown .dropdown-item:hover {
+  background: #f8fafc;
+}
+
+.user-dropdown .dropdown-item.text-danger:hover {
+  background: #fef2f2;
+}
+
+/* ── Footer ── */
+.app-footer {
+  position: fixed;
+  bottom: 14px;
+  right: 18px;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ── Mobile menu (<992px) ── */
+@media (max-width: 991.98px) {
+  .navbar-collapse {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    margin: 0 -24px;
+    padding: 0 24px;
+  }
+
+  /* User identity card at top of menu */
+  .mobile-user-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 0 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 8px;
+  }
+
+  /* Nav links — tall tap targets, full width */
+  .navbar-nav {
+    gap: 2px;
+    margin-bottom: 0 !important;
+  }
+
+  .navbar-nav .nav-item {
+    width: 100%;
+  }
+
+  .navbar-nav .nav-pill {
+    padding: 13px 14px !important;
+    border-radius: 10px !important;
+    font-size: 0.9rem !important;
+    display: flex !important;
+    align-items: center;
+  }
+
+  /* Logout pinned at bottom */
+  .mobile-logout {
+    padding: 10px 0 16px;
+    margin-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .mobile-logout-btn {
+    background: rgba(239, 68, 68, 0.1);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 10px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 11px 16px;
+    text-align: left;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .mobile-logout-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+  }
+}

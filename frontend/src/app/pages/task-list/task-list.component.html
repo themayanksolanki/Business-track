@@ -1,0 +1,414 @@
+<div class="page">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Tasks</h1>
+    <button class="btn btn-success btn-sm" (click)="openCreate()">
+      <i class="bi bi-plus-lg me-1"></i>New Task
+    </button>
+  </div>
+
+  @if (error) {
+    <div class="alert alert-danger py-2">{{ error }}</div>
+  }
+
+  @if (tasks.length === 0) {
+    <div class="empty-state text-center py-5 text-muted">
+      <i class="bi bi-clipboard2-x display-4 d-block mb-3"></i>
+      <p class="fs-5 mb-0">No tasks found.</p>
+    </div>
+  } @else {
+    <div class="card task-table-card shadow-sm overflow-hidden">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr class="table-dark-header">
+              <th class="ps-4">Title</th>
+              <th class="sortable-th" (click)="toggleStatusSort()">
+                Status
+                <span class="sort-icon">
+                  @if (statusSortDir === 'asc') {
+                    <i class="bi bi-arrow-up"></i>
+                  } @else if (statusSortDir === 'desc') {
+                    <i class="bi bi-arrow-down"></i>
+                  } @else {
+                    <i class="bi bi-arrow-down-up sort-idle"></i>
+                  }
+                </span>
+              </th>
+              <th>Assigned To</th>
+              <th>Created By</th>
+              <th class="pe-4 text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (task of paginatedTasks; track task._id) {
+              <tr class="task-row" (click)="openDetail(task)">
+                <td class="ps-4">
+                  <span class="fw-medium task-title">{{ task.title }}</span>
+                </td>
+                <td>
+                  <span class="badge status-badge"
+                        [class.badge-pending]="task.status !== 'completed'"
+                        [class.badge-completed]="task.status === 'completed'"
+                        (click)="toggleStatus(task, $event)"
+                        title="Click to toggle status">
+                    <i class="bi me-1"
+                       [class.bi-hourglass-split]="task.status !== 'completed'"
+                       [class.bi-check-circle-fill]="task.status === 'completed'"></i>
+                    {{ task.status }}
+                  </span>
+                </td>
+                <td (click)="$event.stopPropagation()">
+                  @if (isManager && task.assignedTo.username) {
+                    <span class="assignee-link" (click)="openReassign(task._id)" title="Click to reassign">
+                      {{ task.assignedTo.username }}
+                    </span>
+                  } @else {
+                    <span class="text-muted-em">{{ task.assignedTo.username || '—' }}</span>
+                  }
+                </td>
+                <td>
+                  <span class="text-muted-em">{{ task.createdBy.username || '—' }}</span>
+                </td>
+                <td class="pe-4 text-end" (click)="$event.stopPropagation()">
+                  <div class="d-flex gap-1 justify-content-end">
+                    <button class="icon-btn icon-btn-edit" (click)="openEdit(task)" title="Edit task">
+                      <i class="bi bi-pencil-square"></i>
+                    </button>
+                    @if (canDelete(task)) {
+                      <button class="icon-btn icon-btn-delete" (click)="delete(task._id)" title="Delete task">
+                        <i class="bi bi-trash3"></i>
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (totalPages > 1) {
+        <div class="pagination-bar d-flex align-items-center justify-content-between px-4 py-3">
+          <span class="page-info">
+            {{ (currentPage - 1) * pageSize + 1 }}–{{ pageEnd }} of {{ tasks.length }} tasks
+          </span>
+          <nav>
+            <ul class="pagination pagination-sm mb-0">
+              <li class="page-item" [class.disabled]="currentPage === 1">
+                <button class="page-link" (click)="goToPage(currentPage - 1)">
+                  <i class="bi bi-chevron-left"></i>
+                </button>
+              </li>
+              @for (p of pageNumbers; track $index) {
+                @if (p === -1) {
+                  <li class="page-item disabled">
+                    <span class="page-link ellipsis">…</span>
+                  </li>
+                } @else {
+                  <li class="page-item" [class.active]="p === currentPage">
+                    <button class="page-link" (click)="goToPage(p)">{{ p }}</button>
+                  </li>
+                }
+              }
+              <li class="page-item" [class.disabled]="currentPage === totalPages">
+                <button class="page-link" (click)="goToPage(currentPage + 1)">
+                  <i class="bi bi-chevron-right"></i>
+                </button>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<!-- Create task modal -->
+@if (createOpen) {
+  <div class="modal-overlay d-flex align-items-center justify-content-center">
+    <div class="card modal-card modal-card-lg shadow-lg" (click)="$event.stopPropagation()">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h5 class="card-title mb-0"><i class="bi bi-plus-circle me-2"></i>New Task</h5>
+          <button type="button" class="btn-close" (click)="closeCreate()"></button>
+        </div>
+
+        @if (createError) {
+          <div class="alert alert-danger py-2">{{ createError }}</div>
+        }
+
+        <form [formGroup]="createForm" (ngSubmit)="submitCreate()">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Title <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" formControlName="title" placeholder="Task title" />
+            @if (createForm.get('title')?.touched && createForm.get('title')?.invalid) {
+              <div class="text-danger small mt-1">Title is required</div>
+            }
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Description</label>
+            <textarea class="form-control" formControlName="description" rows="3"
+                      placeholder="Optional description"></textarea>
+          </div>
+
+          @if (!isEmployee && createAssignees.length > 0) {
+            <div class="mb-4">
+              <label class="form-label fw-semibold">Assign To</label>
+              <div class="dropdown">
+                <button type="button" class="assign-trigger dropdown-toggle"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                  @if (createAssignee) {
+                    <span class="assign-avatar" [class]="'avatar-' + roleClass(createAssignee.role)">
+                      {{ createAssignee.username[0].toUpperCase() }}
+                    </span>
+                    <span class="assign-trigger-name">{{ createAssignee.username }}</span>
+                    <span class="assign-role-badge ms-auto" [class]="'role-' + roleClass(createAssignee.role)">
+                      {{ createAssignee.role }}
+                    </span>
+                  } @else {
+                    <span class="assign-avatar avatar-self"><i class="bi bi-person"></i></span>
+                    <span class="assign-trigger-name text-muted">Assign to self</span>
+                  }
+                </button>
+                <ul class="dropdown-menu assign-dropdown w-100">
+                  <li>
+                    <a class="assign-item" (click)="selectCreateAssignee(null)">
+                      <span class="assign-avatar avatar-self"><i class="bi bi-person"></i></span>
+                      <span class="assign-item-name text-muted">Assign to self</span>
+                    </a>
+                  </li>
+                  <li><hr class="dropdown-divider my-1"></li>
+                  @for (u of createAssignees; track u.id) {
+                    <li>
+                      <a class="assign-item" (click)="selectCreateAssignee(u)">
+                        <span class="assign-avatar" [class]="'avatar-' + roleClass(u.role)">
+                          {{ u.username[0].toUpperCase() }}
+                        </span>
+                        <span class="assign-item-name">{{ u.username }}</span>
+                        <span class="assign-role-badge ms-auto" [class]="'role-' + roleClass(u.role)">
+                          {{ u.role }}
+                        </span>
+                      </a>
+                    </li>
+                  }
+                </ul>
+              </div>
+            </div>
+          }
+
+          @if (isEmployee) {
+            <div class="alert alert-info py-2 small mb-4">Task will be automatically assigned to you.</div>
+          }
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary" [disabled]="createLoading">
+              {{ createLoading ? 'Creating...' : 'Create Task' }}
+            </button>
+            <button type="button" class="btn btn-light" (click)="closeCreate()">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Task detail modal -->
+@if (selectedTask) {
+  <div class="modal-overlay d-flex align-items-center justify-content-center" (click)="closeDetail()">
+    <div class="detail-modal shadow-lg" (click)="$event.stopPropagation()">
+
+      <!-- Colored header -->
+      <div class="detail-header"
+           [class.detail-header-pending]="selectedTask.status !== 'completed'"
+           [class.detail-header-completed]="selectedTask.status === 'completed'">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <span class="detail-status-pill"
+                [class.pill-pending]="selectedTask.status !== 'completed'"
+                [class.pill-completed]="selectedTask.status === 'completed'"
+                (click)="toggleStatus(selectedTask, $event)" title="Click to toggle status">
+            <i class="bi me-1"
+               [class.bi-hourglass-split]="selectedTask.status !== 'completed'"
+               [class.bi-check-circle-fill]="selectedTask.status === 'completed'"></i>
+            {{ selectedTask.status === 'completed' ? 'Completed' : 'Pending' }}
+            <i class="bi bi-arrow-repeat ms-1" style="opacity:.5;font-size:.68rem"></i>
+          </span>
+          <button class="detail-x" (click)="closeDetail()">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+        <h4 class="detail-title">{{ selectedTask.title }}</h4>
+      </div>
+
+      <!-- Body -->
+      <div class="detail-body">
+        @if (selectedTask.description) {
+          <p class="detail-desc">{{ selectedTask.description }}</p>
+        } @else {
+          <p class="detail-desc fst-italic" style="color:#94a3b8">No description provided.</p>
+        }
+
+        <div class="detail-meta-grid">
+          <div class="detail-meta-cell">
+            <span class="detail-meta-label"><i class="bi bi-person-fill me-1"></i>Assigned To</span>
+            <span class="detail-meta-val">
+              @if (selectedTask.assignedTo.username) {
+                <span class="meta-pip meta-pip-blue">{{ (selectedTask.assignedTo.username[0] || 'U').toUpperCase() }}</span>
+                {{ selectedTask.assignedTo.username }}
+              } @else { <span class="text-muted">—</span> }
+            </span>
+          </div>
+          <div class="detail-meta-cell">
+            <span class="detail-meta-label"><i class="bi bi-person-workspace me-1"></i>Created By</span>
+            <span class="detail-meta-val">
+              @if (selectedTask.createdBy.username) {
+                <span class="meta-pip meta-pip-purple">{{ (selectedTask.createdBy.username[0] || 'U').toUpperCase() }}</span>
+                {{ selectedTask.createdBy.username }}
+              } @else { <span class="text-muted">—</span> }
+            </span>
+          </div>
+          <div class="detail-meta-cell">
+            <span class="detail-meta-label"><i class="bi bi-calendar3 me-1"></i>Created</span>
+            <span class="detail-meta-val">{{ selectedTask.createdAt | date:'MMM d, yyyy' }}</span>
+          </div>
+          <div class="detail-meta-cell">
+            <span class="detail-meta-label"><i class="bi bi-clock-history me-1"></i>Updated</span>
+            <span class="detail-meta-val">{{ selectedTask.updatedAt | date:'MMM d, yyyy' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="detail-footer">
+        <button class="detail-action-btn detail-btn-edit" (click)="openEdit(selectedTask)">
+          <i class="bi bi-pencil-square me-1"></i>Edit
+        </button>
+        @if (canDelete(selectedTask)) {
+          <button class="detail-action-btn detail-btn-delete" (click)="delete(selectedTask._id)">
+            <i class="bi bi-trash3 me-1"></i>Delete
+          </button>
+        }
+        <button class="detail-action-btn detail-btn-close ms-auto" (click)="closeDetail()">Close</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Edit modal -->
+@if (editTaskId) {
+  <div class="modal-overlay d-flex align-items-center justify-content-center">
+    <div class="card modal-card modal-card-lg shadow-lg" (click)="$event.stopPropagation()">
+
+      <div class="modal-form-header">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 fw-bold"><i class="bi bi-pencil-square me-2 text-primary"></i>Edit Task</h5>
+          <button class="detail-x" (click)="closeEdit()"><i class="bi bi-x-lg"></i></button>
+        </div>
+      </div>
+
+      <div class="card-body p-4">
+        @if (editError) {
+          <div class="alert alert-danger py-2 small mb-4">{{ editError }}</div>
+        }
+
+        <form [formGroup]="editForm" (ngSubmit)="submitEdit()">
+          <div class="mb-4">
+            <label class="field-label">Title <span class="text-danger">*</span></label>
+            <input type="text" class="form-control field-input" formControlName="title" placeholder="Task title" />
+            @if (editForm.get('title')?.touched && editForm.get('title')?.invalid) {
+              <div class="field-error">Title is required</div>
+            }
+          </div>
+
+          <div class="mb-4">
+            <label class="field-label">Description</label>
+            <textarea class="form-control field-input" style="height:auto" formControlName="description"
+                      rows="3" placeholder="Add a description..."></textarea>
+          </div>
+
+          <div class="mb-5">
+            <label class="field-label">Status</label>
+            <div class="status-toggle-grid">
+              <div class="status-toggle-card"
+                   [class.status-toggle-pending]="editForm.get('status')?.value === 'pending'"
+                   (click)="selectEditStatus('pending')">
+                <i class="bi bi-hourglass-split"></i>
+                <span>Pending</span>
+              </div>
+              <div class="status-toggle-card"
+                   [class.status-toggle-completed]="editForm.get('status')?.value === 'completed'"
+                   (click)="selectEditStatus('completed')">
+                <i class="bi bi-check-circle-fill"></i>
+                <span>Completed</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary modal-submit-btn" [disabled]="editLoading">
+              @if (editLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+              {{ editLoading ? 'Saving...' : 'Save Changes' }}
+            </button>
+            <button type="button" class="btn btn-light modal-submit-btn" (click)="closeEdit()">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Reassign modal -->
+@if (reassignTaskId) {
+  <div class="modal-overlay d-flex align-items-center justify-content-center">
+    <div class="card modal-card shadow-lg">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="card-title mb-0">
+            <i class="bi bi-arrow-left-right me-2"></i>Reassign Task
+          </h5>
+          <button type="button" class="btn-close" (click)="reassignTaskId = ''"></button>
+        </div>
+
+        <div class="dropdown mb-4">
+          <button type="button" class="assign-trigger dropdown-toggle"
+                  data-bs-toggle="dropdown" aria-expanded="false">
+            @if (reassignUser) {
+              <span class="assign-avatar" [class]="'avatar-' + roleClass(reassignUser.role)">
+                {{ reassignUser.username[0].toUpperCase() }}
+              </span>
+              <span class="assign-trigger-name">{{ reassignUser.username }}</span>
+              <span class="assign-role-badge ms-auto" [class]="'role-' + roleClass(reassignUser.role)">
+                {{ reassignUser.role }}
+              </span>
+            } @else {
+              <span class="assign-avatar avatar-self"><i class="bi bi-person"></i></span>
+              <span class="assign-trigger-name text-muted">Select user</span>
+            }
+          </button>
+          <ul class="dropdown-menu assign-dropdown w-100">
+            @for (u of users; track u.id) {
+              <li>
+                <a class="assign-item" (click)="selectReassignUser(u)">
+                  <span class="assign-avatar" [class]="'avatar-' + roleClass(u.role)">
+                    {{ u.username[0].toUpperCase() }}
+                  </span>
+                  <span class="assign-item-name">{{ u.username }}</span>
+                  <span class="assign-role-badge ms-auto" [class]="'role-' + roleClass(u.role)">
+                    {{ u.role }}
+                  </span>
+                </a>
+              </li>
+            }
+          </ul>
+        </div>
+
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary" (click)="confirmReassign()">
+            <i class="bi bi-check-lg me-1"></i>Confirm
+          </button>
+          <button class="btn btn-light" (click)="reassignTaskId = ''">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}

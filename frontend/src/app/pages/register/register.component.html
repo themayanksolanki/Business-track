@@ -1,0 +1,136 @@
+<div class="auth-page">
+
+  <!-- Left branding panel -->
+  <div class="auth-left d-none d-lg-flex">
+    <div class="brand-area">
+      <div class="brand-logo mb-4">
+        <i class="bi bi-check2-square"></i>
+      </div>
+      <h1 class="brand-name">TaskFlow</h1>
+      <p class="brand-tagline">Join your team and start managing tasks together.</p>
+      <ul class="feature-list mt-5">
+        <li><i class="bi bi-person-check-fill"></i> Role-based access for every member</li>
+        <li><i class="bi bi-shield-check-fill"></i> Accounts activated by your manager</li>
+        <li><i class="bi bi-bell-fill"></i> Stay on top of your assignments</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Right form panel -->
+  <div class="auth-right">
+    <div class="auth-form-wrap">
+
+      <!-- Mobile logo -->
+      <div class="d-flex d-lg-none align-items-center gap-2 mb-4">
+        <span class="mobile-logo"><i class="bi bi-check2-square"></i></span>
+        <span class="mobile-brand">TaskFlow</span>
+      </div>
+
+      @if (successMessage) {
+        <div class="success-state text-center">
+          <div class="success-icon mb-3">
+            <i class="bi bi-envelope-check-fill"></i>
+          </div>
+          <h3 class="fw-bold mb-2" style="color:#0f172a">You're almost in!</h3>
+          <p class="text-muted mb-4">{{ successMessage }}</p>
+          <a routerLink="/login" class="btn btn-primary submit-btn px-5">Go to Login</a>
+        </div>
+      } @else {
+
+        <h2 class="form-title">Create account</h2>
+        <p class="form-subtitle">Fill in your details to get started</p>
+
+        @if (error) {
+          <div class="alert alert-danger py-2 mb-4 small">{{ error }}</div>
+        }
+
+        <form [formGroup]="form" (ngSubmit)="submit()">
+
+          <div class="mb-4">
+            <label class="field-label">Username</label>
+            <div class="input-icon-wrap">
+              <i class="bi bi-person"></i>
+              <input type="text" class="form-control field-input"
+                     formControlName="username" placeholder="Your display name" />
+            </div>
+            @if (form.get('username')?.touched && form.get('username')?.invalid) {
+              <div class="field-error">Username is required</div>
+            }
+          </div>
+
+          <div class="mb-4">
+            <label class="field-label">Email address</label>
+            <div class="input-icon-wrap">
+              <i class="bi bi-envelope"></i>
+              <input type="email" class="form-control field-input"
+                     formControlName="email" placeholder="you@example.com" />
+            </div>
+            @if (form.get('email')?.touched && form.get('email')?.invalid) {
+              <div class="field-error">Valid email is required</div>
+            }
+          </div>
+
+          <div class="mb-4">
+            <label class="field-label">Password</label>
+            <div class="input-icon-wrap">
+              <i class="bi bi-lock"></i>
+              <input type="password" class="form-control field-input"
+                     formControlName="password" placeholder="Min 6 characters" />
+            </div>
+            @if (form.get('password')?.touched && form.get('password')?.invalid) {
+              <div class="field-error">Password must be at least 6 characters</div>
+            }
+          </div>
+
+          <div class="mb-4">
+            <label class="field-label">Role</label>
+            <div class="role-grid">
+              <div class="role-card" [class.role-card-active]="selectedRole === 'Manager'"
+                   (click)="selectRole('Manager')">
+                <i class="bi bi-briefcase-fill role-icon role-icon-manager"></i>
+                <span class="role-card-label">Manager</span>
+              </div>
+              <div class="role-card" [class.role-card-active]="selectedRole === 'Team Lead'"
+                   (click)="selectRole('Team Lead')">
+                <i class="bi bi-diagram-3-fill role-icon role-icon-lead"></i>
+                <span class="role-card-label">Team Lead</span>
+              </div>
+              <div class="role-card" [class.role-card-active]="selectedRole === 'Employee'"
+                   (click)="selectRole('Employee')">
+                <i class="bi bi-person-fill role-icon role-icon-employee"></i>
+                <span class="role-card-label">Employee</span>
+              </div>
+            </div>
+          </div>
+
+          @if (showReferenceEmail) {
+            <div class="mb-4">
+              <label class="field-label">{{ referenceLabel }}</label>
+              <div class="input-icon-wrap">
+                <i class="bi bi-person-badge"></i>
+                <input type="email" class="form-control field-input"
+                       formControlName="referenceEmail"
+                       [placeholder]="'Enter ' + referenceLabel.toLowerCase()" />
+              </div>
+              @if (form.get('referenceEmail')?.touched && form.get('referenceEmail')?.invalid) {
+                <div class="field-error">Enter a valid email address</div>
+              }
+              <div class="field-hint">Your account will be inactive until activated by this person.</div>
+            </div>
+          }
+
+          <button type="submit" class="btn btn-primary submit-btn w-100" [disabled]="loading">
+            @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+            {{ loading ? 'Creating account...' : 'Create Account' }}
+          </button>
+        </form>
+
+        <p class="auth-link-text">
+          Already have an account? <a routerLink="/login">Sign in</a>
+        </p>
+
+      }
+    </div>
+  </div>
+
+</div>

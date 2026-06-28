@@ -1,0 +1,104 @@
+<!-- Welcome header -->
+<div class="welcome-banner mb-4">
+  <div class="d-flex align-items-center gap-3">
+    <div class="welcome-avatar">{{ user?.username?.[0]?.toUpperCase() }}</div>
+    <div>
+      <h1 class="h4 mb-0 fw-bold">{{ greeting }}, {{ user?.username }}!</h1>
+      <span class="role-pill mt-1">
+        <i class="bi me-1" [class]="roleIcon"></i>{{ user?.role }}
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-4">
+    <div class="stat-card">
+      <div class="stat-icon-wrap stat-total">
+        <i class="bi bi-layers"></i>
+      </div>
+      <div class="stat-body">
+        <span class="stat-number">{{ tasks.length }}</span>
+        <span class="stat-label">Total Tasks</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="stat-card">
+      <div class="stat-icon-wrap stat-pending">
+        <i class="bi bi-hourglass-split"></i>
+      </div>
+      <div class="stat-body">
+        <span class="stat-number">{{ pending }}</span>
+        <span class="stat-label">Pending</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="stat-card">
+      <div class="stat-icon-wrap stat-done">
+        <i class="bi bi-check2-all"></i>
+      </div>
+      <div class="stat-body">
+        <span class="stat-number">{{ completed }}</span>
+        <span class="stat-label">Completed</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Progress bar -->
+@if (tasks.length > 0) {
+  <div class="card progress-card mb-4 shadow-sm">
+    <div class="card-body py-3 px-4">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="small fw-semibold text-muted text-uppercase" style="letter-spacing:.05em">Completion Rate</span>
+        <span class="fw-bold" [class.text-success]="completionRate === 100"
+              [class.text-warning]="completionRate < 100">{{ completionRate }}%</span>
+      </div>
+      <div class="progress" style="height:8px; border-radius:99px;">
+        <div class="progress-bar" role="progressbar"
+             [style.width]="completionRate + '%'"
+             [class.bg-success]="completionRate === 100"
+             [class.bg-warning]="completionRate < 100 && completionRate >= 50"
+             [class.bg-danger]="completionRate < 50">
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Quick actions -->
+<h6 class="section-label mb-3">Quick Actions</h6>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <a routerLink="/tasks" class="action-card">
+      <div class="action-icon action-view"><i class="bi bi-list-task"></i></div>
+      <span>My Tasks</span>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a routerLink="/tasks" class="action-card">
+      <div class="action-icon action-create"><i class="bi bi-plus-circle"></i></div>
+      <span>New Task</span>
+    </a>
+  </div>
+  @if (isManager) {
+    <div class="col-6 col-md-3">
+      <a routerLink="/users" class="action-card">
+        <div class="action-icon action-users"><i class="bi bi-people"></i></div>
+        <span>Users</span>
+      </a>
+    </div>
+  }
+  @if (isTeamLead) {
+    <div class="col-6 col-md-3">
+      <a routerLink="/team-tasks" class="action-card">
+        <div class="action-icon action-team"><i class="bi bi-diagram-3"></i></div>
+        <span>Team Tasks</span>
+      </a>
+    </div>
+  }
+</div>
+

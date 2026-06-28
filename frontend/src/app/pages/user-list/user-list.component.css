@@ -1,0 +1,139 @@
+/* ── Card ── */
+.user-table-card {
+  border-radius: 12px;
+  border: none;
+}
+
+/* ── Header ── */
+.table-dark-header th {
+  background: #0f172a;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: none;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+/* ── Rows ── */
+.user-row td {
+  padding-top: 14px;
+  padding-bottom: 14px;
+  border-color: #f1f5f9;
+}
+
+.user-row:last-child td {
+  border-bottom: none;
+}
+
+.user-name {
+  font-size: 0.9rem;
+  color: #1e293b;
+}
+
+.user-email {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+/* ── Avatar ── */
+.user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.avatar-manager        { background: #dbeafe; color: #1d4ed8; }
+.avatar-team-lead      { background: #ede9fe; color: #6d28d9; }
+.avatar-employee       { background: #dcfce7; color: #15803d; }
+
+/* ── Role badge ── */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 99px;
+}
+
+.role-manager          { background: #dbeafe; color: #1d4ed8; }
+.role-team-lead        { background: #ede9fe; color: #6d28d9; }
+.role-employee         { background: #dcfce7; color: #15803d; }
+
+/* ── Footer ── */
+.table-footer {
+  background: #fafbfc;
+  border-top: 1px solid #f1f5f9;
+}
+
+/* ── Empty state ── */
+.empty-state i {
+  color: #cbd5e1;
+}
+
+/* ── Pending row highlight ── */
+.pending-row {
+  background: #fffbeb;
+}
+
+.pending-row:hover {
+  background: #fef3c7 !important;
+}
+
+/* ── Status badges ── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 99px;
+}
+
+.status-active  { background: #dcfce7; color: #15803d; }
+.status-pending { background: #fef9c3; color: #a16207; }
+
+/* ── Pending count chip in subtitle ── */
+.badge-pending-count {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: #fef9c3;
+  color: #a16207;
+}
+
+/* ── Activate button ── */
+.btn-activate {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-activate:hover:not(:disabled) {
+  background: #15803d;
+  color: #fff;
+  border-color: #15803d;
+}
+
+.btn-activate:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

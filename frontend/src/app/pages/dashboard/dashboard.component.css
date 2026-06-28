@@ -1,0 +1,149 @@
+/* ── Section label ── */
+.section-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin: 0;
+}
+
+/* ── Welcome banner ── */
+.welcome-banner {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+  border-radius: 14px;
+  padding: 24px 28px;
+}
+
+.welcome-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,0.2);
+}
+
+.welcome-banner h1 {
+  color: #fff;
+}
+
+.role-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: rgba(59,130,246,0.25);
+  color: #93c5fd;
+  padding: 3px 10px;
+  border-radius: 99px;
+  margin-top: 4px;
+}
+
+/* ── Stat cards ── */
+.stat-card {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #f1f5f9;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+
+.stat-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.stat-total   { background: #eff6ff; color: #3b82f6; }
+.stat-pending { background: #fefce8; color: #d97706; }
+.stat-done    { background: #f0fdf4; color: #16a34a; }
+
+.stat-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-number {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+/* ── Progress card ── */
+.progress-card {
+  border: 1px solid #f1f5f9;
+  border-radius: 12px;
+}
+
+/* ── Action cards ── */
+.action-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 12px;
+  text-decoration: none;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  width: 100%;
+}
+
+.action-card:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59,130,246,0.12);
+  color: #1e40af;
+  transform: translateY(-2px);
+}
+
+.action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  font-size: 1.2rem;
+}
+
+.action-view   { background: #eff6ff; color: #3b82f6; }
+.action-create { background: #f0fdf4; color: #16a34a; }
+.action-users  { background: #faf5ff; color: #7c3aed; }
+.action-team   { background: #fff7ed; color: #d97706; }
+

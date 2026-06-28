@@ -1,0 +1,77 @@
+<div class="auth-page">
+
+  <!-- Left branding panel -->
+  <div class="auth-left d-none d-lg-flex">
+    <div class="brand-area">
+      <div class="brand-logo mb-4">
+        <i class="bi bi-check2-square"></i>
+      </div>
+      <h1 class="brand-name">TaskFlow</h1>
+      <p class="brand-tagline">Organize and track your team's work in one place.</p>
+      <ul class="feature-list mt-5">
+        <li><i class="bi bi-check-circle-fill"></i> Assign tasks to team members</li>
+        <li><i class="bi bi-check-circle-fill"></i> Track progress in real time</li>
+        <li><i class="bi bi-check-circle-fill"></i> Role-based access control</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Right form panel -->
+  <div class="auth-right">
+    <div class="auth-form-wrap">
+
+      <!-- Mobile logo -->
+      <div class="d-flex d-lg-none align-items-center gap-2 mb-4">
+        <span class="mobile-logo"><i class="bi bi-check2-square"></i></span>
+        <span class="mobile-brand">TaskFlow</span>
+      </div>
+
+      <h2 class="form-title">Welcome back</h2>
+      <p class="form-subtitle">Sign in to your account to continue</p>
+
+      @if (error) {
+        <div class="alert alert-danger py-2 mb-4 small">{{ error }}</div>
+      }
+
+      <form [formGroup]="form" (ngSubmit)="submit()">
+        <div class="mb-4">
+          <label class="field-label">Email address</label>
+          <div class="input-icon-wrap">
+            <i class="bi bi-envelope"></i>
+            <input type="email" class="form-control field-input"
+                   formControlName="email" placeholder="you@example.com" />
+          </div>
+          @if (form.get('email')?.touched && form.get('email')?.invalid) {
+            <div class="field-error">Valid email is required</div>
+          }
+        </div>
+
+        <div class="mb-5">
+          <label class="field-label">Password</label>
+          <div class="input-icon-wrap">
+            <i class="bi bi-lock"></i>
+            <input [type]="showPassword ? 'text' : 'password'"
+                   class="form-control field-input field-input-pw"
+                   formControlName="password" placeholder="Enter your password" />
+            <button type="button" class="pw-toggle" (click)="showPassword = !showPassword" tabindex="-1">
+              <i class="bi" [class.bi-eye]="!showPassword" [class.bi-eye-slash]="showPassword"></i>
+            </button>
+          </div>
+          @if (form.get('password')?.touched && form.get('password')?.invalid) {
+            <div class="field-error">Password is required</div>
+          }
+        </div>
+
+        <button type="submit" class="btn btn-primary submit-btn w-100" [disabled]="loading">
+          @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+          {{ loading ? 'Signing in...' : 'Sign In' }}
+        </button>
+      </form>
+
+      <p class="auth-link-text">
+        Don't have an account? <a routerLink="/register">Create one</a>
+      </p>
+    </div>
+  </div>
+
+</div>

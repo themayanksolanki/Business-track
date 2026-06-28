@@ -1,0 +1,76 @@
+<div class="page">
+  <div class="edit-wrap">
+
+    <!-- Page header -->
+    <div class="d-flex align-items-center gap-3 mb-4">
+      <a routerLink="/tasks" class="back-btn" title="Back to tasks">
+        <i class="bi bi-arrow-left"></i>
+      </a>
+      <div>
+        <h1 class="h4 mb-0 fw-bold">Edit Task</h1>
+        <p class="text-muted small mb-0">Update task details below</p>
+      </div>
+    </div>
+
+    @if (error) {
+      <div class="alert alert-danger py-2 small mb-4">{{ error }}</div>
+    }
+
+    <div class="card edit-card shadow-sm">
+      <div class="card-body p-4 p-md-5">
+        <form [formGroup]="form" (ngSubmit)="submit()">
+
+          <div class="mb-4">
+            <label class="field-label">Title <span class="text-danger">*</span></label>
+            <input type="text" class="form-control field-input"
+                   formControlName="title" placeholder="Task title" />
+            @if (form.get('title')?.touched && form.get('title')?.invalid) {
+              <div class="field-error">Title is required</div>
+            }
+          </div>
+
+          <div class="mb-4">
+            <label class="field-label">Description</label>
+            <textarea class="form-control field-input" style="height:auto"
+                      formControlName="description" rows="4"
+                      placeholder="Add a description..."></textarea>
+          </div>
+
+          <div class="mb-5">
+            <label class="field-label">Status</label>
+            <div class="status-grid">
+              <div class="status-card"
+                   [class.status-card-pending]="form.get('status')?.value === 'pending'"
+                   (click)="selectStatus('pending')">
+                <i class="bi bi-hourglass-split status-icon"></i>
+                <div>
+                  <div class="status-card-title">Pending</div>
+                  <div class="status-card-hint">Task is in progress</div>
+                </div>
+              </div>
+              <div class="status-card"
+                   [class.status-card-completed]="form.get('status')?.value === 'completed'"
+                   (click)="selectStatus('completed')">
+                <i class="bi bi-check-circle-fill status-icon"></i>
+                <div>
+                  <div class="status-card-title">Completed</div>
+                  <div class="status-card-hint">Task is done</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary save-btn" [disabled]="loading">
+              @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+              {{ loading ? 'Saving...' : 'Save Changes' }}
+            </button>
+            <a routerLink="/tasks" class="btn btn-light save-btn">Cancel</a>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>

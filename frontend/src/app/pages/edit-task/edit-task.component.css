@@ -1,0 +1,134 @@
+.edit-wrap {
+  max-width: 600px;
+}
+
+/* ── Back button ── */
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #475569;
+  text-decoration: none;
+  font-size: 1rem;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.back-btn:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+/* ── Card ── */
+.edit-card {
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+}
+
+/* ── Fields ── */
+.field-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 7px;
+  letter-spacing: 0.01em;
+}
+
+.field-input {
+  height: 46px;
+  border-color: #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  background: #f8fafc;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.field-input:focus {
+  background: #fff;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.field-error {
+  font-size: 0.76rem;
+  color: #ef4444;
+  margin-top: 5px;
+}
+
+/* ── Status cards ── */
+.status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.status-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  cursor: pointer;
+  background: #f8fafc;
+  transition: border-color 0.15s, background 0.15s;
+  user-select: none;
+}
+
+.status-card:hover {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+}
+
+.status-icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+  color: #94a3b8;
+}
+
+.status-card-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.status-card-hint {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 1px;
+}
+
+.status-card-pending {
+  border-color: #d97706 !important;
+  background: #fffbeb !important;
+}
+
+.status-card-pending .status-icon { color: #d97706; }
+.status-card-pending .status-card-title { color: #92400e; }
+.status-card-pending .status-card-hint { color: #b45309; }
+
+.status-card-completed {
+  border-color: #16a34a !important;
+  background: #f0fdf4 !important;
+}
+
+.status-card-completed .status-icon { color: #16a34a; }
+.status-card-completed .status-card-title { color: #15803d; }
+.status-card-completed .status-card-hint { color: #16a34a; }
+
+/* ── Buttons ── */
+.save-btn {
+  height: 44px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding-left: 28px;
+  padding-right: 28px;
+  display: inline-flex;
+  align-items: center;
+}
