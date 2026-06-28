@@ -11,6 +11,12 @@ frontend/.angular/
 backend/.env
 .env
 
+# Uploaded files (ephemeral on Render — keep folder structure)
+backend/uploads/avatars/*
+backend/uploads/chat/*
+!backend/uploads/avatars/.gitkeep
+!backend/uploads/chat/.gitkeep
+
 # Logs
 *.log
 npm-debug.log*
