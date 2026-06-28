@@ -76,6 +76,11 @@ main {
   font-size: 0.75rem;
 }
 
+.nav-avatar-img {
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
 /* ── User menu button ── */
 .user-menu-btn {
   background: rgba(255, 255, 255, 0.06);

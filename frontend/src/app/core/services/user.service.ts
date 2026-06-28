@@ -28,4 +28,8 @@ export class UserService {
   activateUser(id: string) {
     return this.http.patch<{ message: string; user: User }>(`${this.api}/${id}/activate`, {});
   }
+
+  updateUserPassword(id: string, password: string) {
+    return this.http.patch<{ message: string }>(`${this.api}/${id}/password`, { password });
+  }
 }

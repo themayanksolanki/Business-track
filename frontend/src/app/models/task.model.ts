@@ -1,6 +1,6 @@
 import { User } from './user.model';
 
-export type TaskStatus = 'pending' | 'completed';
+export type TaskStatus = 'todo' | 'pending' | 'completed';
 
 export interface Task {
   _id: string;
@@ -9,6 +9,7 @@ export interface Task {
   status: TaskStatus;
   createdBy: User;
   assignedTo: User;
+  parentTask?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -17,6 +18,7 @@ export interface CreateTaskPayload {
   title: string;
   description?: string;
   assignedTo?: string;
+  parentTask?: string;
 }
 
 export interface UpdateTaskPayload {

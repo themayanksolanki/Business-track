@@ -213,3 +213,12 @@
 }
 
 .auth-link-text a:hover { text-decoration: underline; }
+
+.forgot-link {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.forgot-link:hover { text-decoration: underline; }

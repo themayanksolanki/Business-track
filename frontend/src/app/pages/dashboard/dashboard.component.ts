@@ -26,6 +26,7 @@ export class DashboardComponent implements OnInit {
     this.taskService.getTasks().subscribe({ next: (tasks) => (this.tasks = tasks) });
   }
 
+  get todo() { return this.tasks.filter((t) => t.status === 'todo').length; }
   get pending() { return this.tasks.filter((t) => t.status === 'pending').length; }
   get completed() { return this.tasks.filter((t) => t.status === 'completed').length; }
   get isManager() { return this.user?.role === 'Manager'; }

@@ -15,12 +15,12 @@
 <div class="row g-3 mb-4">
   <div class="col-sm-4">
     <div class="stat-card">
-      <div class="stat-icon-wrap stat-total">
-        <i class="bi bi-layers"></i>
+      <div class="stat-icon-wrap stat-todo">
+        <i class="bi bi-circle"></i>
       </div>
       <div class="stat-body">
-        <span class="stat-number">{{ tasks.length }}</span>
-        <span class="stat-label">Total Tasks</span>
+        <span class="stat-number">{{ todo }}</span>
+        <span class="stat-label">Todo</span>
       </div>
     </div>
   </div>
@@ -31,7 +31,7 @@
       </div>
       <div class="stat-body">
         <span class="stat-number">{{ pending }}</span>
-        <span class="stat-label">Pending</span>
+        <span class="stat-label">In Progress</span>
       </div>
     </div>
   </div>

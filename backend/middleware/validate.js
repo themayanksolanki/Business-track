@@ -38,16 +38,19 @@ export const validateLogin = (req, res, next) => {
 };
 
 export const validateTask = (req, res, next) => {
-  const { title, status, assignedTo } = req.body;
+  const { title, status, assignedTo, parentTask } = req.body;
 
   if (req.method === 'POST' && (!title || !title.trim()))
     return next(new AppError('Title is required', 400));
 
-  if (status !== undefined && !['pending', 'completed'].includes(status))
-    return next(new AppError("Status must be 'pending' or 'completed'", 400));
+  if (status !== undefined && !['todo', 'pending', 'completed'].includes(status))
+    return next(new AppError("Status must be 'todo', 'pending', or 'completed'", 400));
 
   if (assignedTo && !mongoose.isValidObjectId(assignedTo))
     return next(new AppError('assignedTo is not a valid ID', 400));
+
+  if (parentTask && !mongoose.isValidObjectId(parentTask))
+    return next(new AppError('parentTask is not a valid ID', 400));
 
   next();
 };

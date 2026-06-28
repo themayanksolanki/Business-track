@@ -5,6 +5,8 @@ import { tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { AuthResponse, User } from '../../models/user.model';
 
+const BASE_URL = environment.apiUrl.replace('/api', '');
+
 export interface RegisterResponse {
   message: string;
   pending?: boolean;
@@ -56,6 +58,38 @@ export class AuthService {
 
   getMe() {
     return this.http.get<User>(`${this.api}/me`);
+  }
+
+  avatarUrl(user?: User | null): string | null {
+    const img = (user ?? this.currentUser())?.profileImage;
+    return img ? `${BASE_URL}/uploads/avatars/${img}` : null;
+  }
+
+  uploadAvatar(file: File) {
+    const form = new FormData();
+    form.append('avatar', file);
+    return this.http
+      .patch<{ message: string; user: User }>(`${this.api}/me/avatar`, form)
+      .pipe(tap((res) => this.refreshUser(res.user)));
+  }
+
+  forgotPassword(email: string) {
+    return this.http.post<{ message: string }>(`${this.api}/forgot-password`, { email });
+  }
+
+  resetPassword(email: string, otp: string, newPassword: string) {
+    return this.http.post<{ message: string }>(`${this.api}/reset-password`, { email, otp, newPassword });
+  }
+
+  removeAvatar() {
+    return this.http
+      .delete<{ message: string; user: User }>(`${this.api}/me/avatar`)
+      .pipe(tap((res) => this.refreshUser(res.user)));
+  }
+
+  private refreshUser(user: User) {
+    localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+    this.currentUser.set(user);
   }
 
   logout() {

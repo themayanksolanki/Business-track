@@ -2,6 +2,14 @@
 .task-table-card {
   border-radius: 12px;
   border: none;
+  overflow: visible;
+}
+
+/* Allow dropdowns to escape the table — overflow-x scroll is sacrificed so
+   the status dropdown is never clipped by the container. The 5-column layout
+   doesn't need horizontal scroll on typical screens. */
+.task-table-responsive {
+  overflow: visible;
 }
 
 /* ── Header ── */
@@ -16,6 +24,10 @@
   padding-top: 14px;
   padding-bottom: 14px;
 }
+
+/* Restore rounded top corners now that overflow-hidden is removed */
+.table-dark-header th:first-child { border-top-left-radius: 12px; }
+.table-dark-header th:last-child  { border-top-right-radius: 12px; }
 
 /* ── Sortable header ── */
 .sortable-th {
@@ -65,13 +77,26 @@
   font-size: 0.875rem;
 }
 
-/* ── Status badge ── */
+/* ── Status dropdown wrapper ── */
+.status-dd-wrap { display: inline-block; }
+
+/* ── Status badge (dropdown trigger) ── */
 .status-badge {
   cursor: pointer;
   user-select: none;
   font-size: 0.75rem;
   padding: 5px 10px;
   border-radius: 99px;
+  border: none;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.status-badge::after { margin-left: 5px; opacity: 0.6; }
+
+.badge-todo {
+  background-color: #e0f2fe;
+  color: #075985;
 }
 
 .badge-pending {
@@ -83,6 +108,29 @@
   background-color: #dcfce7;
   color: #166534;
 }
+
+/* ── Status dropdown menu ── */
+.status-dropdown {
+  min-width: 150px;
+  border-radius: 10px;
+  padding: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.status-opt {
+  display: flex;
+  align-items: center;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 7px 10px;
+}
+
+.status-opt:hover { background: #f8fafc; }
+
+.status-icon-todo      { color: #0284c7; }
+.status-icon-pending   { color: #d97706; }
+.status-icon-completed { color: #16a34a; }
 
 /* ── Assignee clickable ── */
 .assignee-link {
@@ -358,7 +406,7 @@
 /* ── Status toggle cards ── */
 .status-toggle-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
 }
 
@@ -383,6 +431,12 @@
 .status-toggle-card:hover {
   border-color: #94a3b8;
   background: #f1f5f9;
+}
+
+.status-toggle-todo {
+  border-color: #0284c7 !important;
+  background: #e0f2fe !important;
+  color: #075985 !important;
 }
 
 .status-toggle-pending {
@@ -419,6 +473,11 @@
   padding: 22px 24px 20px;
 }
 
+.detail-header-todo {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-bottom: 1px solid #bae6fd;
+}
+
 .detail-header-pending {
   background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
   border-bottom: 1px solid #fde68a;
@@ -443,6 +502,7 @@
 
 .detail-status-pill:hover { opacity: 0.75; }
 
+.pill-todo      { background: #bae6fd; color: #075985; }
 .pill-pending   { background: #fde68a; color: #92400e; }
 .pill-completed { background: #bbf7d0; color: #15803d; }
 
@@ -538,3 +598,161 @@
 
 .detail-btn-close  { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
 .detail-btn-close:hover { background: #e2e8f0; }
+
+/* ── Subtasks section ── */
+.subtasks-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.subtask-header {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.subtask-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 0.65rem;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.subtask-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  transition: background 0.1s;
+}
+
+.subtask-item:hover { background: #f1f5f9; }
+
+.subtask-status-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.dot-todo      { color: #0284c7; }
+.dot-pending   { color: #d97706; }
+.dot-completed { color: #16a34a; }
+
+.subtask-title {
+  flex: 1;
+  font-size: 0.85rem;
+  color: #1e293b;
+  line-height: 1.3;
+}
+
+.subtask-done {
+  text-decoration: line-through;
+  color: #94a3b8;
+}
+
+.subtask-del-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+  padding: 0;
+}
+
+.subtask-del-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.add-subtask-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.add-subtask-input {
+  flex: 1;
+  height: 36px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 0.85rem;
+  background: #f8fafc;
+  color: #1e293b;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.add-subtask-input:focus {
+  border-color: #3b82f6;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.add-subtask-input::placeholder { color: #94a3b8; }
+
+.add-subtask-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  padding: 0;
+}
+
+.add-subtask-btn:hover:not(:disabled) { background: #2563eb; }
+.add-subtask-btn:disabled { background: #93c5fd; cursor: not-allowed; }
+
+.subtask-error {
+  font-size: 0.76rem;
+  color: #ef4444;
+  margin-top: 5px;
+}

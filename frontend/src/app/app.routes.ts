@@ -13,6 +13,10 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/register/register.component').then((m) => m.RegisterComponent),
   },
   {
+    path: 'forgot-password',
+    loadComponent: () => import('./pages/forgot-password/forgot-password.component').then((m) => m.ForgotPasswordComponent),
+  },
+  {
     path: 'dashboard',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/dashboard/dashboard.component').then((m) => m.DashboardComponent),
@@ -41,6 +45,16 @@ export const routes: Routes = [
       import('./pages/team-lead-task-view/team-lead-task-view.component').then(
         (m) => m.TeamLeadTaskViewComponent
       ),
+  },
+  {
+    path: 'chat',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/chat/chat.component').then((m) => m.ChatComponent),
+  },
+  {
+    path: 'profile',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/profile/profile.component').then((m) => m.ProfileComponent),
   },
   {
     path: '**',

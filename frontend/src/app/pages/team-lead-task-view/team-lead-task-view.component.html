@@ -16,7 +16,8 @@
         <div class="card-body py-2 px-3">
           <strong class="d-block">{{ member.username }}</strong>
           <small class="text-muted">
-            {{ pendingFor(member._id ?? member.id) }} pending &middot;
+            {{ todoFor(member._id ?? member.id) }} todo &middot;
+            {{ pendingFor(member._id ?? member.id) }} in progress &middot;
             {{ completedFor(member._id ?? member.id) }} done
           </small>
         </div>
@@ -48,7 +49,8 @@
               <td class="align-middle">{{ task.title }}</td>
               <td class="align-middle">
                 <span class="badge"
-                      [class.badge-pending]="task.status !== 'completed'"
+                      [class.badge-todo]="task.status === 'todo'"
+                      [class.badge-pending]="task.status === 'pending'"
                       [class.badge-completed]="task.status === 'completed'">
                   {{ task.status }}
                 </span>

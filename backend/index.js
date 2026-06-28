@@ -1,19 +1,28 @@
 import express from 'express';
+import { createServer } from 'http';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import taskRoutes from './routes/taskRoutes.js';
+import chatRoutes from './routes/chatRoutes.js';
 import errorMiddleware from './middleware/errorMiddleware.js';
 import { authLimiter, globalLimiter } from './utils/utils.js';
+import { setupSocket } from './socket.js';
 
 dotenv.config();
 
 const app = express();
+const server = createServer(app);
+setupSocket(server);
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({
@@ -27,9 +36,11 @@ app.use(globalLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
-app.use('/api/auth', authLimiter, authRoutes);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/chat', chatRoutes);
 
 app.use(errorMiddleware);
 
@@ -37,7 +48,7 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log('MongoDB connected');
-    app.listen(process.env.PORT, () => {
+    server.listen(process.env.PORT, () => {
       console.log(`Server running on port ${process.env.PORT}`);
     });
   })

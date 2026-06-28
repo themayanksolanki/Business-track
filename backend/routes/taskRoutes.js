@@ -9,12 +9,14 @@ import {
   updateTask,
   deleteTask,
   reassignTask,
+  getSubtasks,
 } from '../controllers/taskController.js';
 
 const router = Router();
 
 router.get('/', protect, getTasks);
 router.post('/', protect, validateTask, createTask);
+router.get('/:id/subtasks', protect, validateObjectId, getSubtasks);
 router.get('/:id', protect, validateObjectId, getTaskById);
 router.put('/:id', protect, validateObjectId, validateTask, updateTask);
 router.delete('/:id', protect, validateObjectId, deleteTask);
