@@ -32,7 +32,7 @@
                 @if (c.lastMessage.type === 'image') {
                   <i class="bi bi-image me-1"></i>Photo
                 } @else {
-                  {{ c.lastMessage.content | slice:0:32 }}{{ (c.lastMessage.content?.length ?? 0) > 32 ? '…' : '' }}
+                  {{ (c.lastMessage.content || '') | slice:0:32 }}{{ (c.lastMessage.content || '').length > 32 ? '…' : '' }}
                 }
               } @else {
                 <span class="text-muted">No messages yet</span>
