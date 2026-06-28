@@ -1,5 +1,5 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://YOUR-RENDER-APP.onrender.com/api',
-  socketUrl: 'https://YOUR-RENDER-APP.onrender.com',
+  apiUrl: 'https://business-track.onrender.com/api',
+  socketUrl: 'https://business-track.onrender.com',
 };
