@@ -1,16 +1,18 @@
 import { Component, OnInit } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormsModule } from '@angular/forms';
 import { TaskService } from '../../core/services/task.service';
 import { UserService } from '../../core/services/user.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Task } from '../../models/task.model';
+import { Task, TaskStatus } from '../../models/task.model';
 import { User } from '../../models/user.model';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-task-list',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule],
+  imports: [DatePipe, ReactiveFormsModule, FormsModule, ConfirmDialogComponent],
   templateUrl: './task-list.component.html',
   styleUrl: './task-list.component.css',
 })
@@ -32,10 +34,12 @@ export class TaskListComponent implements OnInit {
     this.currentPage = 1;
   }
 
+  private readonly statusRank: Record<string, number> = { todo: 0, pending: 1, completed: 2 };
+
   get sortedTasks(): Task[] {
     if (!this.statusSortDir) return this.tasks;
     return [...this.tasks].sort((a, b) => {
-      const cmp = a.status.localeCompare(b.status);
+      const cmp = (this.statusRank[a.status] ?? 0) - (this.statusRank[b.status] ?? 0);
       return this.statusSortDir === 'asc' ? cmp : -cmp;
     });
   }
@@ -76,7 +80,17 @@ export class TaskListComponent implements OnInit {
   reassignTaskId = '';
   reassignUserId = '';
 
+  confirmOpen = false;
+  confirmTitle = '';
+  confirmMessage = '';
+  confirmLoading = false;
+  private pendingDelete: { id: string; parentId?: string } | null = null;
+
   selectedTask: Task | null = null;
+  subtasks: Task[] = [];
+  subtaskTitle = '';
+  subtaskLoading = false;
+  subtaskError = '';
 
   editTaskId = '';
   editForm: FormGroup;
@@ -98,7 +112,7 @@ export class TaskListComponent implements OnInit {
     this.editForm = this.fb.group({
       title: ['', Validators.required],
       description: [''],
-      status: ['pending'],
+      status: ['todo'],
     });
     this.createForm = this.fb.group({
       title: ['', Validators.required],
@@ -128,14 +142,48 @@ export class TaskListComponent implements OnInit {
     });
   }
 
-  delete(id: string) {
-    if (!confirm('Delete this task?')) return;
+  delete(task: Task) {
+    this.pendingDelete = { id: task._id };
+    this.confirmTitle = 'Delete Task';
+    this.confirmMessage = `"${task.title}" and all its subtasks will be permanently deleted.`;
+    this.confirmOpen = true;
+  }
+
+  deleteSubtask(subId: string, parentId: string) {
+    const sub = this.subtasks.find((s) => s._id === subId);
+    this.pendingDelete = { id: subId, parentId };
+    this.confirmTitle = 'Delete Subtask';
+    this.confirmMessage = sub ? `"${sub.title}" will be permanently deleted.` : 'This subtask will be permanently deleted.';
+    this.confirmOpen = true;
+  }
+
+  confirmDelete() {
+    if (!this.pendingDelete) return;
+    this.confirmLoading = true;
+    const { id, parentId } = this.pendingDelete;
     this.taskService.deleteTask(id).subscribe({
       next: () => {
-        this.selectedTask = null;
-        this.load();
+        this.confirmLoading = false;
+        this.confirmOpen = false;
+        this.pendingDelete = null;
+        if (parentId) {
+          this.loadSubtasks(parentId);
+        } else {
+          this.selectedTask = null;
+          this.load();
+        }
+      },
+      error: () => {
+        this.confirmLoading = false;
+        this.confirmOpen = false;
+        this.pendingDelete = null;
       },
     });
+  }
+
+  cancelConfirm() {
+    this.confirmOpen = false;
+    this.pendingDelete = null;
   }
 
   openEdit(task: Task) {
@@ -147,6 +195,8 @@ export class TaskListComponent implements OnInit {
       status: task.status,
     });
     this.selectedTask = null;
+    this.subtasks = [];
+    this.subtaskTitle = '';
   }
 
   closeEdit() {
@@ -154,8 +204,9 @@ export class TaskListComponent implements OnInit {
     this.editError = '';
   }
 
-  get editStatusLabel() {
-    return this.editForm.get('status')?.value === 'completed' ? 'Completed' : 'Pending';
+  get editStatusLabel(): string {
+    const labels: Record<string, string> = { todo: 'Todo', pending: 'Pending', completed: 'Completed' };
+    return labels[this.editForm.get('status')?.value] ?? 'Todo';
   }
 
   selectEditStatus(status: string) {
@@ -206,20 +257,52 @@ export class TaskListComponent implements OnInit {
 
   openDetail(task: Task) {
     this.selectedTask = task;
+    this.subtasks = [];
+    this.subtaskTitle = '';
+    this.subtaskError = '';
+    this.loadSubtasks(task._id);
   }
 
   closeDetail() {
     this.selectedTask = null;
+    this.subtasks = [];
+    this.subtaskTitle = '';
+    this.subtaskError = '';
   }
 
-  toggleStatus(task: Task, event: Event) {
-    event.stopPropagation();
-    const next = task.status === 'pending' ? 'completed' : 'pending';
-    this.taskService.updateTask(task._id, { status: next }).subscribe({
+  loadSubtasks(taskId: string) {
+    this.taskService.getSubtasks(taskId).subscribe({
+      next: (subs) => (this.subtasks = subs),
+    });
+  }
+
+  addSubtask(parent: Task) {
+    const title = this.subtaskTitle.trim();
+    if (!title) return;
+    this.subtaskLoading = true;
+    this.subtaskError = '';
+    const assignedToId = (parent.assignedTo as User)._id ?? (parent.assignedTo as User).id;
+    this.taskService.createTask({ title, parentTask: parent._id, assignedTo: assignedToId }).subscribe({
       next: () => {
-        task.status = next;
+        this.subtaskLoading = false;
+        this.subtaskTitle = '';
+        this.loadSubtasks(parent._id);
+      },
+      error: (err) => {
+        this.subtaskError = err.error?.message || 'Failed to add subtask';
+        this.subtaskLoading = false;
+      },
+    });
+  }
+
+
+  setStatus(task: Task, status: TaskStatus) {
+    if (task.status === status) return;
+    this.taskService.updateTask(task._id, { status }).subscribe({
+      next: () => {
+        task.status = status;
         if (this.selectedTask?._id === task._id) {
-          this.selectedTask = { ...task, status: next };
+          this.selectedTask = { ...task, status };
         }
       },
     });

@@ -137,3 +137,169 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* ── Change password button ── */
+.btn-edit-pass {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-edit-pass:hover:not(:disabled) {
+  background: #1d4ed8;
+  color: #fff;
+  border-color: #1d4ed8;
+}
+
+/* ── Password modal backdrop ── */
+.pass-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 1060;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+/* ── Password modal card ── */
+.pass-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px 28px 24px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  animation: pass-pop 0.18s ease;
+}
+
+@keyframes pass-pop {
+  from { transform: scale(0.92); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.pass-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #eff6ff;
+  margin-bottom: 14px;
+}
+
+.pass-icon {
+  font-size: 1.3rem;
+  color: #1d4ed8;
+}
+
+.pass-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.pass-subtitle {
+  font-size: 0.855rem;
+  color: #64748b;
+  line-height: 1.55;
+  margin-bottom: 20px;
+}
+
+/* ── Password input ── */
+.pass-input-wrap { text-align: left; }
+
+.pass-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pass-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pass-input {
+  flex: 1;
+  height: 42px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0 42px 0 14px;
+  font-size: 0.9rem;
+  color: #1e293b;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.pass-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.pass-toggle {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.pass-toggle:hover { color: #475569; }
+
+/* ── Modal actions ── */
+.pass-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.pass-btn {
+  flex: 1;
+  height: 42px;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.pass-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.pass-btn-cancel {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.pass-btn-cancel:hover:not(:disabled) { background: #e2e8f0; }
+
+.pass-btn-confirm {
+  background: #1d4ed8;
+  color: #fff;
+}
+
+.pass-btn-confirm:hover:not(:disabled) { background: #1e40af; }

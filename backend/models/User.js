@@ -37,6 +37,18 @@ const userSchema = new mongoose.Schema(
       ref: 'User',
       default: null,
     },
+    profileImage: {
+      type: String,
+      default: null,
+    },
+    resetOtp: {
+      type: String,
+      default: null,
+    },
+    resetOtpExpiry: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

@@ -33,6 +33,13 @@ export class TeamLeadTaskViewComponent implements OnInit {
     });
   }
 
+  todoFor(memberId: string) {
+    return this.tasks.filter((t) => {
+      const id = t.assignedTo?._id ?? (t.assignedTo as any)?.id;
+      return id === memberId && t.status === 'todo';
+    }).length;
+  }
+
   pendingFor(memberId: string) {
     return this.tasks.filter((t) => {
       const id = t.assignedTo?._id ?? (t.assignedTo as any)?.id;

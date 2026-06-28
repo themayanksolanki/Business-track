@@ -14,8 +14,8 @@ const taskSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'completed'],
-      default: 'pending',
+      enum: ['todo', 'pending', 'completed'],
+      default: 'todo',
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -26,6 +26,11 @@ const taskSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
+    },
+    parentTask: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Task',
+      default: null,
     },
   },
   { timestamps: true }

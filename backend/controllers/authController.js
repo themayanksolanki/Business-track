@@ -1,7 +1,15 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import User from '../models/User.js';
 import AppError from '../utils/AppError.js';
+import { sendOtpEmail } from '../utils/mailer.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const avatarsDir = path.join(__dirname, '../uploads/avatars');
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -87,6 +95,7 @@ export const register = async (req, res, next) => {
         email: user.email,
         role: user.role,
         isActive: user.isActive,
+        profileImage: user.profileImage ?? null,
       },
     });
   } catch (err) {
@@ -121,6 +130,7 @@ export const login = async (req, res, next) => {
         email: user.email,
         role: user.role,
         isActive: user.isActive,
+        profileImage: user.profileImage ?? null,
       },
     });
   } catch (err) {
@@ -149,6 +159,7 @@ export const refresh = async (req, res, next) => {
         email: user.email,
         role: user.role,
         isActive: user.isActive,
+        profileImage: user.profileImage ?? null,
       },
     });
   } catch {
@@ -169,6 +180,102 @@ export const getMe = async (req, res, next) => {
       .populate('teamLeadId', 'username email');
 
     res.status(200).json(user);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const toUserShape = (user) => ({
+  id: user._id,
+  username: user.username,
+  email: user.email,
+  role: user.role,
+  isActive: user.isActive,
+  profileImage: user.profileImage ?? null,
+});
+
+export const updateAvatar = async (req, res, next) => {
+  try {
+    if (!req.file) return next(new AppError('No file uploaded', 400));
+
+    const user = await User.findById(req.user._id);
+
+    if (user.profileImage) {
+      const old = path.join(avatarsDir, path.basename(user.profileImage));
+      if (fs.existsSync(old)) fs.unlinkSync(old);
+    }
+
+    user.profileImage = req.file.filename;
+    await user.save();
+
+    res.status(200).json({ message: 'Avatar updated', user: toUserShape(user) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) return next(new AppError('Email is required', 400));
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user) return next(new AppError('No account found with that email', 404));
+
+    const otp = crypto.randomInt(100000, 999999).toString();
+    user.resetOtp = otp;
+    user.resetOtpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    await sendOtpEmail(user.email, user.username, otp);
+
+    res.status(200).json({ message: 'OTP sent to your email' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword)
+      return next(new AppError('Email, OTP, and new password are required', 400));
+    if (newPassword.length < 6)
+      return next(new AppError('Password must be at least 6 characters', 400));
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user || !user.resetOtp)
+      return next(new AppError('Invalid or expired OTP', 400));
+
+    if (user.resetOtpExpiry < new Date())
+      return next(new AppError('OTP has expired. Please request a new one.', 400));
+
+    if (user.resetOtp !== otp.toString())
+      return next(new AppError('Incorrect OTP', 400));
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetOtp = null;
+    user.resetOtpExpiry = null;
+    await user.save();
+
+    res.status(200).json({ message: 'Password reset successfully. You can now log in.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const removeAvatar = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (user.profileImage) {
+      const file = path.join(avatarsDir, path.basename(user.profileImage));
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+      user.profileImage = null;
+      await user.save();
+    }
+
+    res.status(200).json({ message: 'Avatar removed', user: toUserShape(user) });
   } catch (err) {
     next(err);
   }

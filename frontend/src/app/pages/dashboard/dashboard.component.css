@@ -75,7 +75,7 @@
   flex-shrink: 0;
 }
 
-.stat-total   { background: #eff6ff; color: #3b82f6; }
+.stat-todo    { background: #e0f2fe; color: #0284c7; }
 .stat-pending { background: #fefce8; color: #d97706; }
 .stat-done    { background: #f0fdf4; color: #16a34a; }
 

@@ -14,6 +14,12 @@
   background-color: #eff6ff;
 }
 
+.badge-todo {
+  background-color: #e0f2fe;
+  color: #075985;
+  font-size: 0.8rem;
+}
+
 .badge-pending {
   background-color: #fef3c7;
   color: #92400e;

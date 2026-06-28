@@ -1,0 +1,299 @@
+/* ── Page header ── */
+.page-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.page-sub {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 2px 0 0;
+}
+
+/* ── Section label ── */
+.section-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+/* ── Profile card ── */
+.profile-card {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+  border-radius: 16px;
+  padding: 32px 24px 28px;
+}
+
+/* ── Avatar area: stacks avatar + delete icon centered ── */
+.avatar-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Avatar wrapper (clickable, shows camera overlay on hover) ── */
+.avatar-wrap {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.avatar-wrap:hover .avatar-overlay { opacity: 1; }
+
+.profile-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.profile-img {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  display: block;
+}
+
+.avatar-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1.2rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.avatar-remove-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  cursor: pointer;
+  font-size: 0.7rem;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.avatar-remove-icon:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.35);
+  transform: scale(1.1);
+}
+
+.avatar-remove-icon:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.avatar-error {
+  font-size: 0.75rem;
+  color: #fca5a5;
+  padding: 0 8px;
+}
+
+.profile-name {
+  color: #f1f5f9;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.profile-email {
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(59, 130, 246, 0.25);
+  color: #93c5fd;
+  padding: 4px 12px;
+  border-radius: 99px;
+}
+
+.status-row {
+  display: flex;
+  justify-content: center;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 99px;
+}
+
+.status-active {
+  background: rgba(22, 163, 74, 0.2);
+  color: #86efac;
+}
+
+.status-inactive {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.meta-label {
+  color: #64748b;
+}
+
+.meta-value {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* ── Info / detail cards ── */
+.info-card {
+  background: #fff;
+  border: 1px solid #f1f5f9;
+  border-radius: 14px;
+  padding: 20px 22px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.info-card-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+/* ── Reports to rows ── */
+.reports-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.reports-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.icon-manager  { background: #eff6ff; color: #3b82f6; }
+.icon-teamlead { background: #fff7ed; color: #d97706; }
+
+.reports-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.reports-role {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+/* ── Stat cards ── */
+.stat-card {
+  background: #fff;
+  border: 1px solid #f1f5f9;
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.stat-todo    { background: #e0f2fe; color: #0284c7; }
+.stat-pending { background: #fefce8; color: #d97706; }
+.stat-done    { background: #f0fdf4; color: #16a34a; }
+
+.stat-number {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+  margin-top: 3px;
+}
+
+/* ── Account detail rows ── */
+.detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+}
+
+.detail-label {
+  font-size: 0.85rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+}
+
+.detail-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.detail-divider {
+  height: 1px;
+  background: #f1f5f9;
+}

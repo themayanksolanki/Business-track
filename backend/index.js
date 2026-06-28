@@ -4,6 +4,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
@@ -27,7 +31,8 @@ app.use(globalLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
-app.use('/api/auth', authLimiter, authRoutes);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tasks', taskRoutes);
 

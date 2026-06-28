@@ -89,7 +89,13 @@
                   </span>
                 </td>
                 <td><span class="status-badge status-active">Active</span></td>
-                <td></td>
+                <td class="text-end pe-3">
+                  @if (canEditPassword(user)) {
+                    <button class="btn btn-sm btn-edit-pass" (click)="openPassEdit(user)" title="Change password">
+                      <i class="bi bi-key-fill me-1"></i>Password
+                    </button>
+                  }
+                </td>
               </tr>
             }
           </tbody>
@@ -103,3 +109,61 @@
     </div>
   }
 </div>
+
+<!-- Password edit modal -->
+@if (editPassUser) {
+  <div class="pass-backdrop" (click)="closePassEdit()">
+    <div class="pass-card" (click)="$event.stopPropagation()">
+
+      <div class="pass-icon-wrap">
+        <i class="bi bi-key-fill pass-icon"></i>
+      </div>
+
+      <h5 class="pass-title">Change Password</h5>
+      <p class="pass-subtitle">
+        Set a new password for <strong>{{ editPassUser.username }}</strong>.
+        They will receive an email with the new password.
+      </p>
+
+      @if (editPassSuccess) {
+        <div class="alert alert-success py-2 d-flex align-items-center gap-2 mb-3">
+          <i class="bi bi-check-circle-fill"></i>{{ editPassSuccess }}
+        </div>
+      }
+
+      @if (editPassError) {
+        <div class="alert alert-danger py-2 mb-3">{{ editPassError }}</div>
+      }
+
+      @if (!editPassSuccess) {
+        <div class="pass-input-wrap mb-4">
+          <label class="pass-label">New Password</label>
+          <div class="pass-field">
+            <input
+              [type]="showPassword ? 'text' : 'password'"
+              class="pass-input"
+              placeholder="Min 6 characters"
+              [(ngModel)]="editPassword"
+              (keyup.enter)="submitPassEdit()" />
+            <button class="pass-toggle" type="button" (click)="showPassword = !showPassword" tabindex="-1">
+              <i class="bi" [class.bi-eye]="!showPassword" [class.bi-eye-slash]="showPassword"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="pass-actions">
+          <button class="pass-btn pass-btn-cancel" (click)="closePassEdit()" [disabled]="editPassLoading">
+            Cancel
+          </button>
+          <button class="pass-btn pass-btn-confirm" (click)="submitPassEdit()" [disabled]="editPassLoading || editPassword.length < 6">
+            @if (editPassLoading) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+            }
+            Save Password
+          </button>
+        </div>
+      }
+
+    </div>
+  </div>
+}

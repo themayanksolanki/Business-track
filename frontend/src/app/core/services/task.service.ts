@@ -32,4 +32,8 @@ export class TaskService {
   reassignTask(id: string, assignedTo: string) {
     return this.http.patch<{ message: string; task: Task }>(`${this.api}/${id}/reassign`, { assignedTo });
   }
+
+  getSubtasks(id: string) {
+    return this.http.get<Task[]>(`${this.api}/${id}/subtasks`);
+  }
 }

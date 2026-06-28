@@ -9,13 +9,13 @@ const getTeamMemberIds = async (teamLeadId) => {
 
 export const getTasks = async (req, res, next) => {
   try {
-    let filter = {};
+    let filter = { parentTask: null };
 
     if (req.user.role === 'Employee') {
-      filter = { assignedTo: req.user._id };
+      filter.assignedTo = req.user._id;
     } else if (req.user.role === 'Team Lead') {
       const memberIds = await getTeamMemberIds(req.user._id);
-      filter = { assignedTo: { $in: [req.user._id, ...memberIds] } };
+      filter.assignedTo = { $in: [req.user._id, ...memberIds] };
     }
 
     const tasks = await Task.find(filter)
@@ -56,7 +56,7 @@ export const getTaskById = async (req, res, next) => {
 
 export const createTask = async (req, res, next) => {
   try {
-    const { title, description, assignedTo } = req.body;
+    const { title, description, assignedTo, parentTask } = req.body;
 
     let resolvedAssignee = req.user._id;
 
@@ -83,6 +83,7 @@ export const createTask = async (req, res, next) => {
       description,
       createdBy: req.user._id,
       assignedTo: resolvedAssignee,
+      parentTask: parentTask ?? null,
     });
 
     const populated = await task.populate([
@@ -151,8 +152,20 @@ export const deleteTask = async (req, res, next) => {
       return next(new AppError('Access denied', 403));
     }
 
+    await Task.deleteMany({ parentTask: req.params.id });
     await Task.findByIdAndDelete(req.params.id);
     res.status(200).json({ message: 'Task deleted' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getSubtasks = async (req, res, next) => {
+  try {
+    const subtasks = await Task.find({ parentTask: req.params.id })
+      .populate('createdBy', 'username email role')
+      .populate('assignedTo', 'username email role');
+    res.status(200).json(subtasks);
   } catch (err) {
     next(err);
   }

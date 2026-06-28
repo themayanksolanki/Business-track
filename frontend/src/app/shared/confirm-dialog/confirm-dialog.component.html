@@ -1,0 +1,29 @@
+@if (open) {
+  <div class="cd-backdrop" (click)="cancelled.emit()">
+    <div class="cd-card" (click)="$event.stopPropagation()">
+
+      <!-- Icon -->
+      <div class="cd-icon-wrap">
+        <i class="bi bi-trash3-fill cd-icon"></i>
+      </div>
+
+      <!-- Text -->
+      <h5 class="cd-title">{{ title }}</h5>
+      <p class="cd-message">{{ message }}</p>
+
+      <!-- Actions -->
+      <div class="cd-actions">
+        <button class="cd-btn cd-btn-cancel" (click)="cancelled.emit()" [disabled]="loading">
+          Cancel
+        </button>
+        <button class="cd-btn cd-btn-confirm" (click)="confirmed.emit()" [disabled]="loading">
+          @if (loading) {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+          }
+          {{ confirmLabel }}
+        </button>
+      </div>
+
+    </div>
+  </div>
+}

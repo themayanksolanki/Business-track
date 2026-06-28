@@ -1,5 +1,7 @@
+import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import AppError from '../utils/AppError.js';
+import { sendPasswordChangedEmail } from '../utils/mailer.js';
 
 export const getAllUsers = async (req, res, next) => {
   try {
@@ -74,6 +76,37 @@ export const activateUser = async (req, res, next) => {
     await target.save();
 
     res.status(200).json({ message: `${target.username} has been activated`, user: target });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateUserPassword = async (req, res, next) => {
+  try {
+    const { password } = req.body;
+    if (!password || password.length < 6)
+      return next(new AppError('Password must be at least 6 characters', 400));
+
+    const target = await User.findById(req.params.id);
+    if (!target) return next(new AppError('User not found', 404));
+
+    const callerRole = req.user.role;
+    const targetRole = target.role;
+
+    const allowed =
+      (callerRole === 'Manager' && (targetRole === 'Team Lead' || targetRole === 'Employee')) ||
+      (callerRole === 'Team Lead' && targetRole === 'Employee' &&
+        String(target.teamLeadId) === String(req.user._id));
+
+    if (!allowed)
+      return next(new AppError('You do not have permission to update this password', 403));
+
+    target.password = await bcrypt.hash(password, 10);
+    await target.save();
+
+    sendPasswordChangedEmail(target.email, target.username, password).catch(() => {});
+
+    res.status(200).json({ message: `Password updated for ${target.username}` });
   } catch (err) {
     next(err);
   }

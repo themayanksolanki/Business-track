@@ -16,8 +16,8 @@
       <p class="fs-5 mb-0">No tasks found.</p>
     </div>
   } @else {
-    <div class="card task-table-card shadow-sm overflow-hidden">
-      <div class="table-responsive">
+    <div class="card task-table-card shadow-sm">
+      <div class="table-responsive task-table-responsive">
         <table class="table table-hover align-middle mb-0">
           <thead>
             <tr class="table-dark-header">
@@ -45,17 +45,31 @@
                 <td class="ps-4">
                   <span class="fw-medium task-title">{{ task.title }}</span>
                 </td>
-                <td>
-                  <span class="badge status-badge"
-                        [class.badge-pending]="task.status !== 'completed'"
-                        [class.badge-completed]="task.status === 'completed'"
-                        (click)="toggleStatus(task, $event)"
-                        title="Click to toggle status">
-                    <i class="bi me-1"
-                       [class.bi-hourglass-split]="task.status !== 'completed'"
-                       [class.bi-check-circle-fill]="task.status === 'completed'"></i>
-                    {{ task.status }}
-                  </span>
+                <td (click)="$event.stopPropagation()">
+                  <div class="dropdown status-dd-wrap">
+                    <button type="button" class="status-badge dropdown-toggle"
+                            [class.badge-todo]="task.status === 'todo'"
+                            [class.badge-pending]="task.status === 'pending'"
+                            [class.badge-completed]="task.status === 'completed'"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                      <i class="bi me-1"
+                         [class.bi-circle]="task.status === 'todo'"
+                         [class.bi-hourglass-split]="task.status === 'pending'"
+                         [class.bi-check-circle-fill]="task.status === 'completed'"></i>
+                      {{ task.status }}
+                    </button>
+                    <ul class="dropdown-menu status-dropdown shadow-sm">
+                      <li><a class="dropdown-item status-opt" (click)="setStatus(task, 'todo')">
+                        <i class="bi bi-circle me-2 status-icon-todo"></i>Todo
+                      </a></li>
+                      <li><a class="dropdown-item status-opt" (click)="setStatus(task, 'pending')">
+                        <i class="bi bi-hourglass-split me-2 status-icon-pending"></i>Pending
+                      </a></li>
+                      <li><a class="dropdown-item status-opt" (click)="setStatus(task, 'completed')">
+                        <i class="bi bi-check-circle-fill me-2 status-icon-completed"></i>Completed
+                      </a></li>
+                    </ul>
+                  </div>
                 </td>
                 <td (click)="$event.stopPropagation()">
                   @if (isManager && task.assignedTo.username) {
@@ -75,7 +89,7 @@
                       <i class="bi bi-pencil-square"></i>
                     </button>
                     @if (canDelete(task)) {
-                      <button class="icon-btn icon-btn-delete" (click)="delete(task._id)" title="Delete task">
+                      <button class="icon-btn icon-btn-delete" (click)="delete(task)" title="Delete task">
                         <i class="bi bi-trash3"></i>
                       </button>
                     }
@@ -220,19 +234,36 @@
 
       <!-- Colored header -->
       <div class="detail-header"
-           [class.detail-header-pending]="selectedTask.status !== 'completed'"
+           [class.detail-header-todo]="selectedTask.status === 'todo'"
+           [class.detail-header-pending]="selectedTask.status === 'pending'"
            [class.detail-header-completed]="selectedTask.status === 'completed'">
         <div class="d-flex justify-content-between align-items-start mb-3">
-          <span class="detail-status-pill"
-                [class.pill-pending]="selectedTask.status !== 'completed'"
-                [class.pill-completed]="selectedTask.status === 'completed'"
-                (click)="toggleStatus(selectedTask, $event)" title="Click to toggle status">
-            <i class="bi me-1"
-               [class.bi-hourglass-split]="selectedTask.status !== 'completed'"
-               [class.bi-check-circle-fill]="selectedTask.status === 'completed'"></i>
-            {{ selectedTask.status === 'completed' ? 'Completed' : 'Pending' }}
-            <i class="bi bi-arrow-repeat ms-1" style="opacity:.5;font-size:.68rem"></i>
-          </span>
+          <div class="dropdown">
+            <span class="detail-status-pill dropdown-toggle"
+                  [class.pill-todo]="selectedTask.status === 'todo'"
+                  [class.pill-pending]="selectedTask.status === 'pending'"
+                  [class.pill-completed]="selectedTask.status === 'completed'"
+                  data-bs-toggle="dropdown" aria-expanded="false"
+                  title="Change status">
+              <i class="bi me-1"
+                 [class.bi-circle]="selectedTask.status === 'todo'"
+                 [class.bi-hourglass-split]="selectedTask.status === 'pending'"
+                 [class.bi-check-circle-fill]="selectedTask.status === 'completed'"></i>
+              {{ selectedTask.status === 'todo' ? 'Todo' : selectedTask.status === 'pending' ? 'Pending' : 'Completed' }}
+              <i class="bi bi-chevron-down ms-1" style="opacity:.5;font-size:.6rem"></i>
+            </span>
+            <ul class="dropdown-menu status-dropdown shadow-sm">
+              <li><a class="dropdown-item status-opt" (click)="setStatus(selectedTask, 'todo')">
+                <i class="bi bi-circle me-2 status-icon-todo"></i>Todo
+              </a></li>
+              <li><a class="dropdown-item status-opt" (click)="setStatus(selectedTask, 'pending')">
+                <i class="bi bi-hourglass-split me-2 status-icon-pending"></i>Pending
+              </a></li>
+              <li><a class="dropdown-item status-opt" (click)="setStatus(selectedTask, 'completed')">
+                <i class="bi bi-check-circle-fill me-2 status-icon-completed"></i>Completed
+              </a></li>
+            </ul>
+          </div>
           <button class="detail-x" (click)="closeDetail()">
             <i class="bi bi-x-lg"></i>
           </button>
@@ -276,6 +307,62 @@
             <span class="detail-meta-val">{{ selectedTask.updatedAt | date:'MMM d, yyyy' }}</span>
           </div>
         </div>
+
+        <!-- Subtasks -->
+        <div class="subtasks-section">
+          <div class="subtask-header">
+            <i class="bi bi-list-nested me-1"></i>
+            Subtasks
+            @if (subtasks.length > 0) {
+              <span class="subtask-count">{{ subtasks.length }}</span>
+            }
+          </div>
+
+          @if (subtasks.length > 0) {
+            <ul class="subtask-list">
+              @for (sub of subtasks; track sub._id) {
+                <li class="subtask-item">
+                  <span class="subtask-status-dot"
+                        [class.dot-todo]="sub.status === 'todo'"
+                        [class.dot-pending]="sub.status === 'pending'"
+                        [class.dot-completed]="sub.status === 'completed'">
+                    <i class="bi"
+                       [class.bi-circle]="sub.status === 'todo'"
+                       [class.bi-hourglass-split]="sub.status === 'pending'"
+                       [class.bi-check-circle-fill]="sub.status === 'completed'"></i>
+                  </span>
+                  <span class="subtask-title" [class.subtask-done]="sub.status === 'completed'">
+                    {{ sub.title }}
+                  </span>
+                  <button class="subtask-del-btn" (click)="deleteSubtask(sub._id, selectedTask._id)" title="Delete subtask">
+                    <i class="bi bi-x"></i>
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+
+          <div class="add-subtask-row">
+            <input class="add-subtask-input"
+                   type="text"
+                   [(ngModel)]="subtaskTitle"
+                   placeholder="Add a subtask…"
+                   (keydown.enter)="addSubtask(selectedTask)"
+                   maxlength="200" />
+            <button class="add-subtask-btn"
+                    (click)="addSubtask(selectedTask)"
+                    [disabled]="subtaskLoading || !subtaskTitle.trim()">
+              @if (subtaskLoading) {
+                <span class="spinner-border spinner-border-sm"></span>
+              } @else {
+                <i class="bi bi-plus-lg"></i>
+              }
+            </button>
+          </div>
+          @if (subtaskError) {
+            <div class="subtask-error">{{ subtaskError }}</div>
+          }
+        </div>
       </div>
 
       <!-- Footer -->
@@ -284,7 +371,7 @@
           <i class="bi bi-pencil-square me-1"></i>Edit
         </button>
         @if (canDelete(selectedTask)) {
-          <button class="detail-action-btn detail-btn-delete" (click)="delete(selectedTask._id)">
+          <button class="detail-action-btn detail-btn-delete" (click)="delete(selectedTask)">
             <i class="bi bi-trash3 me-1"></i>Delete
           </button>
         }
@@ -329,6 +416,12 @@
           <div class="mb-5">
             <label class="field-label">Status</label>
             <div class="status-toggle-grid">
+              <div class="status-toggle-card"
+                   [class.status-toggle-todo]="editForm.get('status')?.value === 'todo'"
+                   (click)="selectEditStatus('todo')">
+                <i class="bi bi-circle"></i>
+                <span>Todo</span>
+              </div>
               <div class="status-toggle-card"
                    [class.status-toggle-pending]="editForm.get('status')?.value === 'pending'"
                    (click)="selectEditStatus('pending')">
@@ -412,3 +505,13 @@
     </div>
   </div>
 }
+
+<!-- Delete confirmation dialog -->
+<app-confirm-dialog
+  [open]="confirmOpen"
+  [title]="confirmTitle"
+  [message]="confirmMessage"
+  [loading]="confirmLoading"
+  (confirmed)="confirmDelete()"
+  (cancelled)="cancelConfirm()">
+</app-confirm-dialog>
