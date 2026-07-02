@@ -2,7 +2,7 @@ import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import Message from './models/Message.js';
 
-const onlineUsers = new Map(); // userId (string) → socketId
+const onlineUsers = new Map(); // userId (string) → Set<socketId>
 
 export function setupSocket(server) {
   const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:4200')
@@ -35,9 +35,15 @@ export function setupSocket(server) {
     }
   });
 
+  const emitToUser = (userId, event, data) => {
+    const sockets = onlineUsers.get(userId);
+    if (sockets) sockets.forEach((sid) => io.to(sid).emit(event, data));
+  };
+
   io.on('connection', (socket) => {
     const userId = socket.userId;
-    onlineUsers.set(userId, socket.id);
+    if (!onlineUsers.has(userId)) onlineUsers.set(userId, new Set());
+    onlineUsers.get(userId).add(socket.id);
     io.emit('users:online', Array.from(onlineUsers.keys()));
 
     // ── Chat messages ──────────────────────────────────────────────
@@ -57,8 +63,7 @@ export function setupSocket(server) {
 
         socket.emit('message:sent', populated);
 
-        const receiverSocket = onlineUsers.get(to);
-        if (receiverSocket) io.to(receiverSocket).emit('message:receive', populated);
+        emitToUser(to, 'message:receive', populated);
       } catch (err) {
         socket.emit('message:error', err.message);
       }
@@ -66,52 +71,40 @@ export function setupSocket(server) {
 
     // ── Call signaling ─────────────────────────────────────────────
     socket.on('call:request', ({ to, callType, fromName }) => {
-      const target = onlineUsers.get(to);
-      if (target) {
-        io.to(target).emit('call:incoming', { from: userId, fromName, callType });
+      if (onlineUsers.has(to)) {
+        emitToUser(to, 'call:incoming', { from: userId, fromName, callType });
       } else {
         socket.emit('call:user-offline');
       }
     });
 
-    socket.on('call:accepted', ({ to }) => {
-      const target = onlineUsers.get(to);
-      if (target) io.to(target).emit('call:accepted');
-    });
+    socket.on('call:accepted', ({ to }) => emitToUser(to, 'call:accepted'));
+    socket.on('call:rejected', ({ to }) => emitToUser(to, 'call:rejected'));
+    socket.on('call:ended',    ({ to }) => emitToUser(to, 'call:ended'));
 
-    socket.on('call:rejected', ({ to }) => {
-      const target = onlineUsers.get(to);
-      if (target) io.to(target).emit('call:rejected');
-    });
+    socket.on('call:offer', ({ to, offer }) =>
+      emitToUser(to, 'call:offer', { from: userId, offer })
+    );
 
-    socket.on('call:ended', ({ to }) => {
-      const target = onlineUsers.get(to);
-      if (target) io.to(target).emit('call:ended');
-    });
+    socket.on('call:answer', ({ to, answer }) =>
+      emitToUser(to, 'call:answer', { answer })
+    );
 
-    socket.on('call:offer', ({ to, offer }) => {
-      const target = onlineUsers.get(to);
-      if (target) io.to(target).emit('call:offer', { from: userId, offer });
-    });
+    socket.on('call:ice-candidate', ({ to, candidate }) =>
+      emitToUser(to, 'call:ice-candidate', { candidate })
+    );
 
-    socket.on('call:answer', ({ to, answer }) => {
-      const target = onlineUsers.get(to);
-      if (target) io.to(target).emit('call:answer', { answer });
-    });
-
-    socket.on('call:ice-candidate', ({ to, candidate }) => {
-      const target = onlineUsers.get(to);
-      if (target) io.to(target).emit('call:ice-candidate', { candidate });
-    });
-
-    socket.on('call:mute', ({ to, muted }) => {
-      const target = onlineUsers.get(to);
-      if (target) io.to(target).emit('call:mute', { muted });
-    });
+    socket.on('call:mute', ({ to, muted }) =>
+      emitToUser(to, 'call:mute', { muted })
+    );
 
     // ── Disconnect ────────────────────────────────────────────────
     socket.on('disconnect', () => {
-      onlineUsers.delete(userId);
+      const sockets = onlineUsers.get(userId);
+      if (sockets) {
+        sockets.delete(socket.id);
+        if (sockets.size === 0) onlineUsers.delete(userId);
+      }
       io.emit('users:online', Array.from(onlineUsers.keys()));
     });
   });

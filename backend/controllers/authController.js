@@ -1,15 +1,16 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import User from '../models/User.js';
 import AppError from '../utils/AppError.js';
 import { sendOtpEmail } from '../utils/mailer.js';
+import { cloudinary } from '../middleware/upload.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const avatarsDir = path.join(__dirname, '../uploads/avatars');
+// Extract Cloudinary public_id from a secure URL for deletion
+const getPublicId = (url) => {
+  const match = url?.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[a-z]+)?$/i);
+  return match?.[1] ?? null;
+};
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -202,11 +203,11 @@ export const updateAvatar = async (req, res, next) => {
     const user = await User.findById(req.user._id);
 
     if (user.profileImage) {
-      const old = path.join(avatarsDir, path.basename(user.profileImage));
-      if (fs.existsSync(old)) fs.unlinkSync(old);
+      const publicId = getPublicId(user.profileImage);
+      if (publicId) await cloudinary.uploader.destroy(publicId).catch(() => {});
     }
 
-    user.profileImage = req.file.filename;
+    user.profileImage = req.file.path; // Cloudinary secure URL
     await user.save();
 
     res.status(200).json({ message: 'Avatar updated', user: toUserShape(user) });
@@ -270,8 +271,8 @@ export const removeAvatar = async (req, res, next) => {
     const user = await User.findById(req.user._id);
 
     if (user.profileImage) {
-      const file = path.join(avatarsDir, path.basename(user.profileImage));
-      if (fs.existsSync(file)) fs.unlinkSync(file);
+      const publicId = getPublicId(user.profileImage);
+      if (publicId) await cloudinary.uploader.destroy(publicId).catch(() => {});
       user.profileImage = null;
       await user.save();
     }

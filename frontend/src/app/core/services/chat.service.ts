@@ -39,6 +39,7 @@ export class ChatService {
   }
 
   fileUrl(path: string): string {
-    return `${BASE}${path}`;
+    if (path.startsWith('http')) return path; // Cloudinary URL — use as-is
+    return `${BASE}${path}`; // legacy relative path
   }
 }

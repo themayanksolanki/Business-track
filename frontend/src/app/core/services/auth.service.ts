@@ -63,8 +63,8 @@ export class AuthService {
   avatarUrl(user?: User | null): string | null {
     const img = (user ?? this.currentUser())?.profileImage;
     if (!img) return null;
-    const filename = img.includes('/') ? img.split('/').pop() : img;
-    return filename ? `${BASE_URL}/uploads/avatars/${filename}` : null;
+    if (img.startsWith('http')) return img; // Cloudinary URL — use as-is
+    return `${BASE_URL}/uploads/avatars/${img}`; // legacy filename
   }
 
   uploadAvatar(file: File) {
