@@ -7,9 +7,19 @@
 } @else {
 
   <!-- Page header -->
-  <div class="page-header mb-4">
+  <div class="page-header mb-3">
     <h2 class="page-title mb-0">My Profile</h2>
     <p class="page-sub">Your account details and activity summary</p>
+  </div>
+
+  <!-- Tab navigation -->
+  <div class="profile-tabs mb-4">
+    <button class="profile-tab" [class.active]="activeTab === 'overview'" (click)="activeTab = 'overview'">
+      <i class="bi bi-person me-2"></i>Overview
+    </button>
+    <button class="profile-tab" [class.active]="activeTab === 'appearance'" (click)="activeTab = 'appearance'">
+      <i class="bi bi-palette me-2"></i>Appearance
+    </button>
   </div>
 
   @if (error) {
@@ -121,106 +131,148 @@
       }
     </div>
 
-    <!-- Right column: stats + activity -->
-    <div class="col-lg-8">
+    <!-- Right column: stats + activity (Overview tab) -->
+    @if (activeTab === 'overview') {
+      <div class="col-lg-8">
 
-      <!-- Task stats -->
-      <h6 class="section-label mb-3">Task Overview</h6>
-      <div class="row g-3 mb-4">
-        <div class="col-sm-4">
-          <div class="stat-card">
-            <div class="stat-icon stat-todo"><i class="bi bi-circle"></i></div>
-            <div>
-              <div class="stat-number">{{ todo }}</div>
-              <div class="stat-label">Todo</div>
+        <!-- Task stats -->
+        <h6 class="section-label mb-3">Task Overview</h6>
+        <div class="row g-3 mb-4">
+          <div class="col-sm-4">
+            <div class="stat-card">
+              <div class="stat-icon stat-todo"><i class="bi bi-circle"></i></div>
+              <div>
+                <div class="stat-number">{{ todo }}</div>
+                <div class="stat-label">Todo</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-4">
+            <div class="stat-card">
+              <div class="stat-icon stat-pending"><i class="bi bi-hourglass-split"></i></div>
+              <div>
+                <div class="stat-number">{{ pending }}</div>
+                <div class="stat-label">In Progress</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-4">
+            <div class="stat-card">
+              <div class="stat-icon stat-done"><i class="bi bi-check2-all"></i></div>
+              <div>
+                <div class="stat-number">{{ completed }}</div>
+                <div class="stat-label">Completed</div>
+              </div>
             </div>
           </div>
         </div>
-        <div class="col-sm-4">
-          <div class="stat-card">
-            <div class="stat-icon stat-pending"><i class="bi bi-hourglass-split"></i></div>
-            <div>
-              <div class="stat-number">{{ pending }}</div>
-              <div class="stat-label">In Progress</div>
-            </div>
-          </div>
-        </div>
-        <div class="col-sm-4">
-          <div class="stat-card">
-            <div class="stat-icon stat-done"><i class="bi bi-check2-all"></i></div>
-            <div>
-              <div class="stat-number">{{ completed }}</div>
-              <div class="stat-label">Completed</div>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- Completion rate -->
-      @if (tasks.length > 0) {
-        <div class="info-card mb-4">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="section-label">Completion Rate</span>
-            <span class="fw-bold"
-                  [class.text-success]="completionRate === 100"
-                  [class.text-warning]="completionRate < 100 && completionRate >= 50"
-                  [class.text-danger]="completionRate < 50">
-              {{ completionRate }}%
+        <!-- Completion rate -->
+        @if (tasks.length > 0) {
+          <div class="info-card mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="section-label">Completion Rate</span>
+              <span class="fw-bold"
+                    [class.text-success]="completionRate === 100"
+                    [class.text-warning]="completionRate < 100 && completionRate >= 50"
+                    [class.text-danger]="completionRate < 50">
+                {{ completionRate }}%
+              </span>
+            </div>
+            <div class="progress" style="height:8px; border-radius:99px;">
+              <div class="progress-bar"
+                   [style.width]="completionRate + '%'"
+                   [class.bg-success]="completionRate === 100"
+                   [class.bg-warning]="completionRate < 100 && completionRate >= 50"
+                   [class.bg-danger]="completionRate < 50">
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Account details -->
+        <h6 class="section-label mb-3">Account Details</h6>
+        <div class="info-card">
+          <div class="detail-row">
+            <span class="detail-label"><i class="bi bi-person me-2 text-muted"></i>Username</span>
+            <span class="detail-value">{{ profile?.username }}</span>
+          </div>
+          <div class="detail-divider"></div>
+          <div class="detail-row">
+            <span class="detail-label"><i class="bi bi-envelope me-2 text-muted"></i>Email</span>
+            <span class="detail-value">{{ profile?.email }}</span>
+          </div>
+          <div class="detail-divider"></div>
+          <div class="detail-row">
+            <span class="detail-label"><i class="bi me-2 text-muted" [ngClass]="roleIcon"></i>Role</span>
+            <span class="detail-value">{{ profile?.role }}</span>
+          </div>
+          <div class="detail-divider"></div>
+          <div class="detail-row">
+            <span class="detail-label"><i class="bi bi-shield-check me-2 text-muted"></i>Status</span>
+            <span class="detail-value" [class.text-success]="profile?.isActive" [class.text-danger]="!profile?.isActive">
+              {{ profile?.isActive ? 'Active' : 'Inactive' }}
             </span>
           </div>
-          <div class="progress" style="height:8px; border-radius:99px;">
-            <div class="progress-bar"
-                 [style.width]="completionRate + '%'"
-                 [class.bg-success]="completionRate === 100"
-                 [class.bg-warning]="completionRate < 100 && completionRate >= 50"
-                 [class.bg-danger]="completionRate < 50">
-            </div>
+          <div class="detail-divider"></div>
+          <div class="detail-row">
+            <span class="detail-label"><i class="bi bi-calendar3 me-2 text-muted"></i>Member Since</span>
+            <span class="detail-value">{{ memberSince }}</span>
           </div>
         </div>
-      }
 
-      <!-- Account details -->
-      <h6 class="section-label mb-3">Account Details</h6>
-      <div class="info-card">
-        <div class="detail-row">
-          <span class="detail-label"><i class="bi bi-person me-2 text-muted"></i>Username</span>
-          <span class="detail-value">{{ profile?.username }}</span>
+        <!-- Quick nav -->
+        <div class="d-flex gap-2 mt-4 flex-wrap">
+          <a routerLink="/tasks" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-list-task me-1"></i>My Tasks
+          </a>
+          <a routerLink="/dashboard" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-speedometer2 me-1"></i>Dashboard
+          </a>
         </div>
-        <div class="detail-divider"></div>
-        <div class="detail-row">
-          <span class="detail-label"><i class="bi bi-envelope me-2 text-muted"></i>Email</span>
-          <span class="detail-value">{{ profile?.email }}</span>
-        </div>
-        <div class="detail-divider"></div>
-        <div class="detail-row">
-          <span class="detail-label"><i class="bi me-2 text-muted" [ngClass]="roleIcon"></i>Role</span>
-          <span class="detail-value">{{ profile?.role }}</span>
-        </div>
-        <div class="detail-divider"></div>
-        <div class="detail-row">
-          <span class="detail-label"><i class="bi bi-shield-check me-2 text-muted"></i>Status</span>
-          <span class="detail-value" [class.text-success]="profile?.isActive" [class.text-danger]="!profile?.isActive">
-            {{ profile?.isActive ? 'Active' : 'Inactive' }}
-          </span>
-        </div>
-        <div class="detail-divider"></div>
-        <div class="detail-row">
-          <span class="detail-label"><i class="bi bi-calendar3 me-2 text-muted"></i>Member Since</span>
-          <span class="detail-value">{{ memberSince }}</span>
+
+      </div>
+    }
+
+    <!-- Right column: Appearance tab -->
+    @if (activeTab === 'appearance') {
+      <div class="col-lg-8">
+        <h6 class="section-label mb-3">Theme</h6>
+        <div class="info-card">
+          <p class="appear-desc">Choose how TaskFlow looks to you. Your preference is saved automatically.</p>
+          <div class="theme-grid">
+            <!-- Light -->
+            <button class="theme-opt" [class.theme-opt-active]="themeSvc.theme() === 'light'" (click)="themeSvc.set('light')">
+              <div class="theme-preview-box theme-light">
+                <div class="tp-topbar"></div>
+                <div class="tp-content">
+                  <div class="tp-card"></div>
+                  <div class="tp-card tp-card-sm"></div>
+                </div>
+              </div>
+              <span class="theme-opt-label"><i class="bi bi-sun-fill me-2"></i>Light</span>
+              @if (themeSvc.theme() === 'light') {
+                <i class="bi bi-check-circle-fill theme-check"></i>
+              }
+            </button>
+            <!-- Dark -->
+            <button class="theme-opt" [class.theme-opt-active]="themeSvc.theme() === 'dark'" (click)="themeSvc.set('dark')">
+              <div class="theme-preview-box theme-dark">
+                <div class="tp-topbar"></div>
+                <div class="tp-content">
+                  <div class="tp-card"></div>
+                  <div class="tp-card tp-card-sm"></div>
+                </div>
+              </div>
+              <span class="theme-opt-label"><i class="bi bi-moon-fill me-2"></i>Dark</span>
+              @if (themeSvc.theme() === 'dark') {
+                <i class="bi bi-check-circle-fill theme-check"></i>
+              }
+            </button>
+          </div>
         </div>
       </div>
-
-      <!-- Quick nav -->
-      <div class="d-flex gap-2 mt-4 flex-wrap">
-        <a routerLink="/tasks" class="btn btn-outline-primary btn-sm">
-          <i class="bi bi-list-task me-1"></i>My Tasks
-        </a>
-        <a routerLink="/dashboard" class="btn btn-outline-secondary btn-sm">
-          <i class="bi bi-speedometer2 me-1"></i>Dashboard
-        </a>
-      </div>
-
-    </div>
+    }
   </div>
 }
 

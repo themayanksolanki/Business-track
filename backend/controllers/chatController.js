@@ -1,6 +1,24 @@
 import Message from '../models/Message.js';
 import User from '../models/User.js';
 
+export const getIceServers = (_req, res) => {
+  const iceServers = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ];
+
+  const { TURN_URLS, TURN_USERNAME, TURN_CREDENTIAL } = process.env;
+  if (TURN_URLS && TURN_USERNAME && TURN_CREDENTIAL) {
+    iceServers.push({
+      urls: TURN_URLS.split(',').map((u) => u.trim()),
+      username: TURN_USERNAME,
+      credential: TURN_CREDENTIAL,
+    });
+  }
+
+  res.json({ iceServers });
+};
+
 export const getContacts = async (req, res, next) => {
   try {
     const myId = req.user._id;
@@ -57,10 +75,27 @@ export const getMessages = async (req, res, next) => {
 
     await Message.updateMany(
       { sender: userId, receiver: myId, read: false },
-      { read: true }
+      { read: true, delivered: true }
     );
 
     res.status(200).json(messages);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getCallHistory = async (req, res, next) => {
+  try {
+    const myId = req.user._id;
+    const calls = await Message.find({
+      type: 'call',
+      $or: [{ sender: myId }, { receiver: myId }],
+    })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .populate('sender',   'username profileImage role')
+      .populate('receiver', 'username profileImage role');
+    res.status(200).json(calls);
   } catch (err) {
     next(err);
   }

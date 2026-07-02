@@ -13,7 +13,7 @@
 
 /* Card */
 .cd-card {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 16px;
   padding: 32px 28px 24px;
   width: 100%;
@@ -49,13 +49,13 @@
 .cd-title {
   font-size: 1rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
   margin-bottom: 8px;
 }
 
 .cd-message {
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--text-muted);
   line-height: 1.55;
   margin-bottom: 24px;
 }
@@ -83,12 +83,12 @@
 .cd-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .cd-btn-cancel {
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  border: 1px solid var(--border-strong);
 }
 
-.cd-btn-cancel:hover:not(:disabled) { background: #e2e8f0; }
+.cd-btn-cancel:hover:not(:disabled) { background: var(--border-strong); }
 
 .cd-btn-confirm {
   background: #ef4444;

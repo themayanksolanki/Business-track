@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { TaskService } from '../../core/services/task.service';
+import { ThemeService } from '../../core/services/theme.service';
 import { User } from '../../models/user.model';
 import { Task } from '../../models/task.model';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
@@ -21,6 +22,7 @@ export class ProfileComponent implements OnInit {
   tasks: Task[] = [];
   loading = true;
   error = '';
+  activeTab: 'overview' | 'appearance' = 'overview';
 
   avatarUploading = false;
   avatarRemoving = false;
@@ -30,6 +32,7 @@ export class ProfileComponent implements OnInit {
   constructor(
     public auth: AuthService,
     private taskService: TaskService,
+    public themeSvc: ThemeService,
   ) {}
 
   ngOnInit() {

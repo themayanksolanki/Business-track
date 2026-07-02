@@ -2,56 +2,135 @@
 
   <!-- ══ Contacts sidebar ══════════════════════════════════════════ -->
   <aside class="chat-sidebar" [class.mobile-hidden]="mobileShowChat">
-    <div class="sidebar-header">
-      <h5 class="sidebar-title">Messages</h5>
+
+    <!-- Tab bar -->
+    <div class="sidebar-tabs">
+      <button class="sidebar-tab" [class.sidebar-tab-active]="sidebarTab === 'chat'"
+              (click)="switchTab('chat')">
+        <i class="bi bi-chat-dots-fill"></i> Chats
+      </button>
+      <button class="sidebar-tab" [class.sidebar-tab-active]="sidebarTab === 'calls'"
+              (click)="switchTab('calls')">
+        <i class="bi bi-telephone-fill"></i> Calls
+      </button>
     </div>
 
-    <div class="contact-list">
-      @for (c of contacts; track c.user._id) {
-        <div class="contact-row"
-             [class.contact-selected]="selected && contactId(selected) === contactId(c)"
-             (click)="selectContact(c)">
+    <!-- ── Chats tab ── -->
+    @if (sidebarTab === 'chat') {
+      <div class="contact-list">
+        @for (c of contacts; track c.user._id) {
+          <div class="contact-row"
+               [class.contact-selected]="selected && contactId(selected) === contactId(c)"
+               [class.has-unread]="c.unreadCount > 0"
+               (click)="selectContact(c)">
 
-          <div class="contact-avatar-wrap">
-            @if (avatarUrl(c.user)) {
-              <img class="contact-avatar-img" [src]="avatarUrl(c.user)!" [alt]="c.user.username"
-                   (error)="onAvatarError(contactId(c))" />
-            } @else {
-              <span class="contact-avatar" [class]="'ca-' + roleClass(c.user.role)">
-                {{ c.user.username[0].toUpperCase() }}
-              </span>
-            }
-            @if (isOnline(contactId(c))) {
-              <span class="online-dot"></span>
-            }
-          </div>
-
-          <div class="contact-info">
-            <div class="contact-name">{{ c.user.username }}</div>
-            <div class="contact-preview">
-              @if (c.lastMessage) {
-                @if (c.lastMessage.type === 'image') {
-                  <i class="bi bi-image me-1"></i>Photo
-                } @else {
-                  {{ (c.lastMessage.content || '') | slice:0:32 }}{{ (c.lastMessage.content || '').length > 32 ? '…' : '' }}
-                }
+            <div class="contact-avatar-wrap">
+              @if (avatarUrl(c.user)) {
+                <img class="contact-avatar-img" [src]="avatarUrl(c.user)!" [alt]="c.user.username"
+                     (error)="onAvatarError(contactId(c))" />
               } @else {
-                <span class="text-muted">No messages yet</span>
+                <span class="contact-avatar" [class]="'ca-' + roleClass(c.user.role)">
+                  {{ c.user.username[0].toUpperCase() }}
+                </span>
+              }
+              @if (isOnline(contactId(c))) {
+                <span class="online-dot"></span>
+              }
+            </div>
+
+            <div class="contact-info">
+              <div class="contact-name">{{ c.user.username }}</div>
+              <div class="contact-preview">
+                @if (c.lastMessage) {
+                  @if (c.lastMessage.type === 'image') {
+                    <i class="bi bi-image me-1"></i>Photo
+                  } @else if (c.lastMessage.type === 'call') {
+                    <i class="bi me-1"
+                       [class.bi-telephone-fill]="c.lastMessage.callType === 'audio'"
+                       [class.bi-camera-video-fill]="c.lastMessage.callType === 'video'"></i>
+                    {{ callStatusLabel(c.lastMessage) }}
+                  } @else {
+                    {{ (c.lastMessage.content || '') | slice:0:32 }}{{ (c.lastMessage.content || '').length > 32 ? '…' : '' }}
+                  }
+                } @else {
+                  <span class="text-muted">No messages yet</span>
+                }
+              </div>
+            </div>
+
+            <div class="contact-meta">
+              @if (c.lastMessage) {
+                <div class="contact-time">{{ formatTime(c.lastMessage.createdAt) }}</div>
+              }
+              @if (c.unreadCount > 0) {
+                <span class="unread-badge">{{ c.unreadCount }}</span>
               }
             </div>
           </div>
+        }
+      </div>
+    }
 
-          <div class="contact-meta">
-            @if (c.lastMessage) {
-              <div class="contact-time">{{ formatTime(c.lastMessage.createdAt) }}</div>
-            }
-            @if (c.unreadCount > 0) {
-              <span class="unread-badge">{{ c.unreadCount }}</span>
-            }
+    <!-- ── Calls tab ── -->
+    @if (sidebarTab === 'calls') {
+      <div class="contact-list">
+        @if (callHistoryLoading) {
+          <div class="d-flex justify-content-center align-items-center p-4">
+            <span class="spinner-border spinner-border-sm text-primary"></span>
           </div>
-        </div>
-      }
-    </div>
+        } @else if (callHistory.length === 0) {
+          <div class="call-history-empty">
+            <i class="bi bi-telephone-x call-history-empty-icon"></i>
+            <p>No call history yet</p>
+          </div>
+        } @else {
+          @for (call of callHistory; track call._id) {
+            <div class="contact-row call-history-row" (click)="selectFromCallHistory(call)">
+
+              <!-- Avatar -->
+              <div class="contact-avatar-wrap">
+                @if (avatarUrl(callHistoryOther(call))) {
+                  <img class="contact-avatar-img"
+                       [src]="avatarUrl(callHistoryOther(call))!"
+                       [alt]="callHistoryOther(call).username"
+                       (error)="onAvatarError((callHistoryOther(call)._id ?? callHistoryOther(call).id)!)" />
+                } @else {
+                  <span class="contact-avatar" [class]="'ca-' + roleClass(callHistoryOther(call).role)">
+                    {{ callHistoryOther(call).username[0].toUpperCase() }}
+                  </span>
+                }
+                @if (isOnline((callHistoryOther(call)._id ?? callHistoryOther(call).id)!)) {
+                  <span class="online-dot"></span>
+                }
+              </div>
+
+              <!-- Info -->
+              <div class="contact-info">
+                <div class="contact-name">{{ callHistoryOther(call).username }}</div>
+                <div class="contact-preview call-history-sub"
+                     [class.call-missed]="call.callStatus === 'missed' || call.callStatus === 'rejected'">
+                  <i class="bi me-1" [class]="callDirectionIcon(call)"></i>
+                  {{ callStatusLabel(call) }}
+                  @if (call.callDuration) {
+                    &nbsp;· {{ formatDuration(call.callDuration) }}
+                  }
+                </div>
+              </div>
+
+              <!-- Meta -->
+              <div class="contact-meta">
+                <i class="bi call-type-icon"
+                   [class.bi-telephone-fill]="call.callType === 'audio'"
+                   [class.bi-camera-video-fill]="call.callType === 'video'"
+                   [class.text-danger]="call.callStatus === 'missed' || call.callStatus === 'rejected'"></i>
+                <div class="contact-time">{{ formatTime(call.createdAt) }}</div>
+              </div>
+
+            </div>
+          }
+        }
+      </div>
+    }
   </aside>
 
   <!-- ══ Message area ════════════════════════════════════════════ -->
@@ -69,27 +148,29 @@
           <button class="back-btn" (click)="backToContacts()" title="Back">
             <i class="bi bi-arrow-left"></i>
           </button>
-          <div class="contact-avatar-wrap">
-            @if (avatarUrl(selected.user)) {
-              <img class="contact-avatar-img" [src]="avatarUrl(selected.user)!" [alt]="selected.user.username"
-                   (error)="onAvatarError(contactId(selected))" />
-            } @else {
-              <span class="contact-avatar" [class]="'ca-' + roleClass(selected.user.role)">
-                {{ selected.user.username[0].toUpperCase() }}
-              </span>
-            }
-            @if (isOnline(contactId(selected))) {
-              <span class="online-dot"></span>
-            }
-          </div>
-          <div>
-            <div class="chat-header-name">{{ selected.user.username }}</div>
-            <div class="chat-header-status">
-              @if (isOnline(contactId(selected))) {
-                <span class="text-success" style="font-size:0.72rem"><i class="bi bi-circle-fill me-1" style="font-size:0.45rem"></i>Online</span>
+          <div class="header-contact-btn" (click)="showProfileCard = !showProfileCard" title="View profile">
+            <div class="contact-avatar-wrap">
+              @if (avatarUrl(selected.user)) {
+                <img class="contact-avatar-img" [src]="avatarUrl(selected.user)!" [alt]="selected.user.username"
+                     (error)="onAvatarError(contactId(selected))" />
               } @else {
-                <span class="text-muted" style="font-size:0.72rem">Offline</span>
+                <span class="contact-avatar" [class]="'ca-' + roleClass(selected.user.role)">
+                  {{ selected.user.username[0].toUpperCase() }}
+                </span>
               }
+              @if (isOnline(contactId(selected))) {
+                <span class="online-dot"></span>
+              }
+            </div>
+            <div>
+              <div class="chat-header-name">{{ selected.user.username }}</div>
+              <div class="chat-header-status">
+                @if (isOnline(contactId(selected))) {
+                  <span class="text-success" style="font-size:0.72rem"><i class="bi bi-circle-fill me-1" style="font-size:0.45rem"></i>Online</span>
+                } @else {
+                  <span class="text-muted" style="font-size:0.72rem">Offline</span>
+                }
+              </div>
             </div>
           </div>
         </div>
@@ -123,21 +204,107 @@
               </div>
             }
 
-            <div class="msg-row" [class.msg-row-mine]="isMine(msg)">
-              <div class="msg-bubble" [class.msg-mine]="isMine(msg)" [class.msg-theirs]="!isMine(msg)">
-                @if (msg.type === 'image' && msg.fileUrl) {
-                  <img class="msg-image" [src]="imageFullUrl(msg.fileUrl)"
-                       alt="Image" (click)="openImage(imageFullUrl(msg.fileUrl))" />
-                } @else {
-                  <span class="msg-text">{{ msg.content }}</span>
-                }
-                <span class="msg-time">{{ formatTime(msg.createdAt) }}</span>
+            @if (msg.type === 'call') {
+              <!-- Call event row -->
+              <div class="call-event-row" [class.call-event-mine]="isMine(msg)">
+                <div class="call-event-bubble"
+                     [class.call-missed-bubble]="msg.callStatus === 'missed' || msg.callStatus === 'rejected'">
+                  <i class="bi me-1"
+                     [class.bi-telephone-fill]="msg.callType === 'audio' && msg.callStatus === 'completed'"
+                     [class.bi-camera-video-fill]="msg.callType === 'video' && msg.callStatus === 'completed'"
+                     [class.bi-telephone-missed-fill]="msg.callStatus === 'missed'"
+                     [class.bi-telephone-x-fill]="msg.callStatus === 'rejected'"></i>
+                  <span class="call-event-label">{{ callStatusLabel(msg) }}</span>
+                  @if (msg.callDuration) {
+                    <span class="call-event-duration">· {{ formatDuration(msg.callDuration) }}</span>
+                  }
+                  <span class="call-event-time">{{ formatTime(msg.createdAt) }}</span>
+                </div>
               </div>
-            </div>
+            } @else {
+              <div class="msg-row" [class.msg-row-mine]="isMine(msg)">
+                <div class="msg-bubble" [class.msg-mine]="isMine(msg)" [class.msg-theirs]="!isMine(msg)">
+                  @if (msg.type === 'image' && msg.fileUrl) {
+                    <img class="msg-image" [src]="imageFullUrl(msg.fileUrl)"
+                         alt="Image" (click)="openImage(imageFullUrl(msg.fileUrl))" />
+                    <div class="msg-meta">
+                      <span class="msg-time">{{ formatTime(msg.createdAt) }}</span>
+                      @if (isMine(msg)) {
+                        @if (msg.read) {
+                          <i class="bi bi-check2-all msg-tick msg-seen"></i>
+                        } @else if (msg.delivered) {
+                          <i class="bi bi-check2-all msg-tick"></i>
+                        } @else {
+                          <i class="bi bi-check2 msg-tick"></i>
+                        }
+                      }
+                    </div>
+                  } @else {
+                    <div class="msg-body">
+                      <span class="msg-text">{{ msg.content }}</span>
+                      <span class="msg-meta">
+                        <span class="msg-time">{{ formatTime(msg.createdAt) }}</span>
+                        @if (isMine(msg)) {
+                          @if (msg.read) {
+                            <i class="bi bi-check2-all msg-tick msg-seen"></i>
+                          } @else if (msg.delivered) {
+                            <i class="bi bi-check2-all msg-tick"></i>
+                          } @else {
+                            <i class="bi bi-check2 msg-tick"></i>
+                          }
+                        }
+                      </span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
           }
           <div #msgEnd></div>
         }
       </div>
+
+      <!-- Profile card -->
+      @if (showProfileCard) {
+        <div class="profile-card-backdrop" (click)="showProfileCard = false"></div>
+        <div class="profile-card">
+          <button class="profile-card-close" (click)="showProfileCard = false">
+            <i class="bi bi-x-lg"></i>
+          </button>
+
+          <div class="profile-card-avatar-wrap">
+            @if (avatarUrl(selected.user)) {
+              <img class="profile-card-avatar-img" [src]="avatarUrl(selected.user)!" [alt]="selected.user.username"
+                   (error)="onAvatarError(contactId(selected))" />
+            } @else {
+              <span class="profile-card-avatar-init" [class]="'ca-' + roleClass(selected.user.role)">
+                {{ selected.user.username[0].toUpperCase() }}
+              </span>
+            }
+            <span class="profile-card-status-dot" [class.is-online]="isOnline(contactId(selected))"></span>
+          </div>
+
+          <div class="profile-card-name">{{ selected.user.username }}</div>
+
+          <span class="profile-card-role-badge" [class]="'role-' + roleClass(selected.user.role)">
+            <i class="bi me-1" [class]="'bi-' + roleIcon(selected.user.role)"></i>
+            {{ selected.user.role }}
+          </span>
+
+          <div class="profile-card-fields">
+            <div class="profile-card-field">
+              <span class="field-label"><i class="bi bi-envelope me-2"></i>Email</span>
+              <span class="field-value">{{ selected.user.email }}</span>
+            </div>
+            <div class="profile-card-field">
+              <span class="field-label"><i class="bi bi-circle-fill me-2" style="font-size:0.5rem"></i>Status</span>
+              <span class="field-value" [class.online-text]="isOnline(contactId(selected))">
+                {{ isOnline(contactId(selected)) ? 'Online now' : 'Offline' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      }
 
       <!-- Input -->
       <div class="chat-input-area">
@@ -256,10 +423,16 @@
         <div class="audio-status">
           @if (remoteMuted) {
             <i class="bi bi-mic-mute-fill me-1" style="color:#ef4444"></i>Muted
-          } @else {
-            Connected
           }
         </div>
+      </div>
+    }
+
+    <!-- Live call timer -->
+    @if (callState === 'in-call') {
+      <div class="call-timer-badge">
+        <i class="bi bi-circle-fill call-timer-dot"></i>
+        {{ formatCallTimer() }}
       </div>
     }
 

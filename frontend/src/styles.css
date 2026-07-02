@@ -1,6 +1,45 @@
-body {
-  background: #f4f6f9;
+/* ── Design tokens ── */
+:root {
+  --bg-page:       #f4f6f9;
+  --bg-card:       #ffffff;
+  --bg-card-alt:   #fafbfc;
+  --bg-input:      #f8fafc;
+  --bg-hover:      #f8fafc;
+  --bg-muted:      #f1f5f9;
+  --border:        #f1f5f9;
+  --border-strong: #e2e8f0;
+  --text-primary:  #0f172a;
+  --text-secondary:#1e293b;
+  --text-muted:    #64748b;
+  --text-dim:      #94a3b8;
+  --shadow-sm:     0 1px 4px rgba(0,0,0,.04);
+  --shadow-md:     0 4px 12px rgba(0,0,0,.08);
+  --shadow-lg:     0 8px 24px rgba(0,0,0,.1);
+  --chat-bg:              #efeae2;
+  --contact-selected-bg:  #eff6ff;
 }
+
+[data-theme="dark"] {
+  --bg-page:       #0d1117;
+  --bg-card:       #161b22;
+  --bg-card-alt:   #0d1117;
+  --bg-input:      #0d1117;
+  --bg-hover:      #1c2333;
+  --bg-muted:      #1c2333;
+  --border:        #21262d;
+  --border-strong: #30363d;
+  --text-primary:  #e6edf3;
+  --text-secondary:#c9d1d9;
+  --text-muted:    #8b949e;
+  --text-dim:      #6e7681;
+  --shadow-sm:     0 1px 4px rgba(0,0,0,.4);
+  --shadow-md:     0 4px 16px rgba(0,0,0,.5);
+  --shadow-lg:     0 8px 32px rgba(0,0,0,.6);
+  --chat-bg:              #0f172a;
+  --contact-selected-bg:  rgba(59,130,246,0.14);
+}
+
+body { background: var(--bg-page); }
 
 .page {
   padding: 24px;

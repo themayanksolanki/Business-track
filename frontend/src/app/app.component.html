@@ -65,8 +65,11 @@
 
         <!-- Desktop: user dropdown -->
         <div class="d-none d-lg-flex align-items-center gap-2">
-          <a routerLink="/chat" class="nav-link nav-pill" routerLinkActive="nav-pill-active">
+          <a routerLink="/chat" class="nav-link nav-pill chat-nav-link" routerLinkActive="nav-pill-active">
             <i class="bi bi-chat-dots me-2"></i>Chat
+            @if (chatSvc.totalUnread() > 0) {
+              <span class="chat-nav-badge">{{ chatSvc.totalUnread() > 99 ? '99+' : chatSvc.totalUnread() }}</span>
+            }
           </a>
           <div class="dropdown">
             <button class="btn user-menu-btn dropdown-toggle d-flex align-items-center gap-2"
@@ -109,8 +112,11 @@
 
         <!-- Mobile: chat + profile link -->
         <div class="d-lg-none px-0 pb-1">
-          <a routerLink="/chat" class="nav-link nav-pill d-flex align-items-center" routerLinkActive="nav-pill-active">
+          <a routerLink="/chat" class="nav-link nav-pill chat-nav-link d-flex align-items-center" routerLinkActive="nav-pill-active">
             <i class="bi bi-chat-dots me-2"></i>Chat
+            @if (chatSvc.totalUnread() > 0) {
+              <span class="chat-nav-badge">{{ chatSvc.totalUnread() > 99 ? '99+' : chatSvc.totalUnread() }}</span>
+            }
           </a>
           <a routerLink="/profile" class="nav-link nav-pill d-flex align-items-center" routerLinkActive="nav-pill-active">
             <i class="bi bi-person-circle me-2"></i>My Profile

@@ -1,19 +1,23 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
+import { guestGuard } from './core/guards/guest.guard';
 import { roleGuard } from './core/guards/role.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
   {
     path: 'login',
+    canActivate: [guestGuard],
     loadComponent: () => import('./pages/login/login.component').then((m) => m.LoginComponent),
   },
   {
     path: 'register',
+    canActivate: [guestGuard],
     loadComponent: () => import('./pages/register/register.component').then((m) => m.RegisterComponent),
   },
   {
     path: 'forgot-password',
+    canActivate: [guestGuard],
     loadComponent: () => import('./pages/forgot-password/forgot-password.component').then((m) => m.ForgotPasswordComponent),
   },
   {

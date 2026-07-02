@@ -11,7 +11,8 @@ export class ChatService {
   private readonly api = `${environment.apiUrl}/chat`;
 
   private readonly _contacts = signal<ContactData[]>([]);
-  readonly contacts = this._contacts.asReadonly();
+  readonly contacts    = this._contacts.asReadonly();
+  readonly totalUnread = signal(0);
 
   constructor(private http: HttpClient) {}
 
@@ -19,6 +20,16 @@ export class ChatService {
     if (this._contacts().length) return;
     this.http.get<ContactData[]>(`${this.api}/contacts`).subscribe({
       next: (c) => this._contacts.set(c),
+    });
+  }
+
+  fetchUnread() {
+    this.http.get<ContactData[]>(`${this.api}/contacts`).subscribe({
+      next: (contacts) => {
+        this._contacts.set(contacts);
+        this.totalUnread.set(contacts.reduce((sum, c) => sum + (c.unreadCount ?? 0), 0));
+      },
+      error: () => {},
     });
   }
 
@@ -30,6 +41,14 @@ export class ChatService {
 
   getMessages(userId: string) {
     return this.http.get<Message[]>(`${this.api}/messages/${userId}`);
+  }
+
+  getCallHistory() {
+    return this.http.get<Message[]>(`${this.api}/calls`);
+  }
+
+  getIceServers() {
+    return this.http.get<{ iceServers: RTCIceServer[] }>(`${this.api}/ice-servers`);
   }
 
   uploadImage(file: File) {

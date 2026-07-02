@@ -21,7 +21,7 @@
 .user-row td {
   padding-top: 14px;
   padding-bottom: 14px;
-  border-color: #f1f5f9;
+  border-color: var(--border);
 }
 
 .user-row:last-child td {
@@ -30,12 +30,12 @@
 
 .user-name {
   font-size: 0.9rem;
-  color: #1e293b;
+  color: var(--text-secondary);
 }
 
 .user-email {
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 /* ── Avatar ── */
@@ -71,8 +71,8 @@
 
 /* ── Footer ── */
 .table-footer {
-  background: #fafbfc;
-  border-top: 1px solid #f1f5f9;
+  background: var(--bg-card-alt);
+  border-top: 1px solid var(--border);
 }
 
 /* ── Empty state ── */
@@ -172,7 +172,7 @@
 
 /* ── Password modal card ── */
 .pass-card {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 16px;
   padding: 32px 28px 24px;
   width: 100%;
@@ -205,13 +205,13 @@
 .pass-title {
   font-size: 1rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
   margin-bottom: 6px;
 }
 
 .pass-subtitle {
   font-size: 0.855rem;
-  color: #64748b;
+  color: var(--text-muted);
   line-height: 1.55;
   margin-bottom: 20px;
 }
@@ -223,7 +223,7 @@
   display: block;
   font-size: 0.78rem;
   font-weight: 600;
-  color: #475569;
+  color: var(--text-muted);
   margin-bottom: 6px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -238,11 +238,12 @@
 .pass-input {
   flex: 1;
   height: 42px;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid var(--border-strong);
   border-radius: 10px;
   padding: 0 42px 0 14px;
   font-size: 0.9rem;
-  color: #1e293b;
+  color: var(--text-primary);
+  background: var(--bg-input);
   outline: none;
   transition: border-color 0.15s;
 }
@@ -290,12 +291,12 @@
 .pass-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .pass-btn-cancel {
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  border: 1px solid var(--border-strong);
 }
 
-.pass-btn-cancel:hover:not(:disabled) { background: #e2e8f0; }
+.pass-btn-cancel:hover:not(:disabled) { background: var(--border-strong); }
 
 .pass-btn-confirm {
   background: #1d4ed8;

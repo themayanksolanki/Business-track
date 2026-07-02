@@ -10,10 +10,6 @@ import { SocketService, IncomingCall } from '../../core/services/socket.service'
 import { ContactData, Message } from '../../models/message.model';
 import { User } from '../../models/user.model';
 
-const ICE_SERVERS = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-];
 
 @Component({
   selector: 'app-chat',
@@ -36,9 +32,15 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   onlineUsers = new Set<string>();
   messagesLoading = false;
-  imageUploading = false;
-  callNotice = '';
-  mobileShowChat = false;
+  imageUploading  = false;
+  callNotice      = '';
+  mobileShowChat  = false;
+  showProfileCard = false;
+
+  // ── Sidebar tabs ──────────────────────────────────────────────
+  sidebarTab: 'chat' | 'calls' = 'chat';
+  callHistory: Message[] = [];
+  callHistoryLoading = false;
 
   // ── Emoji picker ──────────────────────────────────────────────
   showEmojiPicker = false;
@@ -77,16 +79,24 @@ export class ChatComponent implements OnInit, OnDestroy {
   callWith:  string | null = null;
   incomingCall: IncomingCall | null = null;
 
+  private callId:     string | null = null;
+  private iceServers: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
+
   isMuted      = false;
   isCamOff     = false;
   remoteMuted  = false;
+
+  // ── Call timer ────────────────────────────────────────────────
+  callElapsed = 0;
+  private callTimerInterval: any = null;
+  private callStartTime: number | null = null;
 
   private localStream:  MediaStream | null = null;
   private remoteStream: MediaStream | null = null;
   private pc: RTCPeerConnection | null = null;
   private pendingCandidates: RTCIceCandidateInit[] = [];
   private remoteDescSet = false;
-  private pendingOffer: { from: string; offer: RTCSessionDescriptionInit } | null = null;
+  private pendingOffer: { from: string; offer: RTCSessionDescriptionInit; callId: string } | null = null;
   private callTimeout: any;
 
   private readonly ringAudio     = Object.assign(new Audio('/assets/ring.mp3'),     { loop: true, preload: 'auto' });
@@ -108,6 +118,9 @@ export class ChatComponent implements OnInit, OnDestroy {
     const token = this.auth.getToken();
     if (token) this.socketSvc.connect(token);
 
+    this.chatSvc.getIceServers().subscribe({
+      next: ({ iceServers }) => { this.iceServers = iceServers; },
+    });
     this.loadContacts();
     this.subscribeToSocket();
   }
@@ -135,12 +148,44 @@ export class ChatComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ── Sidebar tabs ──────────────────────────────────────────────
+  switchTab(tab: 'chat' | 'calls') {
+    this.sidebarTab = tab;
+    if (tab === 'calls' && this.callHistory.length === 0) {
+      this.loadCallHistory();
+    }
+  }
+
+  loadCallHistory() {
+    this.callHistoryLoading = true;
+    this.chatSvc.getCallHistory().subscribe({
+      next:  (calls) => { this.callHistory = calls; this.callHistoryLoading = false; },
+      error: ()      => { this.callHistoryLoading = false; },
+    });
+  }
+
+  selectFromCallHistory(call: Message) {
+    const other = this.isMine(call) ? call.receiver : call.sender;
+    const otherId = (other._id ?? (other as any).id) as string;
+    const contact = this.contacts.find((c) => this.contactId(c) === otherId);
+    if (contact) {
+      this.sidebarTab = 'chat';
+      this.selectContact(contact);
+    }
+  }
+
   // ── Contacts ──────────────────────────────────────────────────
   loadContacts() {
     const cached = this.chatSvc.contacts();
-    if (cached.length) this.contacts = cached;
+    if (cached.length) {
+      this.contacts = cached;
+      this.chatSvc.totalUnread.set(cached.reduce((s, c) => s + (c.unreadCount || 0), 0));
+    }
     this.chatSvc.getContacts().subscribe({
-      next: (c) => (this.contacts = c),
+      next: (c) => {
+        this.contacts = c;
+        this.chatSvc.totalUnread.set(c.reduce((s, c) => s + (c.unreadCount || 0), 0));
+      },
     });
   }
 
@@ -150,10 +195,13 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   selectContact(c: ContactData) {
     this.selected = c;
-    this.mobileShowChat = true;
+    this.mobileShowChat  = true;
+    this.showProfileCard = false;
+    this.chatSvc.totalUnread.update(n => Math.max(0, n - (c.unreadCount || 0)));
     c.unreadCount = 0;
     this.messagesLoading = true;
     const uid = (c.user._id ?? c.user.id) as string;
+    this.socketSvc.markSeen(uid);
     this.chatSvc.getMessages(uid).subscribe({
       next: (msgs) => {
         this.messages = msgs;
@@ -265,14 +313,40 @@ export class ChatComponent implements OnInit, OnDestroy {
         const senderId = msg.sender?._id ?? (msg.sender as any)?.id;
         if (this.selected && senderId === this.contactId(this.selected)) {
           this.messages.push(msg);
+          this.socketSvc.markSeen(senderId);
           this.scrollToBottom();
         } else {
           const c = this.contacts.find((c) => this.contactId(c) === senderId);
           if (c) {
             c.unreadCount++;
             c.lastMessage = msg;
+            this.chatSvc.totalUnread.update(n => n + 1);
           }
         }
+        this.cdr.detectChanges();
+      })
+    );
+
+    this.subs.add(
+      this.socketSvc.messageDelivered$.subscribe(({ by }) => {
+        this.messages.forEach((m) => {
+          if (this.isMine(m) && !m.delivered) {
+            const receiverId = m.receiver?._id ?? (m.receiver as any)?.id;
+            if (receiverId === by) m.delivered = true;
+          }
+        });
+        this.cdr.detectChanges();
+      })
+    );
+
+    this.subs.add(
+      this.socketSvc.messageSeen$.subscribe(({ by }) => {
+        this.messages.forEach((m) => {
+          if (this.isMine(m)) {
+            const receiverId = m.receiver?._id ?? (m.receiver as any)?.id;
+            if (receiverId === by) { m.delivered = true; m.read = true; }
+          }
+        });
         this.cdr.detectChanges();
       })
     );
@@ -297,6 +371,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     );
 
     // Call events
+    this.subs.add(this.socketSvc.callSession$.subscribe(({ callId }) => { this.callId = callId; }));
     this.subs.add(this.socketSvc.callIncoming$.subscribe((d) => this.onCallIncoming(d)));
     this.subs.add(this.socketSvc.callAccepted$.subscribe(() => this.onCallAccepted()));
     this.subs.add(this.socketSvc.callRejected$.subscribe(() => this.onCallRejected()));
@@ -306,6 +381,47 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.subs.add(this.socketSvc.callAnswer$.subscribe((d) => this.onCallAnswer(d)));
     this.subs.add(this.socketSvc.iceCandidate$.subscribe((d) => this.onIceCandidate(d)));
     this.subs.add(this.socketSvc.remoteMuted$.subscribe((m) => { this.remoteMuted = m; this.cdr.detectChanges(); }));
+
+    // Call log — push into current conversation and call history
+    this.subs.add(
+      this.socketSvc.callLogged$.subscribe((msg) => {
+        const otherId = this.isMine(msg)
+          ? ((msg.receiver?._id ?? (msg.receiver as any)?.id) as string)
+          : ((msg.sender?._id  ?? (msg.sender  as any)?.id)  as string);
+        if (this.selected && this.contactId(this.selected) === otherId) {
+          this.messages.push(msg);
+          this.scrollToBottom();
+        }
+        if (this.sidebarTab === 'calls') {
+          this.callHistory.unshift(msg);
+        }
+        this.cdr.detectChanges();
+      })
+    );
+  }
+
+  // ── Call timer ────────────────────────────────────────────────
+  private startCallTimer() {
+    this.stopCallTimer();
+    this.callElapsed   = 0;
+    this.callStartTime = Date.now();
+    this.callTimerInterval = setInterval(() => {
+      this.callElapsed = Math.floor((Date.now() - this.callStartTime!) / 1000);
+      this.cdr.detectChanges();
+    }, 1000);
+  }
+
+  private stopCallTimer() {
+    clearInterval(this.callTimerInterval);
+    this.callTimerInterval = null;
+    this.callElapsed   = 0;
+    this.callStartTime = null;
+  }
+
+  formatCallTimer(): string {
+    const m   = Math.floor(this.callElapsed / 60);
+    const sec = this.callElapsed % 60;
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   }
 
   // ── Initiate call ─────────────────────────────────────────────
@@ -339,14 +455,14 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   cancelCall() {
-    if (this.callWith) this.socketSvc.endCall(this.callWith);
+    if (this.callId) this.socketSvc.endCall(this.callId);
     this.cleanupCall();
   }
 
   // ── Incoming call ─────────────────────────────────────────────
   private onCallIncoming(data: IncomingCall) {
     if (this.callState !== 'idle') {
-      this.socketSvc.rejectCall(data.from);
+      this.socketSvc.rejectCall(data.callId);
       return;
     }
     this.incomingCall = data;
@@ -357,11 +473,13 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   async acceptCall() {
     if (!this.incomingCall) return;
+    this.callId    = this.incomingCall.callId;
     this.callWith  = this.incomingCall.from;
     this.callType  = this.incomingCall.callType;
     this.incomingCall = null;
     this.callState = 'in-call';
     this.stopAllAudio();
+    this.startCallTimer();
     this.cdr.detectChanges();
 
     try {
@@ -371,30 +489,30 @@ export class ChatComponent implements OnInit, OnDestroy {
       });
       this.createPeerConnection();
       this.attachLocal();
-      this.socketSvc.acceptCall(this.callWith);
+      this.socketSvc.acceptCall(this.callId);
 
       if (this.pendingOffer) {
         const offer = this.pendingOffer;
         this.pendingOffer = null;
         await this.answerOffer(offer);
       }
-    } catch (err) {
-      const caller = this.callWith;
-      if (caller) this.socketSvc.rejectCall(caller);
+    } catch {
+      const cid = this.callId;
+      if (cid) this.socketSvc.rejectCall(cid);
       this.cleanupCall();
       this.showCallNotice('Could not access your camera or microphone.');
     }
   }
 
   rejectCall() {
-    if (this.incomingCall) this.socketSvc.rejectCall(this.incomingCall.from);
+    if (this.incomingCall) this.socketSvc.rejectCall(this.incomingCall.callId);
     this.incomingCall = null;
     this.callState = 'idle';
     this.stopAllAudio();
   }
 
   endCall() {
-    if (this.callWith) this.socketSvc.endCall(this.callWith);
+    if (this.callId) this.socketSvc.endCall(this.callId);
     this.cleanupCall();
   }
 
@@ -403,12 +521,13 @@ export class ChatComponent implements OnInit, OnDestroy {
     clearTimeout(this.callTimeout);
     this.callState = 'in-call';
     this.stopAllAudio();
+    this.startCallTimer();
     this.cdr.detectChanges();
     this.attachLocal();
-    if (!this.pc || !this.callWith) return;
+    if (!this.pc || !this.callId) return;
     const offer = await this.pc.createOffer();
     await this.pc.setLocalDescription(offer);
-    this.socketSvc.sendOffer(this.callWith, offer);
+    this.socketSvc.sendOffer(this.callId, offer);
     this.cdr.detectChanges();
   }
 
@@ -431,7 +550,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
-  private async onCallOffer(data: { from: string; offer: RTCSessionDescriptionInit }) {
+  private async onCallOffer(data: { from: string; offer: RTCSessionDescriptionInit; callId: string }) {
     if (!this.pc) {
       this.pendingOffer = data;
       return;
@@ -440,7 +559,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     await this.answerOffer(data);
   }
 
-  private async answerOffer(data: { from: string; offer: RTCSessionDescriptionInit }) {
+  private async answerOffer(data: { from: string; offer: RTCSessionDescriptionInit; callId: string }) {
     if (!this.pc) {
       this.pendingOffer = data;
       return;
@@ -450,7 +569,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     await this.processPendingCandidates();
     const answer = await this.pc.createAnswer();
     await this.pc.setLocalDescription(answer);
-    this.socketSvc.sendAnswer(this.callWith ?? data.from, answer);
+    this.socketSvc.sendAnswer(data.callId, answer);
   }
 
   private async onCallAnswer(data: { answer: RTCSessionDescriptionInit }) {
@@ -479,14 +598,14 @@ export class ChatComponent implements OnInit, OnDestroy {
   private createPeerConnection() {
     this.pc?.close();
     this.remoteDescSet = false;
-    this.pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    this.pc = new RTCPeerConnection({ iceServers: this.iceServers });
 
     const pc = this.pc;
     this.localStream?.getTracks().forEach((track) => pc.addTrack(track, this.localStream!));
 
     pc.onicecandidate = (e) => {
-      if (e.candidate && this.callWith) {
-        this.socketSvc.sendIceCandidate(this.callWith, e.candidate);
+      if (e.candidate && this.callId) {
+        this.socketSvc.sendIceCandidate(this.callId, e.candidate);
       }
     };
 
@@ -529,6 +648,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   private cleanupCall() {
     clearTimeout(this.callTimeout);
+    this.stopCallTimer();
     this.stopAllAudio();
     this.localStream?.getTracks().forEach((t) => t.stop());
     this.pc?.close();
@@ -539,6 +659,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.remoteDescSet = false;
     this.pendingOffer = null;
     this.callState    = 'idle';
+    this.callId       = null;
     this.callWith     = null;
     this.incomingCall = null;
     this.isMuted      = false;
@@ -555,7 +676,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   toggleMute() {
     this.isMuted = !this.isMuted;
     this.localStream?.getAudioTracks().forEach((t) => (t.enabled = !this.isMuted));
-    if (this.callWith) this.socketSvc.sendMuteState(this.callWith, this.isMuted);
+    if (this.callId) this.socketSvc.sendMuteState(this.callId, this.isMuted);
   }
 
   toggleCamera() {
@@ -578,11 +699,39 @@ export class ChatComponent implements OnInit, OnDestroy {
     return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
   }
 
+  formatDuration(seconds: number): string {
+    if (!seconds || seconds <= 0) return '';
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  }
+
   showDateSeparator(messages: Message[], index: number): boolean {
     if (index === 0) return true;
     const prev = new Date(messages[index - 1].createdAt).toDateString();
     const curr = new Date(messages[index].createdAt).toDateString();
     return prev !== curr;
+  }
+
+  callStatusLabel(msg: Message): string {
+    const mine = this.isMine(msg);
+    switch (msg.callStatus) {
+      case 'completed': return mine ? 'Outgoing call' : 'Incoming call';
+      case 'missed':    return mine ? 'No answer'     : 'Missed call';
+      case 'rejected':  return mine ? 'Call declined' : 'Declined';
+      default:          return 'Call';
+    }
+  }
+
+  callDirectionIcon(msg: Message): string {
+    if (msg.callStatus === 'missed' || msg.callStatus === 'rejected') {
+      return 'bi-telephone-missed-fill';
+    }
+    return this.isMine(msg) ? 'bi-arrow-up-right' : 'bi-arrow-down-left';
+  }
+
+  callHistoryOther(msg: Message): User {
+    return this.isMine(msg) ? msg.receiver : msg.sender;
   }
 
   roleIcon(role: string): string {

@@ -4,7 +4,7 @@
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: var(--text-dim);
   margin: 0;
 }
 
@@ -48,20 +48,20 @@
 
 /* ── Stat cards ── */
 .stat-card {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 12px;
-  border: 1px solid #f1f5f9;
+  border: 1px solid var(--border);
   padding: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  box-shadow: var(--shadow-sm);
   transition: transform 0.15s, box-shadow 0.15s;
 }
 
 .stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,.08);
+  box-shadow: var(--shadow-md);
 }
 
 .stat-icon-wrap {
@@ -87,13 +87,13 @@
 .stat-number {
   font-size: 1.7rem;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-primary);
   line-height: 1;
 }
 
 .stat-label {
   font-size: 0.78rem;
-  color: #64748b;
+  color: var(--text-muted);
   margin-top: 4px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -102,7 +102,7 @@
 
 /* ── Progress card ── */
 .progress-card {
-  border: 1px solid #f1f5f9;
+  border: 1px solid var(--border);
   border-radius: 12px;
 }
 
@@ -113,12 +113,12 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
   border-radius: 12px;
   padding: 20px 12px;
   text-decoration: none;
-  color: #334155;
+  color: var(--text-secondary);
   font-size: 0.82rem;
   font-weight: 600;
   transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
@@ -146,4 +146,3 @@
 .action-create { background: #f0fdf4; color: #16a34a; }
 .action-users  { background: #faf5ff; color: #7c3aed; }
 .action-team   { background: #fff7ed; color: #d97706; }
-

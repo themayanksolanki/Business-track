@@ -119,24 +119,26 @@ main {
 /* ── User dropdown ── */
 .user-dropdown {
   min-width: 200px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
   padding: 4px 0;
   margin-top: 6px;
+  background: var(--bg-card);
 }
 
 .user-dropdown .dropdown-header {
-  color: #1e293b;
+  color: var(--text-secondary);
 }
 
 .user-dropdown .dropdown-item {
   font-size: 0.875rem;
   padding: 8px 16px;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 .user-dropdown .dropdown-item:hover {
-  background: #f8fafc;
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .user-dropdown .dropdown-item.text-danger:hover {
@@ -213,4 +215,27 @@ main {
     background: rgba(239, 68, 68, 0.2);
     color: #fca5a5;
   }
+}
+
+/* ── Chat nav badge ── */
+.chat-nav-link { position: relative; }
+.chat-nav-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  animation: badge-pop 0.2s ease;
+}
+@keyframes badge-pop {
+  from { transform: scale(0.5); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
 }

@@ -2,13 +2,46 @@
 .page-title {
   font-size: 1.4rem;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .page-sub {
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--text-muted);
   margin: 2px 0 0;
+}
+
+/* ── Tab navigation ── */
+.profile-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-strong);
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.profile-tab {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  border-radius: 4px 4px 0 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.profile-tab:hover { color: var(--text-secondary); }
+
+.profile-tab.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+  font-weight: 600;
 }
 
 /* ── Section label ── */
@@ -17,17 +50,17 @@
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: var(--text-dim);
 }
 
-/* ── Profile card ── */
+/* ── Profile card (identity panel — always dark gradient) ── */
 .profile-card {
   background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
   border-radius: 16px;
   padding: 32px 24px 28px;
 }
 
-/* ── Avatar area: stacks avatar + delete icon centered ── */
+/* ── Avatar area ── */
 .avatar-area {
   display: flex;
   flex-direction: column;
@@ -35,7 +68,6 @@
   gap: 8px;
 }
 
-/* ── Avatar wrapper (clickable, shows camera overlay on hover) ── */
 .avatar-wrap {
   position: relative;
   display: inline-block;
@@ -165,22 +197,16 @@
   color: #64748b;
 }
 
-.meta-label {
-  color: #64748b;
-}
-
-.meta-value {
-  color: #94a3b8;
-  font-weight: 500;
-}
+.meta-label { color: #64748b; }
+.meta-value { color: #94a3b8; font-weight: 500; }
 
 /* ── Info / detail cards ── */
 .info-card {
-  background: #fff;
-  border: 1px solid #f1f5f9;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 20px 22px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-sm);
 }
 
 .info-card-title {
@@ -188,7 +214,7 @@
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: var(--text-dim);
 }
 
 /* ── Reports to rows ── */
@@ -215,30 +241,30 @@
 .reports-name {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--text-secondary);
 }
 
 .reports-role {
   font-size: 0.72rem;
-  color: #94a3b8;
+  color: var(--text-dim);
 }
 
 /* ── Stat cards ── */
 .stat-card {
-  background: #fff;
-  border: 1px solid #f1f5f9;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 18px 20px;
   display: flex;
   align-items: center;
   gap: 14px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-sm);
   transition: transform 0.15s, box-shadow 0.15s;
 }
 
 .stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-md);
 }
 
 .stat-icon {
@@ -259,13 +285,13 @@
 .stat-number {
   font-size: 1.6rem;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-primary);
   line-height: 1;
 }
 
 .stat-label {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 500;
@@ -282,7 +308,7 @@
 
 .detail-label {
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
 }
@@ -290,10 +316,106 @@
 .detail-value {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--text-secondary);
 }
 
 .detail-divider {
   height: 1px;
-  background: #f1f5f9;
+  background: var(--border);
+}
+
+/* ── Appearance tab ── */
+.appear-desc {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.theme-opt {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  border: 2px solid var(--border-strong);
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  text-align: left;
+}
+
+.theme-opt:hover { border-color: #94a3b8; }
+
+.theme-opt-active {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+.theme-preview-box {
+  border-radius: 8px;
+  overflow: hidden;
+  height: 90px;
+  display: flex;
+  flex-direction: column;
+}
+
+.theme-light {
+  background: #f4f6f9;
+  border: 1px solid #e2e8f0;
+}
+
+.theme-dark {
+  background: #0d1117;
+  border: 1px solid #21262d;
+}
+
+.tp-topbar {
+  height: 16px;
+  background: #0f172a;
+  flex-shrink: 0;
+}
+
+.theme-light .tp-topbar { background: #0f172a; }
+.theme-dark  .tp-topbar { background: #010409; }
+
+.tp-content {
+  flex: 1;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tp-card {
+  border-radius: 4px;
+  height: 18px;
+}
+
+.theme-light .tp-card { background: #ffffff; border: 1px solid #e2e8f0; }
+.theme-dark  .tp-card { background: #161b22; border: 1px solid #21262d; }
+
+.tp-card-sm { height: 12px; width: 70%; }
+
+.theme-opt-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.theme-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 0.9rem;
+  color: #3b82f6;
 }

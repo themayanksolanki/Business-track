@@ -101,6 +101,10 @@ export class AuthService {
     });
   }
 
+  hasLocalSession(): boolean {
+    return !!localStorage.getItem(this.USER_KEY);
+  }
+
   isLoggedIn(): boolean {
     return !!this.accessToken();
   }
