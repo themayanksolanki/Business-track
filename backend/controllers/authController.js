@@ -93,6 +93,7 @@ export const register = async (req, res, next) => {
     res.status(201).json({
       message: 'User registered successfully',
       token: accessToken,
+      refreshToken,
       user: {
         id: user._id,
         username: user.username,
@@ -128,6 +129,7 @@ export const login = async (req, res, next) => {
     res.status(200).json({
       message: 'Login successful',
       token: accessToken,
+      refreshToken,
       user: {
         id: user._id,
         username: user.username,
@@ -144,7 +146,10 @@ export const login = async (req, res, next) => {
 
 export const refresh = async (req, res, next) => {
   try {
-    const token = req.cookies.refreshToken;
+    // Prefer the httpOnly cookie (same-site deployments); fall back to a
+    // client-stored refresh token (needed cross-site, since mobile Safari/
+    // Chrome block third-party cookies regardless of SameSite=None).
+    const token = req.cookies.refreshToken || req.body?.refreshToken;
     if (!token) return next(new AppError('No refresh token', 401));
 
     const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);

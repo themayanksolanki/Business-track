@@ -11,6 +11,7 @@ export interface RegisterResponse {
   message: string;
   pending?: boolean;
   token?: string;
+  refreshToken?: string;
   user?: User;
 }
 
@@ -18,6 +19,7 @@ export interface RegisterResponse {
 export class AuthService {
   private readonly api = `${environment.apiUrl}/auth`;
   private readonly USER_KEY = 'user';
+  private readonly REFRESH_KEY = 'refreshToken';
   private readonly CREDS = { withCredentials: true };
 
   private accessToken = signal<string | null>(null);
@@ -51,8 +53,9 @@ export class AuthService {
   }
 
   refresh() {
+    const refreshToken = this.getRefreshToken();
     return this.http
-      .post<AuthResponse>(`${this.api}/refresh`, {}, this.CREDS)
+      .post<AuthResponse>(`${this.api}/refresh`, { refreshToken }, this.CREDS)
       .pipe(tap((res) => this.persist(res)));
   }
 
@@ -113,6 +116,10 @@ export class AuthService {
     return this.accessToken();
   }
 
+  getRefreshToken(): string | null {
+    return localStorage.getItem(this.REFRESH_KEY);
+  }
+
   getUser(): User | null {
     return this.currentUser();
   }
@@ -120,12 +127,14 @@ export class AuthService {
   private persist(res: AuthResponse) {
     this.accessToken.set(res.token);
     localStorage.setItem(this.USER_KEY, JSON.stringify(res.user));
+    if (res.refreshToken) localStorage.setItem(this.REFRESH_KEY, res.refreshToken);
     this.currentUser.set(res.user);
   }
 
   clearSession() {
     this.accessToken.set(null);
     localStorage.removeItem(this.USER_KEY);
+    localStorage.removeItem(this.REFRESH_KEY);
     this.currentUser.set(null);
     this.router.navigate(['/login']);
   }
@@ -133,6 +142,7 @@ export class AuthService {
   clearSessionSilent() {
     this.accessToken.set(null);
     localStorage.removeItem(this.USER_KEY);
+    localStorage.removeItem(this.REFRESH_KEY);
     this.currentUser.set(null);
   }
 
