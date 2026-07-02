@@ -2,6 +2,15 @@ import { Server } from 'socket.io';
 import { randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
 import Message from './models/Message.js';
+import User from './models/User.js';
+
+const REPLY_POPULATE = {
+  path: 'replyTo',
+  select: 'content type sender',
+  populate: { path: 'sender', select: 'username' },
+};
+
+const DELETE_FOR_ALL_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 const onlineUsers  = new Map(); // userId  → Set<socketId>
 const activeCalls  = new Map(); // callId  → { caller, callee, callType, state }
@@ -85,18 +94,32 @@ export function setupSocket(server) {
     } catch { /* non-critical */ }
 
     // ── Chat messages ──────────────────────────────────────────────
-    socket.on('message:send', async ({ to, content, type, fileUrl }) => {
+    socket.on('message:send', async ({ to, content, type, fileUrl, replyTo }) => {
       try {
+        const [me, recipient] = await Promise.all([
+          User.findById(userId).select('blockedUsers'),
+          User.findById(to).select('blockedUsers'),
+        ]);
+        const blocked =
+          me?.blockedUsers?.some((id) => id.toString() === to) ||
+          recipient?.blockedUsers?.some((id) => id.toString() === userId);
+        if (blocked) {
+          socket.emit('message:error', 'You cannot message this user.');
+          return;
+        }
+
         const msg = await Message.create({
           sender: userId,
           receiver: to,
           content: content || '',
           type: type || 'text',
           fileUrl: fileUrl || null,
+          replyTo: replyTo || null,
         });
         const populated = await msg.populate([
           { path: 'sender', select: 'username profileImage' },
           { path: 'receiver', select: 'username profileImage' },
+          REPLY_POPULATE,
         ]);
 
         socket.emit('message:sent', populated);
@@ -107,6 +130,72 @@ export function setupSocket(server) {
           await Message.findByIdAndUpdate(msg._id, { delivered: true });
           emitToUser(userId, 'message:delivered', { by: to });
         }
+      } catch (err) {
+        socket.emit('message:error', err.message);
+      }
+    });
+
+    socket.on('message:edit', async ({ messageId, content }) => {
+      try {
+        const msg = await Message.findById(messageId);
+        if (!msg || msg.sender.toString() !== userId || msg.type !== 'text' || msg.isDeleted) return;
+        msg.content = content || '';
+        msg.isEdited = true;
+        msg.editedAt = new Date();
+        await msg.save();
+        const populated = await msg.populate([
+          { path: 'sender', select: 'username profileImage' },
+          { path: 'receiver', select: 'username profileImage' },
+          REPLY_POPULATE,
+        ]);
+        emitToUser(msg.sender.toString(), 'message:edited', populated);
+        emitToUser(msg.receiver.toString(), 'message:edited', populated);
+      } catch (err) {
+        socket.emit('message:error', err.message);
+      }
+    });
+
+    socket.on('message:delete', async ({ messageId, forAll }) => {
+      try {
+        const msg = await Message.findById(messageId);
+        if (!msg) return;
+        const isSender = msg.sender.toString() === userId;
+        const isReceiver = msg.receiver.toString() === userId;
+        if (!isSender && !isReceiver) return;
+
+        if (forAll) {
+          if (!isSender) return;
+          if (Date.now() - msg.createdAt.getTime() > DELETE_FOR_ALL_WINDOW_MS) {
+            socket.emit('message:error', 'Delete for everyone is only available within 2 hours of sending.');
+            return;
+          }
+          msg.isDeleted = true;
+          msg.content = '';
+          msg.fileUrl = null;
+          await msg.save();
+          emitToUser(msg.sender.toString(), 'message:deleted', { messageId, forAll: true });
+          emitToUser(msg.receiver.toString(), 'message:deleted', { messageId, forAll: true });
+        } else {
+          if (!msg.deletedFor.some((id) => id.toString() === userId)) {
+            msg.deletedFor.push(userId);
+            await msg.save();
+          }
+          socket.emit('message:deleted', { messageId, forAll: false });
+        }
+      } catch (err) {
+        socket.emit('message:error', err.message);
+      }
+    });
+
+    socket.on('message:pin', async ({ messageId, pinned }) => {
+      try {
+        const msg = await Message.findById(messageId);
+        if (!msg) return;
+        if (![msg.sender.toString(), msg.receiver.toString()].includes(userId)) return;
+        msg.isPinned = !!pinned;
+        await msg.save();
+        emitToUser(msg.sender.toString(), 'message:pinned', { messageId, pinned: msg.isPinned });
+        emitToUser(msg.receiver.toString(), 'message:pinned', { messageId, pinned: msg.isPinned });
       } catch (err) {
         socket.emit('message:error', err.message);
       }

@@ -57,6 +57,18 @@ export class ChatService {
     return this.http.post<{ url: string }>(`${this.api}/upload`, form);
   }
 
+  clearChat(userId: string) {
+    return this.http.delete<{ success: boolean }>(`${this.api}/clear/${userId}`);
+  }
+
+  toggleBlock(userId: string) {
+    return this.http.post<{ blocked: boolean }>(`${this.api}/block/${userId}`, {});
+  }
+
+  toggleMute(userId: string) {
+    return this.http.post<{ muted: boolean }>(`${this.api}/mute/${userId}`, {});
+  }
+
   fileUrl(path: string): string {
     if (path.startsWith('http')) return path; // Cloudinary URL — use as-is
     return `${BASE}${path}`; // legacy relative path

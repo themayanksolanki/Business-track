@@ -12,6 +12,12 @@ const messageSchema = new mongoose.Schema(
     callType:     { type: String, enum: ['audio', 'video'], default: null },
     callStatus:   { type: String, enum: ['completed', 'missed', 'rejected'], default: null },
     callDuration: { type: Number, default: null },
+    isPinned:     { type: Boolean, default: false },
+    isEdited:     { type: Boolean, default: false },
+    editedAt:     { type: Date, default: null },
+    isDeleted:    { type: Boolean, default: false },
+    deletedFor:   [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    replyTo:      { type: mongoose.Schema.Types.ObjectId, ref: 'Message', default: null },
   },
   { timestamps: true }
 );

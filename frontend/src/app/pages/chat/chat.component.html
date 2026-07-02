@@ -17,12 +17,30 @@
 
     <!-- ── Chats tab ── -->
     @if (sidebarTab === 'chat') {
+      <div class="contact-search-wrap">
+        <i class="bi bi-search contact-search-icon"></i>
+        <input type="text" class="contact-search-input" placeholder="Search contacts"
+               [(ngModel)]="contactSearchQuery" />
+        @if (contactSearchQuery) {
+          <button class="contact-search-clear" (click)="contactSearchQuery = ''" title="Clear">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        }
+      </div>
+
       <div class="contact-list">
-        @for (c of contacts; track c.user._id) {
+        @if (filteredContacts.length === 0) {
+          <div class="call-history-empty">
+            <i class="bi bi-search call-history-empty-icon"></i>
+            <p>No contacts found</p>
+          </div>
+        }
+        @for (c of filteredContacts; track c.user._id) {
           <div class="contact-row"
                [class.contact-selected]="selected && contactId(selected) === contactId(c)"
                [class.has-unread]="c.unreadCount > 0"
-               (click)="selectContact(c)">
+               (click)="selectContact(c)"
+               (contextmenu)="openContactMenu($event, c)">
 
             <div class="contact-avatar-wrap">
               @if (avatarUrl(c.user)) {
@@ -39,7 +57,12 @@
             </div>
 
             <div class="contact-info">
-              <div class="contact-name">{{ c.user.username }}</div>
+              <div class="contact-name">
+                {{ c.user.username }}
+                @if (c.isMuted) {
+                  <i class="bi bi-bell-slash-fill contact-mute-icon" title="Muted"></i>
+                }
+              </div>
               <div class="contact-preview">
                 @if (c.lastMessage) {
                   @if (c.lastMessage.type === 'image') {
@@ -66,6 +89,10 @@
                 <span class="unread-badge">{{ c.unreadCount }}</span>
               }
             </div>
+
+            <button class="row-menu-btn" (click)="openContactMenu($event, c)" title="More options">
+              <i class="bi bi-three-dots-vertical"></i>
+            </button>
           </div>
         }
       </div>
@@ -177,18 +204,48 @@
 
         <!-- Call buttons -->
         <div class="chat-header-actions">
+          <button class="call-btn chat-search-toggle-btn" [class.call-btn-active]="showChatSearch" (click)="toggleChatSearch()"
+                  title="Search in chat">
+            <i class="bi bi-search"></i>
+          </button>
           <button class="call-btn" (click)="startCall('audio')"
-                  [disabled]="callState !== 'idle'"
+                  [disabled]="callState !== 'idle' || isChatBlocked"
                   title="Audio call">
             <i class="bi bi-telephone-fill"></i>
           </button>
           <button class="call-btn call-btn-video" (click)="startCall('video')"
-                  [disabled]="callState !== 'idle'"
+                  [disabled]="callState !== 'idle' || isChatBlocked"
                   title="Video call">
             <i class="bi bi-camera-video-fill"></i>
           </button>
         </div>
       </div>
+
+      <!-- In-chat search bar -->
+      @if (showChatSearch) {
+        <div class="chat-search-bar">
+          <i class="bi bi-search chat-search-icon"></i>
+          <input #chatSearchInput type="text" class="chat-search-input"
+                 placeholder="Search messages…"
+                 [(ngModel)]="chatSearchQuery"
+                 (ngModelChange)="onChatSearchInput()"
+                 (keydown)="onChatSearchKeydown($event)" />
+          @if (chatSearchQuery) {
+            <span class="chat-search-count">
+              {{ chatSearchMatchIds.length ? (chatSearchActiveIdx + 1) + ' of ' + chatSearchMatchIds.length : 'No results' }}
+            </span>
+          }
+          <button class="chat-search-nav-btn" (click)="prevMatch()" [disabled]="!chatSearchMatchIds.length" title="Previous match">
+            <i class="bi bi-chevron-up"></i>
+          </button>
+          <button class="chat-search-nav-btn" (click)="nextMatch()" [disabled]="!chatSearchMatchIds.length" title="Next match">
+            <i class="bi bi-chevron-down"></i>
+          </button>
+          <button class="chat-search-nav-btn" (click)="toggleChatSearch()" title="Close search">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+      }
 
       <!-- Messages -->
       <div class="messages-area">
@@ -222,12 +279,40 @@
                 </div>
               </div>
             } @else {
-              <div class="msg-row" [class.msg-row-mine]="isMine(msg)">
-                <div class="msg-bubble" [class.msg-mine]="isMine(msg)" [class.msg-theirs]="!isMine(msg)">
-                  @if (msg.type === 'image' && msg.fileUrl) {
+              <div class="msg-row" [id]="'msg-' + msg._id" [class.msg-row-mine]="isMine(msg)">
+                <div class="msg-bubble" [class.msg-mine]="isMine(msg)" [class.msg-theirs]="!isMine(msg)"
+                     [class.msg-search-match]="isSearchMatch(msg._id)"
+                     [class.msg-search-active]="isActiveSearchMatch(msg._id)"
+                     (contextmenu)="openMessageMenu($event, msg)">
+
+                  @if (msg.isPinned) {
+                    <i class="bi bi-pin-angle-fill msg-pin-badge" title="Pinned"></i>
+                  }
+
+                  @if (!msg.isDeleted) {
+                    <button class="msg-menu-btn" (click)="openMessageMenu($event, msg)" title="More options">
+                      <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                  }
+
+                  @if (msg.isDeleted) {
+                    <div class="msg-body">
+                      <span class="msg-text msg-deleted-text"><i class="bi bi-slash-circle me-1"></i>This message was deleted</span>
+                      <span class="msg-meta">
+                        <span class="msg-time">{{ formatTime(msg.createdAt) }}</span>
+                      </span>
+                    </div>
+                  } @else if (msg.type === 'image' && msg.fileUrl) {
+                    @if (msg.replyTo) {
+                      <div class="quoted-reply">
+                        <span class="quoted-sender">{{ msg.replyTo.sender.username }}</span>
+                        <span class="quoted-text">{{ msg.replyTo.type === 'image' ? 'Photo' : (msg.replyTo.content | slice:0:60) }}</span>
+                      </div>
+                    }
                     <img class="msg-image" [src]="imageFullUrl(msg.fileUrl)"
                          alt="Image" (click)="openImage(imageFullUrl(msg.fileUrl))" />
                     <div class="msg-meta">
+                      @if (msg.isEdited) { <span class="msg-edited">edited</span> }
                       <span class="msg-time">{{ formatTime(msg.createdAt) }}</span>
                       @if (isMine(msg)) {
                         @if (msg.read) {
@@ -241,8 +326,15 @@
                     </div>
                   } @else {
                     <div class="msg-body">
+                      @if (msg.replyTo) {
+                        <div class="quoted-reply">
+                          <span class="quoted-sender">{{ msg.replyTo.sender.username }}</span>
+                          <span class="quoted-text">{{ msg.replyTo.type === 'image' ? 'Photo' : (msg.replyTo.content | slice:0:60) }}</span>
+                        </div>
+                      }
                       <span class="msg-text">{{ msg.content }}</span>
                       <span class="msg-meta">
+                        @if (msg.isEdited) { <span class="msg-edited">edited</span> }
                         <span class="msg-time">{{ formatTime(msg.createdAt) }}</span>
                         @if (isMine(msg)) {
                           @if (msg.read) {
@@ -268,6 +360,9 @@
       @if (showProfileCard) {
         <div class="profile-card-backdrop" (click)="showProfileCard = false"></div>
         <div class="profile-card">
+          <button class="profile-card-menu-btn" (click)="openProfileMenu($event)" title="More options">
+            <i class="bi bi-three-dots-vertical"></i>
+          </button>
           <button class="profile-card-close" (click)="showProfileCard = false">
             <i class="bi bi-x-lg"></i>
           </button>
@@ -303,62 +398,116 @@
               </span>
             </div>
           </div>
-        </div>
-      }
 
-      <!-- Input -->
-      <div class="chat-input-area">
-        <input #imageInput type="file" accept="image/*" class="d-none" (change)="onImageSelected($event)" />
-
-        <!-- Emoji picker -->
-        <div class="emoji-wrap">
-          <button class="input-action-btn" (click)="toggleEmojiPicker($event)" title="Emoji">
-            <i class="bi bi-emoji-smile"></i>
-          </button>
-
-          @if (showEmojiPicker) {
-            <div class="emoji-panel" (click)="$event.stopPropagation()">
-              <!-- Category tabs -->
-              <div class="emoji-cats">
-                @for (cat of emojiCategories; track cat.label; let i = $index) {
-                  <button class="emoji-cat-btn"
-                          [class.emoji-cat-active]="activeCatIdx === i"
-                          (click)="activeCatIdx = i"
-                          [title]="cat.label">
-                    {{ cat.icon }}
-                  </button>
-                }
-              </div>
-              <!-- Emoji grid -->
-              <div class="emoji-grid">
-                @for (e of emojiCategories[activeCatIdx].emojis; track e) {
-                  <button class="emoji-item" (click)="insertEmoji($event, e)">{{ e }}</button>
-                }
-              </div>
+          @if (selected.isBlocked || selected.blockedByThem) {
+            <div class="profile-card-blocked-notice">
+              <i class="bi bi-slash-circle me-2"></i>
+              {{ selected.isBlocked ? 'You have blocked this contact' : 'You can\'t message this contact' }}
             </div>
           }
         </div>
+      }
 
-        <button class="input-action-btn" (click)="triggerImageInput()" [disabled]="imageUploading" title="Send image">
-          @if (imageUploading) {
-            <span class="spinner-border spinner-border-sm"></span>
-          } @else {
-            <i class="bi bi-image"></i>
-          }
-        </button>
+      @if (isChatBlocked) {
+        <div class="chat-blocked-bar">
+          <i class="bi bi-slash-circle me-2"></i>
+          {{ selected.isBlocked ? 'You have blocked this contact. Unblock to send messages.' : "You can't send messages to this contact." }}
+        </div>
+      } @else {
 
-        <textarea #chatInput class="chat-input" rows="1"
-                  placeholder="Type a message…"
-                  [(ngModel)]="messageText"
-                  (keydown)="onKeydown($event)"></textarea>
+        @if (replyingTo) {
+          <div class="reply-preview-bar">
+            <i class="bi bi-reply-fill reply-preview-icon"></i>
+            <div class="reply-preview-body">
+              <div class="reply-preview-sender">{{ isMine(replyingTo) ? 'You' : replyingTo.sender.username }}</div>
+              <div class="reply-preview-text">{{ replyingTo.type === 'image' ? 'Photo' : (replyingTo.content | slice:0:80) }}</div>
+            </div>
+            <button class="reply-preview-close" (click)="cancelReply()"><i class="bi bi-x-lg"></i></button>
+          </div>
+        }
 
-        <button class="send-btn" (click)="sendMessage()" [disabled]="!messageText.trim()">
-          <i class="bi bi-send-fill"></i>
-        </button>
-      </div>
+        @if (editingMessage) {
+          <div class="edit-preview-bar">
+            <i class="bi bi-pencil-fill reply-preview-icon"></i>
+            <div class="reply-preview-body">
+              <div class="reply-preview-sender">Editing message</div>
+            </div>
+            <button class="reply-preview-close" (click)="cancelEdit()"><i class="bi bi-x-lg"></i></button>
+          </div>
+        }
+
+        <!-- Input -->
+        <div class="chat-input-area">
+          <input #imageInput type="file" accept="image/*" class="d-none" (change)="onImageSelected($event)" />
+
+          <!-- Emoji picker -->
+          <div class="emoji-wrap">
+            <button class="input-action-btn" (click)="toggleEmojiPicker($event)" title="Emoji">
+              <i class="bi bi-emoji-smile"></i>
+            </button>
+
+            @if (showEmojiPicker) {
+              <div class="emoji-panel" (click)="$event.stopPropagation()">
+                <!-- Category tabs -->
+                <div class="emoji-cats">
+                  @for (cat of emojiCategories; track cat.label; let i = $index) {
+                    <button class="emoji-cat-btn"
+                            [class.emoji-cat-active]="activeCatIdx === i"
+                            (click)="activeCatIdx = i"
+                            [title]="cat.label">
+                      {{ cat.icon }}
+                    </button>
+                  }
+                </div>
+                <!-- Emoji grid -->
+                <div class="emoji-grid">
+                  @for (e of emojiCategories[activeCatIdx].emojis; track e) {
+                    <button class="emoji-item" (click)="insertEmoji($event, e)">{{ e }}</button>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+
+          <button class="input-action-btn" (click)="triggerImageInput()" [disabled]="imageUploading" title="Send image">
+            @if (imageUploading) {
+              <span class="spinner-border spinner-border-sm"></span>
+            } @else {
+              <i class="bi bi-image"></i>
+            }
+          </button>
+
+          <textarea #chatInput class="chat-input" rows="1"
+                    [placeholder]="editingMessage ? 'Edit message…' : 'Type a message…'"
+                    [(ngModel)]="messageText"
+                    (keydown)="onKeydown($event)"></textarea>
+
+          <button class="send-btn" (click)="sendMessage()" [disabled]="!messageText.trim()">
+            <i class="bi" [class.bi-send-fill]="!editingMessage" [class.bi-check-lg]="editingMessage"></i>
+          </button>
+        </div>
+      }
     }
   </div>
 </div>
+
+<app-context-menu
+  [visible]="menuVisible"
+  [x]="menuX"
+  [y]="menuY"
+  [items]="menuItems"
+  (action)="onMenuAction($event)"
+  (close)="closeMenu()">
+</app-context-menu>
+
+<app-confirm-dialog
+  [open]="showConfirm"
+  [title]="confirmTitle"
+  [message]="confirmMessage"
+  [confirmLabel]="confirmLabel"
+  (confirmed)="onConfirmed()"
+  (cancelled)="onConfirmCancelled()">
+</app-confirm-dialog>
 
 <!-- ══ Call notice toast ══════════════════════════════════════════ -->
 @if (callNotice) {

@@ -22,25 +22,41 @@ export const getIceServers = (_req, res) => {
 export const getContacts = async (req, res, next) => {
   try {
     const myId = req.user._id;
+    const me = await User.findById(myId).select('blockedUsers mutedContacts');
+    const blockedByThemIds = await User.find({ blockedUsers: myId }).distinct('_id');
+    const blockedByThemSet = new Set(blockedByThemIds.map(String));
+    const myBlockedSet = new Set((me?.blockedUsers ?? []).map(String));
+    const myMutedSet = new Set((me?.mutedContacts ?? []).map(String));
+
     const users = await User.find({ _id: { $ne: myId }, isActive: true })
       .select('username profileImage role');
 
     const contacts = await Promise.all(
       users.map(async (user) => {
+        const uidStr = user._id.toString();
         const lastMessage = await Message.findOne({
           $or: [
             { sender: myId, receiver: user._id },
             { sender: user._id, receiver: myId },
           ],
+          deletedFor: { $ne: myId },
         }).sort({ createdAt: -1 });
 
         const unreadCount = await Message.countDocuments({
           sender: user._id,
           receiver: myId,
           read: false,
+          deletedFor: { $ne: myId },
         });
 
-        return { user, lastMessage, unreadCount };
+        return {
+          user,
+          lastMessage,
+          unreadCount,
+          isBlocked: myBlockedSet.has(uidStr),
+          blockedByThem: blockedByThemSet.has(uidStr),
+          isMuted: myMutedSet.has(uidStr),
+        };
       })
     );
 
@@ -68,10 +84,16 @@ export const getMessages = async (req, res, next) => {
         { sender: myId, receiver: userId },
         { sender: userId, receiver: myId },
       ],
+      deletedFor: { $ne: myId },
     })
       .sort({ createdAt: 1 })
       .populate('sender', 'username profileImage')
-      .populate('receiver', 'username profileImage');
+      .populate('receiver', 'username profileImage')
+      .populate({
+        path: 'replyTo',
+        select: 'content type sender',
+        populate: { path: 'sender', select: 'username' },
+      });
 
     await Message.updateMany(
       { sender: userId, receiver: myId, read: false },
@@ -79,6 +101,73 @@ export const getMessages = async (req, res, next) => {
     );
 
     res.status(200).json(messages);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const clearChat = async (req, res, next) => {
+  try {
+    const myId = req.user._id;
+    const { userId } = req.params;
+
+    await Message.updateMany(
+      {
+        $or: [
+          { sender: myId, receiver: userId },
+          { sender: userId, receiver: myId },
+        ],
+      },
+      { $addToSet: { deletedFor: myId } }
+    );
+
+    res.status(200).json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const toggleBlock = async (req, res, next) => {
+  try {
+    const myId = req.user._id;
+    const { userId } = req.params;
+
+    const me = await User.findById(myId);
+    const idx = me.blockedUsers.findIndex((id) => id.toString() === userId);
+    let blocked;
+    if (idx >= 0) {
+      me.blockedUsers.splice(idx, 1);
+      blocked = false;
+    } else {
+      me.blockedUsers.push(userId);
+      blocked = true;
+    }
+    await me.save();
+
+    res.status(200).json({ blocked });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const toggleMute = async (req, res, next) => {
+  try {
+    const myId = req.user._id;
+    const { userId } = req.params;
+
+    const me = await User.findById(myId);
+    const idx = me.mutedContacts.findIndex((id) => id.toString() === userId);
+    let muted;
+    if (idx >= 0) {
+      me.mutedContacts.splice(idx, 1);
+      muted = false;
+    } else {
+      me.mutedContacts.push(userId);
+      muted = true;
+    }
+    await me.save();
+
+    res.status(200).json({ muted });
   } catch (err) {
     next(err);
   }

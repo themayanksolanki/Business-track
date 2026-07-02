@@ -1,0 +1,11 @@
+@if (visible) {
+  <div class="ctx-backdrop" (click)="onBackdropClick()" (contextmenu)="$event.preventDefault(); onBackdropClick()"></div>
+  <div class="ctx-menu" [style.left.px]="posX" [style.top.px]="posY" (click)="$event.stopPropagation()">
+    @for (item of items; track item.action) {
+      <button class="ctx-item" [class.ctx-item-danger]="item.danger" (click)="onItemClick(item)">
+        <i class="bi" [class]="item.icon"></i>
+        <span>{{ item.label }}</span>
+      </button>
+    }
+  </div>
+}

@@ -20,6 +20,9 @@ export class SocketService {
   readonly messageDelivered$   = new Subject<{ by: string }>();
   readonly messageSeen$        = new Subject<{ by: string }>();
   readonly onlineUsers$        = new Subject<string[]>();
+  readonly messageEdited$      = new Subject<Message>();
+  readonly messageDeleted$     = new Subject<{ messageId: string; forAll: boolean }>();
+  readonly messagePinned$      = new Subject<{ messageId: string; pinned: boolean }>();
 
   readonly callSession$   = new Subject<{ callId: string }>();
   readonly callIncoming$  = new Subject<IncomingCall>();
@@ -45,6 +48,9 @@ export class SocketService {
     this.socket.on('message:delivered', (d: { by: string })   => this.messageDelivered$.next(d));
     this.socket.on('message:seen',      (d: { by: string })   => this.messageSeen$.next(d));
     this.socket.on('users:online',      (u: string[])         => this.onlineUsers$.next(u));
+    this.socket.on('message:edited',    (m: Message)                                    => this.messageEdited$.next(m));
+    this.socket.on('message:deleted',   (d: { messageId: string; forAll: boolean })      => this.messageDeleted$.next(d));
+    this.socket.on('message:pinned',    (d: { messageId: string; pinned: boolean })      => this.messagePinned$.next(d));
 
     this.socket.on('call:session',      (d: { callId: string })                                     => this.callSession$.next(d));
     this.socket.on('call:incoming',     (d: IncomingCall)                                           => this.callIncoming$.next(d));
@@ -64,8 +70,20 @@ export class SocketService {
     this.socket = null;
   }
 
-  sendMessage(to: string, content: string, type: 'text' | 'image' = 'text', fileUrl?: string) {
-    this.socket?.emit('message:send', { to, content, type, fileUrl });
+  sendMessage(to: string, content: string, type: 'text' | 'image' = 'text', fileUrl?: string, replyTo?: string) {
+    this.socket?.emit('message:send', { to, content, type, fileUrl, replyTo });
+  }
+
+  editMessage(messageId: string, content: string) {
+    this.socket?.emit('message:edit', { messageId, content });
+  }
+
+  deleteMessage(messageId: string, forAll: boolean) {
+    this.socket?.emit('message:delete', { messageId, forAll });
+  }
+
+  pinMessage(messageId: string, pinned: boolean) {
+    this.socket?.emit('message:pin', { messageId, pinned });
   }
 
   requestCall(to: string, fromName: string, callType: 'audio' | 'video') {

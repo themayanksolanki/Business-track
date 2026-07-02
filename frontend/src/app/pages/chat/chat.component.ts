@@ -9,12 +9,14 @@ import { ChatService } from '../../core/services/chat.service';
 import { SocketService, IncomingCall } from '../../core/services/socket.service';
 import { ContactData, Message } from '../../models/message.model';
 import { User } from '../../models/user.model';
+import { ContextMenuComponent, ContextMenuItem } from '../../shared/context-menu/context-menu.component';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 
 
 @Component({
   selector: 'app-chat',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ContextMenuComponent, ConfirmDialogComponent],
   templateUrl: './chat.component.html',
   styleUrl: './chat.component.css',
 })
@@ -24,11 +26,21 @@ export class ChatComponent implements OnInit, OnDestroy {
   @ViewChild('remoteVideo') remoteVideo!: ElementRef<HTMLVideoElement>;
   @ViewChild('imageInput')  imageInput!:  ElementRef<HTMLInputElement>;
   @ViewChild('chatInput')   chatInput!:   ElementRef<HTMLTextAreaElement>;
+  @ViewChild('chatSearchInput') chatSearchInput!: ElementRef<HTMLInputElement>;
 
   contacts: ContactData[] = [];
   selected: ContactData | null = null;
   messages: Message[] = [];
   messageText = '';
+
+  // ── Contact search ───────────────────────────────────────────
+  contactSearchQuery = '';
+
+  // ── In-chat message search ──────────────────────────────────
+  showChatSearch = false;
+  chatSearchQuery = '';
+  chatSearchMatchIds: string[] = [];
+  chatSearchActiveIdx = -1;
 
   onlineUsers = new Set<string>();
   messagesLoading = false;
@@ -36,6 +48,23 @@ export class ChatComponent implements OnInit, OnDestroy {
   callNotice      = '';
   mobileShowChat  = false;
   showProfileCard = false;
+
+  // ── Context menu ─────────────────────────────────────────────
+  menuVisible = false;
+  menuX = 0;
+  menuY = 0;
+  menuItems: ContextMenuItem[] = [];
+  private menuTarget: 'message' | 'contact' | 'profile' | null = null;
+  private menuTargetId: string | null = null;
+
+  replyingTo: Message | null = null;
+  editingMessage: Message | null = null;
+
+  showConfirm = false;
+  confirmTitle = 'Confirm';
+  confirmMessage = 'This action cannot be undone.';
+  confirmLabel = 'Confirm';
+  private pendingConfirmAction: (() => void) | null = null;
 
   // ── Sidebar tabs ──────────────────────────────────────────────
   sidebarTab: 'chat' | 'calls' = 'chat';
@@ -137,6 +166,9 @@ export class ChatComponent implements OnInit, OnDestroy {
       this.showEmojiPicker = false;
       this.cdr.detectChanges();
     }
+    if (this.menuVisible) {
+      this.closeMenu();
+    }
     this.unlockAudio();
   }
 
@@ -189,6 +221,12 @@ export class ChatComponent implements OnInit, OnDestroy {
     });
   }
 
+  get filteredContacts(): ContactData[] {
+    const q = this.contactSearchQuery.trim().toLowerCase();
+    if (!q) return this.contacts;
+    return this.contacts.filter((c) => c.user.username.toLowerCase().includes(q));
+  }
+
   backToContacts() {
     this.mobileShowChat = false;
   }
@@ -197,6 +235,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.selected = c;
     this.mobileShowChat  = true;
     this.showProfileCard = false;
+    this.closeChatSearch();
     this.chatSvc.totalUnread.update(n => Math.max(0, n - (c.unreadCount || 0)));
     c.unreadCount = 0;
     this.messagesLoading = true;
@@ -242,12 +281,240 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   // ── Messaging ─────────────────────────────────────────────────
+  get isChatBlocked(): boolean {
+    return !!(this.selected && (this.selected.isBlocked || this.selected.blockedByThem));
+  }
+
   sendMessage() {
     const text = this.messageText.trim();
-    if (!text || !this.selected) return;
+    if (!text || !this.selected || this.isChatBlocked) return;
     const to = this.contactId(this.selected);
-    this.socketSvc.sendMessage(to, text);
+
+    if (this.editingMessage) {
+      this.socketSvc.editMessage(this.editingMessage._id, text);
+      this.editingMessage = null;
+    } else {
+      this.socketSvc.sendMessage(to, text, 'text', undefined, this.replyingTo?._id);
+      this.replyingTo = null;
+    }
     this.messageText = '';
+  }
+
+  cancelReply() {
+    this.replyingTo = null;
+  }
+
+  cancelEdit() {
+    this.editingMessage = null;
+    this.messageText = '';
+  }
+
+  // ── Context menu ──────────────────────────────────────────────
+  private positionMenu(clientX: number, clientY: number) {
+    this.menuX = clientX;
+    this.menuY = clientY;
+    this.menuVisible = true;
+  }
+
+  closeMenu() {
+    this.menuVisible = false;
+    this.menuTarget = null;
+    this.menuTargetId = null;
+  }
+
+  private static readonly DELETE_FOR_ALL_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+  canDeleteForEveryone(msg: Message): boolean {
+    return Date.now() - new Date(msg.createdAt).getTime() <= ChatComponent.DELETE_FOR_ALL_WINDOW_MS;
+  }
+
+  openMessageMenu(event: MouseEvent, msg: Message) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (msg.type === 'call' || msg.isDeleted) return;
+
+    const mine = this.isMine(msg);
+    const items: ContextMenuItem[] = [{ label: 'Reply', icon: 'bi-reply-fill', action: 'reply' }];
+    if (msg.type === 'text') {
+      items.push({ label: 'Copy', icon: 'bi-clipboard', action: 'copy' });
+    }
+    items.push({ label: msg.isPinned ? 'Unpin' : 'Pin', icon: 'bi-pin-angle-fill', action: 'pin' });
+    if (mine && msg.type === 'text') {
+      items.push({ label: 'Edit', icon: 'bi-pencil-fill', action: 'edit' });
+    }
+    items.push({ label: 'Delete', icon: 'bi-trash', action: 'delete', danger: true });
+    if (mine && this.canDeleteForEveryone(msg)) {
+      items.push({ label: 'Delete for everyone', icon: 'bi-trash-fill', action: 'deleteAll', danger: true });
+    }
+
+    this.menuTarget = 'message';
+    this.menuTargetId = msg._id;
+    this.menuItems = items;
+    this.positionMenu(event.clientX, event.clientY);
+  }
+
+  openContactMenu(event: MouseEvent, c: ContactData) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.menuTarget = 'contact';
+    this.menuTargetId = this.contactId(c);
+    this.menuItems = [
+      { label: 'Clear Chat', icon: 'bi-x-circle', action: 'clear' },
+      { label: c.isMuted ? 'Unmute' : 'Mute', icon: c.isMuted ? 'bi-bell-fill' : 'bi-bell-slash-fill', action: 'mute' },
+    ];
+    this.positionMenu(event.clientX, event.clientY);
+  }
+
+  openProfileMenu(event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.selected) return;
+    this.menuTarget = 'profile';
+    this.menuTargetId = this.contactId(this.selected);
+    this.menuItems = [
+      { label: 'Clear Chat', icon: 'bi-x-circle', action: 'clear' },
+      {
+        label: this.selected.isBlocked ? 'Unblock' : 'Block',
+        icon: 'bi-slash-circle',
+        action: 'block',
+        danger: !this.selected.isBlocked,
+      },
+    ];
+    this.positionMenu(event.clientX, event.clientY);
+  }
+
+  onMenuAction(action: string) {
+    const target = this.menuTarget;
+    const targetId = this.menuTargetId;
+
+    if (target === 'message') {
+      const msg = this.messages.find((m) => m._id === targetId);
+      if (!msg) return;
+      this.handleMessageMenuAction(action, msg);
+    } else if (target === 'contact') {
+      const c = this.contacts.find((c) => this.contactId(c) === targetId);
+      if (!c) return;
+      this.handleContactMenuAction(action, c);
+    } else if (target === 'profile') {
+      this.handleProfileMenuAction(action);
+    }
+  }
+
+  private handleMessageMenuAction(action: string, msg: Message) {
+    switch (action) {
+      case 'reply':
+        this.replyingTo = msg;
+        this.editingMessage = null;
+        setTimeout(() => this.chatInput?.nativeElement?.focus());
+        break;
+      case 'copy':
+        navigator.clipboard?.writeText(msg.content);
+        break;
+      case 'pin':
+        this.socketSvc.pinMessage(msg._id, !msg.isPinned);
+        break;
+      case 'edit':
+        this.editingMessage = msg;
+        this.replyingTo = null;
+        this.messageText = msg.content;
+        setTimeout(() => this.chatInput?.nativeElement?.focus());
+        break;
+      case 'delete':
+        this.openConfirm(
+          'Delete message?',
+          'This message will be deleted for you.',
+          'Delete',
+          () => this.socketSvc.deleteMessage(msg._id, false)
+        );
+        break;
+      case 'deleteAll':
+        this.openConfirm(
+          'Delete for everyone?',
+          'This message will be deleted for everyone in this chat.',
+          'Delete',
+          () => this.socketSvc.deleteMessage(msg._id, true)
+        );
+        break;
+    }
+  }
+
+  private handleContactMenuAction(action: string, c: ContactData) {
+    if (action === 'clear') {
+      this.openConfirm(
+        'Clear chat?',
+        `All messages with ${c.user.username} will be cleared for you.`,
+        'Clear',
+        () => this.clearChatWith(c)
+      );
+    } else if (action === 'mute') {
+      this.chatSvc.toggleMute(this.contactId(c)).subscribe({
+        next: ({ muted }) => { c.isMuted = muted; this.cdr.detectChanges(); },
+      });
+    }
+  }
+
+  private handleProfileMenuAction(action: string) {
+    if (!this.selected) return;
+    const selected = this.selected;
+
+    if (action === 'clear') {
+      this.openConfirm(
+        'Clear chat?',
+        `All messages with ${selected.user.username} will be cleared for you.`,
+        'Clear',
+        () => this.clearChatWith(selected)
+      );
+    } else if (action === 'block') {
+      const blocking = !selected.isBlocked;
+      this.openConfirm(
+        blocking ? 'Block this contact?' : 'Unblock this contact?',
+        blocking
+          ? `You won't be able to send or receive messages from ${selected.user.username}.`
+          : `You will be able to message ${selected.user.username} again.`,
+        blocking ? 'Block' : 'Unblock',
+        () => {
+          this.chatSvc.toggleBlock(this.contactId(selected)).subscribe({
+            next: ({ blocked }) => {
+              selected.isBlocked = blocked;
+              const c = this.contacts.find((c) => this.contactId(c) === this.contactId(selected));
+              if (c) c.isBlocked = blocked;
+              this.cdr.detectChanges();
+            },
+          });
+        }
+      );
+    }
+  }
+
+  private clearChatWith(c: ContactData) {
+    this.chatSvc.clearChat(this.contactId(c)).subscribe({
+      next: () => {
+        c.lastMessage = null;
+        if (this.selected && this.contactId(this.selected) === this.contactId(c)) {
+          this.messages = [];
+        }
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  private openConfirm(title: string, message: string, confirmLabel: string, action: () => void) {
+    this.confirmTitle = title;
+    this.confirmMessage = message;
+    this.confirmLabel = confirmLabel;
+    this.pendingConfirmAction = action;
+    this.showConfirm = true;
+  }
+
+  onConfirmed() {
+    this.pendingConfirmAction?.();
+    this.pendingConfirmAction = null;
+    this.showConfirm = false;
+  }
+
+  onConfirmCancelled() {
+    this.pendingConfirmAction = null;
+    this.showConfirm = false;
   }
 
   onKeydown(event: KeyboardEvent) {
@@ -264,7 +531,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   onImageSelected(event: Event) {
     const file = (event.target as HTMLInputElement).files?.[0];
-    if (!file || !this.selected) return;
+    if (!file || !this.selected || this.isChatBlocked) return;
     this.imageUploading = true;
     this.chatSvc.uploadImage(file).subscribe({
       next: ({ url }) => {
@@ -304,6 +571,72 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   private scrollToBottom() {
     setTimeout(() => this.msgEnd?.nativeElement?.scrollIntoView({ behavior: 'smooth' }), 50);
+  }
+
+  // ── In-chat message search ──────────────────────────────────────
+  toggleChatSearch() {
+    this.showChatSearch = !this.showChatSearch;
+    if (!this.showChatSearch) {
+      this.closeChatSearch();
+    } else {
+      setTimeout(() => this.chatSearchInput?.nativeElement?.focus());
+    }
+  }
+
+  closeChatSearch() {
+    this.showChatSearch = false;
+    this.chatSearchQuery = '';
+    this.chatSearchMatchIds = [];
+    this.chatSearchActiveIdx = -1;
+  }
+
+  onChatSearchInput() {
+    const q = this.chatSearchQuery.trim().toLowerCase();
+    if (!q) {
+      this.chatSearchMatchIds = [];
+      this.chatSearchActiveIdx = -1;
+      return;
+    }
+    this.chatSearchMatchIds = this.messages
+      .filter((m) => m.type === 'text' && !m.isDeleted && (m.content || '').toLowerCase().includes(q))
+      .map((m) => m._id);
+    this.chatSearchActiveIdx = this.chatSearchMatchIds.length ? 0 : -1;
+    this.scrollToActiveMatch();
+  }
+
+  onChatSearchKeydown(event: KeyboardEvent) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    if (event.shiftKey) this.prevMatch();
+    else this.nextMatch();
+  }
+
+  nextMatch() {
+    if (!this.chatSearchMatchIds.length) return;
+    this.chatSearchActiveIdx = (this.chatSearchActiveIdx + 1) % this.chatSearchMatchIds.length;
+    this.scrollToActiveMatch();
+  }
+
+  prevMatch() {
+    if (!this.chatSearchMatchIds.length) return;
+    this.chatSearchActiveIdx = (this.chatSearchActiveIdx - 1 + this.chatSearchMatchIds.length) % this.chatSearchMatchIds.length;
+    this.scrollToActiveMatch();
+  }
+
+  private scrollToActiveMatch() {
+    const id = this.chatSearchMatchIds[this.chatSearchActiveIdx];
+    if (!id) return;
+    setTimeout(() => {
+      document.getElementById('msg-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
+
+  isSearchMatch(msgId: string): boolean {
+    return this.chatSearchMatchIds.includes(msgId);
+  }
+
+  isActiveSearchMatch(msgId: string): boolean {
+    return this.chatSearchActiveIdx >= 0 && this.chatSearchMatchIds[this.chatSearchActiveIdx] === msgId;
   }
 
   // ── Socket subscriptions ───────────────────────────────────────
@@ -370,6 +703,41 @@ export class ChatComponent implements OnInit, OnDestroy {
       })
     );
 
+    this.subs.add(
+      this.socketSvc.messageEdited$.subscribe((msg) => {
+        const idx = this.messages.findIndex((m) => m._id === msg._id);
+        if (idx >= 0) this.messages[idx] = msg;
+        if (this.selected) {
+          const otherId = this.isMine(msg)
+            ? ((msg.receiver?._id ?? (msg.receiver as any)?.id) as string)
+            : ((msg.sender?._id ?? (msg.sender as any)?.id) as string);
+          const c = this.contacts.find((c) => this.contactId(c) === otherId);
+          if (c && c.lastMessage?._id === msg._id) c.lastMessage = msg;
+        }
+        this.cdr.detectChanges();
+      })
+    );
+
+    this.subs.add(
+      this.socketSvc.messageDeleted$.subscribe(({ messageId, forAll }) => {
+        if (forAll) {
+          const msg = this.messages.find((m) => m._id === messageId);
+          if (msg) { msg.isDeleted = true; msg.content = ''; msg.fileUrl = null; }
+        } else {
+          this.messages = this.messages.filter((m) => m._id !== messageId);
+        }
+        this.cdr.detectChanges();
+      })
+    );
+
+    this.subs.add(
+      this.socketSvc.messagePinned$.subscribe(({ messageId, pinned }) => {
+        const msg = this.messages.find((m) => m._id === messageId);
+        if (msg) msg.isPinned = pinned;
+        this.cdr.detectChanges();
+      })
+    );
+
     // Call events
     this.subs.add(this.socketSvc.callSession$.subscribe(({ callId }) => { this.callId = callId; }));
     this.subs.add(this.socketSvc.callIncoming$.subscribe((d) => this.onCallIncoming(d)));
@@ -426,7 +794,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   // ── Initiate call ─────────────────────────────────────────────
   async startCall(type: 'audio' | 'video') {
-    if (!this.selected || this.callState !== 'idle') return;
+    if (!this.selected || this.callState !== 'idle' || this.isChatBlocked) return;
     this.callType  = type;
     this.callWith  = this.contactId(this.selected);
     this.callState = 'calling';

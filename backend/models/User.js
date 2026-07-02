@@ -49,6 +49,8 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    mutedContacts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   },
   { timestamps: true }
 );
