@@ -12,8 +12,8 @@ const attachmentSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    s3Key: {
-      type: String,
+    gridFsId: {
+      type: mongoose.Schema.Types.ObjectId,
       required: true,
     },
     mimeType: {

@@ -446,9 +446,14 @@ export class TaskListComponent implements OnInit {
   download(attachment: Attachment) {
     if (!this.attachmentTaskId) return;
     this.downloadingId = attachment._id;
-    this.attachmentService.getDownloadUrl(this.attachmentTaskId, attachment._id).subscribe({
-      next: (res) => {
-        window.open(res.url, '_blank');
+    this.attachmentService.downloadAttachment(this.attachmentTaskId, attachment._id).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = attachment.fileName;
+        link.click();
+        window.URL.revokeObjectURL(url);
         this.downloadingId = '';
       },
       error: () => {

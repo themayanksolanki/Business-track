@@ -1,9 +1,8 @@
-import { randomUUID } from 'crypto';
 import Task from '../models/Task.js';
 import User from '../models/User.js';
 import Attachment from '../models/Attachment.js';
 import AppError from '../utils/AppError.js';
-import { uploadBufferToS3, getAttachmentDownloadUrl } from '../utils/s3.js';
+import { uploadBufferToGridFS, openDownloadStream } from '../utils/gridfs.js';
 
 const getTeamMemberIds = async (teamLeadId) => {
   const members = await User.find({ teamLeadId, role: 'Employee' }).select('_id');
@@ -53,13 +52,16 @@ export const uploadAttachment = async (req, res, next) => {
 
     if (!req.file) return next(new AppError('No file uploaded', 400));
 
-    const key = `tasks/${task._id}/${randomUUID()}-${req.file.originalname}`;
-    await uploadBufferToS3(req.file.buffer, key, req.file.mimetype);
+    const gridFsId = await uploadBufferToGridFS(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype
+    );
 
     const attachment = await Attachment.create({
       task: task._id,
       fileName: req.file.originalname,
-      s3Key: key,
+      gridFsId,
       mimeType: req.file.mimetype,
       size: req.file.size,
       uploadedBy: req.user._id,
@@ -84,9 +86,15 @@ export const downloadAttachment = async (req, res, next) => {
     if (!(await canAccessTask(task, req.user)))
       return next(new AppError('Access denied', 403));
 
-    const url = await getAttachmentDownloadUrl(attachment.s3Key, attachment.fileName);
+    res.set({
+      'Content-Type': attachment.mimeType,
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(attachment.fileName)}"`,
+      'Content-Length': attachment.size,
+    });
 
-    res.status(200).json({ url });
+    const stream = openDownloadStream(attachment.gridFsId);
+    stream.on('error', () => next(new AppError('File not found in storage', 404)));
+    stream.pipe(res);
   } catch (err) {
     next(err);
   }

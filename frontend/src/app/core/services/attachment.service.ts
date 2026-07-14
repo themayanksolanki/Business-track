@@ -22,7 +22,9 @@ export class AttachmentService {
     );
   }
 
-  getDownloadUrl(taskId: string, attachmentId: string) {
-    return this.http.get<{ url: string }>(`${this.api}/${taskId}/attachments/${attachmentId}/download`);
+  downloadAttachment(taskId: string, attachmentId: string) {
+    return this.http.get(`${this.api}/${taskId}/attachments/${attachmentId}/download`, {
+      responseType: 'blob',
+    });
   }
 }
