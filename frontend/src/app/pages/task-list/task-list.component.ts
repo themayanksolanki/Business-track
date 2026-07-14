@@ -5,8 +5,10 @@ import { FormsModule } from '@angular/forms';
 import { TaskService } from '../../core/services/task.service';
 import { UserService } from '../../core/services/user.service';
 import { AuthService } from '../../core/services/auth.service';
+import { AttachmentService } from '../../core/services/attachment.service';
 import { Task, TaskStatus } from '../../models/task.model';
 import { User } from '../../models/user.model';
+import { Attachment } from '../../models/attachment.model';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 
 @Component({
@@ -103,10 +105,20 @@ export class TaskListComponent implements OnInit {
   createError = '';
   createAssignees: User[] = [];
 
+  attachmentTaskId = '';
+  attachmentTask: Task | null = null;
+  attachments: Attachment[] = [];
+  attachmentsLoading = false;
+  attachmentsError = '';
+  attachmentUploading = false;
+  attachmentUploadError = '';
+  downloadingId = '';
+
   constructor(
     private fb: FormBuilder,
     private taskService: TaskService,
     private userService: UserService,
+    private attachmentService: AttachmentService,
     public auth: AuthService
   ) {
     this.editForm = this.fb.group({
@@ -378,5 +390,87 @@ export class TaskListComponent implements OnInit {
         this.createLoading = false;
       },
     });
+  }
+
+  openAttachments(task: Task) {
+    this.attachmentTaskId = task._id;
+    this.attachmentTask = task;
+    this.attachments = [];
+    this.attachmentsError = '';
+    this.attachmentUploadError = '';
+    this.loadAttachments(task._id);
+  }
+
+  closeAttachments() {
+    this.attachmentTaskId = '';
+    this.attachmentTask = null;
+    this.attachments = [];
+  }
+
+  loadAttachments(taskId: string) {
+    this.attachmentsLoading = true;
+    this.attachmentsError = '';
+    this.attachmentService.getAttachments(taskId).subscribe({
+      next: (list) => {
+        this.attachments = list;
+        this.attachmentsLoading = false;
+      },
+      error: (err) => {
+        this.attachmentsError = err.error?.message || 'Failed to load attachments';
+        this.attachmentsLoading = false;
+      },
+    });
+  }
+
+  onFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !this.attachmentTaskId) return;
+
+    this.attachmentUploading = true;
+    this.attachmentUploadError = '';
+    this.attachmentService.uploadAttachment(this.attachmentTaskId, file).subscribe({
+      next: (res) => {
+        this.attachments = [res.attachment, ...this.attachments];
+        this.attachmentUploading = false;
+        input.value = '';
+      },
+      error: (err) => {
+        this.attachmentUploadError = err.error?.message || 'Failed to upload file';
+        this.attachmentUploading = false;
+        input.value = '';
+      },
+    });
+  }
+
+  download(attachment: Attachment) {
+    if (!this.attachmentTaskId) return;
+    this.downloadingId = attachment._id;
+    this.attachmentService.getDownloadUrl(this.attachmentTaskId, attachment._id).subscribe({
+      next: (res) => {
+        window.open(res.url, '_blank');
+        this.downloadingId = '';
+      },
+      error: () => {
+        this.downloadingId = '';
+      },
+    });
+  }
+
+  formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  fileIcon(mimeType: string): string {
+    if (mimeType.startsWith('image/')) return 'bi-file-earmark-image';
+    if (mimeType === 'application/pdf') return 'bi-file-earmark-pdf';
+    if (mimeType.includes('zip')) return 'bi-file-earmark-zip';
+    if (mimeType.includes('word')) return 'bi-file-earmark-word';
+    if (mimeType.includes('sheet') || mimeType.includes('excel')) return 'bi-file-earmark-spreadsheet';
+    if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return 'bi-file-earmark-slides';
+    if (mimeType.startsWith('text/')) return 'bi-file-earmark-text';
+    return 'bi-file-earmark';
   }
 }
