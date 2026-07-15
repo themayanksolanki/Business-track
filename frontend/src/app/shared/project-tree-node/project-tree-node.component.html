@@ -31,8 +31,8 @@
       </span>
 
       <span class="tree-title" *ngIf="!editTitle" (click)="onTitleClick()">{{ node.title }}</span>
-      <input *ngIf="editTitle" #titleInput class="add-subtask-input form-control" type="text" [(ngModel)]="node.title"
-             placeholder="New item title…" (keydown.enter)="saveTitle(node.title)" (blur)="saveTitle(node.title)" maxlength="200" />
+      <input *ngIf="editTitle" #titleInput class="add-subtask-input form-control" type="text" [value]="node.title"
+             placeholder="New item title…" (keydown.enter)="saveTitle()" (blur)="saveTitle()" maxlength="200" />
 
       @if (node.childCount > 0) {
         <span class="tree-child-count">{{ node.childCount }}</span>
