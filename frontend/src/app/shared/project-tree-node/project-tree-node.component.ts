@@ -257,7 +257,8 @@ export class ProjectTreeNodeComponent {
       });
   }
 
-  saveTitle(newTitle: string) {
+  saveTitle() {
+    const newTitle = this.titleInput?.nativeElement.value || '';
     if (!newTitle.trim() || newTitle === this.node.title) {
       this.editTitle = false;
       return;
