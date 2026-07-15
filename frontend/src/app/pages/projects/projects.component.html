@@ -203,8 +203,8 @@
 
 <!-- Create project modal -->
 @if (createOpen) {
-  <div class="modal-overlay d-flex align-items-center justify-content-center" (click)="closeCreate()">
-    <div class="card modal-card modal-card-lg shadow-lg" (click)="$event.stopPropagation()">
+  <div class="modal-overlay d-flex justify-content-center" (click)="closeCreate()">
+    <div class="card modal-card overflow-visible modal-card-lg shadow-lg" (click)="$event.stopPropagation()">
       <div class="card-body p-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
           <h5 class="card-title mb-0"><i class="bi bi-plus-circle me-2"></i>New Project</h5>
@@ -247,12 +247,12 @@
             </div>
           </div>
 
-          <div class="d-flex gap-2">
+          <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-light modal-submit-btn" (click)="closeCreate()">Cancel</button>
             <button type="submit" class="btn btn-primary modal-submit-btn" [disabled]="createLoading">
               @if (createLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
               {{ createLoading ? 'Creating...' : 'Create Project' }}
             </button>
-            <button type="button" class="btn btn-light modal-submit-btn" (click)="closeCreate()">Cancel</button>
           </div>
         </form>
       </div>

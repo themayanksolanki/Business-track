@@ -5,6 +5,15 @@
       <i class="bi bi-x-lg"></i>
     </button>
   </div>
+  <div *ngIf="attachmentUploading"
+      class="progress-bar progress-bar-striped progress-bar-animated"
+      role="progressbar"
+      [style.width.%]="progress"
+      [attr.aria-valuenow]="progress"
+      aria-valuemin="0"
+      aria-valuemax="100">
+      {{ progress }}%
+    </div>
 
   <div class="attachment-panel-body">
     @if (activeTab === 'attachments') {

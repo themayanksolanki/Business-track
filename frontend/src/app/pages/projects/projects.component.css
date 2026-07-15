@@ -7,15 +7,15 @@
 }
 
 .modal-card {
-  width: 100%;
-  max-width: 480px;
+  width: 60vw;
+  max-width: 60vw;
   border-radius: 14px;
   border: none;
   overflow: hidden;
   background: var(--bg-card);
 }
 
-.modal-card-lg { max-width: 540px; }
+/* .modal-card-lg { max-width: 540px; } */
 
 .field-label {
   display: block;
@@ -340,3 +340,11 @@
 }
 
 .ellipsis { border: none; background: transparent; }
+
+.overflow-visible {
+  overflow: auto;
+}
+
+.modal-card {
+  height: fit-content; top: 30px; position: relative;
+}

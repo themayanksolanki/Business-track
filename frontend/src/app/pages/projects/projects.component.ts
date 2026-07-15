@@ -24,7 +24,7 @@ export class ProjectsComponent implements OnInit, OnDestroy {
 
   loading = false;
   error = '';
-  viewMode: ProjectsViewMode = 'cards';
+  viewMode: ProjectsViewMode = 'list';
 
   // Cards view — infinite scroll, accumulates pages
   cardsItems: Project[] = [];

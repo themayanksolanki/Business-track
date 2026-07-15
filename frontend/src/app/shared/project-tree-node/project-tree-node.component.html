@@ -30,7 +30,9 @@
         <i class="bi" [class]="typeIcon"></i>
       </span>
 
-      <span class="tree-title" (click)="onTitleClick()">{{ node.title }}</span>
+      <span class="tree-title" *ngIf="!editTitle" (click)="onTitleClick()">{{ node.title }}</span>
+      <input *ngIf="editTitle" #titleInput class="add-subtask-input form-control" type="text" [(ngModel)]="node.title"
+             placeholder="New item title…" (keydown.enter)="saveTitle(node.title)" (blur)="saveTitle(node.title)" maxlength="200" />
 
       @if (node.childCount > 0) {
         <span class="tree-child-count">{{ node.childCount }}</span>
@@ -123,14 +125,14 @@
   }
 
   @if (addChildOpen) {
-    <div class="tree-add-child-row" [style.padding-left]="'calc(' + (node.depth + 1) + ' * var(--tree-indent-unit, 22px) + 40px)'">
-      <input class="add-subtask-input" type="text" [(ngModel)]="addChildTitle"
+    <div class="tree-add-child-row form" [style.padding-left]="'calc(' + (node.depth + 1) + ' * var(--tree-indent-unit, 22px) + 40px)'">
+      <input class="add-subtask-input form-control" type="text" [(ngModel)]="addChildTitle"
              placeholder="New item title…" (keydown.enter)="submitAddChild()" maxlength="200" />
-      <button class="add-subtask-btn" (click)="submitAddChild()" [disabled]="addChildLoading || !addChildTitle.trim()">
+      <button class="btn btn-sm btn-success add-subtask-btn" (click)="submitAddChild()" [disabled]="addChildLoading || !addChildTitle.trim()">
         @if (addChildLoading) { <span class="spinner-border spinner-border-sm"></span> } @else { <i class="bi bi-plus-lg"></i> }
       </button>
-      <button class="subtask-del-btn" (click)="cancelAddChild()" title="Cancel">
-        <i class="bi bi-x"></i>
+      <button class="btn btn-sm border btn-outline-light subtask-del-btn" (click)="cancelAddChild()" title="Cancel">
+        <i class="bi bi-x text-danger"></i>
       </button>
     </div>
     @if (addChildError) {
