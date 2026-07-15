@@ -1,0 +1,73 @@
+<div class="kanban-wrap">
+  <div class="kanban-toolbar">
+    <span class="kanban-toolbar-label">Group by</span>
+    <div class="kanban-switch">
+      <button type="button" class="kanban-switch-btn" [class.active]="groupMode === 'status'" (click)="setGroupMode('status')">
+        <i class="bi bi-columns-gap me-1"></i>Status
+      </button>
+      <button type="button" class="kanban-switch-btn" [class.active]="groupMode === 'assignee'" (click)="setGroupMode('assignee')">
+        <i class="bi bi-person me-1"></i>Assignee
+      </button>
+      <button type="button" class="kanban-switch-btn" [class.active]="groupMode === 'priority'" (click)="setGroupMode('priority')">
+        <i class="bi bi-flag-fill me-1"></i>Priority
+      </button>
+    </div>
+  </div>
+
+  <div class="kanban-columns" cdkDropListGroup>
+    @for (col of columns; track col.id) {
+      <div class="kanban-column">
+        <div class="kanban-column-header" [class]="col.colorClass">
+          <span class="kanban-column-title"><i class="bi" [class]="col.icon"></i>{{ col.label }}</span>
+          <span class="kanban-column-count">{{ col.items.length }}</span>
+        </div>
+
+        <div class="kanban-column-body" cdkDropList [id]="col.id" [cdkDropListData]="col.items"
+             [cdkDropListConnectedTo]="connectedIds" (cdkDropListDropped)="drop($event, col)">
+          @for (node of col.items; track node._id) {
+            <div class="kanban-card" cdkDrag [cdkDragData]="node" (click)="onCardClick(node)">
+              <div class="kanban-card-placeholder" *cdkDragPlaceholder></div>
+
+              <div class="kanban-card-top">
+                <span class="tree-type-icon" [class]="'tree-type-' + node.type">
+                  <i class="bi"
+                     [class.bi-folder2]="node.type === 'group'"
+                     [class.bi-check2-square]="node.type === 'task'"
+                     [class.bi-arrow-return-right]="node.type === 'subtask'"></i>
+                </span>
+                <span class="kanban-card-title">{{ node.title }}</span>
+              </div>
+
+              @if (node.description) {
+                <p class="kanban-card-desc">{{ node.description }}</p>
+              }
+
+              <div class="kanban-card-meta">
+                <span class="status-badge" [class]="statusColorClass(node.status)">{{ node.status }}</span>
+                <span class="priority-badge" [class]="priorityColorClass(node.priority)">{{ node.priority }}</span>
+              </div>
+
+              <div class="kanban-card-bottom">
+                @if (node.assignedTo) {
+                  <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(node.assignedTo.role)" [title]="node.assignedTo.username">
+                    {{ node.assignedTo.username[0].toUpperCase() }}
+                  </span>
+                } @else {
+                  <span class="assign-avatar avatar-xs avatar-empty" title="Unassigned"><i class="bi bi-person"></i></span>
+                }
+
+                <span class="kanban-card-spacer"></span>
+
+                @if (node.endDate) {
+                  <span class="kanban-card-due"><i class="bi bi-calendar-event me-1"></i>{{ node.endDate | date:'MMM d' }}</span>
+                }
+              </div>
+            </div>
+          } @empty {
+            <div class="kanban-empty-col">Drop tasks here</div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</div>

@@ -1,0 +1,228 @@
+<div class="page">
+  <nav class="page-breadcrumb mb-3">
+    <a routerLink="/projects" class="breadcrumb-item">Projects</a>
+    <span class="breadcrumb-separator"><i class="bi bi-chevron-right"></i></span>
+    <span class="breadcrumb-item breadcrumb-item-active">{{ project?.name || '…' }}</span>
+  </nav>
+
+  @if (error) {
+    <div class="alert alert-danger py-2">{{ error }}</div>
+  }
+
+  @if (loading) {
+    <div class="text-center py-5 text-muted">
+      <span class="spinner-border spinner-border-sm me-2"></span>Loading project…
+    </div>
+  } @else if (project) {
+    <div class="card project-header-card shadow-sm mb-4">
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-2">
+      <input type="text" class="project-title-input" [(ngModel)]="editName"
+             (blur)="saveNameDescription()" (keydown.enter)="$event.preventDefault(); $any($event.target).blur()"
+             placeholder="Project name" maxlength="200" />
+
+      <div class="project-meta-row">
+        <div class="meta-cell">
+          <span class="meta-label"><i class="bi bi-person-badge me-1"></i>Project Leader</span>
+          <div class="dropdown">
+            <button type="button" class="assign-trigger dropdown-toggle" data-bs-toggle="dropdown">
+              @if (project.owner) {
+                <span class="assign-avatar" [class]="'avatar-' + roleClass(project.owner.role)">
+                  {{ project.owner.username[0].toUpperCase() }}
+                </span>
+                <span class="assign-trigger-name">{{ project.owner.username }}</span>
+              } @else {
+                <span class="assign-avatar avatar-empty"><i class="bi bi-person"></i></span>
+                <span class="assign-trigger-name text-muted">Unassigned</span>
+              }
+            </button>
+            <ul class="dropdown-menu assign-dropdown">
+              <li>
+                <a class="assign-item" (click)="selectOwner(null)">
+                  <span class="assign-avatar avatar-empty"><i class="bi bi-person"></i></span>
+                  <span class="assign-item-name text-muted">Unassigned</span>
+                </a>
+              </li>
+              <li><hr class="dropdown-divider my-1" /></li>
+              @for (u of users; track u.id) {
+                <li>
+                  <a class="assign-item" (click)="selectOwner(u)">
+                    <span class="assign-avatar" [class]="'avatar-' + roleClass(u.role)">{{ u.username[0].toUpperCase() }}</span>
+                    <span class="assign-item-name">{{ u.username }}</span>
+                  </a>
+                </li>
+              }
+            </ul>
+          </div>
+        </div>
+
+        <div class="meta-cell">
+          <span class="meta-label"><i class="bi bi-flag-fill me-1"></i>Priority</span>
+          <div class="dropdown">
+            <button type="button" class="priority-badge dropdown-toggle"
+                    [class.priority-low]="project.priority === 'low'"
+                    [class.priority-medium]="project.priority === 'medium'"
+                    [class.priority-high]="project.priority === 'high'"
+                    data-bs-toggle="dropdown" title="Change priority">
+              {{ project.priority }}
+            </button>
+            <ul class="dropdown-menu status-dropdown shadow-sm">
+              @for (p of priorityOptions; track p) {
+                <li><a class="dropdown-item status-opt" (click)="setPriority(p)">{{ p }}</a></li>
+              }
+            </ul>
+          </div>
+        </div>
+
+        <div class="meta-cell">
+          <span class="meta-label"><i class="bi bi-graph-up me-1"></i>% Complete</span>
+          <div class="progress-cell">
+            <div class="progress-track"><div class="progress-fill" [style.width.%]="progress.percent"></div></div>
+            <span class="progress-frac">{{ progress.percent }}% · {{ progress.completed }}/{{ progress.doing }}/{{ progress.total }}</span>
+          </div>
+        </div>
+
+        <div class="dropdown">
+          <button type="button" class="actions-btn dropdown-toggle" data-bs-toggle="dropdown" title="Project actions">
+            <i class="bi bi-gear me-1"></i>Actions
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+            <li>
+              <a class="dropdown-item text-danger" (click)="openDeleteConfirm()">
+                <i class="bi bi-trash3 me-2"></i>Delete Project
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <textarea class="project-desc-input mb-3" rows="2" [(ngModel)]="editDescription"
+              (blur)="saveNameDescription()" placeholder="Add a description…"></textarea>
+
+    <div class="schedule-row">
+      <div class="schedule-cell">
+        <span class="schedule-label">Start</span>
+        <div class="d-flex gap-2">
+          <app-date-picker [value]="startDateStr" (valueChange)="onStartDateChange($event)"></app-date-picker>
+          <app-time-picker [value]="startTimeStr" (valueChange)="onStartTimeChange($event)"></app-time-picker>
+        </div>
+      </div>
+      <div class="schedule-cell">
+        <span class="schedule-label">End</span>
+        <div class="d-flex gap-2">
+          <app-date-picker [value]="endDateStr" [min]="startDateStr" align="right" (valueChange)="onEndDateChange($event)"></app-date-picker>
+          <app-time-picker [value]="endTimeStr" align="right" (valueChange)="onEndTimeChange($event)"></app-time-picker>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <app-tab-strip [tabs]="tabs" [activeKey]="activeTab" (tabChange)="activeTab = $event"></app-tab-strip>
+
+    @if (activeTab === 'tasks') {
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="text-muted mb-0 text-uppercase small fw-bold">Groups</h6>
+        <button class="btn btn-success btn-sm" (click)="openAddGroup()">
+          <i class="bi bi-plus-lg me-1"></i>New Group
+        </button>
+      </div>
+
+      @if (addGroupOpen) {
+        <div class="card mb-3 p-3">
+          <div class="d-flex gap-2 align-items-center">
+            <input class="add-subtask-input flex-grow-1" type="text" [(ngModel)]="addGroupTitle"
+                   placeholder="Group title (e.g. Mobile App)…" (keydown.enter)="submitAddGroup()" maxlength="200" />
+            <button class="add-subtask-btn" (click)="submitAddGroup()" [disabled]="addGroupLoading || !addGroupTitle.trim()">
+              @if (addGroupLoading) { <span class="spinner-border spinner-border-sm"></span> } @else { <i class="bi bi-plus-lg"></i> }
+            </button>
+            <button class="subtask-del-btn" (click)="cancelAddGroup()" title="Cancel">
+              <i class="bi bi-x"></i>
+            </button>
+          </div>
+          @if (addGroupError) {
+            <div class="subtask-error">{{ addGroupError }}</div>
+          }
+        </div>
+      }
+
+      @if (itemsLoading) {
+        <div class="text-center py-4 text-muted">
+          <span class="spinner-border spinner-border-sm me-2"></span>Loading tasks…
+        </div>
+      } @else if (tree.length === 0) {
+        <div class="empty-state text-center py-5 text-muted">
+          <i class="bi bi-diagram-3 display-4 d-block mb-3"></i>
+          <p class="fs-5 mb-0">No groups yet. Create one to get started.</p>
+        </div>
+      } @else {
+        <div class="card project-tasks-card shadow-sm">
+          <div class="item-table-header">
+            <span></span>
+            <span>Task</span>
+            <span>Status</span>
+            <span>Due</span>
+            <span>Priority</span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="tree-children tree-root" cdkDropList id="drop-root" [cdkDropListData]="tree" (cdkDropListDropped)="onDropRoot($event)">
+            @for (node of tree; track node._id) {
+              <div cdkDrag [cdkDragData]="node" class="tree-drag-item">
+                <div class="tree-drag-placeholder" *cdkDragPlaceholder></div>
+                <app-project-tree-node
+                  [node]="node"
+                  [projectId]="projectId"
+                  (refresh)="loadItems()"
+                  (openDetail)="onOpenDetail($event)">
+                </app-project-tree-node>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    }
+
+    @if (activeTab === 'kanban') {
+      @if (itemsLoading) {
+        <div class="text-center py-4 text-muted">
+          <span class="spinner-border spinner-border-sm me-2"></span>Loading tasks…
+        </div>
+      } @else if (tree.length === 0) {
+        <div class="empty-state text-center py-5 text-muted">
+          <i class="bi bi-kanban display-4 d-block mb-3"></i>
+          <p class="fs-5 mb-0">No tasks yet. Add a group from the Tasks tab to get started.</p>
+        </div>
+      } @else {
+        <app-kanban-board
+          [tree]="tree"
+          [projectId]="projectId"
+          [users]="users"
+          (refresh)="loadItems()"
+          (openDetail)="onOpenDetail($event)">
+        </app-kanban-board>
+      }
+    }
+  }
+</div>
+
+<app-project-item-detail
+  [projectId]="projectId"
+  [item]="selectedNode"
+  [childCount]="selectedNode?.childCount || 0"
+  [breadcrumbPath]="selectedPath"
+  (closed)="closeDetail()"
+  (saved)="loadItems()"
+  (breadcrumbNavigate)="onOpenDetail($event)">
+</app-project-item-detail>
+
+
+<app-confirm-dialog
+  [open]="deleteConfirmOpen"
+  title="Delete Project"
+  message="This project and everything inside it — all groups, tasks, subtasks, comments, and attachments — will be permanently deleted."
+  confirmLabel="Delete Project"
+  [loading]="deleteLoading"
+  (confirmed)="confirmDeleteProject()"
+  (cancelled)="cancelDeleteConfirm()">
+</app-confirm-dialog>

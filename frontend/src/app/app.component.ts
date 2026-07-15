@@ -1,19 +1,22 @@
-import { Component, effect, OnInit, OnDestroy } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
+import { Component, effect, inject, OnInit, OnDestroy } from '@angular/core';
+import { RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
 import { AuthService } from './core/services/auth.service';
 import { ChatService } from './core/services/chat.service';
 import { ThemeService } from './core/services/theme.service';
+import { SidebarService } from './core/services/sidebar.service';
+import { SidebarComponent } from './shared/sidebar/sidebar.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, SidebarComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
 })
 export class AppComponent implements OnInit, OnDestroy {
   readonly year = new Date().getFullYear();
+  readonly sidebarSvc = inject(SidebarService);
   private routeSub = new Subscription();
 
   constructor(

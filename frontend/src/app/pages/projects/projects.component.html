@@ -1,0 +1,261 @@
+<div class="page">
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h1 class="h3 mb-0">Projects</h1>
+    <div class="d-flex align-items-center gap-2">
+      <div class="btn-group view-switcher" role="group" aria-label="View mode">
+        <button type="button" class="btn view-switch-btn" [class.active]="viewMode === 'cards'" (click)="setViewMode('cards')" title="Card view">
+          <i class="bi bi-grid-3x3-gap-fill"></i>
+        </button>
+        <button type="button" class="btn view-switch-btn" [class.active]="viewMode === 'table'" (click)="setViewMode('table')" title="Table view">
+          <i class="bi bi-table"></i>
+        </button>
+        <button type="button" class="btn view-switch-btn" [class.active]="viewMode === 'list'" (click)="setViewMode('list')" title="List view">
+          <i class="bi bi-list-ul"></i>
+        </button>
+      </div>
+      <button class="btn btn-success btn-sm" (click)="openCreate()">
+        <i class="bi bi-plus-lg me-1"></i>New Project
+      </button>
+    </div>
+  </div>
+
+  @if (error) {
+    <div class="alert alert-danger py-2">{{ error }}</div>
+  }
+
+  @if (loading) {
+    <div class="text-center py-5 text-muted">
+      <span class="spinner-border spinner-border-sm me-2"></span>Loading projects…
+    </div>
+  } @else if (viewMode === 'cards') {
+    @if (cardsItems.length === 0) {
+      <div class="empty-state text-center py-5 text-muted">
+        <i class="bi bi-kanban display-4 d-block mb-3"></i>
+        <p class="fs-5 mb-0">No projects yet.</p>
+      </div>
+    } @else {
+      <div class="project-grid">
+        @for (project of cardsItems; track project._id) {
+          <div class="project-card" (click)="open(project)">
+            <div class="project-card-icon"><i class="bi bi-kanban"></i></div>
+            <div class="project-card-body">
+              <h5 class="project-card-title">{{ project.name }}</h5>
+              @if (project.description) {
+                <p class="project-card-desc">{{ project.description }}</p>
+              }
+              <div class="project-card-meta">
+                <i class="bi bi-person-fill me-1"></i>{{ project.createdBy.username }}
+                <span class="mx-2">·</span>
+                <i class="bi bi-calendar3 me-1"></i>{{ project.createdAt | date:'MMM d, yyyy' }}
+              </div>
+              @if (project.startDate || project.endDate) {
+                <div class="project-card-range">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3.5" y="5" width="17" height="16" rx="2.5"></rect>
+                    <path d="M3.5 9.5h17"></path>
+                    <path d="M8 3v3.2"></path>
+                    <path d="M16 3v3.2"></path>
+                  </svg>
+                  {{ formatRange(project.startDate, project.endDate) }}
+                </div>
+              }
+            </div>
+            <i class="bi bi-chevron-right project-card-arrow"></i>
+          </div>
+        }
+      </div>
+
+      <div #sentinel class="cards-sentinel"></div>
+      @if (cardsLoadingMore) {
+        <div class="text-center py-3 text-muted">
+          <span class="spinner-border spinner-border-sm me-2"></span>Loading more…
+        </div>
+      } @else if (!cardsHasMore) {
+        <div class="text-center py-3 cards-end-marker">— End of list —</div>
+      }
+    }
+  } @else if (pagedItems.length === 0) {
+    <div class="empty-state text-center py-5 text-muted">
+      <i class="bi bi-kanban display-4 d-block mb-3"></i>
+      <p class="fs-5 mb-0">No projects yet.</p>
+    </div>
+  } @else if (viewMode === 'table') {
+    <div class="card project-table-card shadow-sm">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr class="table-dark-header">
+              <th class="ps-4">Name</th>
+              <th>Owner</th>
+              <th>Priority</th>
+              <th>Dates</th>
+              <th>Created By</th>
+              <th class="pe-4 text-end">Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (project of pagedItems; track project._id) {
+              <tr class="project-row" (click)="open(project)">
+                <td class="ps-4">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="project-row-icon"><i class="bi bi-kanban"></i></span>
+                    <span class="fw-medium project-row-title">{{ project.name }}</span>
+                  </div>
+                </td>
+                <td>
+                  @if (project.owner) {
+                    <span class="assign-avatar avatar-xs me-2" [class]="'avatar-' + roleClass(project.owner.role)">{{ project.owner.username[0].toUpperCase() }}</span>
+                    <span class="text-muted-em">{{ project.owner.username }}</span>
+                  } @else {
+                    <span class="text-muted-em">—</span>
+                  }
+                </td>
+                <td>
+                  <span class="priority-badge-sm" [class]="'priority-' + project.priority">{{ project.priority }}</span>
+                </td>
+                <td>
+                  <span class="text-muted-em">{{ formatRange(project.startDate, project.endDate) || '—' }}</span>
+                </td>
+                <td><span class="text-muted-em">{{ project.createdBy.username }}</span></td>
+                <td class="pe-4 text-end"><span class="text-muted-em">{{ project.createdAt | date:'MMM d, yyyy' }}</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (totalPages > 1) {
+        <div class="pagination-bar d-flex align-items-center justify-content-between px-4 py-3">
+          <span class="page-info">{{ pageStart }}–{{ pageEnd }} of {{ totalItems }} projects</span>
+          <nav>
+            <ul class="pagination pagination-sm mb-0">
+              <li class="page-item" [class.disabled]="currentPage === 1">
+                <button class="page-link" (click)="loadPage(currentPage - 1)"><i class="bi bi-chevron-left"></i></button>
+              </li>
+              @for (p of pageNumbers; track $index) {
+                @if (p === -1) {
+                  <li class="page-item disabled"><span class="page-link ellipsis">…</span></li>
+                } @else {
+                  <li class="page-item" [class.active]="p === currentPage">
+                    <button class="page-link" (click)="loadPage(p)">{{ p }}</button>
+                  </li>
+                }
+              }
+              <li class="page-item" [class.disabled]="currentPage === totalPages">
+                <button class="page-link" (click)="loadPage(currentPage + 1)"><i class="bi bi-chevron-right"></i></button>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      }
+    </div>
+  } @else {
+    <div class="project-list">
+      @for (project of pagedItems; track project._id) {
+        <div class="project-list-row" (click)="open(project)">
+          <span class="project-list-icon"><i class="bi bi-kanban"></i></span>
+          <div class="project-list-main">
+            <span class="project-list-title">{{ project.name }}</span>
+            @if (project.description) {
+              <span class="project-list-desc">{{ project.description }}</span>
+            }
+          </div>
+          <span class="priority-badge-sm" [class]="'priority-' + project.priority">{{ project.priority }}</span>
+          @if (project.owner) {
+            <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(project.owner.role)" [title]="project.owner.username">
+              {{ project.owner.username[0].toUpperCase() }}
+            </span>
+          }
+          @if (formatRange(project.startDate, project.endDate)) {
+            <span class="project-list-range">{{ formatRange(project.startDate, project.endDate) }}</span>
+          }
+          <i class="bi bi-chevron-right project-list-arrow"></i>
+        </div>
+      }
+    </div>
+
+    @if (totalPages > 1) {
+      <div class="pagination-bar list-pagination-bar d-flex align-items-center justify-content-between px-3 py-3 mt-2">
+        <span class="page-info">{{ pageStart }}–{{ pageEnd }} of {{ totalItems }} projects</span>
+        <nav>
+          <ul class="pagination pagination-sm mb-0">
+            <li class="page-item" [class.disabled]="currentPage === 1">
+              <button class="page-link" (click)="loadPage(currentPage - 1)"><i class="bi bi-chevron-left"></i></button>
+            </li>
+            @for (p of pageNumbers; track $index) {
+              @if (p === -1) {
+                <li class="page-item disabled"><span class="page-link ellipsis">…</span></li>
+              } @else {
+                <li class="page-item" [class.active]="p === currentPage">
+                  <button class="page-link" (click)="loadPage(p)">{{ p }}</button>
+                </li>
+              }
+            }
+            <li class="page-item" [class.disabled]="currentPage === totalPages">
+              <button class="page-link" (click)="loadPage(currentPage + 1)"><i class="bi bi-chevron-right"></i></button>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    }
+  }
+</div>
+
+<!-- Create project modal -->
+@if (createOpen) {
+  <div class="modal-overlay d-flex align-items-center justify-content-center" (click)="closeCreate()">
+    <div class="card modal-card modal-card-lg shadow-lg" (click)="$event.stopPropagation()">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h5 class="card-title mb-0"><i class="bi bi-plus-circle me-2"></i>New Project</h5>
+          <button type="button" class="btn-close" (click)="closeCreate()"></button>
+        </div>
+
+        @if (createError) {
+          <div class="alert alert-danger py-2">{{ createError }}</div>
+        }
+
+        <form [formGroup]="createForm" (ngSubmit)="submitCreate()">
+          <div class="mb-3">
+            <label class="field-label">Name <span class="text-danger">*</span></label>
+            <input type="text" class="form-control field-input" formControlName="name" placeholder="Project name" />
+            @if (createForm.get('name')?.touched && createForm.get('name')?.invalid) {
+              <div class="field-error">Name is required</div>
+            }
+          </div>
+
+          <div class="mb-4">
+            <label class="field-label">Description</label>
+            <textarea class="form-control field-input" style="height:auto" formControlName="description" rows="3"
+                      placeholder="Optional description"></textarea>
+          </div>
+
+          <div class="row g-3 mb-4">
+            <div class="col-12">
+              <label class="field-label mb-2">Start</label>
+              <div class="d-flex gap-2">
+                <app-date-picker [value]="createStartDate" (valueChange)="createStartDate = $event"></app-date-picker>
+                <app-time-picker [value]="createStartTime" (valueChange)="createStartTime = $event"></app-time-picker>
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="field-label mb-2">End</label>
+              <div class="d-flex gap-2">
+                <app-date-picker [value]="createEndDate" [min]="createStartDate" (valueChange)="createEndDate = $event"></app-date-picker>
+                <app-time-picker [value]="createEndTime" (valueChange)="createEndTime = $event"></app-time-picker>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary modal-submit-btn" [disabled]="createLoading">
+              @if (createLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+              {{ createLoading ? 'Creating...' : 'Create Project' }}
+            </button>
+            <button type="button" class="btn btn-light modal-submit-btn" (click)="closeCreate()">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}

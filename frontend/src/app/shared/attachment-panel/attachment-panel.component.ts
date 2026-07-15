@@ -1,0 +1,127 @@
+import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { ProjectService } from '../../core/services/project.service';
+import { ProjectItem } from '../../models/project-item.model';
+import { Attachment } from '../../models/attachment.model';
+import { TabStripComponent, TabDef } from '../tab-strip/tab-strip.component';
+
+@Component({
+  selector: 'app-attachment-panel',
+  standalone: true,
+  imports: [FormsModule, TabStripComponent],
+  templateUrl: './attachment-panel.component.html',
+  styleUrl: './attachment-panel.component.css',
+})
+export class AttachmentPanelComponent implements OnChanges {
+  @Input({ required: true }) projectId!: string;
+  @Input({ required: true }) item!: ProjectItem;
+
+  @Output() closed = new EventEmitter<void>();
+  @Output() saved = new EventEmitter<void>();
+
+  readonly tabs: TabDef[] = [
+    { key: 'attachments', label: 'Attachments', icon: 'bi-paperclip' },
+    { key: 'description', label: 'Description', icon: 'bi-card-text' },
+  ];
+  activeTab = 'attachments';
+
+  description = '';
+
+  attachments: Attachment[] = [];
+  attachmentsLoading = false;
+  attachmentUploading = false;
+  attachmentUploadError = '';
+  downloadingId = '';
+
+  constructor(private projectService: ProjectService) {}
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['item'] && this.item) {
+      this.description = this.item.description;
+      if (changes['item'].firstChange) {
+        this.loadAttachments();
+      }
+    }
+  }
+
+  saveDescription() {
+    if (this.description === this.item.description) return;
+    this.projectService.updateItem(this.projectId, this.item._id, { description: this.description }).subscribe({
+      next: (res) => {
+        this.item = res.item;
+        this.saved.emit();
+      },
+    });
+  }
+
+  loadAttachments() {
+    this.attachmentsLoading = true;
+    this.projectService.getAttachments(this.projectId, this.item._id).subscribe({
+      next: (list) => {
+        this.attachments = list;
+        this.attachmentsLoading = false;
+      },
+      error: () => (this.attachmentsLoading = false),
+    });
+  }
+
+  onFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    this.attachmentUploading = true;
+    this.attachmentUploadError = '';
+    this.projectService.uploadAttachment(this.projectId, this.item._id, file).subscribe({
+      next: (res) => {
+        this.attachments = [res.attachment, ...this.attachments];
+        this.attachmentUploading = false;
+        input.value = '';
+      },
+      error: (err) => {
+        this.attachmentUploadError = err.error?.message || 'Failed to upload file';
+        this.attachmentUploading = false;
+        input.value = '';
+      },
+    });
+  }
+
+  download(attachment: Attachment) {
+    this.downloadingId = attachment._id;
+    this.projectService.downloadAttachment(this.projectId, this.item._id, attachment._id).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = attachment.fileName;
+        link.click();
+        window.URL.revokeObjectURL(url);
+        this.downloadingId = '';
+      },
+      error: () => (this.downloadingId = ''),
+    });
+  }
+
+  deleteAttachment(attachment: Attachment) {
+    this.projectService.deleteAttachment(this.projectId, this.item._id, attachment._id).subscribe({
+      next: () => (this.attachments = this.attachments.filter((a) => a._id !== attachment._id)),
+    });
+  }
+
+  formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  fileIcon(mimeType: string): string {
+    if (mimeType.startsWith('image/')) return 'bi-file-earmark-image';
+    if (mimeType === 'application/pdf') return 'bi-file-earmark-pdf';
+    if (mimeType.includes('zip')) return 'bi-file-earmark-zip';
+    if (mimeType.includes('word')) return 'bi-file-earmark-word';
+    if (mimeType.includes('sheet') || mimeType.includes('excel')) return 'bi-file-earmark-spreadsheet';
+    if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return 'bi-file-earmark-slides';
+    if (mimeType.startsWith('text/')) return 'bi-file-earmark-text';
+    return 'bi-file-earmark';
+  }
+}

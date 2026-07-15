@@ -1,0 +1,12 @@
+<div class="tab-strip">
+  @for (tab of tabs; track tab.key) {
+    <button
+      type="button"
+      class="tab-strip-item"
+      [class.tab-strip-item-active]="tab.key === activeKey"
+      (click)="select(tab.key)">
+      <i class="bi" [class]="tab.icon"></i>
+      {{ tab.label }}
+    </button>
+  }
+</div>

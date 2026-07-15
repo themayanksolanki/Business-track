@@ -73,3 +73,101 @@ export const validateObjectId = (req, res, next) => {
 
   next();
 };
+
+const validateParamId = (paramName) => (req, res, next) => {
+  if (!mongoose.isValidObjectId(req.params[paramName]))
+    return next(new AppError(`Invalid ID: ${req.params[paramName]}`, 400));
+
+  next();
+};
+
+export const validateProjectId = validateParamId('projectId');
+export const validateItemId = validateParamId('itemId');
+export const validateCommentId = validateParamId('commentId');
+export const validateAttachmentId = validateParamId('attachmentId');
+
+const isValidDateValue = (value) => !isNaN(new Date(value).getTime());
+
+const validateDateRange = (startDate, endDate) => {
+  if (startDate !== undefined && startDate !== null && !isValidDateValue(startDate))
+    return 'startDate is not a valid date';
+
+  if (endDate !== undefined && endDate !== null && !isValidDateValue(endDate))
+    return 'endDate is not a valid date';
+
+  if (startDate && endDate && new Date(endDate) < new Date(startDate))
+    return 'endDate must be on or after startDate';
+
+  return null;
+};
+
+const VALID_PRIORITIES = ['low', 'medium', 'high'];
+
+export const validateProject = (req, res, next) => {
+  const { name, startDate, endDate, owner, priority } = req.body;
+
+  if (req.method === 'POST' && (!name || !name.trim()))
+    return next(new AppError('Project name is required', 400));
+
+  if (owner && !mongoose.isValidObjectId(owner))
+    return next(new AppError('owner is not a valid ID', 400));
+
+  if (priority !== undefined && !VALID_PRIORITIES.includes(priority))
+    return next(new AppError(`Priority must be one of: ${VALID_PRIORITIES.join(', ')}`, 400));
+
+  const dateError = validateDateRange(startDate, endDate);
+  if (dateError) return next(new AppError(dateError, 400));
+
+  next();
+};
+
+const VALID_ITEM_STATUSES = ['todo', 'doing', 'completed'];
+const VALID_ITEM_PRIORITIES = VALID_PRIORITIES;
+
+export const validateProjectItem = (req, res, next) => {
+  const { title, status, priority, assignedTo, parentId, startDate, endDate } = req.body;
+
+  if (req.method === 'POST' && (!title || !title.trim()))
+    return next(new AppError('Title is required', 400));
+
+  if (status !== undefined && !VALID_ITEM_STATUSES.includes(status))
+    return next(new AppError(`Status must be one of: ${VALID_ITEM_STATUSES.join(', ')}`, 400));
+
+  if (priority !== undefined && !VALID_ITEM_PRIORITIES.includes(priority))
+    return next(new AppError(`Priority must be one of: ${VALID_ITEM_PRIORITIES.join(', ')}`, 400));
+
+  if (assignedTo && !mongoose.isValidObjectId(assignedTo))
+    return next(new AppError('assignedTo is not a valid ID', 400));
+
+  if (parentId && !mongoose.isValidObjectId(parentId))
+    return next(new AppError('parentId is not a valid ID', 400));
+
+  const dateError = validateDateRange(startDate, endDate);
+  if (dateError) return next(new AppError(dateError, 400));
+
+  next();
+};
+
+export const validateReorder = (req, res, next) => {
+  const { parentId, orderedIds } = req.body;
+
+  if (parentId && !mongoose.isValidObjectId(parentId))
+    return next(new AppError('parentId is not a valid ID', 400));
+
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0)
+    return next(new AppError('orderedIds must be a non-empty array', 400));
+
+  if (!orderedIds.every((id) => mongoose.isValidObjectId(id)))
+    return next(new AppError('orderedIds must all be valid IDs', 400));
+
+  next();
+};
+
+export const validateComment = (req, res, next) => {
+  const { body } = req.body;
+
+  if (!body || !body.trim())
+    return next(new AppError('Comment body is required', 400));
+
+  next();
+};

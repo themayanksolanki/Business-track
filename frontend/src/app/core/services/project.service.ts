@@ -1,0 +1,122 @@
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
+import {
+  Project,
+  CreateProjectPayload,
+  UpdateProjectPayload,
+  PaginatedProjects,
+} from '../../models/project.model';
+import {
+  ProjectItem,
+  CreateProjectItemPayload,
+  UpdateProjectItemPayload,
+} from '../../models/project-item.model';
+import { ProjectComment, CreateCommentPayload } from '../../models/comment.model';
+import { Attachment } from '../../models/attachment.model';
+
+@Injectable({ providedIn: 'root' })
+export class ProjectService {
+  private readonly api = `${environment.apiUrl}/projects`;
+
+  constructor(private http: HttpClient) {}
+
+  // Projects
+  getProjects(page: number, limit: number) {
+    return this.http.get<PaginatedProjects>(this.api, { params: { page, limit } });
+  }
+
+  getProjectById(projectId: string) {
+    return this.http.get<Project>(`${this.api}/${projectId}`);
+  }
+
+  createProject(payload: CreateProjectPayload) {
+    return this.http.post<{ message: string; project: Project }>(this.api, payload);
+  }
+
+  updateProject(projectId: string, payload: UpdateProjectPayload) {
+    return this.http.put<{ message: string; project: Project }>(`${this.api}/${projectId}`, payload);
+  }
+
+  deleteProject(projectId: string) {
+    return this.http.delete<{ message: string }>(`${this.api}/${projectId}`);
+  }
+
+  // Items
+  getItems(projectId: string) {
+    return this.http.get<ProjectItem[]>(`${this.api}/${projectId}/items`);
+  }
+
+  getItemById(projectId: string, itemId: string) {
+    return this.http.get<ProjectItem>(`${this.api}/${projectId}/items/${itemId}`);
+  }
+
+  createItem(projectId: string, payload: CreateProjectItemPayload) {
+    return this.http.post<{ message: string; item: ProjectItem }>(
+      `${this.api}/${projectId}/items`,
+      payload
+    );
+  }
+
+  updateItem(projectId: string, itemId: string, payload: UpdateProjectItemPayload) {
+    return this.http.put<{ message: string; item: ProjectItem }>(
+      `${this.api}/${projectId}/items/${itemId}`,
+      payload
+    );
+  }
+
+  deleteItem(projectId: string, itemId: string) {
+    return this.http.delete<{ message: string }>(`${this.api}/${projectId}/items/${itemId}`);
+  }
+
+  reorderItems(projectId: string, parentId: string | null, orderedIds: string[]) {
+    return this.http.patch<{ message: string }>(`${this.api}/${projectId}/items/reorder`, {
+      parentId,
+      orderedIds,
+    });
+  }
+
+  // Comments
+  getComments(projectId: string, itemId: string) {
+    return this.http.get<ProjectComment[]>(`${this.api}/${projectId}/items/${itemId}/comments`);
+  }
+
+  addComment(projectId: string, itemId: string, payload: CreateCommentPayload) {
+    return this.http.post<{ message: string; comment: ProjectComment }>(
+      `${this.api}/${projectId}/items/${itemId}/comments`,
+      payload
+    );
+  }
+
+  deleteComment(projectId: string, itemId: string, commentId: string) {
+    return this.http.delete<{ message: string }>(
+      `${this.api}/${projectId}/items/${itemId}/comments/${commentId}`
+    );
+  }
+
+  // Attachments
+  getAttachments(projectId: string, itemId: string) {
+    return this.http.get<Attachment[]>(`${this.api}/${projectId}/items/${itemId}/attachments`);
+  }
+
+  uploadAttachment(projectId: string, itemId: string, file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<{ message: string; attachment: Attachment }>(
+      `${this.api}/${projectId}/items/${itemId}/attachments`,
+      formData
+    );
+  }
+
+  downloadAttachment(projectId: string, itemId: string, attachmentId: string) {
+    return this.http.get(`${this.api}/${projectId}/items/${itemId}/attachments/${attachmentId}/download`, {
+      responseType: 'blob',
+    });
+  }
+
+  deleteAttachment(projectId: string, itemId: string, attachmentId: string) {
+    return this.http.delete<{ message: string }>(
+      `${this.api}/${projectId}/items/${itemId}/attachments/${attachmentId}`
+    );
+  }
+}

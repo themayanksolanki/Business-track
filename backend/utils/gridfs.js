@@ -21,3 +21,5 @@ export const uploadBufferToGridFS = (buffer, filename, contentType) => {
 };
 
 export const openDownloadStream = (fileId) => getBucket().openDownloadStream(fileId);
+
+export const deleteFile = (fileId) => getBucket().delete(fileId);

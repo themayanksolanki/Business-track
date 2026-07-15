@@ -1,0 +1,294 @@
+@if (item) {
+  <div class="modal-overlay d-flex align-items-center justify-content-center" (click)="close()">
+    <div class="detail-modal item-detail-modal shadow-lg" (click)="$event.stopPropagation()">
+
+      <div class="detail-header"
+           [class.detail-header-todo]="item.status === 'todo'"
+           [class.detail-header-doing]="item.status === 'doing'"
+           [class.detail-header-completed]="item.status === 'completed'">
+        @if (breadcrumbPath.length > 1) {
+          <nav class="item-breadcrumb mb-2">
+            @for (crumb of breadcrumbPath; track crumb._id; let last = $last) {
+              <span class="breadcrumb-item" [class.breadcrumb-item-active]="last"
+                    (click)="!last && breadcrumbNavigate.emit(crumb)">
+                {{ crumb.title }}
+              </span>
+              @if (!last) { <span class="breadcrumb-separator"><i class="bi bi-chevron-right"></i></span> }
+            }
+          </nav>
+        }
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <div class="dropdown">
+              <span class="detail-status-pill dropdown-toggle"
+                    [class.pill-todo]="item.status === 'todo'"
+                    [class.pill-doing]="item.status === 'doing'"
+                    [class.pill-completed]="item.status === 'completed'"
+                    [class.pill-disabled]="!canEditStatus"
+                    [attr.data-bs-toggle]="canEditStatus ? 'dropdown' : null"
+                    [title]="canEditStatus ? 'Change status' : 'Status is derived from children'">
+                <i class="bi me-1"
+                   [class.bi-circle]="item.status === 'todo'"
+                   [class.bi-arrow-repeat]="item.status === 'doing'"
+                   [class.bi-check-circle-fill]="item.status === 'completed'"></i>
+                {{ item.status === 'todo' ? 'Todo' : item.status === 'doing' ? 'Doing' : 'Completed' }}
+                @if (canEditStatus) {
+                  <i class="bi bi-chevron-down ms-1" style="opacity:.5;font-size:.6rem"></i>
+                } @else {
+                  <i class="bi bi-lock-fill ms-1" style="opacity:.5;font-size:.6rem"></i>
+                }
+              </span>
+              @if (canEditStatus) {
+                <ul class="dropdown-menu status-dropdown shadow-sm">
+                  @for (s of statusOptions; track s) {
+                    <li><a class="dropdown-item status-opt" (click)="setStatus(s)">
+                      <i class="bi me-2"
+                         [class.bi-circle]="s === 'todo'"
+                         [class.bi-arrow-repeat]="s === 'doing'"
+                         [class.bi-check-circle-fill]="s === 'completed'"></i>
+                      {{ s === 'todo' ? 'Todo' : s === 'doing' ? 'Doing' : 'Completed' }}
+                    </a></li>
+                  }
+                </ul>
+              }
+            </div>
+
+            <div class="dropdown">
+              <span class="priority-pill dropdown-toggle"
+                    [class.priority-low]="item.priority === 'low'"
+                    [class.priority-medium]="item.priority === 'medium'"
+                    [class.priority-high]="item.priority === 'high'"
+                    data-bs-toggle="dropdown" title="Change priority">
+                <i class="bi bi-flag-fill me-1"></i>{{ item.priority }}
+              </span>
+              <ul class="dropdown-menu status-dropdown shadow-sm">
+                @for (p of priorityOptions; track p) {
+                  <li><a class="dropdown-item status-opt" (click)="setPriority(p)">
+                    <i class="bi bi-flag-fill me-2"
+                       [class.priority-icon-low]="p === 'low'"
+                       [class.priority-icon-medium]="p === 'medium'"
+                       [class.priority-icon-high]="p === 'high'"></i>
+                    {{ p }}
+                  </a></li>
+                }
+              </ul>
+            </div>
+
+            <span class="type-pill">{{ item.type }}</span>
+          </div>
+
+          <button class="detail-x" (click)="close()"><i class="bi bi-x-lg"></i></button>
+        </div>
+
+        <form [formGroup]="editForm" (ngSubmit)="submitEdit()">
+          <input type="text" class="detail-title-input" formControlName="title" placeholder="Title"
+                 (blur)="submitEdit()" />
+        </form>
+      </div>
+
+      <div class="detail-body item-detail-body">
+        @if (editError) {
+          <div class="alert alert-danger py-2 small mb-3">{{ editError }}</div>
+        }
+
+        <div class="item-detail-grid">
+          <!-- Main column: description, attachments, comments -->
+          <div class="item-detail-main">
+            <div class="detail-section">
+              <div class="subtask-header">Description</div>
+              <form [formGroup]="editForm">
+                <textarea class="form-control field-input" style="height:auto" rows="5"
+                          formControlName="description" placeholder="Add a description..."
+                          (blur)="submitEdit()"></textarea>
+              </form>
+            </div>
+
+            <!-- Attachments -->
+            <div class="detail-section">
+              <div class="subtask-header">
+                <i class="bi bi-paperclip me-1"></i>Attachments
+                @if (attachments.length > 0) { <span class="subtask-count">{{ attachments.length }}</span> }
+              </div>
+
+              @if (attachmentsLoading) {
+                <div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</div>
+              } @else if (attachments.length === 0) {
+                <p class="text-muted small mb-2">No files uploaded yet.</p>
+              } @else {
+                <ul class="attachment-list mb-2">
+                  @for (a of attachments; track a._id) {
+                    <li class="attachment-item">
+                      <i class="bi attachment-file-icon" [class]="fileIcon(a.mimeType)"></i>
+                      <div class="attachment-info">
+                        <span class="attachment-name">{{ a.fileName }}</span>
+                        <span class="attachment-meta">{{ formatSize(a.size) }} · {{ a.uploadedBy.username }}</span>
+                      </div>
+                      <button class="attachment-download-btn" (click)="download(a)" [disabled]="downloadingId === a._id" title="Download">
+                        @if (downloadingId === a._id) {
+                          <span class="spinner-border spinner-border-sm"></span>
+                        } @else {
+                          <i class="bi bi-download"></i>
+                        }
+                      </button>
+                      <button class="subtask-del-btn" (click)="deleteAttachment(a)" title="Delete">
+                        <i class="bi bi-x"></i>
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+
+              <div class="attachment-upload-row">
+                <label class="attachment-upload-btn" [class.disabled]="attachmentUploading">
+                  @if (attachmentUploading) {
+                    <span class="spinner-border spinner-border-sm me-2"></span>Uploading…
+                  } @else {
+                    <i class="bi bi-cloud-arrow-up me-2"></i>Upload File
+                  }
+                  <input type="file" hidden (change)="onFileSelected($event)" [disabled]="attachmentUploading" />
+                </label>
+              </div>
+              @if (attachmentUploadError) {
+                <div class="field-error mt-2">{{ attachmentUploadError }}</div>
+              }
+            </div>
+
+            <!-- Comments -->
+            <div class="detail-section">
+              <div class="subtask-header">
+                <i class="bi bi-chat-left-text me-1"></i>Comments
+                @if (comments.length > 0) { <span class="subtask-count">{{ comments.length }}</span> }
+              </div>
+
+              @if (commentsLoading) {
+                <div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</div>
+              } @else if (comments.length > 0) {
+                <ul class="attachment-list mb-2">
+                  @for (c of comments; track c._id) {
+                    <li class="attachment-item comment-item">
+                      <div class="attachment-info">
+                        <span class="attachment-name">{{ c.author.username }}
+                          <span class="attachment-meta ms-1">{{ c.createdAt | date:'MMM d, h:mm a' }}</span>
+                        </span>
+                        <span class="comment-body">{{ c.body }}</span>
+                      </div>
+                      @if (isOwnComment(c)) {
+                        <button class="subtask-del-btn" (click)="deleteComment(c)" title="Delete comment">
+                          <i class="bi bi-x"></i>
+                        </button>
+                      }
+                    </li>
+                  }
+                </ul>
+              }
+
+              <div class="add-subtask-row">
+                <input class="add-subtask-input" type="text" [(ngModel)]="commentBody"
+                       [ngModelOptions]="{standalone: true}"
+                       placeholder="Add a comment…" (keydown.enter)="addComment()" maxlength="2000" />
+                <button class="add-subtask-btn" (click)="addComment()" [disabled]="commentSubmitting || !commentBody.trim()">
+                  @if (commentSubmitting) {
+                    <span class="spinner-border spinner-border-sm"></span>
+                  } @else {
+                    <i class="bi bi-send"></i>
+                  }
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sidebar column: assignee, created by, counts, dates, schedule -->
+          <div class="item-detail-sidebar">
+            <div class="sidebar-field">
+              <span class="detail-meta-label"><i class="bi bi-person-fill me-1"></i>Assignee</span>
+              <div class="dropdown">
+                <button type="button" class="assign-trigger assign-trigger-sm dropdown-toggle"
+                        data-bs-toggle="dropdown">
+                  @if (item.assignedTo) {
+                    <span class="assign-avatar" [class]="'avatar-' + roleClass(item.assignedTo.role)">
+                      {{ item.assignedTo.username[0].toUpperCase() }}
+                    </span>
+                    <span class="assign-trigger-name">{{ item.assignedTo.username }}</span>
+                  } @else {
+                    <span class="assign-avatar avatar-self"><i class="bi bi-person"></i></span>
+                    <span class="assign-trigger-name text-muted">Unassigned</span>
+                  }
+                </button>
+                <ul class="dropdown-menu assign-dropdown w-100">
+                  <li>
+                    <a class="assign-item" (click)="selectAssignee(null)">
+                      <span class="assign-avatar avatar-self"><i class="bi bi-person"></i></span>
+                      <span class="assign-item-name text-muted">Unassigned</span>
+                    </a>
+                  </li>
+                  <li><hr class="dropdown-divider my-1"></li>
+                  @for (u of users; track u.id) {
+                    <li>
+                      <a class="assign-item" (click)="selectAssignee(u)">
+                        <span class="assign-avatar" [class]="'avatar-' + roleClass(u.role)">
+                          {{ u.username[0].toUpperCase() }}
+                        </span>
+                        <span class="assign-item-name">{{ u.username }}</span>
+                      </a>
+                    </li>
+                  }
+                </ul>
+              </div>
+            </div>
+
+            <div class="sidebar-field">
+              <span class="detail-meta-label"><i class="bi bi-person-workspace me-1"></i>Created By</span>
+              <div class="detail-meta-val">
+                <span class="assign-avatar" [class]="'avatar-' + roleClass(item.createdBy.role)">
+                  {{ item.createdBy.username[0].toUpperCase() }}
+                </span>
+                {{ item.createdBy.username }}
+              </div>
+            </div>
+
+            <div class="sidebar-field">
+              <span class="detail-meta-label"><i class="bi bi-diagram-3 me-1"></i>Children</span>
+              <span class="detail-meta-val">{{ childCount }}</span>
+            </div>
+
+            <div class="sidebar-field">
+              <span class="detail-meta-label"><i class="bi bi-calendar3 me-1"></i>Created</span>
+              <span class="detail-meta-val">{{ item.createdAt | date:'MMM d, yyyy, h:mm a' }}</span>
+            </div>
+
+            <div class="sidebar-field">
+              <span class="detail-meta-label"><i class="bi bi-clock-history me-1"></i>Last Updated</span>
+              <span class="detail-meta-val">{{ item.updatedAt | date:'MMM d, yyyy, h:mm a' }}</span>
+            </div>
+
+            <div class="sidebar-field">
+              <span class="detail-meta-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="schedule-icon">
+                  <rect x="3.5" y="5" width="17" height="16" rx="2.5"></rect>
+                  <path d="M3.5 9.5h17"></path>
+                  <path d="M8 3v3.2"></path>
+                  <path d="M16 3v3.2"></path>
+                </svg>
+                Schedule
+              </span>
+              <span class="sidebar-subtle-label">Start</span>
+              <div class="d-flex gap-2 mb-3">
+                <app-date-picker [value]="startDateStr" (valueChange)="onStartDateChange($event)"></app-date-picker>
+                <app-time-picker [value]="startTimeStr" (valueChange)="onStartTimeChange($event)"></app-time-picker>
+              </div>
+              <span class="sidebar-subtle-label">End</span>
+              <div class="d-flex gap-2">
+                <app-date-picker [value]="endDateStr" [min]="startDateStr" align="right" (valueChange)="onEndDateChange($event)"></app-date-picker>
+                <app-time-picker [value]="endTimeStr" align="right" (valueChange)="onEndTimeChange($event)"></app-time-picker>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-footer">
+        <button class="detail-action-btn detail-btn-close ms-auto" (click)="close()">Close</button>
+      </div>
+    </div>
+  </div>
+}

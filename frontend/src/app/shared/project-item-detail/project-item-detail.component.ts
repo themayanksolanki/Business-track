@@ -1,0 +1,306 @@
+import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
+import moment from 'moment';
+import { ProjectService } from '../../core/services/project.service';
+import { UserService } from '../../core/services/user.service';
+import { AuthService } from '../../core/services/auth.service';
+import {
+  ProjectItem,
+  ProjectItemStatus,
+  ProjectItemPriority,
+  ProjectTreeNode,
+} from '../../models/project-item.model';
+import { User } from '../../models/user.model';
+import { Attachment } from '../../models/attachment.model';
+import { ProjectComment } from '../../models/comment.model';
+import { DatePickerComponent } from '../date-picker/date-picker.component';
+import { TimePickerComponent } from '../time-picker/time-picker.component';
+
+@Component({
+  selector: 'app-project-item-detail',
+  standalone: true,
+  imports: [DatePipe, ReactiveFormsModule, FormsModule, DatePickerComponent, TimePickerComponent],
+  templateUrl: './project-item-detail.component.html',
+  styleUrl: './project-item-detail.component.css',
+})
+export class ProjectItemDetailComponent implements OnChanges {
+  @Input() projectId = '';
+  @Input() item: ProjectItem | null = null;
+  @Input() childCount = 0;
+  @Input() breadcrumbPath: ProjectTreeNode[] = [];
+
+  @Output() closed = new EventEmitter<void>();
+  @Output() saved = new EventEmitter<void>();
+  @Output() breadcrumbNavigate = new EventEmitter<ProjectTreeNode>();
+
+  editForm: FormGroup;
+  editLoading = false;
+  editError = '';
+
+  users: User[] = [];
+
+  comments: ProjectComment[] = [];
+  commentsLoading = false;
+  commentBody = '';
+  commentSubmitting = false;
+
+  attachments: Attachment[] = [];
+  attachmentsLoading = false;
+  attachmentUploading = false;
+  attachmentUploadError = '';
+  downloadingId = '';
+
+  readonly statusOptions: ProjectItemStatus[] = ['todo', 'doing', 'completed'];
+  readonly priorityOptions: ProjectItemPriority[] = ['low', 'medium', 'high'];
+
+  startDateStr: string | null = null;
+  startTimeStr: string | null = null;
+  endDateStr: string | null = null;
+  endTimeStr: string | null = null;
+
+  constructor(
+    private fb: FormBuilder,
+    private projectService: ProjectService,
+    private userService: UserService,
+    public auth: AuthService
+  ) {
+    this.editForm = this.fb.group({
+      title: ['', Validators.required],
+      description: [''],
+    });
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['item'] && this.item) {
+      this.editForm.patchValue({ title: this.item.title, description: this.item.description });
+      this.editError = '';
+      this.startDateStr = this.item.startDate ? moment(this.item.startDate).format('YYYY-MM-DD') : null;
+      this.startTimeStr = this.item.startDate ? moment(this.item.startDate).format('HH:mm') : null;
+      this.endDateStr = this.item.endDate ? moment(this.item.endDate).format('YYYY-MM-DD') : null;
+      this.endTimeStr = this.item.endDate ? moment(this.item.endDate).format('HH:mm') : null;
+      this.loadComments();
+      this.loadAttachments();
+      if (this.users.length === 0) {
+        this.userService.getAllUsers().subscribe({ next: (u) => (this.users = u) });
+      }
+    }
+  }
+
+  close() {
+    this.closed.emit();
+  }
+
+  roleClass(role: string): string {
+    return role.toLowerCase().replace(' ', '-');
+  }
+
+  get canEditStatus(): boolean {
+    return this.childCount === 0;
+  }
+
+  setStatus(status: ProjectItemStatus) {
+    if (!this.item || !this.canEditStatus || this.item.status === status) return;
+    this.projectService.updateItem(this.projectId, this.item._id, { status }).subscribe({
+      next: (res) => {
+        this.item = res.item;
+        this.saved.emit();
+      },
+    });
+  }
+
+  setPriority(priority: ProjectItemPriority) {
+    if (!this.item || this.item.priority === priority) return;
+    this.projectService.updateItem(this.projectId, this.item._id, { priority }).subscribe({
+      next: (res) => {
+        this.item = res.item;
+        this.saved.emit();
+      },
+    });
+  }
+
+  get assigneeLabel(): string {
+    return this.item?.assignedTo?.username ? this.item.assignedTo.username : '-- Unassigned --';
+  }
+
+  selectAssignee(user: User | null) {
+    if (!this.item) return;
+    const assignedTo = user ? user.id ?? user._id ?? null : null;
+    this.projectService.updateItem(this.projectId, this.item._id, { assignedTo }).subscribe({
+      next: (res) => {
+        this.item = res.item;
+        this.saved.emit();
+      },
+    });
+  }
+
+  private combineDateTime(date: string | null, time: string | null): string | null {
+    if (!date) return null;
+    return moment(`${date} ${time || '00:00'}`, 'YYYY-MM-DD HH:mm').toISOString();
+  }
+
+  onStartDateChange(date: string | null) {
+    this.startDateStr = date;
+    if (!date) this.startTimeStr = null;
+    this.saveDates();
+  }
+
+  onStartTimeChange(time: string | null) {
+    this.startTimeStr = time;
+    this.saveDates();
+  }
+
+  onEndDateChange(date: string | null) {
+    this.endDateStr = date;
+    if (!date) this.endTimeStr = null;
+    this.saveDates();
+  }
+
+  onEndTimeChange(time: string | null) {
+    this.endTimeStr = time;
+    this.saveDates();
+  }
+
+  private saveDates() {
+    if (!this.item) return;
+    const startDate = this.combineDateTime(this.startDateStr, this.startTimeStr);
+    const endDate = this.combineDateTime(this.endDateStr, this.endTimeStr);
+    this.projectService.updateItem(this.projectId, this.item._id, { startDate, endDate }).subscribe({
+      next: (res) => {
+        this.item = res.item;
+        this.saved.emit();
+      },
+    });
+  }
+
+  submitEdit() {
+    if (!this.item || this.editForm.invalid) return;
+    this.editLoading = true;
+    this.editError = '';
+    this.projectService.updateItem(this.projectId, this.item._id, this.editForm.value).subscribe({
+      next: (res) => {
+        this.item = res.item;
+        this.editLoading = false;
+        this.saved.emit();
+      },
+      error: (err) => {
+        this.editError = err.error?.message || 'Failed to update item';
+        this.editLoading = false;
+      },
+    });
+  }
+
+  loadComments() {
+    if (!this.item) return;
+    this.commentsLoading = true;
+    this.projectService.getComments(this.projectId, this.item._id).subscribe({
+      next: (list) => {
+        this.comments = list;
+        this.commentsLoading = false;
+      },
+      error: () => (this.commentsLoading = false),
+    });
+  }
+
+  addComment() {
+    const body = this.commentBody.trim();
+    if (!body || !this.item) return;
+    this.commentSubmitting = true;
+    this.projectService.addComment(this.projectId, this.item._id, { body }).subscribe({
+      next: (res) => {
+        this.comments = [...this.comments, res.comment];
+        this.commentBody = '';
+        this.commentSubmitting = false;
+      },
+      error: () => (this.commentSubmitting = false),
+    });
+  }
+
+  deleteComment(comment: ProjectComment) {
+    if (!this.item) return;
+    this.projectService.deleteComment(this.projectId, this.item._id, comment._id).subscribe({
+      next: () => (this.comments = this.comments.filter((c) => c._id !== comment._id)),
+    });
+  }
+
+  isOwnComment(comment: ProjectComment): boolean {
+    const user = this.auth.getUser();
+    if (!user) return false;
+    const authorId = comment.author?._id ?? comment.author?.id;
+    return authorId === user.id || authorId === user._id;
+  }
+
+  loadAttachments() {
+    if (!this.item) return;
+    this.attachmentsLoading = true;
+    this.projectService.getAttachments(this.projectId, this.item._id).subscribe({
+      next: (list) => {
+        this.attachments = list;
+        this.attachmentsLoading = false;
+      },
+      error: () => (this.attachmentsLoading = false),
+    });
+  }
+
+  onFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !this.item) return;
+
+    this.attachmentUploading = true;
+    this.attachmentUploadError = '';
+    this.projectService.uploadAttachment(this.projectId, this.item._id, file).subscribe({
+      next: (res) => {
+        this.attachments = [res.attachment, ...this.attachments];
+        this.attachmentUploading = false;
+        input.value = '';
+      },
+      error: (err) => {
+        this.attachmentUploadError = err.error?.message || 'Failed to upload file';
+        this.attachmentUploading = false;
+        input.value = '';
+      },
+    });
+  }
+
+  download(attachment: Attachment) {
+    if (!this.item) return;
+    this.downloadingId = attachment._id;
+    this.projectService.downloadAttachment(this.projectId, this.item._id, attachment._id).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = attachment.fileName;
+        link.click();
+        window.URL.revokeObjectURL(url);
+        this.downloadingId = '';
+      },
+      error: () => (this.downloadingId = ''),
+    });
+  }
+
+  deleteAttachment(attachment: Attachment) {
+    if (!this.item) return;
+    this.projectService.deleteAttachment(this.projectId, this.item._id, attachment._id).subscribe({
+      next: () => (this.attachments = this.attachments.filter((a) => a._id !== attachment._id)),
+    });
+  }
+
+  formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  fileIcon(mimeType: string): string {
+    if (mimeType.startsWith('image/')) return 'bi-file-earmark-image';
+    if (mimeType === 'application/pdf') return 'bi-file-earmark-pdf';
+    if (mimeType.includes('zip')) return 'bi-file-earmark-zip';
+    if (mimeType.includes('word')) return 'bi-file-earmark-word';
+    if (mimeType.includes('sheet') || mimeType.includes('excel')) return 'bi-file-earmark-spreadsheet';
+    if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return 'bi-file-earmark-slides';
+    if (mimeType.startsWith('text/')) return 'bi-file-earmark-text';
+    return 'bi-file-earmark';
+  }
+}

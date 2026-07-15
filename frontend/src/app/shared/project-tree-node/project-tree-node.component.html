@@ -1,0 +1,174 @@
+<div class="tree-row">
+  <div class="tree-row-main" [class.tree-row-group]="node.depth === 0" (contextmenu)="openContextMenu($event)">
+    <span class="tree-cell-assignee">
+      @if (node.assignedTo) {
+        <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(node.assignedTo.role)"
+              [title]="node.assignedTo.username">
+          {{ node.assignedTo.username[0].toUpperCase() }}
+        </span>
+      } @else {
+        <span class="assign-avatar avatar-xs avatar-empty" title="Unassigned">
+          <i class="bi bi-person"></i>
+        </span>
+      }
+    </span>
+
+    <span class="tree-cell-task">
+      <span class="tree-indent" [style.--depth]="node.depth"></span>
+
+      <button type="button" class="tree-toggle" (click)="toggleExpand()" [class.tree-toggle-empty]="node.children.length === 0">
+        @if (node.children.length > 0) {
+          <i class="bi" [class.bi-chevron-down]="expanded" [class.bi-chevron-right]="!expanded"></i>
+        }
+      </button>
+
+      <span class="tree-drag-handle" cdkDragHandle title="Drag to reorder">
+        <i class="bi bi-grip-vertical"></i>
+      </span>
+
+      <span class="tree-type-icon" [class]="'tree-type-' + node.type">
+        <i class="bi" [class]="typeIcon"></i>
+      </span>
+
+      <span class="tree-title" (click)="onTitleClick()">{{ node.title }}</span>
+
+      @if (node.childCount > 0) {
+        <span class="tree-child-count">{{ node.childCount }}</span>
+      }
+
+      @if (rollup) {
+        <span class="tree-rollup" [title]="rollup.completed + ' completed, ' + rollup.doing + ' in progress, ' + rollup.total + ' total'">
+          {{ rollup.percent }}% · {{ rollup.completed }}/{{ rollup.doing }}/{{ rollup.total }}
+        </span>
+      }
+    </span>
+
+    <div class="dropdown tree-cell-status" (click)="$event.stopPropagation()">
+      <button type="button" class="status-badge dropdown-toggle"
+              [class.badge-todo]="node.status === 'todo'"
+              [class.badge-doing]="node.status === 'doing'"
+              [class.badge-completed]="node.status === 'completed'"
+              [class.badge-disabled]="!canEditStatus"
+              [attr.data-bs-toggle]="canEditStatus ? 'dropdown' : null"
+              [title]="canEditStatus ? 'Change status' : 'Status is derived from children'">
+        <i class="bi me-1"
+           [class.bi-circle]="node.status === 'todo'"
+           [class.bi-arrow-repeat]="node.status === 'doing'"
+           [class.bi-check-circle-fill]="node.status === 'completed'"></i>
+        {{ statusLabel }}
+      </button>
+      @if (canEditStatus) {
+        <ul class="dropdown-menu status-dropdown shadow-sm">
+          @for (s of statusOptions; track s) {
+            <li><a class="dropdown-item status-opt" (click)="setStatus(s)">
+              <i class="bi me-2"
+                 [class.bi-circle]="s === 'todo'"
+                 [class.bi-arrow-repeat]="s === 'doing'"
+                 [class.bi-check-circle-fill]="s === 'completed'"></i>
+              {{ statusLabelFor(s) }}
+            </a></li>
+          }
+        </ul>
+      }
+    </div>
+
+    <div class="tree-cell-due" (click)="$event.stopPropagation()">
+      <app-date-picker [value]="dueValue" [compact]="true" placeholder="None" (valueChange)="setDue($event)"></app-date-picker>
+    </div>
+
+    <div class="dropdown tree-cell-priority" (click)="$event.stopPropagation()">
+      <button type="button" class="priority-badge dropdown-toggle"
+              [class.priority-low]="node.priority === 'low'"
+              [class.priority-medium]="node.priority === 'medium'"
+              [class.priority-high]="node.priority === 'high'"
+              data-bs-toggle="dropdown" title="Change priority">
+        <i class="bi bi-flag-fill me-1"></i>{{ node.priority }}
+      </button>
+      <ul class="dropdown-menu status-dropdown shadow-sm">
+        @for (p of priorityOptions; track p) {
+          <li><a class="dropdown-item status-opt" (click)="setPriority(p)">
+            <i class="bi bi-flag-fill me-2"
+               [class.priority-icon-low]="p === 'low'"
+               [class.priority-icon-medium]="p === 'medium'"
+               [class.priority-icon-high]="p === 'high'"></i>
+            {{ p }}
+          </a></li>
+        }
+      </ul>
+    </div>
+
+    <button type="button" class="tree-icon-btn" [class.active]="attachmentsOpen"
+            (click)="$event.stopPropagation(); toggleAttachments()" title="Attachments">
+      <i class="bi bi-paperclip"></i>
+    </button>
+
+    <button type="button" class="tree-icon-btn" (click)="$event.stopPropagation(); openDetail.emit(node)" title="Comments">
+      <i class="bi bi-chat-left-text"></i>
+    </button>
+
+    <button type="button" class="tree-icon-btn" (click)="openContextMenu($event)" title="More actions">
+      <i class="bi bi-three-dots"></i>
+    </button>
+  </div>
+
+  @if (attachmentsOpen) {
+    <div class="attachment-panel-wrap" [style.padding-left]="'calc(' + node.depth + ' * var(--tree-indent-unit, 22px) + 40px)'">
+      <app-attachment-panel
+        [projectId]="projectId"
+        [item]="node"
+        (closed)="attachmentsOpen = false"
+        (saved)="refresh.emit()">
+      </app-attachment-panel>
+    </div>
+  }
+
+  @if (addChildOpen) {
+    <div class="tree-add-child-row" [style.padding-left]="'calc(' + (node.depth + 1) + ' * var(--tree-indent-unit, 22px) + 40px)'">
+      <input class="add-subtask-input" type="text" [(ngModel)]="addChildTitle"
+             placeholder="New item title…" (keydown.enter)="submitAddChild()" maxlength="200" />
+      <button class="add-subtask-btn" (click)="submitAddChild()" [disabled]="addChildLoading || !addChildTitle.trim()">
+        @if (addChildLoading) { <span class="spinner-border spinner-border-sm"></span> } @else { <i class="bi bi-plus-lg"></i> }
+      </button>
+      <button class="subtask-del-btn" (click)="cancelAddChild()" title="Cancel">
+        <i class="bi bi-x"></i>
+      </button>
+    </div>
+    @if (addChildError) {
+      <div class="subtask-error" [style.padding-left]="'calc(' + (node.depth + 1) + ' * var(--tree-indent-unit, 22px) + 40px)'">{{ addChildError }}</div>
+    }
+  }
+
+  @if (expanded && node.children.length > 0) {
+    <div class="tree-children" cdkDropList [id]="dropListId" [cdkDropListData]="node.children" (cdkDropListDropped)="onDrop($event)">
+      @for (child of node.children; track child._id) {
+        <div cdkDrag [cdkDragData]="child" class="tree-drag-item">
+          <div class="tree-drag-placeholder" *cdkDragPlaceholder></div>
+          <app-project-tree-node
+            [node]="child"
+            [projectId]="projectId"
+            (refresh)="refresh.emit()"
+            (openDetail)="openDetail.emit($event)">
+          </app-project-tree-node>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<app-context-menu
+  [visible]="menuVisible"
+  [x]="menuX"
+  [y]="menuY"
+  [items]="menuItems"
+  (action)="onMenuAction($event)"
+  (close)="menuVisible = false">
+</app-context-menu>
+
+<app-confirm-dialog
+  [open]="confirmOpen"
+  title="Delete Item"
+  [message]="confirmMessage"
+  [loading]="confirmLoading"
+  (confirmed)="confirmDelete()"
+  (cancelled)="confirmOpen = false">
+</app-confirm-dialog>

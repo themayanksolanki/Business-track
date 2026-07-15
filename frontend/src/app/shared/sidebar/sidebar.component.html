@@ -1,0 +1,175 @@
+@if (svc.mobileOpen()) {
+  <div class="sidebar-backdrop" (click)="closeMobile()"></div>
+}
+
+<button
+  class="mobile-menu-btn"
+  type="button"
+  (click)="toggleMobile()"
+  [class.hidden]="svc.mobileOpen()"
+  aria-label="Open menu"
+>
+  <app-icon name="menu" [size]="20" />
+</button>
+
+<aside
+  class="app-sidebar"
+  [class.collapsed]="svc.collapsed()"
+  [class.dragging]="svc.dragging()"
+  [class.mobile-open]="svc.mobileOpen()"
+  [style.width.px]="svc.currentWidth()"
+>
+  <div class="sidebar-top">
+    <a class="sidebar-brand" routerLink="/dashboard" (click)="closeMobile()">
+      <span class="brand-mark"><app-icon name="brand" [size]="16" /></span>
+      @if (labelsVisible()) {
+        <span class="brand-text">TaskFlow</span>
+      }
+    </a>
+    <button
+      class="collapse-btn"
+      type="button"
+      (click)="toggleCollapsed()"
+      [attr.aria-label]="svc.collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+    >
+      <span class="collapse-chevron" [class.flipped]="svc.collapsed()">
+        <app-icon name="chevron-left" [size]="14" />
+      </span>
+    </button>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a
+      routerLink="/dashboard"
+      class="nav-item"
+      routerLinkActive="active"
+      [title]="labelsVisible() ? '' : 'Dashboard'"
+      (click)="closeMobile()"
+    >
+      <span class="nav-icon"><app-icon name="dashboard" [size]="18" /></span>
+      @if (labelsVisible()) {
+        <span class="nav-label">Dashboard</span>
+      }
+    </a>
+    <a
+      routerLink="/tasks"
+      class="nav-item"
+      routerLinkActive="active"
+      [title]="labelsVisible() ? '' : 'Tasks'"
+      (click)="closeMobile()"
+    >
+      <span class="nav-icon"><app-icon name="tasks" [size]="18" /></span>
+      @if (labelsVisible()) {
+        <span class="nav-label">Tasks</span>
+      }
+    </a>
+    <a
+      routerLink="/projects"
+      class="nav-item"
+      routerLinkActive="active"
+      [title]="labelsVisible() ? '' : 'Projects'"
+      (click)="closeMobile()"
+    >
+      <span class="nav-icon"><app-icon name="projects" [size]="18" /></span>
+      @if (labelsVisible()) {
+        <span class="nav-label">Projects</span>
+      }
+    </a>
+    @if (auth.getUser()?.role === 'Manager') {
+      <a
+        routerLink="/users"
+        class="nav-item"
+        routerLinkActive="active"
+        [title]="labelsVisible() ? '' : 'Users'"
+        (click)="closeMobile()"
+      >
+        <span class="nav-icon"><app-icon name="users" [size]="18" /></span>
+        @if (labelsVisible()) {
+          <span class="nav-label">Users</span>
+        }
+      </a>
+    }
+    @if (auth.getUser()?.role === 'Team Lead') {
+      <a
+        routerLink="/team-tasks"
+        class="nav-item"
+        routerLinkActive="active"
+        [title]="labelsVisible() ? '' : 'Team Tasks'"
+        (click)="closeMobile()"
+      >
+        <span class="nav-icon"><app-icon name="team" [size]="18" /></span>
+        @if (labelsVisible()) {
+          <span class="nav-label">Team Tasks</span>
+        }
+      </a>
+      <a
+        routerLink="/users"
+        class="nav-item"
+        routerLinkActive="active"
+        [title]="labelsVisible() ? '' : 'My Team'"
+        (click)="closeMobile()"
+      >
+        <span class="nav-icon"><app-icon name="users" [size]="18" /></span>
+        @if (labelsVisible()) {
+          <span class="nav-label">My Team</span>
+        }
+      </a>
+    }
+    <a
+      routerLink="/chat"
+      class="nav-item"
+      routerLinkActive="active"
+      [title]="labelsVisible() ? '' : 'Chat'"
+      (click)="closeMobile()"
+    >
+      <span class="nav-icon">
+        <app-icon name="chat" [size]="18" />
+        @if (chatSvc.totalUnread() > 0) {
+          <span class="nav-badge">{{ chatSvc.totalUnread() > 99 ? '99+' : chatSvc.totalUnread() }}</span>
+        }
+      </span>
+      @if (labelsVisible()) {
+        <span class="nav-label">Chat</span>
+      }
+    </a>
+  </nav>
+
+  <div class="sidebar-spacer"></div>
+
+  <div class="sidebar-user">
+    <a
+      routerLink="/profile"
+      class="nav-item"
+      routerLinkActive="active"
+      [title]="labelsVisible() ? '' : 'My Profile'"
+      (click)="closeMobile()"
+    >
+      @if (auth.avatarUrl()) {
+        <img class="user-avatar" [src]="auth.avatarUrl()!" [alt]="auth.getUser()?.username" />
+      } @else {
+        <span class="user-avatar user-avatar-fallback">{{ auth.getUser()?.username?.[0]?.toUpperCase() }}</span>
+      }
+      @if (labelsVisible()) {
+        <span class="user-info">
+          <span class="user-name">{{ auth.getUser()?.username }}</span>
+          <span class="user-role">{{ auth.getUser()?.role }}</span>
+        </span>
+      }
+    </a>
+    <button
+      class="nav-item logout-item"
+      type="button"
+      (click)="auth.logout()"
+      [title]="labelsVisible() ? '' : 'Logout'"
+    >
+      <span class="nav-icon"><app-icon name="logout" [size]="18" /></span>
+      @if (labelsVisible()) {
+        <span class="nav-label">Logout</span>
+      }
+    </button>
+  </div>
+
+  <div class="resize-handle" (pointerdown)="onDragStart($event)">
+    <span class="grip-dots"><app-icon name="grip" [size]="12" /></span>
+  </div>
+</aside>
