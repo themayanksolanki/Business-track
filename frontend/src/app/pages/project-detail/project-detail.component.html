@@ -96,10 +96,10 @@
       </div>
     </div>
 
-    <textarea class="project-desc-input mb-3" rows="2" [(ngModel)]="editDescription"
-              (blur)="saveNameDescription()" placeholder="Add a description…"></textarea>
-
-    <div class="schedule-row">
+  
+    <div class="flex">
+      <div class="flex-1"></div>
+      <div class="schedule-row d-flex justify-content-end">
       <div class="schedule-cell">
         <span class="schedule-label">Start</span>
         <div class="d-flex gap-2">
@@ -114,6 +114,7 @@
           <app-time-picker [value]="endTimeStr" align="right" (valueChange)="onEndTimeChange($event)"></app-time-picker>
         </div>
       </div>
+    </div>
     </div>
     </div>
 

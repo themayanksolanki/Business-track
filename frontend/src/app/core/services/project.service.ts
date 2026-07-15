@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEvent } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import {
   Project,
@@ -14,6 +14,7 @@ import {
 } from '../../models/project-item.model';
 import { ProjectComment, CreateCommentPayload } from '../../models/comment.model';
 import { Attachment } from '../../models/attachment.model';
+import { Observable } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class ProjectService {
@@ -99,13 +100,13 @@ export class ProjectService {
     return this.http.get<Attachment[]>(`${this.api}/${projectId}/items/${itemId}/attachments`);
   }
 
-  uploadAttachment(projectId: string, itemId: string, file: File) {
+  uploadAttachment(projectId: string, itemId: string, file: File): Observable<HttpEvent<any>> {
     const formData = new FormData();
     formData.append('file', file);
-    return this.http.post<{ message: string; attachment: Attachment }>(
-      `${this.api}/${projectId}/items/${itemId}/attachments`,
-      formData
-    );
+    return this.http.post(`${this.api}/${projectId}/items/${itemId}/attachments`, formData, {
+      reportProgress: true,
+      observe: 'events',
+    });
   }
 
   downloadAttachment(projectId: string, itemId: string, attachmentId: string) {

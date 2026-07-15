@@ -253,3 +253,5 @@
   /* the three action buttons keep their relative DOM order after the fields above */
   .tree-icon-btn { order: 6; width: 32px; height: 32px; font-size: 0.9rem; }
 }
+
+.subtask-del-btn:hover { background: #fee2e2; color: #dc2626; }

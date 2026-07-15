@@ -16,6 +16,7 @@ import { Attachment } from '../../models/attachment.model';
 import { ProjectComment } from '../../models/comment.model';
 import { DatePickerComponent } from '../date-picker/date-picker.component';
 import { TimePickerComponent } from '../time-picker/time-picker.component';
+import { HttpEventType } from '@angular/common/http';
 
 @Component({
   selector: 'app-project-item-detail',
@@ -37,6 +38,7 @@ export class ProjectItemDetailComponent implements OnChanges {
   editForm: FormGroup;
   editLoading = false;
   editError = '';
+  progress = 0;
 
   users: User[] = [];
 
@@ -249,18 +251,30 @@ export class ProjectItemDetailComponent implements OnChanges {
 
     this.attachmentUploading = true;
     this.attachmentUploadError = '';
-    this.projectService.uploadAttachment(this.projectId, this.item._id, file).subscribe({
-      next: (res) => {
-        this.attachments = [res.attachment, ...this.attachments];
-        this.attachmentUploading = false;
-        input.value = '';
-      },
-      error: (err) => {
-        this.attachmentUploadError = err.error?.message || 'Failed to upload file';
-        this.attachmentUploading = false;
-        input.value = '';
-      },
-    });
+    this.projectService
+      .uploadAttachment(this.projectId, this.item._id, file)
+      .subscribe({
+        next: (res) => {
+          switch (res.type) {
+            case HttpEventType.UploadProgress:
+              if (res.total) {
+                this.progress = Math.round((100 * res.loaded) / res.total);
+              }
+              break;
+            case HttpEventType.Response:
+              this.attachments = [res.body.attachment, ...this.attachments];
+              this.attachmentUploading = false;
+              input.value = '';
+              break;
+          }
+        },
+        error: (err) => {
+          this.attachmentUploadError =
+            err.error?.message || 'Failed to upload file';
+          this.attachmentUploading = false;
+          input.value = '';
+        },
+      });
   }
 
   download(attachment: Attachment) {

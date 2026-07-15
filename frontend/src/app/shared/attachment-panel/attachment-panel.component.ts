@@ -4,11 +4,13 @@ import { ProjectService } from '../../core/services/project.service';
 import { ProjectItem } from '../../models/project-item.model';
 import { Attachment } from '../../models/attachment.model';
 import { TabStripComponent, TabDef } from '../tab-strip/tab-strip.component';
+import { HttpEventType } from '@angular/common/http';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-attachment-panel',
   standalone: true,
-  imports: [FormsModule, TabStripComponent],
+  imports: [FormsModule, TabStripComponent, CommonModule],
   templateUrl: './attachment-panel.component.html',
   styleUrl: './attachment-panel.component.css',
 })
@@ -32,6 +34,7 @@ export class AttachmentPanelComponent implements OnChanges {
   attachmentUploading = false;
   attachmentUploadError = '';
   downloadingId = '';
+  progress = 0;
 
   constructor(private projectService: ProjectService) {}
 
@@ -46,23 +49,29 @@ export class AttachmentPanelComponent implements OnChanges {
 
   saveDescription() {
     if (this.description === this.item.description) return;
-    this.projectService.updateItem(this.projectId, this.item._id, { description: this.description }).subscribe({
-      next: (res) => {
-        this.item = res.item;
-        this.saved.emit();
-      },
-    });
+    this.projectService
+      .updateItem(this.projectId, this.item._id, {
+        description: this.description,
+      })
+      .subscribe({
+        next: (res) => {
+          this.item = res.item;
+          this.saved.emit();
+        },
+      });
   }
 
   loadAttachments() {
     this.attachmentsLoading = true;
-    this.projectService.getAttachments(this.projectId, this.item._id).subscribe({
-      next: (list) => {
-        this.attachments = list;
-        this.attachmentsLoading = false;
-      },
-      error: () => (this.attachmentsLoading = false),
-    });
+    this.projectService
+      .getAttachments(this.projectId, this.item._id)
+      .subscribe({
+        next: (list) => {
+          this.attachments = list;
+          this.attachmentsLoading = false;
+        },
+        error: () => (this.attachmentsLoading = false),
+      });
   }
 
   onFileSelected(event: Event) {
@@ -72,40 +81,59 @@ export class AttachmentPanelComponent implements OnChanges {
 
     this.attachmentUploading = true;
     this.attachmentUploadError = '';
-    this.projectService.uploadAttachment(this.projectId, this.item._id, file).subscribe({
-      next: (res) => {
-        this.attachments = [res.attachment, ...this.attachments];
-        this.attachmentUploading = false;
-        input.value = '';
-      },
-      error: (err) => {
-        this.attachmentUploadError = err.error?.message || 'Failed to upload file';
-        this.attachmentUploading = false;
-        input.value = '';
-      },
-    });
+    this.projectService
+      .uploadAttachment(this.projectId, this.item._id, file)
+      .subscribe({
+        next: (res) => {
+          switch (res.type) {
+            case HttpEventType.UploadProgress:
+              if (res.total) {
+                this.progress = Math.round((100 * res.loaded) / res.total);
+              }
+              break;
+            case HttpEventType.Response:
+              this.attachments = [res.body.attachment, ...this.attachments];
+              this.attachmentUploading = false;
+              input.value = '';
+              break;
+          }
+        },
+        error: (err) => {
+          this.attachmentUploadError =
+            err.error?.message || 'Failed to upload file';
+          this.attachmentUploading = false;
+          input.value = '';
+        },
+      });
   }
 
   download(attachment: Attachment) {
     this.downloadingId = attachment._id;
-    this.projectService.downloadAttachment(this.projectId, this.item._id, attachment._id).subscribe({
-      next: (blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = attachment.fileName;
-        link.click();
-        window.URL.revokeObjectURL(url);
-        this.downloadingId = '';
-      },
-      error: () => (this.downloadingId = ''),
-    });
+    this.projectService
+      .downloadAttachment(this.projectId, this.item._id, attachment._id)
+      .subscribe({
+        next: (blob) => {
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = attachment.fileName;
+          link.click();
+          window.URL.revokeObjectURL(url);
+          this.downloadingId = '';
+        },
+        error: () => (this.downloadingId = ''),
+      });
   }
 
   deleteAttachment(attachment: Attachment) {
-    this.projectService.deleteAttachment(this.projectId, this.item._id, attachment._id).subscribe({
-      next: () => (this.attachments = this.attachments.filter((a) => a._id !== attachment._id)),
-    });
+    this.projectService
+      .deleteAttachment(this.projectId, this.item._id, attachment._id)
+      .subscribe({
+        next: () =>
+          (this.attachments = this.attachments.filter(
+            (a) => a._id !== attachment._id,
+          )),
+      });
   }
 
   formatSize(bytes: number): string {
@@ -119,9 +147,15 @@ export class AttachmentPanelComponent implements OnChanges {
     if (mimeType === 'application/pdf') return 'bi-file-earmark-pdf';
     if (mimeType.includes('zip')) return 'bi-file-earmark-zip';
     if (mimeType.includes('word')) return 'bi-file-earmark-word';
-    if (mimeType.includes('sheet') || mimeType.includes('excel')) return 'bi-file-earmark-spreadsheet';
-    if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return 'bi-file-earmark-slides';
+    if (mimeType.includes('sheet') || mimeType.includes('excel'))
+      return 'bi-file-earmark-spreadsheet';
+    if (mimeType.includes('presentation') || mimeType.includes('powerpoint'))
+      return 'bi-file-earmark-slides';
     if (mimeType.startsWith('text/')) return 'bi-file-earmark-text';
     return 'bi-file-earmark';
+  }
+
+  isImage(mimeType: string): boolean {
+    return mimeType.startsWith('image/');
   }
 }
