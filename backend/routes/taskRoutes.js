@@ -29,6 +29,13 @@ router.get('/:id/attachments/:attachmentId/download', protect, validateObjectId,
 router.get('/:id', protect, validateObjectId, getTaskById);
 router.put('/:id', protect, validateObjectId, validateTask, updateTask);
 router.delete('/:id', protect, validateObjectId, deleteTask);
-router.patch('/:id/reassign', protect, validateObjectId, allowRoles('Manager'), validateReassign, reassignTask);
+router.patch(
+  '/:id/reassign',
+  protect,
+  validateObjectId,
+  allowRoles('Admin', 'Manager'),
+  validateReassign,
+  reassignTask
+);
 
 export default router;

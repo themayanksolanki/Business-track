@@ -75,7 +75,7 @@
         <span class="nav-label">Projects</span>
       }
     </a>
-    @if (auth.getUser()?.role === 'Manager') {
+    @if (auth.getUser()?.role === 'Admin' || auth.getUser()?.role === 'Manager') {
       <a
         routerLink="/users"
         class="nav-item"
@@ -86,6 +86,18 @@
         <span class="nav-icon"><app-icon name="users" [size]="18" /></span>
         @if (labelsVisible()) {
           <span class="nav-label">Users</span>
+        }
+      </a>
+      <a
+        routerLink="/organization"
+        class="nav-item"
+        routerLinkActive="active"
+        [title]="labelsVisible() ? '' : 'Organization'"
+        (click)="closeMobile()"
+      >
+        <span class="nav-icon"><app-icon name="building" [size]="18" /></span>
+        @if (labelsVisible()) {
+          <span class="nav-label">Organization</span>
         }
       </a>
     }
@@ -115,6 +127,18 @@
         }
       </a>
     }
+    <a
+      routerLink="/settings"
+      class="nav-item"
+      routerLinkActive="active"
+      [title]="labelsVisible() ? '' : 'Settings'"
+      (click)="closeMobile()"
+    >
+      <span class="nav-icon"><app-icon name="settings" [size]="18" /></span>
+      @if (labelsVisible()) {
+        <span class="nav-label">Settings</span>
+      }
+    </a>
     <a
       routerLink="/chat"
       class="nav-item"

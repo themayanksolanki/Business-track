@@ -15,8 +15,16 @@ function getTransporter() {
   return _transporter;
 }
 
+async function dispatch(mailOptions) {
+  if (process.env.SKIP_EMAIL === 'true') {
+    console.log(`[mailer] SKIP_EMAIL is set — skipping "${mailOptions.subject}" to ${mailOptions.to}`);
+    return;
+  }
+  await getTransporter().sendMail(mailOptions);
+}
+
 export async function sendOtpEmail(to, username, otp) {
-  await getTransporter().sendMail({
+  await dispatch({
     from: `"TaskFlow" <${process.env.GMAIL_USER}>`,
     to,
     subject: 'Your TaskFlow password reset OTP',
@@ -35,7 +43,7 @@ export async function sendOtpEmail(to, username, otp) {
 }
 
 export async function sendPasswordChangedEmail(to, username, newPassword) {
-  await getTransporter().sendMail({
+  await dispatch({
     from: `"TaskFlow" <${process.env.GMAIL_USER}>`,
     to,
     subject: 'Your TaskFlow password has been changed',

@@ -9,6 +9,7 @@ export async function recomputeAncestorStatuses(parentId) {
 
   const parent = await ProjectItem.findById(parentId);
   if (!parent) return;
+  if (parent.type === 'group') return; // groups don't carry a status
 
   const children = await ProjectItem.find({ parentId: parent._id });
   if (children.length === 0) return;

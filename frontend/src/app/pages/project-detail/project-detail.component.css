@@ -24,7 +24,7 @@
 
 .item-table-header {
   display: grid;
-  grid-template-columns: var(--col-assignee) minmax(160px, 1fr) var(--col-status) var(--col-due) var(--col-priority) var(--col-icon) var(--col-icon) var(--col-icon);
+  grid-template-columns: var(--col-icon) var(--col-assignee) minmax(160px, 1fr) var(--col-status) var(--col-due) var(--col-priority) var(--col-icon) var(--col-icon) var(--col-icon);
   column-gap: 8px;
   align-items: center;
   padding: 4px 4px 10px;
@@ -167,9 +167,10 @@
   flex-shrink: 0;
 }
 
+.avatar-admin     { background: #fef3c7; color: #92400e; }
 .avatar-manager   { background: #dbeafe; color: #1d4ed8; }
 .avatar-team-lead { background: #ede9fe; color: #6d28d9; }
-.avatar-employee  { background: #dcfce7; color: #15803d; }
+.avatar-user      { background: #dcfce7; color: #15803d; }
 .avatar-empty     { background: var(--bg-muted); color: var(--text-dim); }
 
 .assign-trigger-name {
@@ -357,6 +358,28 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 .add-subtask-input::placeholder { color: var(--text-dim); }
+
+.add-group-title-input {
+  flex: 1;
+  min-height: 36px;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.4;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.add-group-title-input:focus {
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+.add-group-title-input::placeholder { color: var(--text-dim); }
 
 .add-subtask-btn {
   display: inline-flex;

@@ -1,0 +1,262 @@
+.dept-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .dept-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dept-tree-panel,
+.dept-detail-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  min-height: 320px;
+}
+
+.dept-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dept-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.dept-row:hover {
+  background: var(--bg-hover);
+}
+
+.dept-row-active {
+  background: var(--bg-muted);
+}
+
+.dept-collapse-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+}
+
+.dept-collapse-spacer {
+  width: 16px;
+  display: inline-block;
+}
+
+.dept-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dept-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dept-counts {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.dept-count-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: var(--bg-muted);
+  border-radius: 20px;
+  padding: 2px 8px;
+}
+
+.dept-row-actions {
+  display: flex;
+  gap: 2px;
+  margin-left: 8px;
+}
+
+.dept-action-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+}
+
+.dept-action-btn:hover {
+  background: var(--bg-muted);
+  color: var(--text-primary);
+}
+
+.dept-action-danger:hover {
+  color: #ef4444;
+}
+
+.dept-detail-header {
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dept-detail-section {
+  margin-bottom: 22px;
+}
+
+.dept-detail-section h6 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+}
+
+.dept-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card-alt);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.dept-user-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.dept-user-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+.dept-user-row:not(.dept-user-row-readonly):hover {
+  background: var(--bg-hover);
+}
+
+.dept-user-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--bg-muted);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.dept-user-name {
+  font-weight: 500;
+  font-size: 0.86rem;
+}
+
+.dept-user-role {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.dept-project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dept-project-row {
+  padding: 6px 8px;
+  border-radius: 8px;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 0.86rem;
+}
+
+.dept-project-row:hover {
+  background: var(--bg-hover);
+}
+
+.dept-color-input {
+  width: 44px;
+  height: 38px;
+  padding: 2px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-input);
+}
+
+.dept-color-hex {
+  max-width: 140px;
+  text-transform: lowercase;
+}
+
+.dept-modal-content {
+  border-radius: 14px;
+  border: none;
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.field-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.field-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+}
+
+.field-input:focus {
+  border-color: #3b82f6;
+  box-shadow: none;
+}
+
+.modal-submit-btn {
+  min-width: 96px;
+}
+
+.empty-state {
+  color: var(--text-muted);
+}

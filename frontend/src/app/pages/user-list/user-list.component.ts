@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { UserService } from '../../core/services/user.service';
 import { AuthService } from '../../core/services/auth.service';
 import { User } from '../../models/user.model';
+import { ModalDirective } from '../../shared/modal.directive';
 
 @Component({
   selector: 'app-user-list',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, ModalDirective],
   templateUrl: './user-list.component.html',
   styleUrls: ['./user-list.component.css'],
 })
@@ -78,8 +79,9 @@ export class UserListComponent implements OnInit {
     const uid = user._id ?? user.id;
     const myId = me._id ?? me.id;
     if (uid === myId) return false;
-    if (me.role === 'Manager') return user.role === 'Team Lead' || user.role === 'Employee';
-    if (me.role === 'Team Lead') return user.role === 'Employee';
+    if (me.role === 'Admin') return true;
+    if (me.role === 'Manager') return user.role === 'Team Lead' || user.role === 'User';
+    if (me.role === 'Team Lead') return user.role === 'User';
     return false;
   }
 
@@ -127,9 +129,10 @@ export class UserListComponent implements OnInit {
 
   roleIcon(role: string): string {
     const icons: Record<string, string> = {
+      Admin: 'bi-shield-fill-check',
       Manager: 'bi-briefcase-fill',
       'Team Lead': 'bi-diagram-3-fill',
-      Employee: 'bi-person-fill',
+      User: 'bi-person-fill',
     };
     return icons[role] ?? 'bi-person-fill';
   }

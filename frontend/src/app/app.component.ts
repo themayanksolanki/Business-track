@@ -6,11 +6,12 @@ import { ChatService } from './core/services/chat.service';
 import { ThemeService } from './core/services/theme.service';
 import { SidebarService } from './core/services/sidebar.service';
 import { SidebarComponent } from './shared/sidebar/sidebar.component';
+import { ToastContainerComponent } from './shared/toast-container/toast-container.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, SidebarComponent],
+  imports: [RouterOutlet, SidebarComponent, ToastContainerComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
 })

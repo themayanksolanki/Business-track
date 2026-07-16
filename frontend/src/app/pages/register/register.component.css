@@ -119,6 +119,34 @@
   margin-bottom: 28px;
 }
 
+/* ── Mode switcher ── */
+.mode-switcher {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--bg-input);
+}
+
+.mode-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-radius: 9px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.mode-btn:hover { color: var(--text-primary); }
+
+.mode-btn-active {
+  background: #3b82f6;
+  color: #fff;
+}
+
 /* ── Fields ── */
 .field-label {
   display: block;

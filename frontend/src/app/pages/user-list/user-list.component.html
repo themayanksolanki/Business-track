@@ -111,9 +111,10 @@
 </div>
 
 <!-- Password edit modal -->
-@if (editPassUser) {
-  <div class="pass-backdrop" (click)="closePassEdit()">
-    <div class="pass-card" (click)="$event.stopPropagation()">
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="!!editPassUser" (appModalClosed)="closePassEdit()">
+  <div class="modal-dialog modal-dialog-centered pass-dialog">
+  @if (editPassUser) {
+    <div class="modal-content pass-content">
 
       <div class="pass-icon-wrap">
         <i class="bi bi-key-fill pass-icon"></i>
@@ -152,10 +153,10 @@
         </div>
 
         <div class="pass-actions">
-          <button class="pass-btn pass-btn-cancel" (click)="closePassEdit()" [disabled]="editPassLoading">
+          <button type="button" class="pass-btn pass-btn-cancel" data-bs-dismiss="modal" [disabled]="editPassLoading">
             Cancel
           </button>
-          <button class="pass-btn pass-btn-confirm" (click)="submitPassEdit()" [disabled]="editPassLoading || editPassword.length < 6">
+          <button type="button" class="pass-btn pass-btn-confirm" (click)="submitPassEdit()" [disabled]="editPassLoading || editPassword.length < 6">
             @if (editPassLoading) {
               <span class="spinner-border spinner-border-sm me-1"></span>
             }
@@ -165,5 +166,6 @@
       }
 
     </div>
+  }
   </div>
-}
+</div>

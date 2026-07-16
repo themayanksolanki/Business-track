@@ -32,6 +32,12 @@ const taskSchema = new mongoose.Schema(
       ref: 'Task',
       default: null,
     },
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true }
 );

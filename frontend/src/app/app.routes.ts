@@ -38,8 +38,15 @@ export const routes: Routes = [
   {
     path: 'users',
     canActivate: [authGuard, roleGuard],
-    data: { roles: ['Manager', 'Team Lead'] },
+    data: { roles: ['Admin', 'Manager', 'Team Lead'] },
     loadComponent: () => import('./pages/user-list/user-list.component').then((m) => m.UserListComponent),
+  },
+  {
+    path: 'organization',
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['Admin', 'Manager'] },
+    loadComponent: () =>
+      import('./pages/organization/organization.component').then((m) => m.OrganizationComponent),
   },
   {
     path: 'team-tasks',
@@ -70,6 +77,11 @@ export const routes: Routes = [
     path: 'profile',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/profile/profile.component').then((m) => m.ProfileComponent),
+  },
+  {
+    path: 'settings',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/settings/settings.component').then((m) => m.SettingsComponent),
   },
   {
     path: '**',

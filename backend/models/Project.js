@@ -22,6 +22,17 @@ const projectSchema = new mongoose.Schema(
       ref: 'User',
       default: null,
     },
+    department: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Department',
+      default: null,
+    },
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
+      default: null,
+      index: true,
+    },
     priority: {
       type: String,
       enum: ['low', 'medium', 'high'],

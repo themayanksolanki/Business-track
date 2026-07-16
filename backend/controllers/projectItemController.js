@@ -5,6 +5,7 @@ import Attachment from '../models/Attachment.js';
 import AppError from '../utils/AppError.js';
 import { deleteFile } from '../utils/gridfs.js';
 import { MAX_DEPTH, typeForDepth, recomputeAncestorStatuses } from '../services/statusSync.service.js';
+import { canAccessProject } from './projectController.js';
 
 const POPULATE_FIELDS = [
   { path: 'assignedTo', select: 'username email role' },
@@ -23,10 +24,71 @@ const getDescendantIds = async (rootId) => {
   return result;
 };
 
+// Deepest depth reached anywhere in rootId's subtree (rootId's own depth included) —
+// used to check indenting won't push a descendant past MAX_DEPTH.
+const getMaxDescendantDepth = async (rootId, rootDepth) => {
+  let maxDepth = rootDepth;
+  let frontier = [rootId];
+  while (frontier.length) {
+    const children = await ProjectItem.find({ parentId: { $in: frontier } }).select('_id depth');
+    if (children.length === 0) break;
+    maxDepth = Math.max(maxDepth, ...children.map((c) => c.depth));
+    frontier = children.map((c) => c._id);
+  }
+  return maxDepth;
+};
+
+// Indent/outdent only ever change the moved item's own depth by exactly one
+// level, so every descendant shifts by that same delta — walk the subtree
+// and apply it, updating type (group/task/subtask) to match the new depth.
+const shiftDescendantDepths = async (rootId, delta) => {
+  let frontier = [rootId];
+  while (frontier.length) {
+    const children = await ProjectItem.find({ parentId: { $in: frontier } }).select('_id depth');
+    if (children.length === 0) break;
+    await ProjectItem.bulkWrite(
+      children.map((c) => ({
+        updateOne: {
+          filter: { _id: c._id },
+          update: { depth: c.depth + delta, type: typeForDepth(c.depth + delta) },
+        },
+      }))
+    );
+    frontier = children.map((c) => c._id);
+  }
+};
+
 export const getItems = async (req, res, next) => {
   try {
     const project = await Project.findById(req.params.projectId);
     if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
+    const { limit } = req.query;
+
+    if (limit) {
+      const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+      const parsedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 12));
+      const skip = (page - 1) * parsedLimit;
+
+      const [items, total] = await Promise.all([
+        ProjectItem.find({ project: project._id })
+          .populate(POPULATE_FIELDS)
+          .sort({ parentId: 1, order: 1 })
+          .skip(skip)
+          .limit(parsedLimit),
+        ProjectItem.countDocuments({ project: project._id }),
+      ]);
+
+      return res.status(200).json({
+        items,
+        total,
+        page,
+        limit: parsedLimit,
+        totalPages: Math.max(1, Math.ceil(total / parsedLimit)),
+      });
+    }
 
     const items = await ProjectItem.find({ project: project._id })
       .populate(POPULATE_FIELDS)
@@ -42,6 +104,8 @@ export const createItem = async (req, res, next) => {
   try {
     const project = await Project.findById(req.params.projectId);
     if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
 
     const { title, description, priority, assignedTo, parentId, startDate, endDate } = req.body;
 
@@ -68,7 +132,7 @@ export const createItem = async (req, res, next) => {
       title: title.trim(),
       description: description ?? '',
       priority: priority ?? 'medium',
-      assignedTo: assignedTo ?? null,
+      assignedTo: depth === 0 ? null : assignedTo ?? null,
       createdBy: req.user._id,
       depth,
       order,
@@ -87,6 +151,11 @@ export const createItem = async (req, res, next) => {
 
 export const getItemById = async (req, res, next) => {
   try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
     const item = await ProjectItem.findOne({
       _id: req.params.itemId,
       project: req.params.projectId,
@@ -101,17 +170,27 @@ export const getItemById = async (req, res, next) => {
 
 export const updateItem = async (req, res, next) => {
   try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
     const item = await ProjectItem.findOne({ _id: req.params.itemId, project: req.params.projectId });
     if (!item) return next(new AppError('Item not found', 404));
 
     const { title, description, priority, assignedTo, status, startDate, endDate } = req.body;
 
     if (status !== undefined) {
+      if (item.type === 'group')
+        return next(new AppError('Groups do not have a status', 400));
       const childCount = await ProjectItem.countDocuments({ parentId: item._id });
       if (childCount > 0)
         return next(new AppError('Status is derived from children and cannot be set directly', 400));
       item.status = status;
     }
+
+    if (assignedTo !== undefined && item.type === 'group')
+      return next(new AppError('Groups cannot be assigned', 400));
 
     if (title !== undefined) item.title = title.trim();
     if (description !== undefined) item.description = description;
@@ -133,6 +212,11 @@ export const updateItem = async (req, res, next) => {
 
 export const deleteItem = async (req, res, next) => {
   try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
     const item = await ProjectItem.findOne({ _id: req.params.itemId, project: req.params.projectId });
     if (!item) return next(new AppError('Item not found', 404));
 
@@ -140,13 +224,9 @@ export const deleteItem = async (req, res, next) => {
     const allIds = [item._id, ...descendantIds];
 
     const attachments = await Attachment.find({ projectItem: { $in: allIds } });
-    for (const attachment of attachments) {
-      try {
-        await deleteFile(attachment.gridFsId);
-      } catch {
-        // best-effort: continue cleanup even if a blob is already gone
-      }
-    }
+    // best-effort: blob deletions are independent I/O, run concurrently and
+    // continue cleanup even if some blobs are already gone
+    await Promise.allSettled(attachments.map((a) => deleteFile(a.gridFsId)));
     await Attachment.deleteMany({ projectItem: { $in: allIds } });
     await Comment.deleteMany({ projectItem: { $in: allIds } });
     await ProjectItem.deleteMany({ _id: { $in: allIds } });
@@ -159,10 +239,131 @@ export const deleteItem = async (req, res, next) => {
   }
 };
 
+export const moveItem = async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
+    const item = await ProjectItem.findOne({ _id: req.params.itemId, project: project._id });
+    if (!item) return next(new AppError('Item not found', 404));
+
+    const { direction } = req.body;
+    const oldParentId = item.parentId;
+
+    if (direction === 'up' || direction === 'down') {
+      const siblings = await ProjectItem.find({ project: project._id, parentId: oldParentId }).sort({
+        order: 1,
+      });
+      const index = siblings.findIndex((s) => String(s._id) === String(item._id));
+      const swapWith = direction === 'up' ? index - 1 : index + 1;
+      if (swapWith < 0 || swapWith >= siblings.length)
+        return next(
+          new AppError(`Item is already at the ${direction === 'up' ? 'top' : 'bottom'}`, 400)
+        );
+
+      const other = siblings[swapWith];
+      const itemOrder = item.order;
+      item.order = other.order;
+      other.order = itemOrder;
+      await item.save();
+      await other.save();
+    } else if (direction === 'indent') {
+      const siblings = await ProjectItem.find({ project: project._id, parentId: oldParentId }).sort({
+        order: 1,
+      });
+      const index = siblings.findIndex((s) => String(s._id) === String(item._id));
+      if (index === 0)
+        return next(new AppError('Cannot indent the first item under its parent', 400));
+
+      const newParent = siblings[index - 1];
+      const newDepth = newParent.depth + 1;
+      const subtreeMaxDepth = await getMaxDescendantDepth(item._id, item.depth);
+      const depthDelta = newDepth - item.depth;
+      if (subtreeMaxDepth + depthDelta > MAX_DEPTH)
+        return next(new AppError(`Maximum hierarchy depth of ${MAX_DEPTH + 1} levels reached`, 400));
+
+      // close the gap left behind among the old siblings
+      await ProjectItem.bulkWrite(
+        siblings.slice(index + 1).map((s, i) => ({
+          updateOne: { filter: { _id: s._id }, update: { order: index + i } },
+        }))
+      );
+
+      const newSiblingCount = await ProjectItem.countDocuments({
+        project: project._id,
+        parentId: newParent._id,
+      });
+      item.parentId = newParent._id;
+      item.order = newSiblingCount;
+      item.depth = newDepth;
+      item.type = typeForDepth(newDepth);
+      await item.save();
+
+      if (depthDelta !== 0) await shiftDescendantDepths(item._id, depthDelta);
+
+      await recomputeAncestorStatuses(newParent._id);
+      if (oldParentId) await recomputeAncestorStatuses(oldParentId);
+    } else if (direction === 'outdent') {
+      if (!oldParentId) return next(new AppError('Item is already at the top level', 400));
+
+      const oldParent = await ProjectItem.findById(oldParentId);
+      if (!oldParent) return next(new AppError('Parent item not found', 404));
+
+      const newParentId = oldParent.parentId ?? null;
+
+      // close the gap left behind among the old siblings
+      const oldSiblings = await ProjectItem.find({
+        project: project._id,
+        parentId: oldParentId,
+        _id: { $ne: item._id },
+      }).sort({ order: 1 });
+      await ProjectItem.bulkWrite(
+        oldSiblings.map((s, i) => ({
+          updateOne: { filter: { _id: s._id }, update: { order: i } },
+        }))
+      );
+
+      // make room right after the old parent among the new siblings
+      const newSiblings = await ProjectItem.find({ project: project._id, parentId: newParentId }).sort({
+        order: 1,
+      });
+      const insertAt = oldParent.order + 1;
+      await ProjectItem.bulkWrite(
+        newSiblings
+          .filter((s) => s.order >= insertAt)
+          .map((s) => ({
+            updateOne: { filter: { _id: s._id }, update: { order: s.order + 1 } },
+          }))
+      );
+
+      const depthDelta = oldParent.depth - item.depth;
+      item.parentId = newParentId;
+      item.order = insertAt;
+      item.depth = oldParent.depth;
+      item.type = typeForDepth(oldParent.depth);
+      await item.save();
+
+      if (depthDelta !== 0) await shiftDescendantDepths(item._id, depthDelta);
+
+      await recomputeAncestorStatuses(oldParentId);
+      if (newParentId) await recomputeAncestorStatuses(newParentId);
+    }
+
+    const populated = await item.populate(POPULATE_FIELDS);
+    res.status(200).json({ message: 'Item moved', item: populated });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const reorderItems = async (req, res, next) => {
   try {
     const project = await Project.findById(req.params.projectId);
     if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
 
     const { parentId, orderedIds } = req.body;
 

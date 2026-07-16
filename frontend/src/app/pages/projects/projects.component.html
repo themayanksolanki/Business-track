@@ -43,6 +43,11 @@
               @if (project.description) {
                 <p class="project-card-desc">{{ project.description }}</p>
               }
+              @if (project.department) {
+                <span class="dept-badge" [style.color]="project.department.color" [style.borderColor]="project.department.color">
+                  {{ project.department.name }}
+                </span>
+              }
               <div class="project-card-meta">
                 <i class="bi bi-person-fill me-1"></i>{{ project.createdBy.username }}
                 <span class="mx-2">·</span>
@@ -87,6 +92,7 @@
             <tr class="table-dark-header">
               <th class="ps-4">Name</th>
               <th>Owner</th>
+              <th>Department</th>
               <th>Priority</th>
               <th>Dates</th>
               <th>Created By</th>
@@ -106,6 +112,15 @@
                   @if (project.owner) {
                     <span class="assign-avatar avatar-xs me-2" [class]="'avatar-' + roleClass(project.owner.role)">{{ project.owner.username[0].toUpperCase() }}</span>
                     <span class="text-muted-em">{{ project.owner.username }}</span>
+                  } @else {
+                    <span class="text-muted-em">—</span>
+                  }
+                </td>
+                <td>
+                  @if (project.department) {
+                    <span class="dept-badge" [style.color]="project.department.color" [style.borderColor]="project.department.color">
+                      {{ project.department.name }}
+                    </span>
                   } @else {
                     <span class="text-muted-em">—</span>
                   }
@@ -161,6 +176,11 @@
             }
           </div>
           <span class="priority-badge-sm" [class]="'priority-' + project.priority">{{ project.priority }}</span>
+          @if (project.department) {
+            <span class="dept-badge" [style.color]="project.department.color" [style.borderColor]="project.department.color">
+              {{ project.department.name }}
+            </span>
+          }
           @if (project.owner) {
             <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(project.owner.role)" [title]="project.owner.username">
               {{ project.owner.username[0].toUpperCase() }}
@@ -202,13 +222,13 @@
 </div>
 
 <!-- Create project modal -->
-@if (createOpen) {
-  <div class="modal-overlay d-flex justify-content-center" (click)="closeCreate()">
-    <div class="card modal-card overflow-visible modal-card-lg shadow-lg" (click)="$event.stopPropagation()">
-      <div class="card-body p-4">
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="createOpen" (appModalClosed)="closeCreate()">
+  <div class="modal-dialog modal-dialog-centered projects-create-dialog">
+    <div class="modal-content projects-create-content shadow-lg">
+      <div class="modal-body p-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
           <h5 class="card-title mb-0"><i class="bi bi-plus-circle me-2"></i>New Project</h5>
-          <button type="button" class="btn-close" (click)="closeCreate()"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
 
         @if (createError) {
@@ -224,11 +244,23 @@
             }
           </div>
 
-          <div class="mb-4">
+          <div class="mb-3">
             <label class="field-label">Description</label>
             <textarea class="form-control field-input" style="height:auto" formControlName="description" rows="3"
                       placeholder="Optional description"></textarea>
           </div>
+
+          @if (departments.length > 0) {
+            <div class="mb-4">
+              <label class="field-label">Department</label>
+              <select class="form-select field-input" formControlName="department">
+                <option value="">No department</option>
+                @for (dept of departments; track dept._id) {
+                  <option [value]="dept._id">{{ dept.name }}</option>
+                }
+              </select>
+            </div>
+          }
 
           <div class="row g-3 mb-4">
             <div class="col-12">
@@ -248,7 +280,7 @@
           </div>
 
           <div class="d-flex justify-content-end gap-2">
-            <button type="button" class="btn btn-light modal-submit-btn" (click)="closeCreate()">Cancel</button>
+            <button type="button" class="btn btn-light modal-submit-btn" data-bs-dismiss="modal">Cancel</button>
             <button type="submit" class="btn btn-primary modal-submit-btn" [disabled]="createLoading">
               @if (createLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
               {{ createLoading ? 'Creating...' : 'Create Project' }}
@@ -258,4 +290,4 @@
       </div>
     </div>
   </div>
-}
+</div>

@@ -1,19 +1,14 @@
-/* ── Modal shell (duplicated per this codebase's existing convention — no shared modal component) ── */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 1050;
-}
-
-.detail-modal {
-  width: 100%;
+/* ── Modal shell (Bootstrap .modal/.modal-dialog/.modal-content) ── */
+.item-detail-content {
+  border: none;
   border-radius: 16px;
-  overflow: hidden;
   background: var(--bg-card);
 }
 
-.item-detail-modal { max-width: 900px; }
+.item-detail-dialog { max-width: 900px; }
+/* overflow-y (not overflow:hidden) so it only clips scroll content, never
+   dropdown-menus/date-picker popups — see date-picker.component for how
+   those escape this via position: fixed anyway. */
 .item-detail-body { max-height: 80vh; overflow-y: auto; }
 
 .item-detail-grid {
@@ -51,7 +46,9 @@
   margin-bottom: 6px;
 }
 
-.detail-header { padding: 22px 24px 20px; }
+/* override Bootstrap's .modal-header { display: flex } — this header stacks
+   breadcrumb / pills row / title input vertically, not as a flex row */
+.detail-header { display: block; padding: 22px 24px 20px; }
 
 /* NOTE: .detail-header-* backgrounds are fixed light gradients regardless of theme
    (matching the existing task-list detail-header convention), so text sitting on
@@ -110,11 +107,16 @@
   width: 100%;
   border: none;
   background: transparent;
+  font-family: inherit;
   font-size: 1.15rem;
   font-weight: 700;
+  line-height: 1.4;
   color: #0f172a;
   padding: 0;
+  margin: 0;
   outline: none;
+  resize: none;
+  overflow: hidden;
 }
 .detail-title-input:focus { outline: 2px solid rgba(59, 130, 246, 0.25); border-radius: 4px; }
 
@@ -283,9 +285,10 @@
 }
 
 .avatar-self      { background: #f1f5f9; color: #64748b; }
+.avatar-admin     { background: #fef3c7; color: #92400e; }
 .avatar-manager   { background: #dbeafe; color: #1d4ed8; }
 .avatar-team-lead { background: #ede9fe; color: #6d28d9; }
-.avatar-employee  { background: #dcfce7; color: #15803d; }
+.avatar-user      { background: #dcfce7; color: #15803d; }
 
 .assign-trigger-name {
   font-size: 0.875rem;

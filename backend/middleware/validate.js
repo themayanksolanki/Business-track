@@ -2,7 +2,8 @@ import mongoose from 'mongoose';
 import AppError from '../utils/AppError.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const VALID_ROLES = ['Manager', 'Team Lead', 'Employee'];
+const DOMAIN_REGEX = /^[^\s@]+\.[^\s@]+$/;
+const VALID_ROLES = ['Admin', 'Manager', 'Team Lead', 'User'];
 
 export const validateRegister = (req, res, next) => {
   const { username, email, password, role, referenceEmail } = req.body;
@@ -16,11 +17,50 @@ export const validateRegister = (req, res, next) => {
   if (!password || password.length < 6)
     return next(new AppError('Password must be at least 6 characters', 400));
 
-  if (!role || !VALID_ROLES.includes(role))
-    return next(new AppError(`Role must be one of: ${VALID_ROLES.join(', ')}`, 400));
+  if (!role || !['Manager', 'Team Lead', 'User'].includes(role))
+    return next(new AppError("Role must be one of: Manager, Team Lead, User", 400));
 
   if (role !== 'Manager' && referenceEmail && !EMAIL_REGEX.test(referenceEmail))
     return next(new AppError('Reference email must be a valid email address', 400));
+
+  next();
+};
+
+export const validateOrgRegister = (req, res, next) => {
+  const { username, email, password, organizationName, emailDomain, managerEmail, teamLeadEmail } = req.body;
+
+  if (!username || !username.trim())
+    return next(new AppError('Username is required', 400));
+
+  if (!email || !EMAIL_REGEX.test(email))
+    return next(new AppError('A valid email is required', 400));
+
+  if (!password || password.length < 6)
+    return next(new AppError('Password must be at least 6 characters', 400));
+
+  if (!organizationName || !organizationName.trim())
+    return next(new AppError('Organization name is required', 400));
+
+  if (!emailDomain || !DOMAIN_REGEX.test(emailDomain))
+    return next(new AppError('A valid organization email domain is required', 400));
+
+  if (!managerEmail || !EMAIL_REGEX.test(managerEmail))
+    return next(new AppError('A valid Manager email is required', 400));
+
+  if (!teamLeadEmail || !EMAIL_REGEX.test(teamLeadEmail))
+    return next(new AppError('A valid Team Lead email is required', 400));
+
+  next();
+};
+
+export const validateInvite = (req, res, next) => {
+  const { email, role } = req.body;
+
+  if (!email || !EMAIL_REGEX.test(email))
+    return next(new AppError('A valid email is required', 400));
+
+  if (!role || !VALID_ROLES.includes(role))
+    return next(new AppError(`Role must be one of: ${VALID_ROLES.join(', ')}`, 400));
 
   next();
 };
@@ -104,13 +144,16 @@ const validateDateRange = (startDate, endDate) => {
 const VALID_PRIORITIES = ['low', 'medium', 'high'];
 
 export const validateProject = (req, res, next) => {
-  const { name, startDate, endDate, owner, priority } = req.body;
+  const { name, startDate, endDate, owner, priority, department } = req.body;
 
   if (req.method === 'POST' && (!name || !name.trim()))
     return next(new AppError('Project name is required', 400));
 
   if (owner && !mongoose.isValidObjectId(owner))
     return next(new AppError('owner is not a valid ID', 400));
+
+  if (department && !mongoose.isValidObjectId(department))
+    return next(new AppError('department is not a valid ID', 400));
 
   if (priority !== undefined && !VALID_PRIORITIES.includes(priority))
     return next(new AppError(`Priority must be one of: ${VALID_PRIORITIES.join(', ')}`, 400));
@@ -148,6 +191,17 @@ export const validateProjectItem = (req, res, next) => {
   next();
 };
 
+const VALID_MOVE_DIRECTIONS = ['up', 'down', 'indent', 'outdent'];
+
+export const validateMove = (req, res, next) => {
+  const { direction } = req.body;
+
+  if (!VALID_MOVE_DIRECTIONS.includes(direction))
+    return next(new AppError(`direction must be one of: ${VALID_MOVE_DIRECTIONS.join(', ')}`, 400));
+
+  next();
+};
+
 export const validateReorder = (req, res, next) => {
   const { parentId, orderedIds } = req.body;
 
@@ -168,6 +222,37 @@ export const validateComment = (req, res, next) => {
 
   if (!body || !body.trim())
     return next(new AppError('Comment body is required', 400));
+
+  next();
+};
+
+const HEX_COLOR_REGEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+export const validateDepartment = (req, res, next) => {
+  const { name, color, parentId } = req.body;
+
+  if (req.method === 'POST' && (!name || !name.trim()))
+    return next(new AppError('Department name is required', 400));
+
+  if (color !== undefined && !HEX_COLOR_REGEX.test(color))
+    return next(new AppError('color must be a valid hex color', 400));
+
+  if (parentId && !mongoose.isValidObjectId(parentId))
+    return next(new AppError('parentId is not a valid ID', 400));
+
+  next();
+};
+
+export const validateDepartmentId = validateParamId('id');
+
+export const validateDepartmentIds = (req, res, next) => {
+  const { departmentIds } = req.body;
+
+  if (!Array.isArray(departmentIds))
+    return next(new AppError('departmentIds must be an array', 400));
+
+  if (!departmentIds.every((id) => mongoose.isValidObjectId(id)))
+    return next(new AppError('departmentIds must all be valid IDs', 400));
 
   next();
 };

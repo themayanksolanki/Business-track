@@ -30,6 +30,9 @@
                 <span class="attachment-name">{{ a.fileName }}</span>
                 <span class="attachment-meta">{{ formatSize(a.size) }} · {{ a.uploadedBy.username }}</span>
               </div>
+              <button class="attachment-download-btn" (click)="openViewer(a)" title="Preview">
+                <i class="bi bi-eye"></i>
+              </button>
               <button class="attachment-download-btn" (click)="download(a)" [disabled]="downloadingId === a._id" title="Download">
                 @if (downloadingId === a._id) {
                   <span class="spinner-border spinner-border-sm"></span>
@@ -64,3 +67,12 @@
     }
   </div>
 </div>
+
+<app-attachment-viewer
+  [open]="viewerOpen"
+  [attachments]="attachments"
+  [startIndex]="viewerIndex"
+  [loadBlob]="loadAttachmentBlob"
+  (closed)="viewerOpen = false"
+  (download)="download($event)">
+</app-attachment-viewer>

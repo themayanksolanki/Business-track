@@ -1,0 +1,124 @@
+.org-card {
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-card);
+}
+
+.field-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 7px;
+}
+
+.field-input {
+  height: 42px;
+  border-color: var(--border-strong);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.org-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.org-section {
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-card);
+}
+
+/* ── Member / invite rows ── */
+.org-member-list,
+.org-invite-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.org-member-row,
+.org-invite-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.org-member-row:last-child,
+.org-invite-row:last-child { border-bottom: none; }
+
+.org-member-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.org-member-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.org-member-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.org-member-email {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.org-role-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+
+.role-admin     { background: #fef3c7; color: #92400e; }
+.role-manager   { background: #dbeafe; color: #1d4ed8; }
+.role-team-lead { background: #ede9fe; color: #6d28d9; }
+.role-user      { background: #dcfce7; color: #15803d; }
+
+/* ── Department checkboxes ── */
+.org-dept-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  max-height: 140px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.org-dept-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+[data-theme="dark"] .role-admin     { background: rgba(245,158,11,0.18); color: #fcd34d; }
+[data-theme="dark"] .role-manager   { background: rgba(59,130,246,0.18); color: #93c5fd; }
+[data-theme="dark"] .role-team-lead { background: rgba(139,92,246,0.18); color: #c4b5fd; }
+[data-theme="dark"] .role-user      { background: rgba(34,197,94,0.18); color: #86efac; }

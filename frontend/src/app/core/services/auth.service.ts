@@ -46,6 +46,20 @@ export class AuthService {
       );
   }
 
+  registerOrganization(payload: {
+    username: string;
+    email: string;
+    password: string;
+    organizationName: string;
+    emailDomain: string;
+    managerEmail: string;
+    teamLeadEmail: string;
+  }) {
+    return this.http
+      .post<AuthResponse>(`${this.api}/register-organization`, payload, this.CREDS)
+      .pipe(tap((res) => this.persist(res)));
+  }
+
   login(email: string, password: string) {
     return this.http
       .post<AuthResponse>(`${this.api}/login`, { email, password }, this.CREDS)

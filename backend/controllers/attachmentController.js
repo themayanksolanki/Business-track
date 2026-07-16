@@ -1,17 +1,20 @@
 import Task from '../models/Task.js';
 import User from '../models/User.js';
+import Project from '../models/Project.js';
 import Attachment from '../models/Attachment.js';
 import ProjectItem from '../models/ProjectItem.js';
 import AppError from '../utils/AppError.js';
 import { uploadBufferToGridFS, openDownloadStream, deleteFile } from '../utils/gridfs.js';
+import { canAccessProject } from './projectController.js';
 
 const getTeamMemberIds = async (teamLeadId) => {
-  const members = await User.find({ teamLeadId, role: 'Employee' }).select('_id');
+  const members = await User.find({ teamLeadId, role: 'User' }).select('_id');
   return members.map((m) => m._id);
 };
 
 const canAccessTask = async (task, user) => {
-  if (user.role === 'Manager') return true;
+  if (String(task.organization ?? '') !== String(user.organization ?? '')) return false;
+  if (user.role === 'Admin' || user.role === 'Manager') return true;
 
   if (user.role === 'Team Lead') {
     const memberIds = await getTeamMemberIds(user._id);
@@ -103,8 +106,14 @@ export const downloadAttachment = async (req, res, next) => {
 
 export const getItemAttachments = async (req, res, next) => {
   try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
     const item = await ProjectItem.findOne({ _id: req.params.itemId, project: req.params.projectId });
     if (!item) return next(new AppError('Item not found', 404));
+    if (item.type === 'group') return next(new AppError('Groups do not support attachments', 400));
 
     const attachments = await Attachment.find({ projectItem: item._id })
       .populate('uploadedBy', 'username email role')
@@ -118,8 +127,14 @@ export const getItemAttachments = async (req, res, next) => {
 
 export const uploadItemAttachment = async (req, res, next) => {
   try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
     const item = await ProjectItem.findOne({ _id: req.params.itemId, project: req.params.projectId });
     if (!item) return next(new AppError('Item not found', 404));
+    if (item.type === 'group') return next(new AppError('Groups do not support attachments', 400));
 
     if (!req.file) return next(new AppError('No file uploaded', 400));
 
@@ -148,6 +163,11 @@ export const uploadItemAttachment = async (req, res, next) => {
 
 export const downloadItemAttachment = async (req, res, next) => {
   try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
     const attachment = await Attachment.findOne({
       _id: req.params.attachmentId,
       projectItem: req.params.itemId,
@@ -170,6 +190,11 @@ export const downloadItemAttachment = async (req, res, next) => {
 
 export const deleteItemAttachment = async (req, res, next) => {
   try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
     const attachment = await Attachment.findOne({
       _id: req.params.attachmentId,
       projectItem: req.params.itemId,

@@ -3,6 +3,8 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 
+type RegisterMode = 'individual' | 'business';
+
 @Component({
   selector: 'app-register',
   standalone: true,
@@ -11,21 +13,38 @@ import { AuthService } from '../../core/services/auth.service';
   styleUrl: './register.component.css',
 })
 export class RegisterComponent {
+  mode: RegisterMode = 'individual';
   form: FormGroup;
+  businessForm: FormGroup;
   error = '';
   loading = false;
   successMessage = '';
 
-  readonly roles = ['Manager', 'Team Lead', 'Employee'];
+  readonly roles = ['Manager', 'Team Lead', 'User'];
 
   constructor(private fb: FormBuilder, private auth: AuthService, private router: Router) {
     this.form = this.fb.group({
       username: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]],
-      role: ['Employee', Validators.required],
+      role: ['User', Validators.required],
       referenceEmail: ['', Validators.email],
     });
+
+    this.businessForm = this.fb.group({
+      username: ['', Validators.required],
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required, Validators.minLength(6)]],
+      organizationName: ['', Validators.required],
+      emailDomain: ['', Validators.required],
+      managerEmail: ['', [Validators.required, Validators.email]],
+      teamLeadEmail: ['', [Validators.required, Validators.email]],
+    });
+  }
+
+  setMode(mode: RegisterMode) {
+    this.mode = mode;
+    this.error = '';
   }
 
   get selectedRole() { return this.form.get('role')?.value; }
@@ -36,7 +55,7 @@ export class RegisterComponent {
   }
 
   get showReferenceEmail() {
-    return this.selectedRole === 'Team Lead' || this.selectedRole === 'Employee';
+    return this.selectedRole === 'Team Lead' || this.selectedRole === 'User';
   }
 
   selectRole(role: string) {
@@ -45,6 +64,8 @@ export class RegisterComponent {
   }
 
   submit() {
+    if (this.mode === 'business') return this.submitBusiness();
+
     if (this.form.invalid) return;
     this.loading = true;
     this.error = '';
@@ -62,6 +83,22 @@ export class RegisterComponent {
         } else {
           this.router.navigate(['/dashboard']);
         }
+      },
+      error: (err) => {
+        this.error = err.error?.message || 'Registration failed';
+        this.loading = false;
+      },
+    });
+  }
+
+  submitBusiness() {
+    if (this.businessForm.invalid) return;
+    this.loading = true;
+    this.error = '';
+
+    this.auth.registerOrganization(this.businessForm.value).subscribe({
+      next: () => {
+        this.router.navigate(['/dashboard']);
       },
       error: (err) => {
         this.error = err.error?.message || 'Registration failed';

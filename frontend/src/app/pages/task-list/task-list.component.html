@@ -72,7 +72,7 @@
                   </div>
                 </td>
                 <td (click)="$event.stopPropagation()">
-                  @if (isManager && task.assignedTo.username) {
+                  @if ((isAdmin || isManager) && task.assignedTo.username) {
                     <span class="assignee-link" (click)="openReassign(task._id)" title="Click to reassign">
                       {{ task.assignedTo.username }}
                     </span>
@@ -141,13 +141,13 @@
 </div>
 
 <!-- Create task modal -->
-@if (createOpen) {
-  <div class="modal-overlay d-flex align-items-center justify-content-center">
-    <div class="card modal-card modal-card-lg shadow-lg" (click)="$event.stopPropagation()">
-      <div class="card-body p-4">
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="createOpen" (appModalClosed)="closeCreate()">
+  <div class="modal-dialog modal-dialog-centered tasklist-dialog tasklist-dialog-lg">
+    <div class="modal-content tasklist-modal-content shadow-lg">
+      <div class="modal-body p-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
           <h5 class="card-title mb-0"><i class="bi bi-plus-circle me-2"></i>New Task</h5>
-          <button type="button" class="btn-close" (click)="closeCreate()"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
 
         @if (createError) {
@@ -169,7 +169,7 @@
                       placeholder="Optional description"></textarea>
           </div>
 
-          @if (!isEmployee && createAssignees.length > 0) {
+          @if (!isUser && createAssignees.length > 0) {
             <div class="mb-4">
               <label class="form-label fw-semibold">Assign To</label>
               <div class="dropdown">
@@ -214,7 +214,7 @@
             </div>
           }
 
-          @if (isEmployee) {
+          @if (isUser) {
             <div class="alert alert-info py-2 small mb-4">Task will be automatically assigned to you.</div>
           }
 
@@ -222,21 +222,22 @@
             <button type="submit" class="btn btn-primary" [disabled]="createLoading">
               {{ createLoading ? 'Creating...' : 'Create Task' }}
             </button>
-            <button type="button" class="btn btn-light" (click)="closeCreate()">Cancel</button>
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
           </div>
         </form>
       </div>
     </div>
   </div>
-}
+</div>
 
 <!-- Task detail modal -->
-@if (selectedTask) {
-  <div class="modal-overlay d-flex align-items-center justify-content-center" (click)="closeDetail()">
-    <div class="detail-modal shadow-lg" (click)="$event.stopPropagation()">
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="!!selectedTask" (appModalClosed)="closeDetail()">
+  <div class="modal-dialog modal-dialog-centered tasklist-detail-dialog">
+  @if (selectedTask) {
+    <div class="modal-content tasklist-detail-content shadow-lg">
 
       <!-- Colored header -->
-      <div class="detail-header"
+      <div class="modal-header detail-header"
            [class.detail-header-todo]="selectedTask.status === 'todo'"
            [class.detail-header-pending]="selectedTask.status === 'pending'"
            [class.detail-header-completed]="selectedTask.status === 'completed'">
@@ -267,7 +268,7 @@
               </a></li>
             </ul>
           </div>
-          <button class="detail-x" (click)="closeDetail()">
+          <button type="button" class="detail-x" data-bs-dismiss="modal">
             <i class="bi bi-x-lg"></i>
           </button>
         </div>
@@ -275,7 +276,7 @@
       </div>
 
       <!-- Body -->
-      <div class="detail-body">
+      <div class="modal-body detail-body">
         @if (selectedTask.description) {
           <p class="detail-desc">{{ selectedTask.description }}</p>
         } @else {
@@ -369,34 +370,36 @@
       </div>
 
       <!-- Footer -->
-      <div class="detail-footer">
-        <button class="detail-action-btn detail-btn-edit" (click)="openEdit(selectedTask)">
+      <div class="modal-footer detail-footer">
+        <button type="button" class="detail-action-btn detail-btn-edit" (click)="openEdit(selectedTask)">
           <i class="bi bi-pencil-square me-1"></i>Edit
         </button>
         @if (canDelete(selectedTask)) {
-          <button class="detail-action-btn detail-btn-delete" (click)="delete(selectedTask)">
+          <button type="button" class="detail-action-btn detail-btn-delete" (click)="delete(selectedTask)">
             <i class="bi bi-trash3 me-1"></i>Delete
           </button>
         }
-        <button class="detail-action-btn detail-btn-close ms-auto" (click)="closeDetail()">Close</button>
+        <button type="button" class="detail-action-btn detail-btn-close ms-auto" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
+  }
   </div>
-}
+</div>
 
 <!-- Edit modal -->
-@if (editTaskId) {
-  <div class="modal-overlay d-flex align-items-center justify-content-center">
-    <div class="card modal-card modal-card-lg shadow-lg" (click)="$event.stopPropagation()">
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="!!editTaskId" (appModalClosed)="closeEdit()">
+  <div class="modal-dialog modal-dialog-centered tasklist-dialog tasklist-dialog-lg">
+  @if (editTaskId) {
+    <div class="modal-content tasklist-modal-content shadow-lg">
 
-      <div class="modal-form-header">
+      <div class="modal-header modal-form-header">
         <div class="d-flex justify-content-between align-items-center">
           <h5 class="mb-0 fw-bold"><i class="bi bi-pencil-square me-2 text-primary"></i>Edit Task</h5>
-          <button class="detail-x" (click)="closeEdit()"><i class="bi bi-x-lg"></i></button>
+          <button type="button" class="detail-x" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
         </div>
       </div>
 
-      <div class="card-body p-4">
+      <div class="modal-body p-4">
         @if (editError) {
           <div class="alert alert-danger py-2 small mb-4">{{ editError }}</div>
         }
@@ -445,24 +448,26 @@
               @if (editLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
               {{ editLoading ? 'Saving...' : 'Save Changes' }}
             </button>
-            <button type="button" class="btn btn-light modal-submit-btn" (click)="closeEdit()">Cancel</button>
+            <button type="button" class="btn btn-light modal-submit-btn" data-bs-dismiss="modal">Cancel</button>
           </div>
         </form>
       </div>
     </div>
+  }
   </div>
-}
+</div>
 
 <!-- Reassign modal -->
-@if (reassignTaskId) {
-  <div class="modal-overlay d-flex align-items-center justify-content-center">
-    <div class="card modal-card shadow-lg">
-      <div class="card-body p-4">
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="!!reassignTaskId" (appModalClosed)="closeReassign()">
+  <div class="modal-dialog modal-dialog-centered tasklist-dialog">
+  @if (reassignTaskId) {
+    <div class="modal-content tasklist-modal-content shadow-lg">
+      <div class="modal-body p-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="card-title mb-0">
             <i class="bi bi-arrow-left-right me-2"></i>Reassign Task
           </h5>
-          <button type="button" class="btn-close" (click)="reassignTaskId = ''"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
 
         <div class="dropdown mb-4">
@@ -499,31 +504,33 @@
         </div>
 
         <div class="d-flex gap-2">
-          <button class="btn btn-primary" (click)="confirmReassign()">
+          <button type="button" class="btn btn-primary" (click)="confirmReassign()">
             <i class="bi bi-check-lg me-1"></i>Confirm
           </button>
-          <button class="btn btn-light" (click)="reassignTaskId = ''">Cancel</button>
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
         </div>
       </div>
     </div>
+  }
   </div>
-}
+</div>
 
 <!-- Attachments modal -->
-@if (attachmentTaskId) {
-  <div class="modal-overlay d-flex align-items-center justify-content-center" (click)="closeAttachments()">
-    <div class="card modal-card modal-card-lg shadow-lg" (click)="$event.stopPropagation()">
-      <div class="modal-form-header">
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="!!attachmentTaskId" (appModalClosed)="closeAttachments()">
+  <div class="modal-dialog modal-dialog-centered tasklist-dialog tasklist-dialog-lg">
+  @if (attachmentTaskId) {
+    <div class="modal-content tasklist-modal-content shadow-lg">
+      <div class="modal-header modal-form-header">
         <div class="d-flex justify-content-between align-items-center">
           <h5 class="mb-0 fw-bold">
             <i class="bi bi-paperclip me-2 text-primary"></i>Attachments
             @if (attachmentTask) { <span class="text-muted fw-normal">— {{ attachmentTask.title }}</span> }
           </h5>
-          <button class="detail-x" (click)="closeAttachments()"><i class="bi bi-x-lg"></i></button>
+          <button type="button" class="detail-x" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
         </div>
       </div>
 
-      <div class="card-body p-4">
+      <div class="modal-body p-4">
         @if (attachmentsError) {
           <div class="alert alert-danger py-2 small mb-3">{{ attachmentsError }}</div>
         }
@@ -543,6 +550,9 @@
                   <span class="attachment-name">{{ a.fileName }}</span>
                   <span class="attachment-meta">{{ formatSize(a.size) }} · {{ a.uploadedBy.username }}</span>
                 </div>
+                <button class="attachment-download-btn" (click)="openViewer(a)" title="Preview">
+                  <i class="bi bi-eye"></i>
+                </button>
                 <button class="attachment-download-btn" (click)="download(a)" [disabled]="downloadingId === a._id" title="Download">
                   @if (downloadingId === a._id) {
                     <span class="spinner-border spinner-border-sm"></span>
@@ -570,8 +580,9 @@
         }
       </div>
     </div>
+  }
   </div>
-}
+</div>
 
 <!-- Delete confirmation dialog -->
 <app-confirm-dialog
@@ -582,3 +593,12 @@
   (confirmed)="confirmDelete()"
   (cancelled)="cancelConfirm()">
 </app-confirm-dialog>
+
+<app-attachment-viewer
+  [open]="viewerOpen"
+  [attachments]="attachments"
+  [startIndex]="viewerIndex"
+  [loadBlob]="loadAttachmentBlob"
+  (closed)="viewerOpen = false"
+  (download)="download($event)">
+</app-attachment-viewer>

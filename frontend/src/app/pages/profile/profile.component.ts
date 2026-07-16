@@ -124,9 +124,10 @@ export class ProfileComponent implements OnInit {
 
   get roleIcon(): string {
     const icons: Record<string, string> = {
+      Admin: 'bi-shield-fill-check',
       Manager: 'bi-briefcase-fill',
       'Team Lead': 'bi-diagram-3-fill',
-      Employee: 'bi-person-fill',
+      User: 'bi-person-fill',
     };
     return icons[this.profile?.role ?? ''] ?? 'bi-person-fill';
   }

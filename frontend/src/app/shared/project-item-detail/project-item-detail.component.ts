@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
-import moment from 'moment';
+import dayjs from 'dayjs/esm';
 import { ProjectService } from '../../core/services/project.service';
 import { UserService } from '../../core/services/user.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -16,12 +16,24 @@ import { Attachment } from '../../models/attachment.model';
 import { ProjectComment } from '../../models/comment.model';
 import { DatePickerComponent } from '../date-picker/date-picker.component';
 import { TimePickerComponent } from '../time-picker/time-picker.component';
+import { ModalDirective } from '../modal.directive';
+import { AttachmentViewerComponent } from '../attachment-viewer/attachment-viewer.component';
+import { AutoGrowDirective } from '../auto-grow.directive';
 import { HttpEventType } from '@angular/common/http';
 
 @Component({
   selector: 'app-project-item-detail',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule, FormsModule, DatePickerComponent, TimePickerComponent],
+  imports: [
+    DatePipe,
+    ReactiveFormsModule,
+    FormsModule,
+    DatePickerComponent,
+    TimePickerComponent,
+    ModalDirective,
+    AttachmentViewerComponent,
+    AutoGrowDirective,
+  ],
   templateUrl: './project-item-detail.component.html',
   styleUrl: './project-item-detail.component.css',
 })
@@ -52,6 +64,8 @@ export class ProjectItemDetailComponent implements OnChanges {
   attachmentUploading = false;
   attachmentUploadError = '';
   downloadingId = '';
+  viewerOpen = false;
+  viewerIndex = 0;
 
   readonly statusOptions: ProjectItemStatus[] = ['todo', 'doing', 'completed'];
   readonly priorityOptions: ProjectItemPriority[] = ['low', 'medium', 'high'];
@@ -77,10 +91,10 @@ export class ProjectItemDetailComponent implements OnChanges {
     if (changes['item'] && this.item) {
       this.editForm.patchValue({ title: this.item.title, description: this.item.description });
       this.editError = '';
-      this.startDateStr = this.item.startDate ? moment(this.item.startDate).format('YYYY-MM-DD') : null;
-      this.startTimeStr = this.item.startDate ? moment(this.item.startDate).format('HH:mm') : null;
-      this.endDateStr = this.item.endDate ? moment(this.item.endDate).format('YYYY-MM-DD') : null;
-      this.endTimeStr = this.item.endDate ? moment(this.item.endDate).format('HH:mm') : null;
+      this.startDateStr = this.item.startDate ? dayjs(this.item.startDate).format('YYYY-MM-DD') : null;
+      this.startTimeStr = this.item.startDate ? dayjs(this.item.startDate).format('HH:mm') : null;
+      this.endDateStr = this.item.endDate ? dayjs(this.item.endDate).format('YYYY-MM-DD') : null;
+      this.endTimeStr = this.item.endDate ? dayjs(this.item.endDate).format('HH:mm') : null;
       this.loadComments();
       this.loadAttachments();
       if (this.users.length === 0) {
@@ -89,16 +103,16 @@ export class ProjectItemDetailComponent implements OnChanges {
     }
   }
 
-  close() {
-    this.closed.emit();
-  }
-
   roleClass(role: string): string {
     return role.toLowerCase().replace(' ', '-');
   }
 
+  get isGroup(): boolean {
+    return this.item?.type === 'group';
+  }
+
   get canEditStatus(): boolean {
-    return this.childCount === 0;
+    return !this.isGroup && this.childCount === 0;
   }
 
   setStatus(status: ProjectItemStatus) {
@@ -126,7 +140,7 @@ export class ProjectItemDetailComponent implements OnChanges {
   }
 
   selectAssignee(user: User | null) {
-    if (!this.item) return;
+    if (!this.item || this.isGroup) return;
     const assignedTo = user ? user.id ?? user._id ?? null : null;
     this.projectService.updateItem(this.projectId, this.item._id, { assignedTo }).subscribe({
       next: (res) => {
@@ -138,7 +152,7 @@ export class ProjectItemDetailComponent implements OnChanges {
 
   private combineDateTime(date: string | null, time: string | null): string | null {
     if (!date) return null;
-    return moment(`${date} ${time || '00:00'}`, 'YYYY-MM-DD HH:mm').toISOString();
+    return dayjs(`${date} ${time || '00:00'}`, 'YYYY-MM-DD HH:mm').toISOString();
   }
 
   onStartDateChange(date: string | null) {
@@ -173,6 +187,12 @@ export class ProjectItemDetailComponent implements OnChanges {
         this.saved.emit();
       },
     });
+  }
+
+  onTitleKeydown(event: KeyboardEvent) {
+    if (event.key !== 'Enter' || event.shiftKey) return;
+    event.preventDefault();
+    (event.target as HTMLElement).blur();
   }
 
   submitEdit() {
@@ -233,7 +253,7 @@ export class ProjectItemDetailComponent implements OnChanges {
   }
 
   loadAttachments() {
-    if (!this.item) return;
+    if (!this.item || this.isGroup) return;
     this.attachmentsLoading = true;
     this.projectService.getAttachments(this.projectId, this.item._id).subscribe({
       next: (list) => {
@@ -299,6 +319,15 @@ export class ProjectItemDetailComponent implements OnChanges {
     this.projectService.deleteAttachment(this.projectId, this.item._id, attachment._id).subscribe({
       next: () => (this.attachments = this.attachments.filter((a) => a._id !== attachment._id)),
     });
+  }
+
+  loadAttachmentBlob = (attachment: Attachment) =>
+    this.projectService.downloadAttachment(this.projectId, this.item!._id, attachment._id);
+
+  openViewer(attachment: Attachment) {
+    const index = this.attachments.findIndex((a) => a._id === attachment._id);
+    this.viewerIndex = index >= 0 ? index : 0;
+    this.viewerOpen = true;
   }
 
   formatSize(bytes: number): string {

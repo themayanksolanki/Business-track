@@ -6,11 +6,12 @@ import { Attachment } from '../../models/attachment.model';
 import { TabStripComponent, TabDef } from '../tab-strip/tab-strip.component';
 import { HttpEventType } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
+import { AttachmentViewerComponent } from '../attachment-viewer/attachment-viewer.component';
 
 @Component({
   selector: 'app-attachment-panel',
   standalone: true,
-  imports: [FormsModule, TabStripComponent, CommonModule],
+  imports: [FormsModule, TabStripComponent, CommonModule, AttachmentViewerComponent],
   templateUrl: './attachment-panel.component.html',
   styleUrl: './attachment-panel.component.css',
 })
@@ -35,6 +36,8 @@ export class AttachmentPanelComponent implements OnChanges {
   attachmentUploadError = '';
   downloadingId = '';
   progress = 0;
+  viewerOpen = false;
+  viewerIndex = 0;
 
   constructor(private projectService: ProjectService) {}
 
@@ -134,6 +137,15 @@ export class AttachmentPanelComponent implements OnChanges {
             (a) => a._id !== attachment._id,
           )),
       });
+  }
+
+  loadAttachmentBlob = (attachment: Attachment) =>
+    this.projectService.downloadAttachment(this.projectId, this.item._id, attachment._id);
+
+  openViewer(attachment: Attachment) {
+    const index = this.attachments.findIndex((a) => a._id === attachment._id);
+    this.viewerIndex = index >= 0 ? index : 0;
+    this.viewerOpen = true;
   }
 
   formatSize(bytes: number): string {
