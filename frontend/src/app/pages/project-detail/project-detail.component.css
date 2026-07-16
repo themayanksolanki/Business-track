@@ -5,6 +5,7 @@
   --col-priority: 96px;
   --col-icon: 28px;
   --tree-indent-unit: 22px;
+  max-width: none;
 }
 
 @media (max-width: 860px) {
@@ -89,9 +90,83 @@
   .project-tasks-card { padding: 10px 8px 12px; }
 }
 
-.project-title-input {
+/* ── Detail tab: schedule ── */
+.detail-schedule-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.detail-schedule-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  max-width: 520px;
+  flex: 1;
+}
+
+@media (max-width: 560px) {
+  .detail-schedule-grid { grid-template-columns: 1fr; max-width: none; }
+}
+
+.duration-cell { align-items: flex-end; text-align: right; }
+
+.duration-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.duration-value-light {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+/* ── Header top: icon + title/description + primary actions ── */
+.project-header-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+@media (max-width: 560px) {
+  .project-header-top { flex-wrap: wrap; }
+  .project-header-actions { width: 100%; justify-content: flex-start; }
+}
+
+.project-header-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #3b82f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.project-header-titleblock {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding-top: 6px;
+}
+
+.project-title-input {
+  width: 100%;
   border: none;
   background: transparent;
   font-size: 1.5rem;
@@ -101,35 +176,55 @@
   outline: none;
   border-radius: 6px;
 }
-.project-title-input:hover { background: var(--bg-hover); padding-left: 6px; }
 .project-title-input:focus { background: var(--bg-hover); padding-left: 6px; box-shadow: none; }
 
 .project-desc-input {
   display: block;
   width: 100%;
-  resize: vertical;
+  resize: none;
+  overflow: hidden;
   border: none;
   background: transparent;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
   color: var(--text-muted);
-  padding: 4px 0;
+  padding: 2px 0;
   outline: none;
   border-radius: 6px;
   font-family: inherit;
 }
-.project-desc-input:hover { background: var(--bg-hover); padding-left: 6px; }
 .project-desc-input:focus { background: var(--bg-hover); padding-left: 6px; color: var(--text-secondary); }
 .project-desc-input::placeholder { color: var(--text-dim); }
 
-/* ── Header meta cluster (Project Leader / Priority / % Complete / Actions) ── */
-.project-meta-row {
+/* ── Meta strip: Leader / Department / Priority · Start / End · % Complete ── */
+.project-meta-strip {
   display: flex;
-  align-items: flex-end;
-  gap: 18px;
+  align-items: flex-start;
+  gap: 20px;
   flex-wrap: wrap;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.meta-divider {
+  width: 1px;
+  align-self: stretch;
+  min-height: 32px;
+  background: var(--border-strong);
+}
+
+@media (max-width: 720px) {
+  .meta-divider { display: none; }
 }
 
 .meta-cell { display: flex; flex-direction: column; gap: 5px; }
+
+.meta-cell app-date-picker,
+.meta-cell app-time-picker {
+  flex: 1;
+  min-width: 0;
+}
 
 .meta-label {
   font-size: 0.66rem;
@@ -253,7 +348,7 @@
   width: 100%;
   height: 8px;
   border-radius: 99px;
-  background: var(--bg-muted);
+  background: var(--border-strong);
   overflow: hidden;
 }
 
@@ -287,32 +382,36 @@
 }
 .actions-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
 
-.schedule-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  max-width: 520px;
+.dept-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
-@media (max-width: 560px) {
-  .schedule-row { grid-template-columns: 1fr; max-width: none; }
-}
-
-.schedule-label {
-  display: block;
-  font-size: 0.7rem;
+.complete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--text-dim);
-  margin-bottom: 7px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-
-.schedule-cell app-date-picker,
-.schedule-cell app-time-picker {
-  flex: 1;
-  min-width: 0;
+.complete-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.complete-btn.completed {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #15803d;
 }
+.complete-btn.completed:hover { background: #bbf7d0; }
 
 .empty-state i { color: var(--text-dim); }
 

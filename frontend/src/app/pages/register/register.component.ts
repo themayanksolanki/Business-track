@@ -37,8 +37,8 @@ export class RegisterComponent {
       password: ['', [Validators.required, Validators.minLength(6)]],
       organizationName: ['', Validators.required],
       emailDomain: ['', Validators.required],
-      managerEmail: ['', [Validators.required, Validators.email]],
-      teamLeadEmail: ['', [Validators.required, Validators.email]],
+      managerEmail: ['', Validators.email],
+      teamLeadEmail: ['', Validators.email],
     });
   }
 
@@ -91,12 +91,24 @@ export class RegisterComponent {
     });
   }
 
+  get managerTeamLeadSame(): boolean {
+    const managerEmail = (this.businessForm.get('managerEmail')?.value || '').trim().toLowerCase();
+    const teamLeadEmail = (this.businessForm.get('teamLeadEmail')?.value || '').trim().toLowerCase();
+    return !!managerEmail && managerEmail === teamLeadEmail;
+  }
+
   submitBusiness() {
-    if (this.businessForm.invalid) return;
+    if (this.businessForm.invalid || this.managerTeamLeadSame) return;
     this.loading = true;
     this.error = '';
 
-    this.auth.registerOrganization(this.businessForm.value).subscribe({
+    const { username, email, password, organizationName, emailDomain, managerEmail, teamLeadEmail } =
+      this.businessForm.value;
+    const payload: any = { username, email, password, organizationName, emailDomain };
+    if (managerEmail) payload.managerEmail = managerEmail;
+    if (teamLeadEmail) payload.teamLeadEmail = teamLeadEmail;
+
+    this.auth.registerOrganization(payload).subscribe({
       next: () => {
         this.router.navigate(['/dashboard']);
       },

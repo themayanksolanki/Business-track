@@ -50,12 +50,18 @@
    breadcrumb / pills row / title input vertically, not as a flex row */
 .detail-header { display: block; padding: 22px 24px 20px; }
 
-/* NOTE: .detail-header-* backgrounds are fixed light gradients regardless of theme
-   (matching the existing task-list detail-header convention), so text sitting on
-   them must stay fixed-dark rather than following --text-* theme vars. */
+/* NOTE: .detail-header-* backgrounds are fixed light pastel gradients in light
+   mode (matching the existing task-list detail-header convention), so the text
+   sitting on them stays fixed-dark rather than following --text-* theme vars.
+   Dark mode gets its own deep-tinted gradient + light text below, rather than
+   just var(--bg-card), so the colored header still reads as "status color". */
 .detail-header-todo      { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-bottom: 1px solid #bae6fd; }
 .detail-header-doing     { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border-bottom: 1px solid #fde68a; }
 .detail-header-completed { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-bottom: 1px solid #bbf7d0; }
+
+[data-theme="dark"] .detail-header-todo      { background: linear-gradient(135deg, #0c2338 0%, #10304a 100%); border-bottom-color: #1e3a52; }
+[data-theme="dark"] .detail-header-doing     { background: linear-gradient(135deg, #2b2308 0%, #3a2e0a 100%); border-bottom-color: #4d3d10; }
+[data-theme="dark"] .detail-header-completed { background: linear-gradient(135deg, #0c2818 0%, #103420 100%); border-bottom-color: #1a4a2c; }
 
 .item-breadcrumb {
   display: flex;
@@ -83,6 +89,11 @@
   font-size: 0.6rem;
 }
 
+[data-theme="dark"] .breadcrumb-item { color: #8b949e; }
+[data-theme="dark"] .breadcrumb-item:hover { color: #e6edf3; }
+[data-theme="dark"] .breadcrumb-item-active { color: #e6edf3; }
+[data-theme="dark"] .breadcrumb-separator { color: #6e7681; }
+
 .detail-status-pill {
   display: inline-flex;
   align-items: center;
@@ -99,6 +110,10 @@
 .pill-todo      { background: #bae6fd; color: #075985; }
 .pill-doing     { background: #fde68a; color: #92400e; }
 .pill-completed { background: #bbf7d0; color: #15803d; }
+
+[data-theme="dark"] .pill-todo      { background: rgba(56, 189, 248, 0.18); color: #7dd3fc; }
+[data-theme="dark"] .pill-doing     { background: rgba(250, 204, 21, 0.18); color: #fde047; }
+[data-theme="dark"] .pill-completed { background: rgba(34, 197, 94, 0.18); color: #86efac; }
 
 .pill-disabled { cursor: not-allowed; opacity: 0.75; }
 .pill-disabled:hover { opacity: 0.75; }
@@ -119,6 +134,10 @@
   overflow: hidden;
 }
 .detail-title-input:focus { outline: 2px solid rgba(59, 130, 246, 0.25); border-radius: 4px; }
+.detail-title-input::placeholder { color: #94a3b8; }
+
+[data-theme="dark"] .detail-title-input { color: #e6edf3; }
+[data-theme="dark"] .detail-title-input::placeholder { color: #6e7681; }
 
 .priority-pill {
   display: inline-flex;
@@ -137,6 +156,10 @@
 .priority-low    { background: #e2e8f0; color: #475569; }
 .priority-medium { background: #fef3c7; color: #92400e; }
 .priority-high   { background: #fee2e2; color: #b91c1c; }
+
+[data-theme="dark"] .priority-low    { background: rgba(148, 163, 184, 0.18); color: #cbd5e1; }
+[data-theme="dark"] .priority-medium { background: rgba(250, 204, 21, 0.18); color: #fde047; }
+[data-theme="dark"] .priority-high   { background: rgba(239, 68, 68, 0.18); color: #fca5a5; }
 
 .priority-icon-low    { color: #64748b; }
 .priority-icon-medium { color: #d97706; }

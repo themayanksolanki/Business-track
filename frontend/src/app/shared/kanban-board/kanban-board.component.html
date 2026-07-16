@@ -28,43 +28,81 @@
             <div class="kanban-card" cdkDrag [cdkDragData]="node" (click)="onCardClick(node)">
               <div class="kanban-card-placeholder" *cdkDragPlaceholder></div>
 
-              <div class="kanban-card-top">
-                <span class="tree-type-icon" [class]="'tree-type-' + node.type">
-                  <i class="bi"
-                     [class.bi-folder2]="node.type === 'group'"
-                     [class.bi-check2-square]="node.type === 'task'"
-                     [class.bi-arrow-return-right]="node.type === 'subtask'"></i>
-                </span>
-                <span class="kanban-card-title">{{ node.title }}</span>
-              </div>
-
-              @if (node.description) {
-                <p class="kanban-card-desc">{{ node.description }}</p>
+              @if (coverUrls.has(node._id)) {
+                <div class="kanban-card-cover">
+                  <img [src]="coverUrls.get(node._id)" alt="" />
+                </div>
               }
 
-              <div class="kanban-card-meta">
-                <span class="status-badge" [class]="statusColorClass(node.status)">{{ node.status }}</span>
-                <span class="priority-badge" [class]="priorityColorClass(node.priority)">{{ node.priority }}</span>
-              </div>
-
-              <div class="kanban-card-bottom">
-                @if (node.assignedTo) {
-                  <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(node.assignedTo.role)" [title]="node.assignedTo.username">
-                    {{ node.assignedTo.username[0].toUpperCase() }}
+              <div class="kanban-card-content">
+                <div class="kanban-card-top">
+                  <span class="tree-type-icon" [class]="'tree-type-' + node.type">
+                    <i class="bi"
+                       [class.bi-folder2]="node.type === 'group'"
+                       [class.bi-check2-square]="node.type === 'task'"
+                       [class.bi-arrow-return-right]="node.type === 'subtask'"></i>
                   </span>
-                } @else {
-                  <span class="assign-avatar avatar-xs avatar-empty" title="Unassigned"><i class="bi bi-person"></i></span>
+                  <span class="kanban-card-title">{{ node.title }}</span>
+                </div>
+
+                @if (node.description) {
+                  <p class="kanban-card-desc">{{ node.description }}</p>
                 }
 
-                <span class="kanban-card-spacer"></span>
+                <div class="kanban-card-meta">
+                  <span class="status-badge" [class]="statusColorClass(node.status)">{{ node.status }}</span>
+                  <span class="priority-badge" [class]="priorityColorClass(node.priority)">{{ node.priority }}</span>
+                </div>
 
-                @if (node.endDate) {
-                  <span class="kanban-card-due"><i class="bi bi-calendar-event me-1"></i>{{ node.endDate | date:'MMM d' }}</span>
-                }
+                <div class="kanban-card-bottom">
+                  @if (node.assignedTo) {
+                    <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(node.assignedTo.role)" [title]="node.assignedTo.username">
+                      {{ node.assignedTo.username[0].toUpperCase() }}
+                    </span>
+                  } @else {
+                    <span class="assign-avatar avatar-xs avatar-empty" title="Unassigned"><i class="bi bi-person"></i></span>
+                  }
+
+                  @if (dateRangeLabel(node)) {
+                    <span class="kanban-card-due"><i class="bi bi-calendar-event me-1"></i>{{ dateRangeLabel(node) }}</span>
+                  }
+
+                  <span class="kanban-card-spacer"></span>
+
+                  @if (commentCount(node) > 0) {
+                    <span class="kanban-card-comments"><i class="bi bi-chat-left-text me-1"></i>{{ commentCount(node) }}</span>
+                  }
+                </div>
               </div>
             </div>
           } @empty {
             <div class="kanban-empty-col">Drop tasks here</div>
+          }
+
+          @if (addingColumnId === col.id) {
+            <div class="kanban-add-form">
+              <input
+                type="text"
+                class="kanban-add-input"
+                placeholder="Task title"
+                [(ngModel)]="newItemTitle"
+                (keydown)="onAddKeydown($event, col)"
+                autofocus
+              />
+              <button type="button" class="kanban-add-confirm" (click)="submitAdd(col)" [disabled]="addLoading || !newItemTitle.trim()">
+                @if (addLoading) { <span class="spinner-border spinner-border-sm"></span> } @else { <i class="bi bi-plus-lg"></i> }
+              </button>
+              <button type="button" class="kanban-add-cancel" (click)="cancelAdd()" title="Cancel">
+                <i class="bi bi-x"></i>
+              </button>
+            </div>
+            @if (addError) {
+              <div class="subtask-error">{{ addError }}</div>
+            }
+          } @else {
+            <button type="button" class="kanban-add-btn" [disabled]="!hasGroups" [title]="hasGroups ? '' : 'Add a group in List view first'" (click)="startAdd(col)">
+              <i class="bi bi-plus-lg me-1"></i>Add task
+            </button>
           }
         </div>
       </div>

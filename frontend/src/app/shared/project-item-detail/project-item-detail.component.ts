@@ -44,7 +44,11 @@ export class ProjectItemDetailComponent implements OnChanges {
   @Input() breadcrumbPath: ProjectTreeNode[] = [];
 
   @Output() closed = new EventEmitter<void>();
-  @Output() saved = new EventEmitter<void>();
+  // Emits the freshly-saved item (not just a signal) so the parent can patch
+  // it into the tree in place instead of refetching + rebuilding everything —
+  // a full reload was resetting Kanban scroll position and flashing the page
+  // on every field edit.
+  @Output() saved = new EventEmitter<ProjectItem>();
   @Output() breadcrumbNavigate = new EventEmitter<ProjectTreeNode>();
 
   editForm: FormGroup;
@@ -120,7 +124,7 @@ export class ProjectItemDetailComponent implements OnChanges {
     this.projectService.updateItem(this.projectId, this.item._id, { status }).subscribe({
       next: (res) => {
         this.item = res.item;
-        this.saved.emit();
+        this.saved.emit(res.item);
       },
     });
   }
@@ -130,7 +134,7 @@ export class ProjectItemDetailComponent implements OnChanges {
     this.projectService.updateItem(this.projectId, this.item._id, { priority }).subscribe({
       next: (res) => {
         this.item = res.item;
-        this.saved.emit();
+        this.saved.emit(res.item);
       },
     });
   }
@@ -145,7 +149,7 @@ export class ProjectItemDetailComponent implements OnChanges {
     this.projectService.updateItem(this.projectId, this.item._id, { assignedTo }).subscribe({
       next: (res) => {
         this.item = res.item;
-        this.saved.emit();
+        this.saved.emit(res.item);
       },
     });
   }
@@ -184,7 +188,7 @@ export class ProjectItemDetailComponent implements OnChanges {
     this.projectService.updateItem(this.projectId, this.item._id, { startDate, endDate }).subscribe({
       next: (res) => {
         this.item = res.item;
-        this.saved.emit();
+        this.saved.emit(res.item);
       },
     });
   }
@@ -203,7 +207,7 @@ export class ProjectItemDetailComponent implements OnChanges {
       next: (res) => {
         this.item = res.item;
         this.editLoading = false;
-        this.saved.emit();
+        this.saved.emit(res.item);
       },
       error: (err) => {
         this.editError = err.error?.message || 'Failed to update item';

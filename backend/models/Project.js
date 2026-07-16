@@ -38,6 +38,11 @@ const projectSchema = new mongoose.Schema(
       enum: ['low', 'medium', 'high'],
       default: 'medium',
     },
+    status: {
+      type: String,
+      enum: ['active', 'completed'],
+      default: 'active',
+    },
     startDate: {
       type: Date,
       default: null,

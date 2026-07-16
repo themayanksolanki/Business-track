@@ -1,17 +1,16 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, effect } from '@angular/core';
 import { Router } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import dayjs from 'dayjs/esm';
 import { ProjectService } from '../../core/services/project.service';
 import { DepartmentService } from '../../core/services/department.service';
+import { ProjectsViewService } from '../../core/services/projects-view.service';
 import { Project } from '../../models/project.model';
 import { Department } from '../../models/department.model';
 import { DatePickerComponent } from '../../shared/date-picker/date-picker.component';
 import { TimePickerComponent } from '../../shared/time-picker/time-picker.component';
 import { ModalDirective } from '../../shared/modal.directive';
-
-export type ProjectsViewMode = 'cards' | 'table' | 'list';
 
 @Component({
   selector: 'app-projects',
@@ -21,13 +20,15 @@ export type ProjectsViewMode = 'cards' | 'table' | 'list';
   styleUrl: './projects.component.css',
 })
 export class ProjectsComponent implements OnInit, OnDestroy {
-  private readonly VIEW_KEY = 'projects-view-mode';
   private readonly CARDS_PAGE_SIZE = 12;
   readonly pageSize = 10; // table/list page size
 
   loading = false;
   error = '';
-  viewMode: ProjectsViewMode = 'list';
+
+  get viewMode() {
+    return this.viewSvc.viewMode();
+  }
 
   // Cards view — infinite scroll, accumulates pages
   cardsItems: Project[] = [];
@@ -69,6 +70,7 @@ export class ProjectsComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private projectService: ProjectService,
     private departmentService: DepartmentService,
+    private viewSvc: ProjectsViewService,
     private router: Router
   ) {
     this.createForm = this.fb.group({
@@ -77,14 +79,15 @@ export class ProjectsComponent implements OnInit, OnDestroy {
       department: [''],
     });
 
-    const savedView = localStorage.getItem(this.VIEW_KEY);
-    if (savedView === 'cards' || savedView === 'table' || savedView === 'list') {
-      this.viewMode = savedView;
-    }
+    // Reacts to view mode changes from anywhere (e.g. the sidebar's
+    // Projects submenu), including the initial value on construction.
+    effect(() => {
+      this.viewSvc.viewMode();
+      this.loadCurrentView();
+    });
   }
 
   ngOnInit() {
-    this.loadCurrentView();
     this.departmentService.getDepartments().subscribe({
       next: (res) => (this.departments = res),
       error: () => {},
@@ -93,13 +96,6 @@ export class ProjectsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.cardsIntersectionObserver?.disconnect();
-  }
-
-  setViewMode(mode: ProjectsViewMode) {
-    if (mode === this.viewMode) return;
-    this.viewMode = mode;
-    localStorage.setItem(this.VIEW_KEY, mode);
-    this.loadCurrentView();
   }
 
   roleClass(role: string): string {

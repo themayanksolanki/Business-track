@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import Organization from '../models/Organization.js';
 import Invite from '../models/Invite.js';
 import User from '../models/User.js';
@@ -127,11 +128,53 @@ export const createInvite = async (req, res, next) => {
 
 export const getInvites = async (req, res, next) => {
   try {
-    const filter = { organization: req.user.organization };
+    const filter = { organization: req.user.organization, status: 'pending' };
     if (req.user.role !== 'Admin') filter.invitedBy = req.user._id;
 
     const invites = await Invite.find(filter).sort({ createdAt: -1 });
     res.status(200).json(invites);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const activateInvite = async (req, res, next) => {
+  try {
+    const { username, password } = req.body;
+
+    const invite = await Invite.findById(req.params.id);
+    if (!invite || String(invite.organization) !== String(req.user.organization))
+      return next(new AppError('Invite not found', 404));
+
+    if (invite.status !== 'pending')
+      return next(new AppError('This invite has already been accepted', 409));
+
+    if (req.user.role !== 'Admin' && String(invite.invitedBy) !== String(req.user._id))
+      return next(new AppError('You can only activate invites you created', 403));
+
+    const existingUser = await User.findOne({ email: invite.email });
+    if (existingUser) return next(new AppError('A user with that email already exists', 409));
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await User.create({
+      username: username.trim(),
+      email: invite.email,
+      password: hashedPassword,
+      role: invite.role,
+      organization: invite.organization,
+      isActive: true,
+      managerId: invite.managerId,
+      teamLeadId: invite.teamLeadId,
+      departments: invite.departments,
+    });
+
+    invite.status = 'accepted';
+    await invite.save();
+
+    const populated = await User.findById(user._id).select('-password');
+
+    res.status(201).json({ message: `${user.username} has been activated`, user: populated });
   } catch (err) {
     next(err);
   }

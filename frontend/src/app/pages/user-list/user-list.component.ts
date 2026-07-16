@@ -2,8 +2,10 @@ import { Component, OnInit } from '@angular/core';
 import { forkJoin } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { UserService } from '../../core/services/user.service';
+import { OrganizationService } from '../../core/services/organization.service';
 import { AuthService } from '../../core/services/auth.service';
 import { User } from '../../models/user.model';
+import { Invite } from '../../models/invite.model';
 import { ModalDirective } from '../../shared/modal.directive';
 
 @Component({
@@ -16,6 +18,7 @@ import { ModalDirective } from '../../shared/modal.directive';
 export class UserListComponent implements OnInit {
   activeUsers: User[] = [];
   pendingUsers: User[] = [];
+  invitedUsers: Invite[] = [];
   error = '';
   successMessage = '';
   activating: Set<string> = new Set();
@@ -28,7 +31,19 @@ export class UserListComponent implements OnInit {
   editPassError = '';
   editPassSuccess = '';
 
-  constructor(private userService: UserService, private auth: AuthService) {}
+  activateInviteTarget: Invite | null = null;
+  activateUsername = '';
+  activatePassword = '';
+  activateShowPassword = false;
+  activateLoading = false;
+  activateError = '';
+  activateSuccess = '';
+
+  constructor(
+    private userService: UserService,
+    private orgService: OrganizationService,
+    private auth: AuthService,
+  ) {}
 
   ngOnInit() {
     this.isTeamLead = this.auth.getUser()?.role === 'Team Lead';
@@ -40,10 +55,15 @@ export class UserListComponent implements OnInit {
       ? this.userService.getTeamMembers()
       : this.userService.getAllUsers();
 
-    forkJoin({ active: active$, pending: this.userService.getPendingUsers() }).subscribe({
-      next: ({ active, pending }) => {
+    forkJoin({
+      active: active$,
+      pending: this.userService.getPendingUsers(),
+      invited: this.orgService.getInvites(),
+    }).subscribe({
+      next: ({ active, pending, invited }) => {
         this.activeUsers = active;
         this.pendingUsers = pending;
+        this.invitedUsers = invited;
       },
       error: (err) => (this.error = err.error?.message || 'Failed to load users'),
     });
@@ -119,8 +139,53 @@ export class UserListComponent implements OnInit {
     });
   }
 
+  openActivateInvite(invite: Invite) {
+    this.activateInviteTarget = invite;
+    this.activateUsername = invite.email.split('@')[0];
+    this.activatePassword = '';
+    this.activateShowPassword = false;
+    this.activateError = '';
+    this.activateSuccess = '';
+  }
+
+  closeActivateInvite() {
+    this.activateInviteTarget = null;
+  }
+
+  submitActivateInvite() {
+    if (!this.activateInviteTarget) return;
+    if (!this.activateUsername.trim()) {
+      this.activateError = 'Username is required.';
+      return;
+    }
+    if (this.activatePassword.length < 6) {
+      this.activateError = 'Password must be at least 6 characters.';
+      return;
+    }
+
+    const invite = this.activateInviteTarget;
+    this.activateLoading = true;
+    this.activateError = '';
+
+    this.orgService
+      .activateInvite(invite._id, { username: this.activateUsername.trim(), password: this.activatePassword })
+      .subscribe({
+        next: (res) => {
+          this.activateSuccess = res.message;
+          this.activateLoading = false;
+          this.activeUsers = [...this.activeUsers, res.user];
+          this.invitedUsers = this.invitedUsers.filter((i) => i._id !== invite._id);
+          setTimeout(() => this.closeActivateInvite(), 1600);
+        },
+        error: (err) => {
+          this.activateError = err.error?.message || 'Failed to activate invite';
+          this.activateLoading = false;
+        },
+      });
+  }
+
   get totalCount(): number {
-    return this.activeUsers.length + this.pendingUsers.length;
+    return this.activeUsers.length + this.pendingUsers.length + this.invitedUsers.length;
   }
 
   roleClass(role: string): string {

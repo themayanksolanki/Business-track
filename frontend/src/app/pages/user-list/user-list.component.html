@@ -7,6 +7,9 @@
         @if (pendingUsers.length > 0) {
           <span class="badge-pending-count ms-2">{{ pendingUsers.length }} pending</span>
         }
+        @if (invitedUsers.length > 0) {
+          <span class="badge-invited-count ms-2">{{ invitedUsers.length }} invited</span>
+        }
       </p>
     </div>
   </div>
@@ -40,6 +43,30 @@
             </tr>
           </thead>
           <tbody>
+            @for (invite of invitedUsers; track invite._id) {
+              <tr class="user-row invited-row">
+                <td class="ps-4">
+                  <div class="d-flex align-items-center gap-3">
+                    <span class="user-avatar avatar-invited">
+                      <i class="bi bi-envelope-fill"></i>
+                    </span>
+                    <span class="fw-medium user-name text-muted fst-italic">Not yet registered</span>
+                  </div>
+                </td>
+                <td><span class="text-muted user-email">{{ invite.email }}</span></td>
+                <td>
+                  <span class="role-badge" [class]="'role-' + roleClass(invite.role)">
+                    <i class="bi me-1" [class]="roleIcon(invite.role)"></i>{{ invite.role }}
+                  </span>
+                </td>
+                <td><span class="status-badge status-invited">Invited</span></td>
+                <td class="text-end pe-3">
+                  <button class="btn btn-sm btn-activate" (click)="openActivateInvite(invite)">
+                    <i class="bi bi-person-plus-fill me-1"></i>Activate
+                  </button>
+                </td>
+              </tr>
+            }
             @for (user of pendingUsers; track user.id) {
               <tr class="user-row pending-row">
                 <td class="ps-4">
@@ -161,6 +188,80 @@
               <span class="spinner-border spinner-border-sm me-1"></span>
             }
             Save Password
+          </button>
+        </div>
+      }
+
+    </div>
+  }
+  </div>
+</div>
+
+<!-- Activate invite modal -->
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="!!activateInviteTarget" (appModalClosed)="closeActivateInvite()">
+  <div class="modal-dialog modal-dialog-centered pass-dialog">
+  @if (activateInviteTarget) {
+    <div class="modal-content pass-content">
+
+      <div class="pass-icon-wrap">
+        <i class="bi bi-person-plus-fill pass-icon"></i>
+      </div>
+
+      <h5 class="pass-title">Activate Invited Member</h5>
+      <p class="pass-subtitle">
+        Create an account for <strong>{{ activateInviteTarget.email }}</strong> and set their initial password.
+      </p>
+
+      @if (activateSuccess) {
+        <div class="alert alert-success py-2 d-flex align-items-center gap-2 mb-3">
+          <i class="bi bi-check-circle-fill"></i>{{ activateSuccess }}
+        </div>
+      }
+
+      @if (activateError) {
+        <div class="alert alert-danger py-2 mb-3">{{ activateError }}</div>
+      }
+
+      @if (!activateSuccess) {
+        <div class="pass-input-wrap mb-3">
+          <label class="pass-label">Username</label>
+          <input
+            type="text"
+            class="form-control field-input"
+            placeholder="Username"
+            [(ngModel)]="activateUsername"
+            name="activateUsername" />
+        </div>
+
+        <div class="pass-input-wrap mb-4">
+          <label class="pass-label">Password</label>
+          <div class="pass-field">
+            <input
+              [type]="activateShowPassword ? 'text' : 'password'"
+              class="pass-input"
+              placeholder="Min 6 characters"
+              [(ngModel)]="activatePassword"
+              name="activatePassword"
+              (keyup.enter)="submitActivateInvite()" />
+            <button class="pass-toggle" type="button" (click)="activateShowPassword = !activateShowPassword" tabindex="-1">
+              <i class="bi" [class.bi-eye]="!activateShowPassword" [class.bi-eye-slash]="activateShowPassword"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="pass-actions">
+          <button type="button" class="pass-btn pass-btn-cancel" data-bs-dismiss="modal" [disabled]="activateLoading">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="pass-btn pass-btn-confirm"
+            (click)="submitActivateInvite()"
+            [disabled]="activateLoading || !activateUsername.trim() || activatePassword.length < 6">
+            @if (activateLoading) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+            }
+            Activate
           </button>
         </div>
       }

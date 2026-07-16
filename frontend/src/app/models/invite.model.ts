@@ -21,3 +21,8 @@ export interface CreateInvitePayload {
   managerId?: string;
   teamLeadId?: string;
 }
+
+export interface ActivateInvitePayload {
+  username: string;
+  password: string;
+}

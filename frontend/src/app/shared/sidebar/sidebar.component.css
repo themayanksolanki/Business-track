@@ -165,6 +165,60 @@
   text-align: center;
 }
 
+/* ── Projects nav flyout (view-mode submenu, shown on hover) ── */
+.nav-item-group {
+  position: relative;
+}
+
+.nav-submenu {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 100%;
+  margin-left: 6px;
+  min-width: 140px;
+  padding: 6px;
+  border-radius: 10px;
+  background: #16213a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 1031;
+  flex-direction: column;
+  gap: 2px;
+}
+
+@media (hover: hover) {
+  .nav-item-group:hover .nav-submenu {
+    display: flex;
+  }
+}
+
+.nav-submenu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0.825rem;
+  white-space: nowrap;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.nav-submenu-item:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.nav-submenu-item.active {
+  color: #fff;
+  background: rgba(59, 130, 246, 0.18);
+}
+
 .sidebar-spacer {
   flex: 1 1 auto;
 }

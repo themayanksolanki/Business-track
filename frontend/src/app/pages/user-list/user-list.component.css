@@ -55,6 +55,7 @@
 .avatar-manager        { background: #dbeafe; color: #1d4ed8; }
 .avatar-team-lead      { background: #ede9fe; color: #6d28d9; }
 .avatar-user           { background: #dcfce7; color: #15803d; }
+.avatar-invited        { background: #e0f2fe; color: #0369a1; }
 
 /* ── Role badge ── */
 .role-badge {
@@ -91,6 +92,14 @@
   background: #fef3c7 !important;
 }
 
+.invited-row {
+  background: #f0f9ff;
+}
+
+.invited-row:hover {
+  background: #e0f2fe !important;
+}
+
 /* ── Status badges ── */
 .status-badge {
   display: inline-flex;
@@ -103,18 +112,21 @@
 
 .status-active  { background: #dcfce7; color: #15803d; }
 .status-pending { background: #fef9c3; color: #a16207; }
+.status-invited { background: #e0f2fe; color: #0369a1; }
 
-/* ── Pending count chip in subtitle ── */
-.badge-pending-count {
+/* ── Pending / invited count chips in subtitle ── */
+.badge-pending-count,
+.badge-invited-count {
   display: inline-flex;
   align-items: center;
   font-size: 0.7rem;
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 99px;
-  background: #fef9c3;
-  color: #a16207;
 }
+
+.badge-pending-count { background: #fef9c3; color: #a16207; }
+.badge-invited-count { background: #e0f2fe; color: #0369a1; }
 
 /* ── Activate button ── */
 .btn-activate {

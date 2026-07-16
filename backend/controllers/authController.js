@@ -169,15 +169,17 @@ export const registerOrganization = async (req, res, next) => {
 
     const normalizedEmail = email.toLowerCase().trim();
     const normalizedDomain = emailDomain.toLowerCase().trim();
-    const normalizedManagerEmail = managerEmail.toLowerCase().trim();
-    const normalizedTeamLeadEmail = teamLeadEmail.toLowerCase().trim();
+    const normalizedManagerEmail = managerEmail ? managerEmail.toLowerCase().trim() : null;
+    const normalizedTeamLeadEmail = teamLeadEmail ? teamLeadEmail.toLowerCase().trim() : null;
 
     if (normalizedEmail.split('@')[1] !== normalizedDomain)
       return next(new AppError('Your email domain must match the organization email domain', 400));
-    if (normalizedManagerEmail.split('@')[1] !== normalizedDomain)
+    if (normalizedManagerEmail && normalizedManagerEmail.split('@')[1] !== normalizedDomain)
       return next(new AppError('Manager email must belong to the organization email domain', 400));
-    if (normalizedTeamLeadEmail.split('@')[1] !== normalizedDomain)
+    if (normalizedTeamLeadEmail && normalizedTeamLeadEmail.split('@')[1] !== normalizedDomain)
       return next(new AppError('Team Lead email must belong to the organization email domain', 400));
+    if (normalizedManagerEmail && normalizedManagerEmail === normalizedTeamLeadEmail)
+      return next(new AppError('Manager and Team Lead cannot be the same email', 400));
 
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) return next(new AppError('Email already registered', 409));
@@ -214,10 +216,13 @@ export const registerOrganization = async (req, res, next) => {
     user.organization = organization._id;
     await user.save();
 
-    await Invite.create([
-      { organization: organization._id, email: normalizedManagerEmail, role: 'Manager', invitedBy: user._id },
-      { organization: organization._id, email: normalizedTeamLeadEmail, role: 'Team Lead', invitedBy: user._id },
-    ]);
+    const foundingInvites = [];
+    if (normalizedManagerEmail)
+      foundingInvites.push({ organization: organization._id, email: normalizedManagerEmail, role: 'Manager', invitedBy: user._id });
+    if (normalizedTeamLeadEmail)
+      foundingInvites.push({ organization: organization._id, email: normalizedTeamLeadEmail, role: 'Team Lead', invitedBy: user._id });
+
+    if (foundingInvites.length) await Invite.create(foundingInvites);
 
     await user.populate('organization', 'name emailDomain');
 

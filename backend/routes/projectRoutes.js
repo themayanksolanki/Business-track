@@ -21,6 +21,7 @@ import {
 } from '../controllers/projectController.js';
 import {
   getItems,
+  getItemsSummary,
   createItem,
   getItemById,
   updateItem,
@@ -50,6 +51,7 @@ router.delete('/:projectId', protect, validateProjectId, deleteProject);
 
 router.get('/:projectId/items', protect, validateProjectId, getItems);
 router.post('/:projectId/items', protect, validateProjectId, validateProjectItem, createItem);
+router.get('/:projectId/items/summary', protect, validateProjectId, getItemsSummary);
 router.patch('/:projectId/items/reorder', protect, validateProjectId, validateReorder, reorderItems);
 router.get('/:projectId/items/:itemId', protect, validateProjectId, validateItemId, getItemById);
 router.patch(

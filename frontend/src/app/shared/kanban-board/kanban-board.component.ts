@@ -1,5 +1,6 @@
-import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import {
   DragDropModule,
   CdkDragDrop,
@@ -7,7 +8,14 @@ import {
   moveItemInArray,
 } from '@angular/cdk/drag-drop';
 import { ProjectService } from '../../core/services/project.service';
-import { ProjectTreeNode, ProjectItemStatus, ProjectItemPriority, flattenLeaves } from '../../models/project-item.model';
+import {
+  ProjectTreeNode,
+  ProjectItemStatus,
+  ProjectItemPriority,
+  ProjectItemSummary,
+  CreateProjectItemPayload,
+  flattenLeaves,
+} from '../../models/project-item.model';
 import { User } from '../../models/user.model';
 
 export type KanbanGroupMode = 'status' | 'assignee' | 'priority';
@@ -35,14 +43,15 @@ const PRIORITY_DEFS: { value: ProjectItemPriority; label: string; icon: string; 
 @Component({
   selector: 'app-kanban-board',
   standalone: true,
-  imports: [DragDropModule, DatePipe],
+  imports: [DragDropModule, DatePipe, FormsModule],
   templateUrl: './kanban-board.component.html',
   styleUrl: './kanban-board.component.css',
 })
-export class KanbanBoardComponent implements OnChanges {
+export class KanbanBoardComponent implements OnChanges, OnDestroy {
   @Input() tree: ProjectTreeNode[] = [];
   @Input({ required: true }) projectId!: string;
   @Input() users: User[] = [];
+  @Input() itemSummary: Record<string, ProjectItemSummary> = {};
 
   @Output() refresh = new EventEmitter<void>();
   @Output() openDetail = new EventEmitter<ProjectTreeNode>();
@@ -52,15 +61,29 @@ export class KanbanBoardComponent implements OnChanges {
 
   readonly connectedIds: string[] = [];
 
+  coverUrls = new Map<string, string>();
+  private loadingCovers = new Set<string>();
+
+  addingColumnId: string | null = null;
+  newItemTitle = '';
+  addLoading = false;
+  addError = '';
+
   constructor(private projectService: ProjectService) {}
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['tree'] || changes['users']) this.rebuildColumns();
+    if (changes['itemSummary']) this.syncCovers(flattenLeaves(this.tree));
+  }
+
+  ngOnDestroy() {
+    for (const url of this.coverUrls.values()) URL.revokeObjectURL(url);
   }
 
   setGroupMode(mode: KanbanGroupMode) {
     if (this.groupMode === mode) return;
     this.groupMode = mode;
+    this.cancelAdd();
     this.rebuildColumns();
   }
 
@@ -114,6 +137,42 @@ export class KanbanBoardComponent implements OnChanges {
 
     this.connectedIds.length = 0;
     this.connectedIds.push(...this.columns.map((c) => c.id));
+    this.syncCovers(leaves);
+  }
+
+  private syncCovers(leaves: ProjectTreeNode[]) {
+    for (const node of leaves) {
+      const cover = this.itemSummary[node._id]?.cover;
+      if (!cover || this.coverUrls.has(node._id) || this.loadingCovers.has(node._id)) continue;
+
+      this.loadingCovers.add(node._id);
+      this.projectService.downloadAttachment(this.projectId, node._id, cover.attachmentId).subscribe({
+        next: (blob) => {
+          this.coverUrls.set(node._id, URL.createObjectURL(blob));
+          this.loadingCovers.delete(node._id);
+        },
+        error: () => this.loadingCovers.delete(node._id),
+      });
+    }
+  }
+
+  commentCount(node: ProjectTreeNode): number {
+    return this.itemSummary[node._id]?.commentCount ?? 0;
+  }
+
+  dateRangeLabel(node: ProjectTreeNode): string {
+    const start = node.startDate ? new Date(node.startDate) : null;
+    const end = node.endDate ? new Date(node.endDate) : null;
+    if (!start && !end) return '';
+
+    const withMonth = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const dayOnly = (d: Date) => String(d.getDate());
+
+    if (start && end) {
+      const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+      return sameMonth ? `${withMonth(start)} - ${dayOnly(end)}` : `${withMonth(start)} - ${withMonth(end)}`;
+    }
+    return withMonth((start ?? end)!);
   }
 
   roleClass(role: string): string {
@@ -168,6 +227,75 @@ export class KanbanBoardComponent implements OnChanges {
     this.projectService.updateItem(this.projectId, node._id, payload).subscribe({
       next: () => this.refresh.emit(),
       error: () => this.refresh.emit(),
+    });
+  }
+
+  // ── Quick-add (bottom of column) ──
+  // New items are created directly under the project's first group, since
+  // Kanban only ever shows leaf tasks/subtasks — a root-level item created
+  // without a parent would be a group itself and wouldn't appear on the board.
+  get hasGroups(): boolean {
+    return this.tree.length > 0;
+  }
+
+  startAdd(column: KanbanColumn) {
+    if (!this.hasGroups) return;
+    this.addingColumnId = column.id;
+    this.newItemTitle = '';
+    this.addError = '';
+  }
+
+  cancelAdd() {
+    this.addingColumnId = null;
+    this.newItemTitle = '';
+    this.addError = '';
+  }
+
+  onAddKeydown(event: KeyboardEvent, column: KanbanColumn) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.submitAdd(column);
+    } else if (event.key === 'Escape') {
+      this.cancelAdd();
+    }
+  }
+
+  submitAdd(column: KanbanColumn) {
+    if (this.addLoading) return;
+    const title = this.newItemTitle.trim();
+    if (!title || !this.hasGroups) return;
+
+    const payload: CreateProjectItemPayload = { title, parentId: this.tree[0]._id };
+    if (this.groupMode === 'priority') {
+      payload.priority = column.id.replace('kb-priority-', '') as ProjectItemPriority;
+    } else if (this.groupMode === 'assignee') {
+      const raw = column.id.replace('kb-assignee-', '');
+      payload.assignedTo = raw === 'unassigned' ? null : raw;
+    }
+
+    this.addLoading = true;
+    this.addError = '';
+    this.projectService.createItem(this.projectId, payload).subscribe({
+      next: (res) => {
+        this.addLoading = false;
+        this.cancelAdd();
+
+        if (this.groupMode === 'status') {
+          const status = column.id.replace('kb-status-', '') as ProjectItemStatus;
+          if (status !== 'todo') {
+            this.projectService.updateItem(this.projectId, res.item._id, { status }).subscribe({
+              next: () => this.refresh.emit(),
+              error: () => this.refresh.emit(),
+            });
+            return;
+          }
+        }
+        this.refresh.emit();
+      },
+      error: (err) => {
+        this.addLoading = false;
+        this.addError = err.error?.message || 'Failed to add task';
+      },
     });
   }
 }

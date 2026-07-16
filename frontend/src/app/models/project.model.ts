@@ -2,6 +2,7 @@ import { User } from './user.model';
 import { Department } from './department.model';
 
 export type ProjectPriority = 'low' | 'medium' | 'high';
+export type ProjectStatus = 'active' | 'completed';
 
 export interface Project {
   _id: string;
@@ -11,6 +12,7 @@ export interface Project {
   owner: User | null;
   department: Pick<Department, '_id' | 'name' | 'color'> | null;
   priority: ProjectPriority;
+  status: ProjectStatus;
   startDate: string | null;
   endDate: string | null;
   createdAt: string;
@@ -23,6 +25,7 @@ export interface CreateProjectPayload {
   owner?: string | null;
   department?: string | null;
   priority?: ProjectPriority;
+  status?: ProjectStatus;
   startDate?: string | null;
   endDate?: string | null;
 }
@@ -33,6 +36,7 @@ export interface UpdateProjectPayload {
   owner?: string | null;
   department?: string | null;
   priority?: ProjectPriority;
+  status?: ProjectStatus;
   startDate?: string | null;
   endDate?: string | null;
 }

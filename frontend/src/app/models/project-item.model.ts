@@ -51,6 +51,13 @@ export interface ProjectTreeNode extends ProjectItem {
   childCount: number;
 }
 
+// Per-item meta for card views (Kanban): cover image + comment count,
+// fetched in one batched request rather than per card.
+export interface ProjectItemSummary {
+  commentCount: number;
+  cover: { attachmentId: string; fileName: string; mimeType: string } | null;
+}
+
 export interface CompletionRollup {
   percent: number;
   completed: number;

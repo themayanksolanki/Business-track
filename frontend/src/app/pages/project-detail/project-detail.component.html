@@ -15,73 +15,22 @@
     </div>
   } @else if (project) {
     <div class="card project-header-card shadow-sm mb-4">
-    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-2">
-      <input type="text" class="project-title-input" [(ngModel)]="editName"
-             (blur)="saveNameDescription()" (keydown.enter)="$event.preventDefault(); $any($event.target).blur()"
-             placeholder="Project name" maxlength="200" />
+    <div class="project-header-top">
+      <div class="project-header-icon"><i class="bi bi-kanban"></i></div>
 
-      <div class="project-meta-row">
-        <div class="meta-cell">
-          <span class="meta-label"><i class="bi bi-person-badge me-1"></i>Project Leader</span>
-          <div class="dropdown">
-            <button type="button" class="assign-trigger dropdown-toggle" data-bs-toggle="dropdown">
-              @if (project.owner) {
-                <span class="assign-avatar" [class]="'avatar-' + roleClass(project.owner.role)">
-                  {{ project.owner.username[0].toUpperCase() }}
-                </span>
-                <span class="assign-trigger-name">{{ project.owner.username }}</span>
-              } @else {
-                <span class="assign-avatar avatar-empty"><i class="bi bi-person"></i></span>
-                <span class="assign-trigger-name text-muted">Unassigned</span>
-              }
-            </button>
-            <ul class="dropdown-menu assign-dropdown">
-              <li>
-                <a class="assign-item" (click)="selectOwner(null)">
-                  <span class="assign-avatar avatar-empty"><i class="bi bi-person"></i></span>
-                  <span class="assign-item-name text-muted">Unassigned</span>
-                </a>
-              </li>
-              <li><hr class="dropdown-divider my-1" /></li>
-              @for (u of users; track u.id) {
-                <li>
-                  <a class="assign-item" (click)="selectOwner(u)">
-                    <span class="assign-avatar" [class]="'avatar-' + roleClass(u.role)">{{ u.username[0].toUpperCase() }}</span>
-                    <span class="assign-item-name">{{ u.username }}</span>
-                  </a>
-                </li>
-              }
-            </ul>
-          </div>
-        </div>
+      <div class="project-header-titleblock">
+        <input type="text" class="project-title-input" [(ngModel)]="editName"
+               (blur)="saveNameDescription()" (keydown.enter)="$event.preventDefault(); $any($event.target).blur()"
+               placeholder="Project name" maxlength="200" />
+        <textarea class="project-desc-input" rows="1" [(ngModel)]="editDescription" [appAutoGrow]="editDescription"
+                  (blur)="saveNameDescription()" placeholder="Add a description…" maxlength="2000"></textarea>
+      </div>
 
-        <div class="meta-cell">
-          <span class="meta-label"><i class="bi bi-flag-fill me-1"></i>Priority</span>
-          <div class="dropdown">
-            <button type="button" class="priority-badge dropdown-toggle"
-                    [class.priority-low]="project.priority === 'low'"
-                    [class.priority-medium]="project.priority === 'medium'"
-                    [class.priority-high]="project.priority === 'high'"
-                    data-bs-toggle="dropdown" title="Change priority">
-              {{ project.priority }}
-            </button>
-            <ul class="dropdown-menu status-dropdown shadow-sm">
-              @for (p of priorityOptions; track p) {
-                <li><a class="dropdown-item status-opt" (click)="setPriority(p)">{{ p }}</a></li>
-              }
-            </ul>
-          </div>
-        </div>
-
-        <div class="meta-cell">
-          <span class="meta-label"><i class="bi bi-graph-up me-1"></i>% Complete</span>
-          @if (progress; as p) {
-            <div class="progress-cell">
-              <div class="progress-track"><div class="progress-fill" [style.width.%]="p.percent"></div></div>
-              <span class="progress-frac">{{ p.percent }}% · {{ p.completed }}/{{ p.doing }}/{{ p.total }}</span>
-            </div>
-          }
-        </div>
+      <div class="project-header-actions">
+        <button type="button" class="complete-btn" [class.completed]="project.status === 'completed'" (click)="toggleComplete()">
+          <i class="bi" [class.bi-check-circle-fill]="project.status === 'completed'" [class.bi-check-circle]="project.status !== 'completed'"></i>
+          {{ project.status === 'completed' ? 'Completed' : 'Mark Complete' }}
+        </button>
 
         <div class="dropdown">
           <button type="button" class="actions-btn dropdown-toggle" data-bs-toggle="dropdown" title="Project actions">
@@ -98,21 +47,108 @@
       </div>
     </div>
 
-  
-    <div class="schedule-row">
-      <div class="schedule-cell">
-        <span class="schedule-label">Start</span>
-        <div class="d-flex gap-2">
-          <app-date-picker [value]="startDateStr" (valueChange)="onStartDateChange($event)"></app-date-picker>
-          <app-time-picker [value]="startTimeStr" (valueChange)="onStartTimeChange($event)"></app-time-picker>
+    <div class="project-meta-strip">
+      <div class="meta-cell">
+        <span class="meta-label"><i class="bi bi-person-badge me-1"></i>Leader</span>
+        <div class="dropdown">
+          <button type="button" class="assign-trigger dropdown-toggle" data-bs-toggle="dropdown">
+            @if (project.owner) {
+              <span class="assign-avatar" [class]="'avatar-' + roleClass(project.owner.role)">
+                {{ project.owner.username[0].toUpperCase() }}
+              </span>
+              <span class="assign-trigger-name">{{ project.owner.username }}</span>
+            } @else {
+              <span class="assign-avatar avatar-empty"><i class="bi bi-person"></i></span>
+              <span class="assign-trigger-name text-muted">Unassigned</span>
+            }
+          </button>
+          <ul class="dropdown-menu assign-dropdown">
+            <li>
+              <a class="assign-item" (click)="selectOwner(null)">
+                <span class="assign-avatar avatar-empty"><i class="bi bi-person"></i></span>
+                <span class="assign-item-name text-muted">Unassigned</span>
+              </a>
+            </li>
+            <li><hr class="dropdown-divider my-1" /></li>
+            @for (u of users; track u.id) {
+              <li>
+                <a class="assign-item" (click)="selectOwner(u)">
+                  <span class="assign-avatar" [class]="'avatar-' + roleClass(u.role)">{{ u.username[0].toUpperCase() }}</span>
+                  <span class="assign-item-name">{{ u.username }}</span>
+                </a>
+              </li>
+            }
+          </ul>
         </div>
       </div>
-      <div class="schedule-cell">
-        <span class="schedule-label">End</span>
-        <div class="d-flex gap-2">
-          <app-date-picker [value]="endDateStr" [min]="startDateStr" align="right" (valueChange)="onEndDateChange($event)"></app-date-picker>
-          <app-time-picker [value]="endTimeStr" align="right" (valueChange)="onEndTimeChange($event)"></app-time-picker>
+
+      <div class="meta-cell">
+        <span class="meta-label"><i class="bi bi-diagram-3 me-1"></i>Department</span>
+        <div class="dropdown">
+          <button type="button" class="assign-trigger dropdown-toggle" data-bs-toggle="dropdown">
+            @if (project.department) {
+              <span class="dept-dot" [style.background]="project.department.color"></span>
+              <span class="assign-trigger-name">{{ project.department.name }}</span>
+            } @else {
+              <span class="assign-avatar avatar-empty"><i class="bi bi-diagram-3"></i></span>
+              <span class="assign-trigger-name text-muted">Unassigned</span>
+            }
+          </button>
+          <ul class="dropdown-menu assign-dropdown">
+            <li>
+              <a class="assign-item" (click)="selectDepartment(null)">
+                <span class="assign-avatar avatar-empty"><i class="bi bi-diagram-3"></i></span>
+                <span class="assign-item-name text-muted">Unassigned</span>
+              </a>
+            </li>
+            <li><hr class="dropdown-divider my-1" /></li>
+            @for (d of departments; track d._id) {
+              <li>
+                <a class="assign-item" (click)="selectDepartment(d)">
+                  <span class="dept-dot" [style.background]="d.color"></span>
+                  <span class="assign-item-name">{{ d.name }}</span>
+                </a>
+              </li>
+            }
+          </ul>
         </div>
+      </div>
+
+      <div class="meta-cell">
+        <span class="meta-label"><i class="bi bi-flag-fill me-1"></i>Priority</span>
+        <div class="dropdown">
+          <button type="button" class="priority-badge dropdown-toggle"
+                  [class.priority-low]="project.priority === 'low'"
+                  [class.priority-medium]="project.priority === 'medium'"
+                  [class.priority-high]="project.priority === 'high'"
+                  data-bs-toggle="dropdown" title="Change priority">
+            {{ project.priority }}
+          </button>
+          <ul class="dropdown-menu status-dropdown shadow-sm">
+            @for (p of priorityOptions; track p) {
+              <li><a class="dropdown-item status-opt" (click)="setPriority(p)">{{ p }}</a></li>
+            }
+          </ul>
+        </div>
+      </div>
+
+      <div class="meta-divider"></div>
+
+      <div class="meta-cell">
+        <span class="meta-label"><i class="bi bi-hourglass-split me-1"></i>Duration</span>
+        <span class="duration-value-light">{{ durationLabel }}</span>
+      </div>
+
+      <div class="meta-divider"></div>
+
+      <div class="meta-cell">
+        <span class="meta-label"><i class="bi bi-graph-up me-1"></i>% Complete</span>
+        @if (progress; as p) {
+          <div class="progress-cell">
+            <div class="progress-track"><div class="progress-fill" [style.width.%]="p.percent"></div></div>
+            <span class="progress-frac">{{ p.percent }}% · {{ p.completed }}/{{ p.doing }}/{{ p.total }}</span>
+          </div>
+        }
       </div>
     </div>
     </div>
@@ -202,10 +238,40 @@
           [tree]="tree"
           [projectId]="projectId"
           [users]="users"
+          [itemSummary]="itemSummary"
           (refresh)="loadItems()"
           (openDetail)="onOpenDetail($event)">
         </app-kanban-board>
       }
+    }
+
+    @if (activeTab === 'detail') {
+      <div class="card project-tasks-card shadow-sm">
+        <h6 class="text-muted mb-3 text-uppercase small fw-bold">Schedule</h6>
+        <div class="detail-schedule-row">
+          <div class="detail-schedule-grid">
+            <div class="meta-cell">
+              <span class="meta-label">Start</span>
+              <div class="d-flex gap-2">
+                <app-date-picker [value]="startDateStr" (valueChange)="onStartDateChange($event)"></app-date-picker>
+                <app-time-picker [value]="startTimeStr" (valueChange)="onStartTimeChange($event)"></app-time-picker>
+              </div>
+            </div>
+            <div class="meta-cell">
+              <span class="meta-label">End</span>
+              <div class="d-flex gap-2">
+                <app-date-picker [value]="endDateStr" [min]="startDateStr" align="right" (valueChange)="onEndDateChange($event)"></app-date-picker>
+                <app-time-picker [value]="endTimeStr" align="right" (valueChange)="onEndTimeChange($event)"></app-time-picker>
+              </div>
+            </div>
+          </div>
+
+          <div class="meta-cell duration-cell">
+            <span class="meta-label">Duration</span>
+            <span class="duration-value">{{ durationLabel }}</span>
+          </div>
+        </div>
+      </div>
     }
   }
 </div>
@@ -216,7 +282,7 @@
   [childCount]="selectedNode?.childCount || 0"
   [breadcrumbPath]="selectedPath"
   (closed)="closeDetail()"
-  (saved)="loadItems()"
+  (saved)="onItemSaved($event)"
   (breadcrumbNavigate)="onOpenDetail($event)">
 </app-project-item-detail>
 
