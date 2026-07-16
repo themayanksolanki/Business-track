@@ -44,11 +44,18 @@ export const validateOrgRegister = (req, res, next) => {
   if (!emailDomain || !DOMAIN_REGEX.test(emailDomain))
     return next(new AppError('A valid organization email domain is required', 400));
 
-  if (!managerEmail || !EMAIL_REGEX.test(managerEmail))
-    return next(new AppError('A valid Manager email is required', 400));
+  if (managerEmail && !EMAIL_REGEX.test(managerEmail))
+    return next(new AppError('Manager email must be a valid email address', 400));
 
-  if (!teamLeadEmail || !EMAIL_REGEX.test(teamLeadEmail))
-    return next(new AppError('A valid Team Lead email is required', 400));
+  if (teamLeadEmail && !EMAIL_REGEX.test(teamLeadEmail))
+    return next(new AppError('Team Lead email must be a valid email address', 400));
+
+  if (
+    managerEmail &&
+    teamLeadEmail &&
+    managerEmail.toLowerCase().trim() === teamLeadEmail.toLowerCase().trim()
+  )
+    return next(new AppError('Manager and Team Lead cannot be the same email', 400));
 
   next();
 };
@@ -61,6 +68,18 @@ export const validateInvite = (req, res, next) => {
 
   if (!role || !VALID_ROLES.includes(role))
     return next(new AppError(`Role must be one of: ${VALID_ROLES.join(', ')}`, 400));
+
+  next();
+};
+
+export const validateActivateInvite = (req, res, next) => {
+  const { username, password } = req.body;
+
+  if (!username || !username.trim())
+    return next(new AppError('Username is required', 400));
+
+  if (!password || password.length < 6)
+    return next(new AppError('Password must be at least 6 characters', 400));
 
   next();
 };
@@ -142,9 +161,10 @@ const validateDateRange = (startDate, endDate) => {
 };
 
 const VALID_PRIORITIES = ['low', 'medium', 'high'];
+const VALID_PROJECT_STATUSES = ['active', 'completed'];
 
 export const validateProject = (req, res, next) => {
-  const { name, startDate, endDate, owner, priority, department } = req.body;
+  const { name, startDate, endDate, owner, priority, department, status } = req.body;
 
   if (req.method === 'POST' && (!name || !name.trim()))
     return next(new AppError('Project name is required', 400));
@@ -157,6 +177,9 @@ export const validateProject = (req, res, next) => {
 
   if (priority !== undefined && !VALID_PRIORITIES.includes(priority))
     return next(new AppError(`Priority must be one of: ${VALID_PRIORITIES.join(', ')}`, 400));
+
+  if (status !== undefined && !VALID_PROJECT_STATUSES.includes(status))
+    return next(new AppError(`Status must be one of: ${VALID_PROJECT_STATUSES.join(', ')}`, 400));
 
   const dateError = validateDateRange(startDate, endDate);
   if (dateError) return next(new AppError(dateError, 400));

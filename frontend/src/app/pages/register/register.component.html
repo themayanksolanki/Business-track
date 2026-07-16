@@ -201,32 +201,34 @@
           </div>
 
           <div class="mb-4">
-            <label class="field-label">Manager email</label>
+            <label class="field-label">Manager email <span class="text-muted fw-normal">(optional)</span></label>
             <div class="input-icon-wrap">
               <i class="bi bi-person-badge"></i>
               <input type="email" class="form-control field-input"
                      formControlName="managerEmail" placeholder="manager@yourcompany.com" />
             </div>
             @if (businessForm.get('managerEmail')?.touched && businessForm.get('managerEmail')?.invalid) {
-              <div class="field-error">A valid Manager email is required</div>
+              <div class="field-error">Manager email must be a valid email address</div>
             }
             <div class="field-hint">They'll be able to join as a Manager once they register with this email.</div>
           </div>
 
           <div class="mb-4">
-            <label class="field-label">Team Lead email</label>
+            <label class="field-label">Team Lead email <span class="text-muted fw-normal">(optional)</span></label>
             <div class="input-icon-wrap">
               <i class="bi bi-person-badge"></i>
               <input type="email" class="form-control field-input"
                      formControlName="teamLeadEmail" placeholder="teamlead@yourcompany.com" />
             </div>
             @if (businessForm.get('teamLeadEmail')?.touched && businessForm.get('teamLeadEmail')?.invalid) {
-              <div class="field-error">A valid Team Lead email is required</div>
+              <div class="field-error">Team Lead email must be a valid email address</div>
+            } @else if (managerTeamLeadSame) {
+              <div class="field-error">Manager and Team Lead cannot be the same email</div>
             }
             <div class="field-hint">They'll be able to join as a Team Lead once they register with this email.</div>
           </div>
 
-          <button type="submit" class="btn btn-primary submit-btn w-100" [disabled]="loading">
+          <button type="submit" class="btn btn-primary submit-btn w-100" [disabled]="loading || managerTeamLeadSame">
             @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
             {{ loading ? 'Creating organization...' : 'Create Organization' }}
           </button>

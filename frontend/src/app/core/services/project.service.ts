@@ -11,6 +11,7 @@ import {
   ProjectItem,
   CreateProjectItemPayload,
   UpdateProjectItemPayload,
+  ProjectItemSummary,
 } from '../../models/project-item.model';
 import { ProjectComment, CreateCommentPayload } from '../../models/comment.model';
 import { Attachment } from '../../models/attachment.model';
@@ -46,6 +47,10 @@ export class ProjectService {
   // Items
   getItems(projectId: string) {
     return this.http.get<ProjectItem[]>(`${this.api}/${projectId}/items`);
+  }
+
+  getItemsSummary(projectId: string) {
+    return this.http.get<Record<string, ProjectItemSummary>>(`${this.api}/${projectId}/items/summary`);
   }
 
   getItemById(projectId: string, itemId: string) {

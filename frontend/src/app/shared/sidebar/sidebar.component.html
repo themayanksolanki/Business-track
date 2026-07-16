@@ -60,21 +60,52 @@
     >
       <span class="nav-icon"><app-icon name="tasks" [size]="18" /></span>
       @if (labelsVisible()) {
-        <span class="nav-label">Tasks</span>
+        <span class="nav-label">TODOs</span>
       }
     </a>
-    <a
-      routerLink="/projects"
-      class="nav-item"
-      routerLinkActive="active"
-      [title]="labelsVisible() ? '' : 'Projects'"
-      (click)="closeMobile()"
-    >
-      <span class="nav-icon"><app-icon name="projects" [size]="18" /></span>
-      @if (labelsVisible()) {
-        <span class="nav-label">Projects</span>
-      }
-    </a>
+    <div class="nav-item-group">
+      <a
+        routerLink="/projects"
+        class="nav-item"
+        routerLinkActive="active"
+        [title]="labelsVisible() ? '' : 'Projects'"
+        (click)="closeMobile()"
+      >
+        <span class="nav-icon"><app-icon name="projects" [size]="18" /></span>
+        @if (labelsVisible()) {
+          <span class="nav-label">Projects</span>
+        }
+      </a>
+      <div class="nav-submenu">
+        <button
+          type="button"
+          class="nav-submenu-item"
+          [class.active]="projectsView.viewMode() === 'list'"
+          (click)="selectProjectsView('list')"
+        >
+          <i class="bi bi-list-ul"></i>
+          <span>List</span>
+        </button>
+        <button
+          type="button"
+          class="nav-submenu-item"
+          [class.active]="projectsView.viewMode() === 'table'"
+          (click)="selectProjectsView('table')"
+        >
+          <i class="bi bi-table"></i>
+          <span>Table</span>
+        </button>
+        <button
+          type="button"
+          class="nav-submenu-item"
+          [class.active]="projectsView.viewMode() === 'cards'"
+          (click)="selectProjectsView('cards')"
+        >
+          <i class="bi bi-grid-3x3-gap-fill"></i>
+          <span>Cards</span>
+        </button>
+      </div>
+    </div>
     @if (auth.getUser()?.role === 'Admin' || auth.getUser()?.role === 'Manager') {
       <a
         routerLink="/users"

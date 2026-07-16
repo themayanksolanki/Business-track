@@ -2,17 +2,6 @@
   <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <h1 class="h3 mb-0">Projects</h1>
     <div class="d-flex align-items-center gap-2">
-      <div class="btn-group view-switcher" role="group" aria-label="View mode">
-        <button type="button" class="btn view-switch-btn" [class.active]="viewMode === 'cards'" (click)="setViewMode('cards')" title="Card view">
-          <i class="bi bi-grid-3x3-gap-fill"></i>
-        </button>
-        <button type="button" class="btn view-switch-btn" [class.active]="viewMode === 'table'" (click)="setViewMode('table')" title="Table view">
-          <i class="bi bi-table"></i>
-        </button>
-        <button type="button" class="btn view-switch-btn" [class.active]="viewMode === 'list'" (click)="setViewMode('list')" title="List view">
-          <i class="bi bi-list-ul"></i>
-        </button>
-      </div>
       <button class="btn btn-success btn-sm" (click)="openCreate()">
         <i class="bi bi-plus-lg me-1"></i>New Project
       </button>

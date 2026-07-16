@@ -100,6 +100,46 @@ export const getItems = async (req, res, next) => {
   }
 };
 
+// Lightweight per-item meta for card views (Kanban): first image attachment
+// (as a cover) and comment count, batched in two queries instead of N+1
+// round trips per card.
+export const getItemsSummary = async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
+    const items = await ProjectItem.find({ project: project._id }).select('_id');
+    const itemIds = items.map((i) => i._id);
+
+    const [commentCounts, imageAttachments] = await Promise.all([
+      Comment.aggregate([
+        { $match: { projectItem: { $in: itemIds } } },
+        { $group: { _id: '$projectItem', count: { $sum: 1 } } },
+      ]),
+      Attachment.find({ projectItem: { $in: itemIds }, mimeType: { $regex: '^image/' } })
+        .sort({ createdAt: 1 })
+        .select('projectItem fileName mimeType'),
+    ]);
+
+    const summary = {};
+    for (const { _id, count } of commentCounts) {
+      summary[String(_id)] = { commentCount: count, cover: null };
+    }
+    for (const a of imageAttachments) {
+      const key = String(a.projectItem);
+      if (!summary[key]) summary[key] = { commentCount: 0, cover: null };
+      if (!summary[key].cover)
+        summary[key].cover = { attachmentId: a._id, fileName: a.fileName, mimeType: a.mimeType };
+    }
+
+    res.status(200).json(summary);
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const createItem = async (req, res, next) => {
   try {
     const project = await Project.findById(req.params.projectId);

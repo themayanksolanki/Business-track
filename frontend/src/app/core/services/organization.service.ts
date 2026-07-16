@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { Organization, User } from '../../models/user.model';
-import { Invite, CreateInvitePayload } from '../../models/invite.model';
+import { Invite, CreateInvitePayload, ActivateInvitePayload } from '../../models/invite.model';
 
 @Injectable({ providedIn: 'root' })
 export class OrganizationService {
@@ -32,5 +32,9 @@ export class OrganizationService {
 
   revokeInvite(id: string) {
     return this.http.delete<{ message: string }>(`${this.api}/invites/${id}`);
+  }
+
+  activateInvite(id: string, payload: ActivateInvitePayload) {
+    return this.http.post<{ message: string; user: User }>(`${this.api}/invites/${id}/activate`, payload);
   }
 }

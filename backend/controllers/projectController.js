@@ -88,7 +88,7 @@ export const getProjects = async (req, res, next) => {
 
 export const createProject = async (req, res, next) => {
   try {
-    const { name, description, startDate, endDate, owner, priority, department } = req.body;
+    const { name, description, startDate, endDate, owner, priority, department, status } = req.body;
 
     if (department && req.user.role !== 'Admin') {
       const accessibleIds = await getAccessibleDepartmentIds(req.user);
@@ -102,6 +102,7 @@ export const createProject = async (req, res, next) => {
       createdBy: req.user._id,
       owner: owner ?? req.user._id,
       priority: priority ?? 'medium',
+      status: status ?? 'active',
       department: department ?? null,
       organization: req.user.organization,
       startDate: startDate ?? null,
@@ -139,7 +140,7 @@ export const updateProject = async (req, res, next) => {
     if (!canManageProjectSettings(req.user, project))
       return next(new AppError('You do not have permission to update this project', 403));
 
-    const { name, description, startDate, endDate, owner, priority, department } = req.body;
+    const { name, description, startDate, endDate, owner, priority, department, status } = req.body;
 
     if (department && req.user.role !== 'Admin') {
       const accessibleIds = await getAccessibleDepartmentIds(req.user);
@@ -153,6 +154,7 @@ export const updateProject = async (req, res, next) => {
     if (endDate !== undefined) project.endDate = endDate || null;
     if (owner !== undefined) project.owner = owner || null;
     if (priority !== undefined) project.priority = priority;
+    if (status !== undefined) project.status = status;
     if (department !== undefined) project.department = department || null;
 
     await project.save();

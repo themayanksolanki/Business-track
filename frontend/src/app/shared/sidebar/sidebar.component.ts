@@ -1,7 +1,8 @@
 import { Component, OnDestroy, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { ChatService } from '../../core/services/chat.service';
+import { ProjectsViewMode, ProjectsViewService } from '../../core/services/projects-view.service';
 import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
@@ -21,6 +22,8 @@ export class SidebarComponent implements OnDestroy {
   readonly auth = inject(AuthService);
   readonly chatSvc = inject(ChatService);
   readonly svc = inject(SidebarService);
+  readonly projectsView = inject(ProjectsViewService);
+  private readonly router = inject(Router);
 
   private dragStartX = 0;
   private dragStartWidth = 0;
@@ -54,6 +57,12 @@ export class SidebarComponent implements OnDestroy {
 
   closeMobile() {
     this.svc.setMobileOpen(false);
+  }
+
+  selectProjectsView(mode: ProjectsViewMode) {
+    this.projectsView.setViewMode(mode);
+    this.router.navigateByUrl('/projects');
+    this.closeMobile();
   }
 
   ngOnDestroy() {

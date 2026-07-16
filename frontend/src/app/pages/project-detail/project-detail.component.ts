@@ -5,9 +5,11 @@ import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-
 import dayjs from 'dayjs/esm';
 import { ProjectService } from '../../core/services/project.service';
 import { UserService } from '../../core/services/user.service';
+import { DepartmentService } from '../../core/services/department.service';
 import { Project, ProjectPriority } from '../../models/project.model';
 import { User } from '../../models/user.model';
-import { ProjectTreeNode, CompletionRollup, buildProjectTree, computeCompletionRollup } from '../../models/project-item.model';
+import { Department } from '../../models/department.model';
+import { ProjectItem, ProjectTreeNode, CompletionRollup, ProjectItemSummary, buildProjectTree, computeCompletionRollup } from '../../models/project-item.model';
 import { TabStripComponent, TabDef } from '../../shared/tab-strip/tab-strip.component';
 import { ProjectTreeNodeComponent } from '../../shared/project-tree-node/project-tree-node.component';
 import { ProjectItemDetailComponent } from '../../shared/project-item-detail/project-item-detail.component';
@@ -43,6 +45,7 @@ export class ProjectDetailComponent implements OnInit {
   error = '';
 
   tabs: TabDef[] = [
+    { key: 'detail', label: 'Detail', icon: 'bi-info-circle' },
     { key: 'tasks', label: 'Tasks', icon: 'bi-list-task' },
     { key: 'kanban', label: 'Kanban', icon: 'bi-kanban' },
   ];
@@ -50,6 +53,7 @@ export class ProjectDetailComponent implements OnInit {
 
   tree: ProjectTreeNode[] = [];
   itemsLoading = false;
+  itemSummary: Record<string, ProjectItemSummary> = {};
 
   addGroupOpen = false;
   addGroupTitle = '';
@@ -69,13 +73,15 @@ export class ProjectDetailComponent implements OnInit {
   deleteLoading = false;
 
   users: User[] = [];
+  departments: Department[] = [];
   readonly priorityOptions: ProjectPriority[] = ['low', 'medium', 'high'];
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private projectService: ProjectService,
-    private userService: UserService
+    private userService: UserService,
+    private departmentService: DepartmentService
   ) {}
 
   ngOnInit() {
@@ -83,10 +89,29 @@ export class ProjectDetailComponent implements OnInit {
     this.loadProject();
     this.loadItems();
     this.userService.getAllUsers().subscribe({ next: (u) => (this.users = u) });
+    this.departmentService.getDepartments().subscribe({ next: (d) => (this.departments = d) });
   }
 
   get progress(): CompletionRollup {
     return computeCompletionRollup(this.tree);
+  }
+
+  get durationLabel(): string {
+    if (!this.project?.startDate || !this.project?.endDate) return '—';
+
+    const totalMinutes = dayjs(this.project.endDate).diff(dayjs(this.project.startDate), 'minute');
+    if (totalMinutes <= 0) return '0m';
+
+    const days = Math.floor(totalMinutes / 1440);
+    const hours = Math.floor((totalMinutes % 1440) / 60);
+    const minutes = totalMinutes % 60;
+
+    const parts: string[] = [];
+    if (days) parts.push(`${days}d`);
+    if (hours) parts.push(`${hours}h`);
+    if (!days && minutes) parts.push(`${minutes}m`);
+
+    return parts.join(' ');
   }
 
   roleClass(role: string): string {
@@ -104,6 +129,23 @@ export class ProjectDetailComponent implements OnInit {
   setPriority(priority: ProjectPriority) {
     if (!this.project || this.project.priority === priority) return;
     this.projectService.updateProject(this.projectId, { priority }).subscribe({
+      next: (res) => (this.project = res.project),
+    });
+  }
+
+  selectDepartment(dept: Department | null) {
+    if (!this.project) return;
+    const department = dept ? dept._id : null;
+    if ((this.project.department?._id ?? null) === department) return;
+    this.projectService.updateProject(this.projectId, { department }).subscribe({
+      next: (res) => (this.project = res.project),
+    });
+  }
+
+  toggleComplete() {
+    if (!this.project) return;
+    const status = this.project.status === 'completed' ? 'active' : 'completed';
+    this.projectService.updateProject(this.projectId, { status }).subscribe({
       next: (res) => (this.project = res.project),
     });
   }
@@ -141,6 +183,28 @@ export class ProjectDetailComponent implements OnInit {
       },
       error: () => (this.itemsLoading = false),
     });
+    this.projectService.getItemsSummary(this.projectId).subscribe({
+      next: (summary) => (this.itemSummary = summary),
+    });
+  }
+
+  // Patches a saved item straight into the tree in place, instead of
+  // refetching + rebuilding it — a full reload was resetting Kanban scroll
+  // position and flashing the page behind the modal on every field edit.
+  onItemSaved(updated: ProjectItem) {
+    this.patchNode(this.tree, updated);
+    this.tree = [...this.tree];
+  }
+
+  private patchNode(nodes: ProjectTreeNode[], updated: ProjectItem): boolean {
+    for (const node of nodes) {
+      if (node._id === updated._id) {
+        Object.assign(node, updated);
+        return true;
+      }
+      if (this.patchNode(node.children, updated)) return true;
+    }
+    return false;
   }
 
   private findNode(nodes: ProjectTreeNode[], id: string): ProjectTreeNode | null {

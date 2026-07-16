@@ -143,24 +143,6 @@
 .cards-sentinel { height: 1px; }
 .cards-end-marker { font-size: 0.8rem; color: var(--text-dim); }
 
-/* ── View switcher ── */
-.view-switcher .view-switch-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 32px;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-input);
-  color: var(--text-muted);
-}
-.view-switcher .view-switch-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
-.view-switcher .view-switch-btn.active {
-  background: #3b82f6;
-  border-color: #3b82f6;
-  color: #fff;
-}
-
 /* ── Table view ── */
 .project-table-card {
   border-radius: 12px;
