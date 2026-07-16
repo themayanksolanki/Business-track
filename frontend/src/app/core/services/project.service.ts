@@ -77,6 +77,13 @@ export class ProjectService {
     });
   }
 
+  moveItem(projectId: string, itemId: string, direction: 'up' | 'down' | 'indent' | 'outdent') {
+    return this.http.patch<{ message: string; item: ProjectItem }>(
+      `${this.api}/${projectId}/items/${itemId}/move`,
+      { direction }
+    );
+  }
+
   // Comments
   getComments(projectId: string, itemId: string) {
     return this.http.get<ProjectComment[]>(`${this.api}/${projectId}/items/${itemId}/comments`);

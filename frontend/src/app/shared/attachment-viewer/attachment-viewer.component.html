@@ -1,0 +1,107 @@
+@if (open && current) {
+  <div class="av-overlay" (click)="onBackdropClick($event)">
+    <div class="av-topbar">
+      <div class="av-info">
+        <span class="av-filename">{{ current.fileName }}</span>
+        <span class="av-position">{{ activeIndex + 1 }} of {{ attachments.length }}</span>
+      </div>
+      <div class="av-actions">
+        <button type="button" class="av-icon-btn" (click)="downloadCurrent()" title="Download">
+          <i class="bi bi-download"></i>
+        </button>
+        <button type="button" class="av-icon-btn" (click)="close()" title="Close">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="av-stage"
+         (pointerdown)="onStagePointerDown($event)"
+         (pointermove)="onStagePointerMove($event)"
+         (pointerup)="onStagePointerUp($event)"
+         (pointercancel)="onStagePointerUp($event)"
+         (wheel)="onWheel($event)"
+         (dblclick)="onDoubleClick()">
+      <div class="av-track" [class.av-no-transition]="gestureMode === 'swipe'" [style.transform]="trackTransform">
+        @for (a of attachments; track a._id; let i = $index) {
+          <div class="av-slide">
+            @if (isNear(i)) {
+              @switch (kindOf(a)) {
+                @case ('image') {
+                  @if (entryFor(a)?.status === 'loaded') {
+                    <img [src]="entryFor(a)!.url" class="av-image" draggable="false" alt="{{ a.fileName }}"
+                         [style.transform]="i === activeIndex ? imgTransform : null"
+                         [class.av-no-transition]="i === activeIndex && gestureMode !== 'none'"
+                         (error)="onMediaLoadError(a)" />
+                  } @else if (entryFor(a)?.status === 'error') {
+                    <div class="av-error">
+                      <i class="bi bi-exclamation-triangle"></i>
+                      <p>{{ entryFor(a)?.error }}</p>
+                      <div class="av-error-actions">
+                        <button type="button" class="btn btn-sm btn-light" (click)="retry(a)">Retry</button>
+                        <button type="button" class="btn btn-sm btn-primary" (click)="download.emit(a)">Download</button>
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="av-loading"><span class="spinner-border text-light"></span></div>
+                  }
+                }
+                @case ('video') {
+                  @if (entryFor(a)?.status === 'loaded') {
+                    <video [src]="entryFor(a)!.url" class="av-video" controls playsinline
+                           (error)="onMediaLoadError(a)"></video>
+                  } @else if (entryFor(a)?.status === 'error') {
+                    <div class="av-error">
+                      <i class="bi bi-exclamation-triangle"></i>
+                      <p>{{ entryFor(a)?.error }}</p>
+                      <div class="av-error-actions">
+                        <button type="button" class="btn btn-sm btn-light" (click)="retry(a)">Retry</button>
+                        <button type="button" class="btn btn-sm btn-primary" (click)="download.emit(a)">Download</button>
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="av-loading"><span class="spinner-border text-light"></span></div>
+                  }
+                }
+                @case ('pdf') {
+                  @if (entryFor(a)?.status === 'loaded') {
+                    <iframe [src]="entryFor(a)!.safeUrl" class="av-pdf" title="{{ a.fileName }}"></iframe>
+                  } @else if (entryFor(a)?.status === 'error') {
+                    <div class="av-error">
+                      <i class="bi bi-exclamation-triangle"></i>
+                      <p>{{ entryFor(a)?.error }}</p>
+                      <div class="av-error-actions">
+                        <button type="button" class="btn btn-sm btn-light" (click)="retry(a)">Retry</button>
+                        <button type="button" class="btn btn-sm btn-primary" (click)="download.emit(a)">Download</button>
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="av-loading"><span class="spinner-border text-light"></span></div>
+                  }
+                }
+                @default {
+                  <div class="av-unsupported">
+                    <i class="bi" [class]="fileIcon(a.mimeType)"></i>
+                    <p class="av-unsupported-name">{{ a.fileName }}</p>
+                    <p class="av-unsupported-meta">{{ formatSize(a.size) }}</p>
+                    <p class="av-unsupported-hint">Preview not available for this file type.</p>
+                    <button type="button" class="btn btn-sm btn-primary" (click)="download.emit(a)">
+                      <i class="bi bi-download me-1"></i>Download
+                    </button>
+                  </div>
+                }
+              }
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+    <button type="button" class="av-nav av-nav-prev" [disabled]="activeIndex === 0" (click)="prev()" title="Previous">
+      <i class="bi bi-chevron-left"></i>
+    </button>
+    <button type="button" class="av-nav av-nav-next" [disabled]="activeIndex === attachments.length - 1" (click)="next()" title="Next">
+      <i class="bi bi-chevron-right"></i>
+    </button>
+  </div>
+}

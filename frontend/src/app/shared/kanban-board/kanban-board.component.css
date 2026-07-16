@@ -248,9 +248,10 @@
   box-shadow: 0 0 0 2px var(--bg-card);
 }
 
+.avatar-admin     { background: #fef3c7; color: #92400e; }
 .avatar-manager   { background: #dbeafe; color: #1d4ed8; }
 .avatar-team-lead { background: #ede9fe; color: #6d28d9; }
-.avatar-employee  { background: #dcfce7; color: #15803d; }
+.avatar-user      { background: #dcfce7; color: #15803d; }
 .avatar-empty     { background: var(--bg-muted); color: var(--text-dim); font-size: 0.7rem; }
 
 @media (max-width: 640px) {

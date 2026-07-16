@@ -10,11 +10,14 @@ import { Task, TaskStatus } from '../../models/task.model';
 import { User } from '../../models/user.model';
 import { Attachment } from '../../models/attachment.model';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
+import { NotificationService } from '../../shared/notification.service';
+import { ModalDirective } from '../../shared/modal.directive';
+import { AttachmentViewerComponent } from '../../shared/attachment-viewer/attachment-viewer.component';
 
 @Component({
   selector: 'app-task-list',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule, FormsModule, ConfirmDialogComponent],
+  imports: [DatePipe, ReactiveFormsModule, FormsModule, ConfirmDialogComponent, ModalDirective, AttachmentViewerComponent],
   templateUrl: './task-list.component.html',
   styleUrl: './task-list.component.css',
 })
@@ -34,13 +37,22 @@ export class TaskListComponent implements OnInit {
       this.statusSortDir = 'desc';
     }
     this.currentPage = 1;
+    this.recomputeSortedTasks();
   }
 
   private readonly statusRank: Record<string, number> = { todo: 0, pending: 1, completed: 2 };
 
-  get sortedTasks(): Task[] {
-    if (!this.statusSortDir) return this.tasks;
-    return [...this.tasks].sort((a, b) => {
+  // Cached, not a getter: re-sorting the full list is O(n log n) and this is
+  // read from the template every change-detection cycle. Recomputed only at
+  // the specific mutation points below (load/create/delete/edit/sort-toggle).
+  sortedTasks: Task[] = [];
+
+  private recomputeSortedTasks() {
+    if (!this.statusSortDir) {
+      this.sortedTasks = this.tasks;
+      return;
+    }
+    this.sortedTasks = [...this.tasks].sort((a, b) => {
       const cmp = (this.statusRank[a.status] ?? 0) - (this.statusRank[b.status] ?? 0);
       return this.statusSortDir === 'asc' ? cmp : -cmp;
     });
@@ -113,12 +125,15 @@ export class TaskListComponent implements OnInit {
   attachmentUploading = false;
   attachmentUploadError = '';
   downloadingId = '';
+  viewerOpen = false;
+  viewerIndex = 0;
 
   constructor(
     private fb: FormBuilder,
     private taskService: TaskService,
     private userService: UserService,
     private attachmentService: AttachmentService,
+    private notifications: NotificationService,
     public auth: AuthService
   ) {
     this.editForm = this.fb.group({
@@ -135,7 +150,7 @@ export class TaskListComponent implements OnInit {
 
   ngOnInit() {
     this.load();
-    if (this.isManager) {
+    if (this.isAdmin || this.isManager) {
       this.userService.getAllUsers().subscribe({
         next: (u) => { this.users = u; this.createAssignees = u; },
       });
@@ -148,6 +163,7 @@ export class TaskListComponent implements OnInit {
     this.taskService.getTasks().subscribe({
       next: (tasks) => {
         this.tasks = tasks;
+        this.recomputeSortedTasks();
         if (this.currentPage > this.totalPages) this.currentPage = 1;
       },
       error: (err) => (this.error = err.error?.message || 'Failed to load tasks'),
@@ -182,13 +198,17 @@ export class TaskListComponent implements OnInit {
           this.loadSubtasks(parentId);
         } else {
           this.selectedTask = null;
-          this.load();
+          this.tasks = this.tasks.filter((t) => t._id !== id);
+          this.recomputeSortedTasks();
+          if (this.currentPage > this.totalPages) this.currentPage = Math.max(1, this.totalPages);
         }
+        this.notifications.success('Task deleted');
       },
-      error: () => {
+      error: (err) => {
         this.confirmLoading = false;
         this.confirmOpen = false;
         this.pendingDelete = null;
+        this.notifications.error(err.error?.message || 'Failed to delete task');
       },
     });
   }
@@ -230,10 +250,13 @@ export class TaskListComponent implements OnInit {
     this.editLoading = true;
     this.editError = '';
     this.taskService.updateTask(this.editTaskId, this.editForm.value).subscribe({
-      next: () => {
+      next: (res) => {
         this.editLoading = false;
+        const existing = this.tasks.find((t) => t._id === this.editTaskId);
+        if (existing) Object.assign(existing, res.task);
+        this.recomputeSortedTasks();
         this.closeEdit();
-        this.load();
+        this.notifications.success('Task updated');
       },
       error: (err) => {
         this.editError = err.error?.message || 'Failed to update task';
@@ -245,6 +268,10 @@ export class TaskListComponent implements OnInit {
   openReassign(taskId: string) {
     this.reassignTaskId = taskId;
     this.reassignUserId = '';
+  }
+
+  closeReassign() {
+    this.reassignTaskId = '';
   }
 
   get reassignUserLabel() {
@@ -259,10 +286,16 @@ export class TaskListComponent implements OnInit {
 
   confirmReassign() {
     if (!this.reassignUserId) return;
-    this.taskService.reassignTask(this.reassignTaskId, this.reassignUserId).subscribe({
-      next: () => {
+    const taskId = this.reassignTaskId;
+    this.taskService.reassignTask(taskId, this.reassignUserId).subscribe({
+      next: (res) => {
+        const existing = this.tasks.find((t) => t._id === taskId);
+        if (existing) Object.assign(existing, res.task);
         this.reassignTaskId = '';
-        this.load();
+        this.notifications.success('Task reassigned');
+      },
+      error: (err) => {
+        this.notifications.error(err.error?.message || 'Failed to reassign task');
       },
     });
   }
@@ -316,11 +349,16 @@ export class TaskListComponent implements OnInit {
         if (this.selectedTask?._id === task._id) {
           this.selectedTask = { ...task, status };
         }
+        this.recomputeSortedTasks();
+        this.notifications.success('Status updated');
+      },
+      error: (err) => {
+        this.notifications.error(err.error?.message || 'Failed to update status');
       },
     });
   }
 
-  private readonly roleRank: Record<string, number> = { Manager: 3, 'Team Lead': 2, Employee: 1 };
+  private readonly roleRank: Record<string, number> = { Admin: 4, Manager: 3, 'Team Lead': 2, User: 1 };
 
   canDelete(task: Task): boolean {
     const user = this.auth.getUser();
@@ -332,9 +370,10 @@ export class TaskListComponent implements OnInit {
     return isCreator || callerRank > creatorRank;
   }
 
+  get isAdmin() { return this.auth.getUser()?.role === 'Admin'; }
   get isManager() { return this.auth.getUser()?.role === 'Manager'; }
   get isTeamLead() { return this.auth.getUser()?.role === 'Team Lead'; }
-  get isEmployee() { return this.auth.getUser()?.role === 'Employee'; }
+  get isUser() { return this.auth.getUser()?.role === 'User'; }
 
   roleClass(role: string): string {
     return role.toLowerCase().replace(' ', '-');
@@ -380,10 +419,12 @@ export class TaskListComponent implements OnInit {
     const payload = { ...this.createForm.value };
     if (!payload.assignedTo) delete payload.assignedTo;
     this.taskService.createTask(payload).subscribe({
-      next: () => {
+      next: (res) => {
         this.createLoading = false;
+        this.tasks = [res.task, ...this.tasks];
+        this.recomputeSortedTasks();
         this.closeCreate();
-        this.load();
+        this.notifications.success('Task created');
       },
       error: (err) => {
         this.createError = err.error?.message || 'Failed to create task';
@@ -460,6 +501,15 @@ export class TaskListComponent implements OnInit {
         this.downloadingId = '';
       },
     });
+  }
+
+  loadAttachmentBlob = (attachment: Attachment) =>
+    this.attachmentService.downloadAttachment(this.attachmentTaskId, attachment._id);
+
+  openViewer(attachment: Attachment) {
+    const index = this.attachments.findIndex((a) => a._id === attachment._id);
+    this.viewerIndex = index >= 0 ? index : 0;
+    this.viewerOpen = true;
   }
 
   formatSize(bytes: number): string {

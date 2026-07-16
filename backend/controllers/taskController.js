@@ -1,17 +1,18 @@
 import Task from '../models/Task.js';
 import User from '../models/User.js';
 import AppError from '../utils/AppError.js';
+import { ROLE_RANK } from '../utils/access.js';
 
 const getTeamMemberIds = async (teamLeadId) => {
-  const members = await User.find({ teamLeadId, role: 'Employee' }).select('_id');
+  const members = await User.find({ teamLeadId, role: 'User' }).select('_id');
   return members.map((m) => m._id);
 };
 
 export const getTasks = async (req, res, next) => {
   try {
-    let filter = { parentTask: null };
+    let filter = { parentTask: null, organization: req.user.organization };
 
-    if (req.user.role === 'Employee') {
+    if (req.user.role === 'User') {
       filter.assignedTo = req.user._id;
     } else if (req.user.role === 'Team Lead') {
       const memberIds = await getTeamMemberIds(req.user._id);
@@ -34,9 +35,10 @@ export const getTaskById = async (req, res, next) => {
       .populate('createdBy', 'username email role')
       .populate('assignedTo', 'username email role');
 
-    if (!task) return next(new AppError('Task not found', 404));
+    if (!task || String(task.organization ?? '') !== String(req.user.organization ?? ''))
+      return next(new AppError('Task not found', 404));
 
-    if (req.user.role === 'Employee') {
+    if (req.user.role === 'User') {
       const isOwn =
         String(task.assignedTo._id) === String(req.user._id) ||
         String(task.createdBy._id) === String(req.user._id);
@@ -70,7 +72,7 @@ export const createTask = async (req, res, next) => {
       } else {
         resolvedAssignee = assignedTo || req.user._id;
       }
-    } else if (req.user.role === 'Manager') {
+    } else if (req.user.role === 'Manager' || req.user.role === 'Admin') {
       if (assignedTo) {
         const userExists = await User.findById(assignedTo);
         if (!userExists) return next(new AppError('Assigned user not found', 404));
@@ -84,6 +86,7 @@ export const createTask = async (req, res, next) => {
       createdBy: req.user._id,
       assignedTo: resolvedAssignee,
       parentTask: parentTask ?? null,
+      organization: req.user.organization,
     });
 
     const populated = await task.populate([
@@ -100,11 +103,12 @@ export const createTask = async (req, res, next) => {
 export const updateTask = async (req, res, next) => {
   try {
     const task = await Task.findById(req.params.id);
-    if (!task) return next(new AppError('Task not found', 404));
+    if (!task || String(task.organization ?? '') !== String(req.user.organization ?? ''))
+      return next(new AppError('Task not found', 404));
 
     const { title, description, status } = req.body;
 
-    if (req.user.role === 'Employee') {
+    if (req.user.role === 'User') {
       const isOwn =
         String(task.assignedTo) === String(req.user._id) ||
         String(task.createdBy) === String(req.user._id);
@@ -133,19 +137,18 @@ export const updateTask = async (req, res, next) => {
   }
 };
 
-const roleRank = { Manager: 3, 'Team Lead': 2, Employee: 1 };
-
 export const deleteTask = async (req, res, next) => {
   try {
     const task = await Task.findById(req.params.id).populate('createdBy', 'role');
-    if (!task) return next(new AppError('Task not found', 404));
+    if (!task || String(task.organization ?? '') !== String(req.user.organization ?? ''))
+      return next(new AppError('Task not found', 404));
 
     const userId = String(req.user._id);
     const creatorId = String(task.createdBy._id ?? task.createdBy);
     const isCreator = userId === creatorId;
     const creatorRole = task.createdBy.role;
-    const callerRank = roleRank[req.user.role] ?? 0;
-    const creatorRank = roleRank[creatorRole] ?? 0;
+    const callerRank = ROLE_RANK[req.user.role] ?? 0;
+    const creatorRank = ROLE_RANK[creatorRole] ?? 0;
 
     // Allow if: creator, or caller has a strictly higher role rank
     if (!isCreator && callerRank <= creatorRank) {
@@ -162,6 +165,10 @@ export const deleteTask = async (req, res, next) => {
 
 export const getSubtasks = async (req, res, next) => {
   try {
+    const parent = await Task.findById(req.params.id);
+    if (!parent || String(parent.organization ?? '') !== String(req.user.organization ?? ''))
+      return next(new AppError('Task not found', 404));
+
     const subtasks = await Task.find({ parentTask: req.params.id })
       .populate('createdBy', 'username email role')
       .populate('assignedTo', 'username email role');
@@ -178,6 +185,10 @@ export const reassignTask = async (req, res, next) => {
     const userExists = await User.findById(assignedTo);
     if (!userExists) return next(new AppError('User not found', 404));
 
+    const existingTask = await Task.findById(req.params.id);
+    if (!existingTask || String(existingTask.organization ?? '') !== String(req.user.organization ?? ''))
+      return next(new AppError('Task not found', 404));
+
     const task = await Task.findByIdAndUpdate(
       req.params.id,
       { assignedTo },
@@ -186,8 +197,6 @@ export const reassignTask = async (req, res, next) => {
       { path: 'createdBy', select: 'username email role' },
       { path: 'assignedTo', select: 'username email role' },
     ]);
-
-    if (!task) return next(new AppError('Task not found', 404));
 
     res.status(200).json({ message: 'Task reassigned', task });
   } catch (err) {

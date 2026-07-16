@@ -1104,9 +1104,10 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   roleIcon(role: string): string {
     const m: Record<string, string> = {
+      Admin: 'bi-shield-fill-check',
       Manager: 'bi-briefcase-fill',
       'Team Lead': 'bi-diagram-3-fill',
-      Employee: 'bi-person-fill',
+      User: 'bi-person-fill',
     };
     return m[role] ?? 'bi-person-fill';
   }

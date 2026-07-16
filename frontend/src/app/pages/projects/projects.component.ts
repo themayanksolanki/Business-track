@@ -2,18 +2,21 @@ import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/co
 import { Router } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import moment from 'moment';
+import dayjs from 'dayjs/esm';
 import { ProjectService } from '../../core/services/project.service';
+import { DepartmentService } from '../../core/services/department.service';
 import { Project } from '../../models/project.model';
+import { Department } from '../../models/department.model';
 import { DatePickerComponent } from '../../shared/date-picker/date-picker.component';
 import { TimePickerComponent } from '../../shared/time-picker/time-picker.component';
+import { ModalDirective } from '../../shared/modal.directive';
 
 export type ProjectsViewMode = 'cards' | 'table' | 'list';
 
 @Component({
   selector: 'app-projects',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule, DatePickerComponent, TimePickerComponent],
+  imports: [DatePipe, ReactiveFormsModule, DatePickerComponent, TimePickerComponent, ModalDirective],
   templateUrl: './projects.component.html',
   styleUrl: './projects.component.css',
 })
@@ -60,14 +63,18 @@ export class ProjectsComponent implements OnInit, OnDestroy {
   createEndDate: string | null = null;
   createEndTime: string | null = null;
 
+  departments: Department[] = [];
+
   constructor(
     private fb: FormBuilder,
     private projectService: ProjectService,
+    private departmentService: DepartmentService,
     private router: Router
   ) {
     this.createForm = this.fb.group({
       name: ['', Validators.required],
       description: [''],
+      department: [''],
     });
 
     const savedView = localStorage.getItem(this.VIEW_KEY);
@@ -78,6 +85,10 @@ export class ProjectsComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.loadCurrentView();
+    this.departmentService.getDepartments().subscribe({
+      next: (res) => (this.departments = res),
+      error: () => {},
+    });
   }
 
   ngOnDestroy() {
@@ -175,14 +186,14 @@ export class ProjectsComponent implements OnInit, OnDestroy {
   }
 
   formatRange(startDate: string | null, endDate: string | null): string {
-    const start = startDate ? moment(startDate).format('MMM D, YYYY') : null;
-    const end = endDate ? moment(endDate).format('MMM D, YYYY') : null;
+    const start = startDate ? dayjs(startDate).format('MMM D, YYYY') : null;
+    const end = endDate ? dayjs(endDate).format('MMM D, YYYY') : null;
     if (start && end) return `${start} – ${end}`;
     return start ?? end ?? '';
   }
 
   openCreate() {
-    this.createForm.reset({ name: '', description: '' });
+    this.createForm.reset({ name: '', description: '', department: '' });
     this.createStartDate = null;
     this.createStartTime = null;
     this.createEndDate = null;
@@ -198,7 +209,7 @@ export class ProjectsComponent implements OnInit, OnDestroy {
 
   private combineDateTime(date: string | null, time: string | null): string | null {
     if (!date) return null;
-    return moment(`${date} ${time || '00:00'}`, 'YYYY-MM-DD HH:mm').toISOString();
+    return dayjs(`${date} ${time || '00:00'}`, 'YYYY-MM-DD HH:mm').toISOString();
   }
 
   submitCreate() {
@@ -207,6 +218,7 @@ export class ProjectsComponent implements OnInit, OnDestroy {
     this.createError = '';
     const payload = {
       ...this.createForm.value,
+      department: this.createForm.value.department || null,
       startDate: this.combineDateTime(this.createStartDate, this.createStartTime),
       endDate: this.combineDateTime(this.createEndDate, this.createEndTime),
     };

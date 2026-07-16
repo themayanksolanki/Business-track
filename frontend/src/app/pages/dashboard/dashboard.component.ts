@@ -32,6 +32,7 @@ export class DashboardComponent implements OnInit {
   get todo() { return this.tasks.filter((t) => t.status === 'todo').length; }
   get pending() { return this.tasks.filter((t) => t.status === 'pending').length; }
   get completed() { return this.tasks.filter((t) => t.status === 'completed').length; }
+  get isAdmin() { return this.user?.role === 'Admin'; }
   get isManager() { return this.user?.role === 'Manager'; }
   get isTeamLead() { return this.user?.role === 'Team Lead'; }
 
@@ -49,9 +50,10 @@ export class DashboardComponent implements OnInit {
 
   get roleIcon(): string {
     const icons: Record<string, string> = {
+      Admin: 'bi-shield-fill-check',
       Manager: 'bi-briefcase-fill',
       'Team Lead': 'bi-diagram-3-fill',
-      Employee: 'bi-person-fill',
+      User: 'bi-person-fill',
     };
     return icons[this.user?.role ?? ''] ?? 'bi-person-fill';
   }

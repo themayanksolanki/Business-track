@@ -1,5 +1,5 @@
-import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
-import moment from 'moment';
+import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges, ElementRef, ViewChild } from '@angular/core';
+import dayjs from 'dayjs/esm';
 
 interface CalendarDay {
   iso: string;
@@ -15,7 +15,7 @@ interface CalendarDay {
   templateUrl: './date-picker.component.html',
   styleUrl: './date-picker.component.css',
 })
-export class DatePickerComponent implements OnChanges {
+export class DatePickerComponent implements OnChanges, OnDestroy {
   @Input() value: string | null = null; // 'YYYY-MM-DD'
   @Input() placeholder = 'Select date';
   @Input() min: string | null = null; // 'YYYY-MM-DD' — days before this are disabled
@@ -24,25 +24,40 @@ export class DatePickerComponent implements OnChanges {
 
   @Output() valueChange = new EventEmitter<string | null>();
 
+  @ViewChild('trigger') triggerRef!: ElementRef<HTMLElement>;
+
   open = false;
-  viewMonth = moment().startOf('month');
+  viewMonth = dayjs().startOf('month');
   weeks: CalendarDay[][] = [];
 
+  // Panel is position:fixed and its coords are computed from the trigger's
+  // viewport rect so it always escapes clipping ancestors (e.g. a scrollable
+  // modal body with overflow: hidden/auto) instead of being cut off.
+  panelTop = 0;
+  panelLeft: number | null = 0;
+  panelRight: number | null = null;
+
   readonly weekdayLabels = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+  private readonly reposition = () => this.updatePanelPosition();
 
   constructor() {
     this.buildCalendar();
   }
 
+  ngOnDestroy() {
+    this.removePositionListeners();
+  }
+
   ngOnChanges(changes: SimpleChanges) {
     if (changes['value']) {
-      this.viewMonth = (this.value ? moment(this.value, 'YYYY-MM-DD') : moment()).clone().startOf('month');
+      this.viewMonth = (this.value ? dayjs(this.value, 'YYYY-MM-DD') : dayjs()).startOf('month');
       this.buildCalendar();
     }
   }
 
   get displayLabel(): string {
-    return this.value ? moment(this.value, 'YYYY-MM-DD').format('MMM D, YYYY') : this.placeholder;
+    return this.value ? dayjs(this.value, 'YYYY-MM-DD').format('MMM D, YYYY') : this.placeholder;
   }
 
   get monthLabel(): string {
@@ -52,22 +67,27 @@ export class DatePickerComponent implements OnChanges {
   toggle() {
     this.open = !this.open;
     if (this.open) {
-      this.viewMonth = (this.value ? moment(this.value, 'YYYY-MM-DD') : moment()).clone().startOf('month');
+      this.viewMonth = (this.value ? dayjs(this.value, 'YYYY-MM-DD') : dayjs()).startOf('month');
       this.buildCalendar();
+      this.updatePanelPosition();
+      this.addPositionListeners();
+    } else {
+      this.removePositionListeners();
     }
   }
 
   close() {
     this.open = false;
+    this.removePositionListeners();
   }
 
   prevMonth() {
-    this.viewMonth = this.viewMonth.clone().subtract(1, 'month');
+    this.viewMonth = this.viewMonth.subtract(1, 'month');
     this.buildCalendar();
   }
 
   nextMonth() {
-    this.viewMonth = this.viewMonth.clone().add(1, 'month');
+    this.viewMonth = this.viewMonth.add(1, 'month');
     this.buildCalendar();
   }
 
@@ -78,13 +98,13 @@ export class DatePickerComponent implements OnChanges {
   selectDay(day: CalendarDay) {
     if (this.isDisabled(day.iso)) return;
     this.valueChange.emit(day.iso);
-    this.open = false;
+    this.close();
   }
 
   selectToday() {
     this.selectDay({
-      iso: moment().format('YYYY-MM-DD'),
-      label: moment().date(),
+      iso: dayjs().format('YYYY-MM-DD'),
+      label: dayjs().date(),
       inMonth: true,
       isToday: true,
       isSelected: false,
@@ -93,17 +113,43 @@ export class DatePickerComponent implements OnChanges {
 
   clear() {
     this.valueChange.emit(null);
-    this.open = false;
+    this.close();
+  }
+
+  private updatePanelPosition() {
+    if (!this.triggerRef) return;
+    const rect = this.triggerRef.nativeElement.getBoundingClientRect();
+    this.panelTop = rect.bottom + 6;
+    if (this.align === 'right') {
+      this.panelLeft = null;
+      this.panelRight = window.innerWidth - rect.right;
+    } else {
+      this.panelLeft = rect.left;
+      this.panelRight = null;
+    }
+  }
+
+  private addPositionListeners() {
+    // capture: true so scroll events from any scrollable ancestor (e.g. a
+    // modal body) are seen too — 'scroll' doesn't bubble, but it does fire
+    // during the capture phase on window.
+    window.addEventListener('scroll', this.reposition, true);
+    window.addEventListener('resize', this.reposition);
+  }
+
+  private removePositionListeners() {
+    window.removeEventListener('scroll', this.reposition, true);
+    window.removeEventListener('resize', this.reposition);
   }
 
   private buildCalendar() {
-    const startOfMonth = this.viewMonth.clone().startOf('month');
-    const gridStart = startOfMonth.clone().startOf('week');
-    const today = moment().format('YYYY-MM-DD');
+    const startOfMonth = this.viewMonth.startOf('month');
+    const gridStart = startOfMonth.startOf('week');
+    const today = dayjs().format('YYYY-MM-DD');
     const selected = this.value;
 
     const days: CalendarDay[] = [];
-    const cursor = gridStart.clone();
+    let cursor = gridStart;
     for (let i = 0; i < 42; i++) {
       const iso = cursor.format('YYYY-MM-DD');
       days.push({
@@ -113,7 +159,7 @@ export class DatePickerComponent implements OnChanges {
         isToday: iso === today,
         isSelected: iso === selected,
       });
-      cursor.add(1, 'day');
+      cursor = cursor.add(1, 'day');
     }
 
     this.weeks = [];

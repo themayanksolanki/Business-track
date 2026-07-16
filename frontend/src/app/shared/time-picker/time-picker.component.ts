@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter, ElementRef, ViewChild, AfterViewChecked } from '@angular/core';
-import moment from 'moment';
+import dayjs from 'dayjs/esm';
 
 interface TimeSlot {
   value: string; // 'HH:mm'
@@ -27,7 +27,7 @@ export class TimePickerComponent implements AfterViewChecked {
   readonly slots: TimeSlot[] = this.buildSlots();
 
   get displayLabel(): string {
-    return this.value ? moment(this.value, 'HH:mm').format('h:mm A') : this.placeholder;
+    return this.value ? dayjs(this.value, 'HH:mm').format('h:mm A') : this.placeholder;
   }
 
   toggle() {
@@ -59,10 +59,10 @@ export class TimePickerComponent implements AfterViewChecked {
 
   private buildSlots(): TimeSlot[] {
     const slots: TimeSlot[] = [];
-    const cursor = moment().startOf('day');
+    let cursor = dayjs().startOf('day');
     for (let i = 0; i < 48; i++) {
       slots.push({ value: cursor.format('HH:mm'), label: cursor.format('h:mm A') });
-      cursor.add(30, 'minutes');
+      cursor = cursor.add(30, 'minutes');
     }
     return slots;
   }

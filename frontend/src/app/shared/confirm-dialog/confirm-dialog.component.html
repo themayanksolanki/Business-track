@@ -1,6 +1,13 @@
-@if (open) {
-  <div class="cd-backdrop" (click)="cancelled.emit()">
-    <div class="cd-card" (click)="$event.stopPropagation()">
+<div
+  class="modal fade"
+  tabindex="-1"
+  aria-hidden="true"
+  [appModal]="open"
+  [appModalOptions]="{ backdrop: 'static' }"
+  (appModalClosed)="cancelled.emit()"
+>
+  <div class="modal-dialog modal-dialog-centered cd-dialog">
+    <div class="modal-content cd-content" (click)="$event.stopPropagation()">
 
       <!-- Icon -->
       <div class="cd-icon-wrap">
@@ -13,10 +20,10 @@
 
       <!-- Actions -->
       <div class="cd-actions">
-        <button class="cd-btn cd-btn-cancel" (click)="cancelled.emit()" [disabled]="loading">
+        <button type="button" class="cd-btn cd-btn-cancel" data-bs-dismiss="modal" [disabled]="loading">
           Cancel
         </button>
-        <button class="cd-btn cd-btn-confirm" (click)="confirmed.emit()" [disabled]="loading">
+        <button type="button" class="cd-btn cd-btn-confirm" (click)="confirmed.emit()" [disabled]="loading">
           @if (loading) {
             <span class="spinner-border spinner-border-sm me-2"></span>
           }
@@ -26,4 +33,4 @@
 
     </div>
   </div>
-}
+</div>

@@ -20,8 +20,14 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['Manager', 'Team Lead', 'Employee'],
+      enum: ['Admin', 'Manager', 'Team Lead', 'User'],
       required: true,
+    },
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
+      default: null,
+      index: true,
     },
     isActive: {
       type: Boolean,
@@ -51,6 +57,7 @@ const userSchema = new mongoose.Schema(
     },
     blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     mutedContacts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    departments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Department' }],
   },
   { timestamps: true }
 );

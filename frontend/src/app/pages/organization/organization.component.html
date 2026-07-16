@@ -1,0 +1,161 @@
+<div class="page">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Organization</h1>
+  </div>
+
+  @if (error) {
+    <div class="alert alert-danger py-2">{{ error }}</div>
+  }
+
+  @if (loading) {
+    <div class="text-center py-5 text-muted">
+      <span class="spinner-border spinner-border-sm me-2"></span>Loading organization…
+    </div>
+  } @else if (organization) {
+
+    <!-- Org info card -->
+    <div class="org-card mb-4">
+      @if (!editingOrg) {
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h4 class="mb-1">{{ organization.name }}</h4>
+            <p class="text-muted mb-0"><i class="bi bi-globe me-1"></i>{{ organization.emailDomain }}</p>
+          </div>
+          @if (isAdmin) {
+            <button class="btn btn-light btn-sm" (click)="startEditOrg()">
+              <i class="bi bi-pencil me-1"></i>Edit
+            </button>
+          }
+        </div>
+      } @else {
+        @if (orgSaveError) {
+          <div class="alert alert-danger py-2">{{ orgSaveError }}</div>
+        }
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="field-label">Organization name</label>
+            <input type="text" class="form-control field-input" [(ngModel)]="orgName" name="orgName" />
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="field-label">Email domain</label>
+            <input type="text" class="form-control field-input" [(ngModel)]="orgDomain" name="orgDomain" />
+          </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-3">
+          <button type="button" class="btn btn-light btn-sm" (click)="cancelEditOrg()">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" [disabled]="orgSaveLoading" (click)="saveOrg()">
+            @if (orgSaveLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+            Save
+          </button>
+        </div>
+      }
+    </div>
+
+    <div class="org-grid">
+      <!-- Members -->
+      <div class="org-section">
+        <h6 class="text-muted mb-3">Members ({{ members.length }})</h6>
+        @if (membersLoading) {
+          <div class="text-center py-4 text-muted">
+            <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+          </div>
+        } @else if (members.length === 0) {
+          <p class="text-muted small mb-0">No members yet.</p>
+        } @else {
+          <div class="org-member-list">
+            @for (member of members; track member._id) {
+              <div class="org-member-row">
+                <span class="org-member-avatar" [class]="'role-' + roleClass(member.role)">
+                  {{ member.username[0].toUpperCase() }}
+                </span>
+                <div class="org-member-info">
+                  <span class="org-member-name">{{ member.username }}</span>
+                  <span class="org-member-email">{{ member.email }}</span>
+                </div>
+                <span class="org-role-badge" [class]="'role-' + roleClass(member.role)">{{ member.role }}</span>
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Invite + pending invites -->
+      @if (invitableRoles.length > 0) {
+        <div class="org-section">
+          <h6 class="text-muted mb-3">Invite someone</h6>
+
+          @if (inviteError) {
+            <div class="alert alert-danger py-2">{{ inviteError }}</div>
+          }
+          @if (inviteSuccess) {
+            <div class="alert alert-success py-2">{{ inviteSuccess }}</div>
+          }
+
+          <form (ngSubmit)="submitInvite()">
+            <div class="mb-3">
+              <label class="field-label">Email</label>
+              <input type="email" class="form-control field-input" [(ngModel)]="inviteEmail" name="inviteEmail"
+                     placeholder="person@yourcompany.com" required />
+            </div>
+
+            <div class="mb-3">
+              <label class="field-label">Role</label>
+              <select class="form-select field-input" [(ngModel)]="inviteRole" name="inviteRole">
+                @for (r of invitableRoles; track r) {
+                  <option [value]="r">{{ r }}</option>
+                }
+              </select>
+            </div>
+
+            @if (departments.length > 0) {
+              <div class="mb-3">
+                <label class="field-label">Departments (optional)</label>
+                <div class="org-dept-checks">
+                  @for (dept of departments; track dept._id) {
+                    <label class="org-dept-check">
+                      <input type="checkbox"
+                             [checked]="isInviteDepartmentSelected(dept._id)"
+                             (change)="toggleInviteDepartment(dept._id, $any($event.target).checked)" />
+                      {{ dept.name }}
+                    </label>
+                  }
+                </div>
+              </div>
+            }
+
+            <button type="submit" class="btn btn-primary btn-sm" [disabled]="inviteLoading">
+              @if (inviteLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+              Send Invite
+            </button>
+          </form>
+
+          <hr class="my-4" />
+
+          <h6 class="text-muted mb-3">Pending invites ({{ invites.length }})</h6>
+          @if (invitesLoading) {
+            <div class="text-center py-3 text-muted">
+              <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+            </div>
+          } @else if (invites.length === 0) {
+            <p class="text-muted small mb-0">No pending invites.</p>
+          } @else {
+            <div class="org-invite-list">
+              @for (invite of invites; track invite._id) {
+                <div class="org-invite-row">
+                  <div class="org-member-info">
+                    <span class="org-member-name">{{ invite.email }}</span>
+                    <span class="org-member-email">Invited as {{ invite.role }}</span>
+                  </div>
+                  <button class="btn btn-light btn-sm" (click)="revokeInvite(invite)" title="Revoke invite">
+                    <i class="bi bi-x-lg"></i>
+                  </button>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+  }
+</div>

@@ -1,9 +1,16 @@
+import Project from '../models/Project.js';
 import ProjectItem from '../models/ProjectItem.js';
 import Comment from '../models/Comment.js';
 import AppError from '../utils/AppError.js';
+import { canAccessProject } from './projectController.js';
 
 export const getComments = async (req, res, next) => {
   try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
     const item = await ProjectItem.findOne({ _id: req.params.itemId, project: req.params.projectId });
     if (!item) return next(new AppError('Item not found', 404));
 
@@ -19,6 +26,11 @@ export const getComments = async (req, res, next) => {
 
 export const createComment = async (req, res, next) => {
   try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
     const item = await ProjectItem.findOne({ _id: req.params.itemId, project: req.params.projectId });
     if (!item) return next(new AppError('Item not found', 404));
 
@@ -37,6 +49,11 @@ export const createComment = async (req, res, next) => {
 
 export const deleteComment = async (req, res, next) => {
   try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
     const comment = await Comment.findOne({
       _id: req.params.commentId,
       projectItem: req.params.itemId,

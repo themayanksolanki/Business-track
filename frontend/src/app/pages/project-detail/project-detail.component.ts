@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
-import moment from 'moment';
+import dayjs from 'dayjs/esm';
 import { ProjectService } from '../../core/services/project.service';
 import { UserService } from '../../core/services/user.service';
 import { Project, ProjectPriority } from '../../models/project.model';
@@ -15,6 +15,7 @@ import { KanbanBoardComponent } from '../../shared/kanban-board/kanban-board.com
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 import { DatePickerComponent } from '../../shared/date-picker/date-picker.component';
 import { TimePickerComponent } from '../../shared/time-picker/time-picker.component';
+import { AutoGrowDirective } from '../../shared/auto-grow.directive';
 
 @Component({
   selector: 'app-project-detail',
@@ -30,6 +31,7 @@ import { TimePickerComponent } from '../../shared/time-picker/time-picker.compon
     ConfirmDialogComponent,
     DatePickerComponent,
     TimePickerComponent,
+    AutoGrowDirective,
   ],
   templateUrl: './project-detail.component.html',
   styleUrl: './project-detail.component.css',
@@ -113,10 +115,10 @@ export class ProjectDetailComponent implements OnInit {
         this.project = project;
         this.editName = project.name;
         this.editDescription = project.description;
-        this.startDateStr = project.startDate ? moment(project.startDate).format('YYYY-MM-DD') : null;
-        this.startTimeStr = project.startDate ? moment(project.startDate).format('HH:mm') : null;
-        this.endDateStr = project.endDate ? moment(project.endDate).format('YYYY-MM-DD') : null;
-        this.endTimeStr = project.endDate ? moment(project.endDate).format('HH:mm') : null;
+        this.startDateStr = project.startDate ? dayjs(project.startDate).format('YYYY-MM-DD') : null;
+        this.startTimeStr = project.startDate ? dayjs(project.startDate).format('HH:mm') : null;
+        this.endDateStr = project.endDate ? dayjs(project.endDate).format('YYYY-MM-DD') : null;
+        this.endTimeStr = project.endDate ? dayjs(project.endDate).format('HH:mm') : null;
         this.loading = false;
       },
       error: (err) => {
@@ -189,7 +191,7 @@ export class ProjectDetailComponent implements OnInit {
 
   private combineDateTime(date: string | null, time: string | null): string | null {
     if (!date) return null;
-    return moment(`${date} ${time || '00:00'}`, 'YYYY-MM-DD HH:mm').toISOString();
+    return dayjs(`${date} ${time || '00:00'}`, 'YYYY-MM-DD HH:mm').toISOString();
   }
 
   onStartDateChange(date: string | null) {
@@ -255,6 +257,12 @@ export class ProjectDetailComponent implements OnInit {
   cancelAddGroup() {
     this.addGroupOpen = false;
     this.addGroupError = '';
+  }
+
+  onAddGroupKeydown(event: KeyboardEvent) {
+    if (event.key !== 'Enter' || event.shiftKey) return;
+    event.preventDefault();
+    this.submitAddGroup();
   }
 
   submitAddGroup() {

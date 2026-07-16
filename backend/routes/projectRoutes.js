@@ -5,6 +5,7 @@ import {
   validateProject,
   validateProjectItem,
   validateReorder,
+  validateMove,
   validateComment,
   validateProjectId,
   validateItemId,
@@ -25,6 +26,7 @@ import {
   updateItem,
   deleteItem,
   reorderItems,
+  moveItem,
 } from '../controllers/projectItemController.js';
 import {
   getComments,
@@ -50,6 +52,14 @@ router.get('/:projectId/items', protect, validateProjectId, getItems);
 router.post('/:projectId/items', protect, validateProjectId, validateProjectItem, createItem);
 router.patch('/:projectId/items/reorder', protect, validateProjectId, validateReorder, reorderItems);
 router.get('/:projectId/items/:itemId', protect, validateProjectId, validateItemId, getItemById);
+router.patch(
+  '/:projectId/items/:itemId/move',
+  protect,
+  validateProjectId,
+  validateItemId,
+  validateMove,
+  moveItem
+);
 router.put(
   '/:projectId/items/:itemId',
   protect,

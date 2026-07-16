@@ -36,14 +36,14 @@ export class TaskFormComponent implements OnInit {
   ngOnInit() {
     const role = this.auth.getUser()?.role;
 
-    if (role === 'Manager') {
+    if (role === 'Admin' || role === 'Manager') {
       this.userService.getAllUsers().subscribe({ next: (u) => (this.assignableUsers = u) });
     } else if (role === 'Team Lead') {
       this.userService.getTeamMembers().subscribe({ next: (u) => (this.assignableUsers = u) });
     }
   }
 
-  get isEmployee() { return this.auth.getUser()?.role === 'Employee'; }
+  get isUser() { return this.auth.getUser()?.role === 'User'; }
 
   get selectedAssigneeLabel() {
     const id = this.form.get('assignedTo')?.value;

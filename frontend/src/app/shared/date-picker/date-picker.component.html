@@ -1,5 +1,5 @@
 <div class="picker">
-  <button type="button" class="picker-trigger" [class.picker-trigger-filled]="value" [class.picker-trigger-compact]="compact" (click)="toggle()">
+  <button #trigger type="button" class="picker-trigger" [class.picker-trigger-filled]="value" [class.picker-trigger-compact]="compact" (click)="toggle()">
     <svg class="picker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <rect x="3.5" y="5" width="17" height="16" rx="2.5"></rect>
       <path d="M3.5 9.5h17"></path>
@@ -16,7 +16,7 @@
 
   @if (open) {
     <div class="picker-backdrop" (click)="close()"></div>
-    <div class="picker-panel" [class.picker-panel-right]="align === 'right'" (click)="$event.stopPropagation()">
+    <div class="picker-panel" [style.top.px]="panelTop" [style.left.px]="panelLeft" [style.right.px]="panelRight" (click)="$event.stopPropagation()">
       <div class="picker-panel-header">
         <button type="button" class="picker-nav-btn" (click)="prevMonth()" title="Previous month">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>

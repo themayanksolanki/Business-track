@@ -31,34 +31,46 @@ export const getContacts = async (req, res, next) => {
     const users = await User.find({ _id: { $ne: myId }, isActive: true })
       .select('username profileImage role');
 
-    const contacts = await Promise.all(
-      users.map(async (user) => {
-        const uidStr = user._id.toString();
-        const lastMessage = await Message.findOne({
-          $or: [
-            { sender: myId, receiver: user._id },
-            { sender: user._id, receiver: myId },
-          ],
+    const contactStats = await Message.aggregate([
+      {
+        $match: {
+          $or: [{ sender: myId }, { receiver: myId }],
           deletedFor: { $ne: myId },
-        }).sort({ createdAt: -1 });
+        },
+      },
+      {
+        $addFields: {
+          otherUser: { $cond: [{ $eq: ['$sender', myId] }, '$receiver', '$sender'] },
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: '$otherUser',
+          lastMessage: { $first: '$$ROOT' },
+          unreadCount: {
+            $sum: {
+              $cond: [{ $and: [{ $eq: ['$receiver', myId] }, { $eq: ['$read', false] }] }, 1, 0],
+            },
+          },
+        },
+      },
+    ]);
+    const statsByUser = new Map(contactStats.map((s) => [String(s._id), s]));
 
-        const unreadCount = await Message.countDocuments({
-          sender: user._id,
-          receiver: myId,
-          read: false,
-          deletedFor: { $ne: myId },
-        });
+    const contacts = users.map((user) => {
+      const uidStr = user._id.toString();
+      const stats = statsByUser.get(uidStr);
 
-        return {
-          user,
-          lastMessage,
-          unreadCount,
-          isBlocked: myBlockedSet.has(uidStr),
-          blockedByThem: blockedByThemSet.has(uidStr),
-          isMuted: myMutedSet.has(uidStr),
-        };
-      })
-    );
+      return {
+        user,
+        lastMessage: stats?.lastMessage ?? null,
+        unreadCount: stats?.unreadCount ?? 0,
+        isBlocked: myBlockedSet.has(uidStr),
+        blockedByThem: blockedByThemSet.has(uidStr),
+        isMuted: myMutedSet.has(uidStr),
+      };
+    });
 
     // Sort: contacts with messages first (by last message time), then others
     contacts.sort((a, b) => {

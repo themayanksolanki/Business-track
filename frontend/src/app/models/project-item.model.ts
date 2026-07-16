@@ -66,7 +66,7 @@ export function computeCompletionRollup(nodes: ProjectTreeNode[]): CompletionRol
   let total = 0;
   const walk = (list: ProjectTreeNode[]) => {
     for (const n of list) {
-      if (n.children.length === 0) {
+      if (n.type !== 'group' && n.children.length === 0) {
         total++;
         if (n.status === 'completed') completed++;
         else if (n.status === 'doing') doing++;
@@ -87,7 +87,7 @@ export function flattenLeaves(nodes: ProjectTreeNode[]): ProjectTreeNode[] {
   const leaves: ProjectTreeNode[] = [];
   const walk = (list: ProjectTreeNode[]) => {
     for (const n of list) {
-      if (n.children.length === 0) leaves.push(n);
+      if (n.type !== 'group' && n.children.length === 0) leaves.push(n);
       else walk(n.children);
     }
   };
