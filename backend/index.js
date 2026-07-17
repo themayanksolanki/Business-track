@@ -1,10 +1,10 @@
+import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -17,11 +17,11 @@ import chatRoutes from './routes/chatRoutes.js';
 import projectRoutes from './routes/projectRoutes.js';
 import departmentRoutes from './routes/departmentRoutes.js';
 import organizationRoutes from './routes/organizationRoutes.js';
+import tagRoutes from './routes/tagRoutes.js';
+import categoryRoutes from './routes/categoryRoutes.js';
 import errorMiddleware from './middleware/errorMiddleware.js';
 import { authLimiter, globalLimiter } from './utils/utils.js';
 import { setupSocket } from './socket.js';
-
-dotenv.config();
 
 const app = express();
 const server = createServer(app);
@@ -42,7 +42,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-app.use(globalLimiter);
+// app.use(globalLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
@@ -55,6 +55,8 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/organizations', organizationRoutes);
+app.use('/api/tags', tagRoutes);
+app.use('/api/categories', categoryRoutes);
 
 app.use(errorMiddleware);
 

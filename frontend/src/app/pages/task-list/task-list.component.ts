@@ -1,23 +1,36 @@
 import { Component, OnInit } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { FormsModule } from '@angular/forms';
 import { TaskService } from '../../core/services/task.service';
 import { UserService } from '../../core/services/user.service';
 import { AuthService } from '../../core/services/auth.service';
 import { AttachmentService } from '../../core/services/attachment.service';
-import { Task, TaskStatus } from '../../models/task.model';
+import { Task, TaskStatus, CreateTaskPayload, UpdateTaskPayload } from '../../models/task.model';
 import { User } from '../../models/user.model';
+import { Tag } from '../../models/tag.model';
 import { Attachment } from '../../models/attachment.model';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 import { NotificationService } from '../../shared/notification.service';
-import { ModalDirective } from '../../shared/modal.directive';
 import { AttachmentViewerComponent } from '../../shared/attachment-viewer/attachment-viewer.component';
+import { TaskFormModalComponent } from '../../shared/task-form-modal/task-form-modal.component';
+import { TaskDetailModalComponent } from '../../shared/task-detail-modal/task-detail-modal.component';
+import { TaskEditModalComponent, TaskEditInitial } from '../../shared/task-edit-modal/task-edit-modal.component';
+import { TaskAttachmentsModalComponent } from '../../shared/task-attachments-modal/task-attachments-modal.component';
+import { TagService } from '../../core/services/tag.service';
+import { TagPillComponent } from '../../shared/tag-pill/tag-pill.component';
 
 @Component({
   selector: 'app-task-list',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule, FormsModule, ConfirmDialogComponent, ModalDirective, AttachmentViewerComponent],
+  imports: [
+    DatePipe,
+    ConfirmDialogComponent,
+    AttachmentViewerComponent,
+    TaskFormModalComponent,
+    TaskDetailModalComponent,
+    TaskEditModalComponent,
+    TaskAttachmentsModalComponent,
+    TagPillComponent,
+  ],
   templateUrl: './task-list.component.html',
   styleUrl: './task-list.component.css',
 })
@@ -91,9 +104,6 @@ export class TaskListComponent implements OnInit {
     this.currentPage = page;
   }
 
-  reassignTaskId = '';
-  reassignUserId = '';
-
   confirmOpen = false;
   confirmTitle = '';
   confirmMessage = '';
@@ -102,20 +112,19 @@ export class TaskListComponent implements OnInit {
 
   selectedTask: Task | null = null;
   subtasks: Task[] = [];
-  subtaskTitle = '';
   subtaskLoading = false;
   subtaskError = '';
 
-  editTaskId = '';
-  editForm: FormGroup;
+  editTask: Task | null = null;
   editLoading = false;
   editError = '';
 
   createOpen = false;
-  createForm: FormGroup;
   createLoading = false;
   createError = '';
   createAssignees: User[] = [];
+
+  allTags: Tag[] = [];
 
   attachmentTaskId = '';
   attachmentTask: Task | null = null;
@@ -129,24 +138,13 @@ export class TaskListComponent implements OnInit {
   viewerIndex = 0;
 
   constructor(
-    private fb: FormBuilder,
     private taskService: TaskService,
     private userService: UserService,
     private attachmentService: AttachmentService,
+    private tagService: TagService,
     private notifications: NotificationService,
     public auth: AuthService
-  ) {
-    this.editForm = this.fb.group({
-      title: ['', Validators.required],
-      description: [''],
-      status: ['todo'],
-    });
-    this.createForm = this.fb.group({
-      title: ['', Validators.required],
-      description: [''],
-      assignedTo: [''],
-    });
-  }
+  ) {}
 
   ngOnInit() {
     this.load();
@@ -157,6 +155,11 @@ export class TaskListComponent implements OnInit {
     } else if (this.isTeamLead) {
       this.userService.getTeamMembers().subscribe({ next: (u) => (this.createAssignees = u) });
     }
+    this.tagService.getTags().subscribe({ next: (t) => (this.allTags = t) });
+  }
+
+  onTagCreated(tag: Tag) {
+    this.allTags = [...this.allTags, tag];
   }
 
   load() {
@@ -177,7 +180,9 @@ export class TaskListComponent implements OnInit {
     this.confirmOpen = true;
   }
 
-  deleteSubtask(subId: string, parentId: string) {
+  deleteSubtask(subId: string) {
+    if (!this.selectedTask) return;
+    const parentId = this.selectedTask._id;
     const sub = this.subtasks.find((s) => s._id === subId);
     this.pendingDelete = { id: subId, parentId };
     this.confirmTitle = 'Delete Subtask';
@@ -219,40 +224,36 @@ export class TaskListComponent implements OnInit {
   }
 
   openEdit(task: Task) {
-    this.editTaskId = task._id;
+    this.editTask = task;
     this.editError = '';
-    this.editForm.patchValue({
-      title: task.title,
-      description: task.description,
-      status: task.status,
-    });
     this.selectedTask = null;
     this.subtasks = [];
-    this.subtaskTitle = '';
   }
 
   closeEdit() {
-    this.editTaskId = '';
+    this.editTask = null;
     this.editError = '';
   }
 
-  get editStatusLabel(): string {
-    const labels: Record<string, string> = { todo: 'Todo', pending: 'Pending', completed: 'Completed' };
-    return labels[this.editForm.get('status')?.value] ?? 'Todo';
+  get editInitial(): TaskEditInitial | null {
+    if (!this.editTask) return null;
+    return {
+      title: this.editTask.title,
+      description: this.editTask.description,
+      status: this.editTask.status,
+      tags: this.editTask.tags,
+    };
   }
 
-  selectEditStatus(status: string) {
-    this.editForm.get('status')?.setValue(status);
-  }
-
-  submitEdit() {
-    if (this.editForm.invalid) return;
+  submitEdit(payload: UpdateTaskPayload) {
+    if (!this.editTask) return;
+    const taskId = this.editTask._id;
     this.editLoading = true;
     this.editError = '';
-    this.taskService.updateTask(this.editTaskId, this.editForm.value).subscribe({
+    this.taskService.updateTask(taskId, payload).subscribe({
       next: (res) => {
         this.editLoading = false;
-        const existing = this.tasks.find((t) => t._id === this.editTaskId);
+        const existing = this.tasks.find((t) => t._id === taskId);
         if (existing) Object.assign(existing, res.task);
         this.recomputeSortedTasks();
         this.closeEdit();
@@ -265,33 +266,13 @@ export class TaskListComponent implements OnInit {
     });
   }
 
-  openReassign(taskId: string) {
-    this.reassignTaskId = taskId;
-    this.reassignUserId = '';
-  }
-
-  closeReassign() {
-    this.reassignTaskId = '';
-  }
-
-  get reassignUserLabel() {
-    if (!this.reassignUserId) return '-- Select User --';
-    const u = this.users.find((u) => (u.id ?? u._id) === this.reassignUserId);
-    return u ? `${u.username} (${u.role})` : '-- Select User --';
-  }
-
-  selectReassignUser(user: User) {
-    this.reassignUserId = user.id ?? user._id ?? '';
-  }
-
-  confirmReassign() {
-    if (!this.reassignUserId) return;
-    const taskId = this.reassignTaskId;
-    this.taskService.reassignTask(taskId, this.reassignUserId).subscribe({
+  reassign(task: Task, user: User) {
+    const userId = (user._id ?? user.id) as string;
+    if ((task.assignedTo._id ?? task.assignedTo.id) === userId) return;
+    this.taskService.reassignTask(task._id, userId).subscribe({
       next: (res) => {
-        const existing = this.tasks.find((t) => t._id === taskId);
+        const existing = this.tasks.find((t) => t._id === task._id);
         if (existing) Object.assign(existing, res.task);
-        this.reassignTaskId = '';
         this.notifications.success('Task reassigned');
       },
       error: (err) => {
@@ -303,7 +284,6 @@ export class TaskListComponent implements OnInit {
   openDetail(task: Task) {
     this.selectedTask = task;
     this.subtasks = [];
-    this.subtaskTitle = '';
     this.subtaskError = '';
     this.loadSubtasks(task._id);
   }
@@ -311,7 +291,6 @@ export class TaskListComponent implements OnInit {
   closeDetail() {
     this.selectedTask = null;
     this.subtasks = [];
-    this.subtaskTitle = '';
     this.subtaskError = '';
   }
 
@@ -321,16 +300,15 @@ export class TaskListComponent implements OnInit {
     });
   }
 
-  addSubtask(parent: Task) {
-    const title = this.subtaskTitle.trim();
-    if (!title) return;
+  addSubtask(title: string) {
+    const parent = this.selectedTask;
+    if (!parent) return;
     this.subtaskLoading = true;
     this.subtaskError = '';
     const assignedToId = (parent.assignedTo as User)._id ?? (parent.assignedTo as User).id;
     this.taskService.createTask({ title, parentTask: parent._id, assignedTo: assignedToId }).subscribe({
       next: () => {
         this.subtaskLoading = false;
-        this.subtaskTitle = '';
         this.loadSubtasks(parent._id);
       },
       error: (err) => {
@@ -339,7 +317,6 @@ export class TaskListComponent implements OnInit {
       },
     });
   }
-
 
   setStatus(task: Task, status: TaskStatus) {
     if (task.status === status) return;
@@ -379,19 +356,19 @@ export class TaskListComponent implements OnInit {
     return role.toLowerCase().replace(' ', '-');
   }
 
-  get createAssignee(): User | null {
-    const id = this.createForm.get('assignedTo')?.value;
-    if (!id) return null;
-    return this.createAssignees.find((u) => (u.id ?? u._id) === id) ?? null;
+  private brokenAvatarIds = new Set<string>();
+
+  avatarUrl(user: User): string | null {
+    const id = (user._id ?? user.id) as string;
+    if (this.brokenAvatarIds.has(id)) return null;
+    return this.auth.avatarUrl(user);
   }
 
-  get reassignUser(): User | null {
-    if (!this.reassignUserId) return null;
-    return this.users.find((u) => (u.id ?? u._id) === this.reassignUserId) ?? null;
+  onAvatarError(user: User) {
+    this.brokenAvatarIds.add((user._id ?? user.id) as string);
   }
 
   openCreate() {
-    this.createForm.reset({ title: '', description: '', assignedTo: '' });
     this.createError = '';
     this.createOpen = true;
   }
@@ -401,23 +378,9 @@ export class TaskListComponent implements OnInit {
     this.createError = '';
   }
 
-  get createAssigneeLabel(): string {
-    const id = this.createForm.get('assignedTo')?.value;
-    if (!id) return '-- Assign to self --';
-    const u = this.createAssignees.find((u) => (u.id ?? u._id) === id);
-    return u ? `${u.username} (${u.role})` : '-- Assign to self --';
-  }
-
-  selectCreateAssignee(user: User | null) {
-    this.createForm.get('assignedTo')?.setValue(user ? (user.id ?? user._id ?? '') : '');
-  }
-
-  submitCreate() {
-    if (this.createForm.invalid) return;
+  submitCreate(payload: CreateTaskPayload) {
     this.createLoading = true;
     this.createError = '';
-    const payload = { ...this.createForm.value };
-    if (!payload.assignedTo) delete payload.assignedTo;
     this.taskService.createTask(payload).subscribe({
       next: (res) => {
         this.createLoading = false;
@@ -463,10 +426,8 @@ export class TaskListComponent implements OnInit {
     });
   }
 
-  onFileSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file || !this.attachmentTaskId) return;
+  onFileSelected(file: File) {
+    if (!this.attachmentTaskId) return;
 
     this.attachmentUploading = true;
     this.attachmentUploadError = '';
@@ -474,12 +435,10 @@ export class TaskListComponent implements OnInit {
       next: (res) => {
         this.attachments = [res.attachment, ...this.attachments];
         this.attachmentUploading = false;
-        input.value = '';
       },
       error: (err) => {
         this.attachmentUploadError = err.error?.message || 'Failed to upload file';
         this.attachmentUploading = false;
-        input.value = '';
       },
     });
   }
@@ -510,22 +469,5 @@ export class TaskListComponent implements OnInit {
     const index = this.attachments.findIndex((a) => a._id === attachment._id);
     this.viewerIndex = index >= 0 ? index : 0;
     this.viewerOpen = true;
-  }
-
-  formatSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
-  fileIcon(mimeType: string): string {
-    if (mimeType.startsWith('image/')) return 'bi-file-earmark-image';
-    if (mimeType === 'application/pdf') return 'bi-file-earmark-pdf';
-    if (mimeType.includes('zip')) return 'bi-file-earmark-zip';
-    if (mimeType.includes('word')) return 'bi-file-earmark-word';
-    if (mimeType.includes('sheet') || mimeType.includes('excel')) return 'bi-file-earmark-spreadsheet';
-    if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return 'bi-file-earmark-slides';
-    if (mimeType.startsWith('text/')) return 'bi-file-earmark-text';
-    return 'bi-file-earmark';
   }
 }

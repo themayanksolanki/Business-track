@@ -61,3 +61,7 @@ body { background: var(--bg-page); }
   background-color: #ede9fe;
   color: #5b21b6;
 }
+
+.cursor-pointer {
+  cursor: pointer;
+}

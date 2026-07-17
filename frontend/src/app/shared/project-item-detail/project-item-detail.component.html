@@ -153,7 +153,7 @@
                     } @else {
                       <i class="bi bi-cloud-arrow-up me-2"></i>Upload File
                     }
-                    <input type="file" hidden (change)="onFileSelected($event)" [disabled]="attachmentUploading" />
+                    <input type="file" hidden [accept]="acceptedFileTypes" (change)="onFileSelected($event)" [disabled]="attachmentUploading" />
                   </label>
                 </div>
                 @if (attachmentUploadError) {
@@ -215,9 +215,14 @@
                   <button type="button" class="assign-trigger assign-trigger-sm dropdown-toggle"
                           data-bs-toggle="dropdown">
                     @if (item.assignedTo) {
-                      <span class="assign-avatar" [class]="'avatar-' + roleClass(item.assignedTo.role)">
-                        {{ item.assignedTo.username[0].toUpperCase() }}
-                      </span>
+                      @if (avatarUrl(item.assignedTo)) {
+                        <img class="assign-avatar-img" [src]="avatarUrl(item.assignedTo)!" [alt]="item.assignedTo.username"
+                             (error)="onAvatarError(item.assignedTo)" />
+                      } @else {
+                        <span class="assign-avatar" [class]="'avatar-' + roleClass(item.assignedTo.role)">
+                          {{ item.assignedTo.username[0].toUpperCase() }}
+                        </span>
+                      }
                       <span class="assign-trigger-name">{{ item.assignedTo.username }}</span>
                     } @else {
                       <span class="assign-avatar avatar-self"><i class="bi bi-person"></i></span>
@@ -235,9 +240,14 @@
                     @for (u of users; track u.id) {
                       <li>
                         <a class="assign-item" (click)="selectAssignee(u)">
-                          <span class="assign-avatar" [class]="'avatar-' + roleClass(u.role)">
-                            {{ u.username[0].toUpperCase() }}
-                          </span>
+                          @if (avatarUrl(u)) {
+                            <img class="assign-avatar-img" [src]="avatarUrl(u)!" [alt]="u.username"
+                                 (error)="onAvatarError(u)" />
+                          } @else {
+                            <span class="assign-avatar" [class]="'avatar-' + roleClass(u.role)">
+                              {{ u.username[0].toUpperCase() }}
+                            </span>
+                          }
                           <span class="assign-item-name">{{ u.username }}</span>
                         </a>
                       </li>
@@ -248,11 +258,26 @@
             }
 
             <div class="sidebar-field">
+              <span class="detail-meta-label"><i class="bi bi-tags me-1"></i>Tags</span>
+              <app-tag-picker
+                [allTags]="allTags"
+                [selectedTags]="item.tags"
+                (tagsChange)="selectTags($event)"
+                (tagCreated)="onTagCreated($event)">
+              </app-tag-picker>
+            </div>
+
+            <div class="sidebar-field">
               <span class="detail-meta-label"><i class="bi bi-person-workspace me-1"></i>Created By</span>
               <div class="detail-meta-val">
-                <span class="assign-avatar" [class]="'avatar-' + roleClass(item.createdBy.role)">
-                  {{ item.createdBy.username[0].toUpperCase() }}
-                </span>
+                @if (avatarUrl(item.createdBy)) {
+                  <img class="assign-avatar-img" [src]="avatarUrl(item.createdBy)!" [alt]="item.createdBy.username"
+                       (error)="onAvatarError(item.createdBy)" />
+                } @else {
+                  <span class="assign-avatar" [class]="'avatar-' + roleClass(item.createdBy.role)">
+                    {{ item.createdBy.username[0].toUpperCase() }}
+                  </span>
+                }
                 {{ item.createdBy.username }}
               </div>
             </div>

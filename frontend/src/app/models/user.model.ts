@@ -8,6 +8,7 @@ export interface Organization {
   name: string;
   emailDomain: string;
   createdBy?: string;
+  updatedBy?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -15,6 +16,7 @@ export interface Organization {
 export interface User {
   id: string;
   _id?: string;
+  numericId?: number | null;
   username: string;
   email: string;
   role: Role;
@@ -33,4 +35,12 @@ export interface AuthResponse {
   token: string;
   refreshToken?: string;
   user: User;
+}
+
+export interface PaginatedUsers {
+  users: User[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }

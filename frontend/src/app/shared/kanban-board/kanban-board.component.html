@@ -42,6 +42,7 @@
                        [class.bi-check2-square]="node.type === 'task'"
                        [class.bi-arrow-return-right]="node.type === 'subtask'"></i>
                   </span>
+                  @if (node.numericId) { <span class="kanban-card-id">#{{ node.numericId }}</span> }
                   <span class="kanban-card-title">{{ node.title }}</span>
                 </div>
 
@@ -52,16 +53,55 @@
                 <div class="kanban-card-meta">
                   <span class="status-badge" [class]="statusColorClass(node.status)">{{ node.status }}</span>
                   <span class="priority-badge" [class]="priorityColorClass(node.priority)">{{ node.priority }}</span>
+                  @for (tag of visibleTags(node); track tag._id) {
+                    <app-tag-pill [tag]="tag"></app-tag-pill>
+                  }
+                  @if (hiddenTagCount(node) > 0) {
+                    <span class="kanban-tag-overflow">+{{ hiddenTagCount(node) }}</span>
+                  }
                 </div>
 
                 <div class="kanban-card-bottom">
-                  @if (node.assignedTo) {
-                    <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(node.assignedTo.role)" [title]="node.assignedTo.username">
-                      {{ node.assignedTo.username[0].toUpperCase() }}
-                    </span>
-                  } @else {
-                    <span class="assign-avatar avatar-xs avatar-empty" title="Unassigned"><i class="bi bi-person"></i></span>
-                  }
+                <div class="dropdown kanban-card-assignee" (click)="$event.stopPropagation()">
+                  <button type="button" class="tree-assignee-trigger dropdown-toggle" data-bs-toggle="dropdown"
+                          title="Click to reassign">
+                    @if (node.assignedTo) {
+                      @if (avatarUrl(node.assignedTo)) {
+                        <img class="avatar-img-xs" [src]="avatarUrl(node.assignedTo)!" [alt]="node.assignedTo.username"
+                             (error)="onAvatarError(node.assignedTo)" />
+                      } @else {
+                        <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(node.assignedTo.role)">
+                          {{ node.assignedTo.username[0].toUpperCase() }}
+                        </span>
+                      }
+                    } @else {
+                      <span class="assign-avatar avatar-xs avatar-empty"><i class="bi bi-person"></i></span>
+                    }
+                  </button>
+                  <ul class="dropdown-menu assign-dropdown">
+                    <li>
+                      <a class="assign-item" (click)="selectAssignee(node, null)">
+                        <span class="assign-avatar avatar-xs avatar-empty"><i class="bi bi-person"></i></span>
+                        <span class="assign-item-name text-muted">Unassigned</span>
+                      </a>
+                    </li>
+                    <li><hr class="dropdown-divider my-1"></li>
+                    @for (u of users; track u.id) {
+                      <li>
+                        <a class="assign-item" (click)="selectAssignee(node, u)">
+                          @if (avatarUrl(u)) {
+                            <img class="avatar-img-xs" [src]="avatarUrl(u)!" [alt]="u.username" (error)="onAvatarError(u)" />
+                          } @else {
+                            <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(u.role)">
+                              {{ u.username[0].toUpperCase() }}
+                            </span>
+                          }
+                          <span class="assign-item-name">{{ u.username }}</span>
+                        </a>
+                      </li>
+                    }
+                  </ul>
+                </div>
 
                   @if (dateRangeLabel(node)) {
                     <span class="kanban-card-due"><i class="bi bi-calendar-event me-1"></i>{{ dateRangeLabel(node) }}</span>

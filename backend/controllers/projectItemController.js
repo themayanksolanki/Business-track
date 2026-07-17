@@ -8,8 +8,10 @@ import { MAX_DEPTH, typeForDepth, recomputeAncestorStatuses } from '../services/
 import { canAccessProject } from './projectController.js';
 
 const POPULATE_FIELDS = [
-  { path: 'assignedTo', select: 'username email role' },
-  { path: 'createdBy', select: 'username email role' },
+  { path: 'assignedTo', select: 'username email role profileImage' },
+  { path: 'createdBy', select: 'username email role profileImage' },
+  { path: 'updatedBy', select: 'username email role profileImage' },
+  { path: 'tags', select: 'name textColor backgroundColor' },
 ];
 
 const getDescendantIds = async (rootId) => {
@@ -147,7 +149,7 @@ export const createItem = async (req, res, next) => {
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
-    const { title, description, priority, assignedTo, parentId, startDate, endDate } = req.body;
+    const { title, description, priority, assignedTo, parentId, startDate, endDate, tags } = req.body;
 
     let depth = 0;
     let parent = null;
@@ -178,6 +180,7 @@ export const createItem = async (req, res, next) => {
       order,
       startDate: startDate ?? null,
       endDate: endDate ?? null,
+      tags: tags ?? [],
     });
 
     if (parent) await recomputeAncestorStatuses(parent._id);
@@ -218,7 +221,7 @@ export const updateItem = async (req, res, next) => {
     const item = await ProjectItem.findOne({ _id: req.params.itemId, project: req.params.projectId });
     if (!item) return next(new AppError('Item not found', 404));
 
-    const { title, description, priority, assignedTo, status, startDate, endDate } = req.body;
+    const { title, description, priority, assignedTo, status, startDate, endDate, tags } = req.body;
 
     if (status !== undefined) {
       if (item.type === 'group')
@@ -238,6 +241,8 @@ export const updateItem = async (req, res, next) => {
     if (assignedTo !== undefined) item.assignedTo = assignedTo || null;
     if (startDate !== undefined) item.startDate = startDate || null;
     if (endDate !== undefined) item.endDate = endDate || null;
+    if (tags !== undefined) item.tags = tags;
+    item.updatedBy = req.user._id;
 
     await item.save();
 
@@ -307,6 +312,7 @@ export const moveItem = async (req, res, next) => {
       const itemOrder = item.order;
       item.order = other.order;
       other.order = itemOrder;
+      item.updatedBy = req.user._id;
       await item.save();
       await other.save();
     } else if (direction === 'indent') {
@@ -339,6 +345,7 @@ export const moveItem = async (req, res, next) => {
       item.order = newSiblingCount;
       item.depth = newDepth;
       item.type = typeForDepth(newDepth);
+      item.updatedBy = req.user._id;
       await item.save();
 
       if (depthDelta !== 0) await shiftDescendantDepths(item._id, depthDelta);
@@ -383,6 +390,7 @@ export const moveItem = async (req, res, next) => {
       item.order = insertAt;
       item.depth = oldParent.depth;
       item.type = typeForDepth(oldParent.depth);
+      item.updatedBy = req.user._id;
       await item.save();
 
       if (depthDelta !== 0) await shiftDescendantDepths(item._id, depthDelta);

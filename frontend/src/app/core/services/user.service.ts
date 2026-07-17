@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { User } from '../../models/user.model';
+import { User, PaginatedUsers } from '../../models/user.model';
 
 @Injectable({ providedIn: 'root' })
 export class UserService {
@@ -11,6 +11,10 @@ export class UserService {
 
   getAllUsers() {
     return this.http.get<User[]>(this.api);
+  }
+
+  getUsersPage(page: number, limit: number) {
+    return this.http.get<PaginatedUsers>(this.api, { params: { page, limit } });
   }
 
   getTeamLeads() {

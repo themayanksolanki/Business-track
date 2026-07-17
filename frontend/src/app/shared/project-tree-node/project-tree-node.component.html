@@ -1,5 +1,7 @@
 <div class="tree-row">
   <div class="tree-row-main" [class.tree-row-group]="node.depth === 0" (contextmenu)="openContextMenu($event)">
+    <span class="tree-cell-id">{{ node.numericId ? '#' + node.numericId : '—' }}</span>
+
     <div class="dropdown tree-cell-reorder" (click)="$event.stopPropagation()">
       <button type="button" class="tree-icon-btn dropdown-toggle" data-bs-toggle="dropdown" title="Reorder">
         <i class="bi bi-three-dots-vertical"></i>
@@ -21,20 +23,50 @@
       </ul>
     </div>
 
-    <span class="tree-cell-assignee">
+    <div class="dropdown tree-cell-assignee" (click)="$event.stopPropagation()">
       @if (node.type !== 'group') {
-        @if (node.assignedTo) {
-          <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(node.assignedTo.role)"
-                [title]="node.assignedTo.username">
-            {{ node.assignedTo.username[0].toUpperCase() }}
-          </span>
-        } @else {
-          <span class="assign-avatar avatar-xs avatar-empty" title="Unassigned">
-            <i class="bi bi-person"></i>
-          </span>
-        }
+        <button type="button" class="tree-assignee-trigger dropdown-toggle" data-bs-toggle="dropdown"
+                title="Click to reassign">
+          @if (node.assignedTo) {
+            @if (avatarUrl(node.assignedTo)) {
+              <img class="avatar-img-xs" [src]="avatarUrl(node.assignedTo)!" [alt]="node.assignedTo.username"
+                   (error)="onAvatarError(node.assignedTo)" />
+            } @else {
+              <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(node.assignedTo.role)">
+                {{ node.assignedTo.username[0].toUpperCase() }}
+              </span>
+            }
+          } @else {
+            <span class="assign-avatar avatar-xs avatar-empty">
+              <i class="bi bi-person"></i>
+            </span>
+          }
+        </button>
+        <ul class="dropdown-menu assign-dropdown">
+          <li>
+            <a class="assign-item" (click)="selectAssignee(null)">
+              <span class="assign-avatar avatar-xs avatar-empty"><i class="bi bi-person"></i></span>
+              <span class="assign-item-name text-muted">Unassigned</span>
+            </a>
+          </li>
+          <li><hr class="dropdown-divider my-1"></li>
+          @for (u of users; track u.id) {
+            <li>
+              <a class="assign-item" (click)="selectAssignee(u)">
+                @if (avatarUrl(u)) {
+                  <img class="avatar-img-xs" [src]="avatarUrl(u)!" [alt]="u.username" (error)="onAvatarError(u)" />
+                } @else {
+                  <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(u.role)">
+                    {{ u.username[0].toUpperCase() }}
+                  </span>
+                }
+                <span class="assign-item-name">{{ u.username }}</span>
+              </a>
+            </li>
+          }
+        </ul>
       }
-    </span>
+    </div>
 
     <span class="tree-cell-task">
       <span class="tree-indent" [style.--depth]="node.depth"></span>
@@ -57,6 +89,17 @@
       <textarea *ngIf="editTitle" #titleInput class="tree-title-edit" rows="1" [value]="node.title"
                 [appAutoGrow]="node.title" placeholder="New item title…" maxlength="200"
                 (keydown)="onTitleKeydown($event)" (blur)="saveTitle()"></textarea>
+
+      @if (node.tags.length > 0) {
+        <span class="tree-tag-row">
+          @for (tag of visibleTags(node); track tag._id) {
+            <app-tag-pill [tag]="tag"></app-tag-pill>
+          }
+          @if (hiddenTagCount(node) > 0) {
+            <span class="tree-tag-overflow">+{{ hiddenTagCount(node) }}</span>
+          }
+        </span>
+      }
 
       @if (node.childCount > 0) {
         <span class="tree-child-count">{{ node.childCount }}</span>
@@ -87,7 +130,7 @@
         @if (canEditStatus) {
           <ul class="dropdown-menu status-dropdown shadow-sm">
             @for (s of statusOptions; track s) {
-              <li><a class="dropdown-item status-opt" (click)="setStatus(s)">
+              <li><a class="dropdown-item status-opt cursor-pointer" (click)="setStatus(s)">
                 <i class="bi me-2"
                    [class.bi-circle]="s === 'todo'"
                    [class.bi-arrow-repeat]="s === 'doing'"
@@ -176,6 +219,7 @@
           <app-project-tree-node
             [node]="child"
             [projectId]="projectId"
+            [users]="users"
             [isFirst]="first"
             [isLast]="last"
             (refresh)="refresh.emit()"

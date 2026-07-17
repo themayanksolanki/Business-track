@@ -6,6 +6,7 @@ import {
   DepartmentDetail,
   CreateDepartmentPayload,
   UpdateDepartmentPayload,
+  PaginatedDepartments,
 } from '../../models/department.model';
 
 @Injectable({ providedIn: 'root' })
@@ -16,6 +17,10 @@ export class DepartmentService {
 
   getDepartments() {
     return this.http.get<Department[]>(this.api);
+  }
+
+  getDepartmentsPage(page: number, limit: number) {
+    return this.http.get<PaginatedDepartments>(this.api, { params: { page, limit } });
   }
 
   getDepartmentById(id: string) {

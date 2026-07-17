@@ -6,9 +6,11 @@ import dayjs from 'dayjs/esm';
 import { ProjectService } from '../../core/services/project.service';
 import { UserService } from '../../core/services/user.service';
 import { DepartmentService } from '../../core/services/department.service';
-import { Project, ProjectPriority } from '../../models/project.model';
+import { Project, ProjectPriority, ProjectLink } from '../../models/project.model';
 import { User } from '../../models/user.model';
 import { Department } from '../../models/department.model';
+import { Category } from '../../models/category.model';
+import { CategoryService } from '../../core/services/category.service';
 import { ProjectItem, ProjectTreeNode, CompletionRollup, ProjectItemSummary, buildProjectTree, computeCompletionRollup } from '../../models/project-item.model';
 import { TabStripComponent, TabDef } from '../../shared/tab-strip/tab-strip.component';
 import { ProjectTreeNodeComponent } from '../../shared/project-tree-node/project-tree-node.component';
@@ -18,6 +20,12 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
 import { DatePickerComponent } from '../../shared/date-picker/date-picker.component';
 import { TimePickerComponent } from '../../shared/time-picker/time-picker.component';
 import { AutoGrowDirective } from '../../shared/auto-grow.directive';
+import { AuthService } from '../../core/services/auth.service';
+import { ProjectAttachmentsCardComponent } from '../../shared/project-attachments-card/project-attachments-card.component';
+import { ProjectPlanCardComponent } from '../../shared/project-plan-card/project-plan-card.component';
+import { TagService } from '../../core/services/tag.service';
+import { Tag, TagLite } from '../../models/tag.model';
+import { TagPickerComponent } from '../../shared/tag-picker/tag-picker.component';
 
 @Component({
   selector: 'app-project-detail',
@@ -34,6 +42,9 @@ import { AutoGrowDirective } from '../../shared/auto-grow.directive';
     DatePickerComponent,
     TimePickerComponent,
     AutoGrowDirective,
+    ProjectAttachmentsCardComponent,
+    ProjectPlanCardComponent,
+    TagPickerComponent,
   ],
   templateUrl: './project-detail.component.html',
   styleUrl: './project-detail.component.css',
@@ -45,7 +56,7 @@ export class ProjectDetailComponent implements OnInit {
   error = '';
 
   tabs: TabDef[] = [
-    { key: 'detail', label: 'Detail', icon: 'bi-info-circle' },
+    { key: 'detail', label: 'Details', icon: 'bi-info-circle' },
     { key: 'tasks', label: 'Tasks', icon: 'bi-list-task' },
     { key: 'kanban', label: 'Kanban', icon: 'bi-kanban' },
   ];
@@ -74,14 +85,28 @@ export class ProjectDetailComponent implements OnInit {
 
   users: User[] = [];
   departments: Department[] = [];
+  categories: Category[] = [];
   readonly priorityOptions: ProjectPriority[] = ['low', 'medium', 'high'];
+
+  detailsText = '';
+  effortValue = 5;
+
+  links: ProjectLink[] = [];
+  newLinkTitle = '';
+  newLinkUrl = '';
+  linksError = '';
+
+  allTags: Tag[] = [];
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private projectService: ProjectService,
     private userService: UserService,
-    private departmentService: DepartmentService
+    private departmentService: DepartmentService,
+    private categoryService: CategoryService,
+    private tagService: TagService,
+    public auth: AuthService
   ) {}
 
   ngOnInit() {
@@ -90,6 +115,19 @@ export class ProjectDetailComponent implements OnInit {
     this.loadItems();
     this.userService.getAllUsers().subscribe({ next: (u) => (this.users = u) });
     this.departmentService.getDepartments().subscribe({ next: (d) => (this.departments = d) });
+    this.categoryService.getCategories().subscribe({ next: (c) => (this.categories = c) });
+    this.tagService.getTags().subscribe({ next: (t) => (this.allTags = t) });
+  }
+
+  selectTags(tags: TagLite[]) {
+    if (!this.project) return;
+    this.projectService.updateProject(this.projectId, { tags: tags.map((t) => t._id) }).subscribe({
+      next: (res) => (this.project = res.project),
+    });
+  }
+
+  onTagCreated(tag: Tag) {
+    this.allTags = [...this.allTags, tag];
   }
 
   get progress(): CompletionRollup {
@@ -118,6 +156,18 @@ export class ProjectDetailComponent implements OnInit {
     return role.toLowerCase().replace(' ', '-');
   }
 
+  private brokenAvatarIds = new Set<string>();
+
+  avatarUrl(user: User): string | null {
+    const id = (user._id ?? user.id) as string;
+    if (this.brokenAvatarIds.has(id)) return null;
+    return this.auth.avatarUrl(user);
+  }
+
+  onAvatarError(user: User) {
+    this.brokenAvatarIds.add((user._id ?? user.id) as string);
+  }
+
   selectOwner(user: User | null) {
     if (!this.project) return;
     const owner = user ? user.id ?? user._id ?? null : null;
@@ -133,11 +183,28 @@ export class ProjectDetailComponent implements OnInit {
     });
   }
 
+  get priorityIndex(): number {
+    return this.project ? this.priorityOptions.indexOf(this.project.priority) : 1;
+  }
+
+  onPriorityIndexChange(index: number) {
+    this.setPriority(this.priorityOptions[index]);
+  }
+
   selectDepartment(dept: Department | null) {
     if (!this.project) return;
     const department = dept ? dept._id : null;
     if ((this.project.department?._id ?? null) === department) return;
     this.projectService.updateProject(this.projectId, { department }).subscribe({
+      next: (res) => (this.project = res.project),
+    });
+  }
+
+  selectCategory(cat: Category | null) {
+    if (!this.project) return;
+    const category = cat ? cat._id : null;
+    if ((this.project.category?._id ?? null) === category) return;
+    this.projectService.updateProject(this.projectId, { category }).subscribe({
       next: (res) => (this.project = res.project),
     });
   }
@@ -161,6 +228,9 @@ export class ProjectDetailComponent implements OnInit {
         this.startTimeStr = project.startDate ? dayjs(project.startDate).format('HH:mm') : null;
         this.endDateStr = project.endDate ? dayjs(project.endDate).format('YYYY-MM-DD') : null;
         this.endTimeStr = project.endDate ? dayjs(project.endDate).format('HH:mm') : null;
+        this.detailsText = project.detailsText ?? '';
+        this.effortValue = project.effort ?? 5;
+        this.links = project.links ?? [];
         this.loading = false;
       },
       error: (err) => {
@@ -286,6 +356,68 @@ export class ProjectDetailComponent implements OnInit {
     const endDate = this.combineDateTime(this.endDateStr, this.endTimeStr);
     this.projectService.updateProject(this.projectId, { startDate, endDate }).subscribe({
       next: (res) => (this.project = res.project),
+    });
+  }
+
+  saveDetailsText() {
+    if (!this.project || this.detailsText === this.project.detailsText) return;
+    this.projectService.updateProject(this.projectId, { detailsText: this.detailsText }).subscribe({
+      next: (res) => (this.project = res.project),
+    });
+  }
+
+  onEffortChange(value: number) {
+    if (!this.project || this.project.effort === value) return;
+    this.projectService.updateProject(this.projectId, { effort: value }).subscribe({
+      next: (res) => (this.project = res.project),
+    });
+  }
+
+  onPlanChanged(project: Project) {
+    this.project = project;
+  }
+
+  get isValidLinkUrl(): boolean {
+    return !this.newLinkUrl.trim() || /^https?:\/\/[^\s]+\.[^\s]+$/i.test(this.newLinkUrl.trim());
+  }
+
+  addLink() {
+    const title = this.newLinkTitle.trim();
+    const url = this.newLinkUrl.trim();
+    this.linksError = '';
+
+    if (!title || !url) {
+      this.linksError = 'Both a title and a URL are required';
+      return;
+    }
+    if (!/^https?:\/\/[^\s]+\.[^\s]+$/i.test(url)) {
+      this.linksError = 'URL must start with http:// or https://';
+      return;
+    }
+
+    const updated = [...this.links, { title, url }];
+    this.saveLinks(updated, () => {
+      this.newLinkTitle = '';
+      this.newLinkUrl = '';
+    });
+  }
+
+  removeLink(index: number) {
+    const updated = this.links.filter((_, i) => i !== index);
+    this.saveLinks(updated);
+  }
+
+  private saveLinks(updated: ProjectLink[], onSuccess?: () => void) {
+    if (!this.project) return;
+    this.projectService.updateProject(this.projectId, { links: updated }).subscribe({
+      next: (res) => {
+        this.project = res.project;
+        this.links = res.project.links;
+        onSuccess?.();
+      },
+      error: (err) => {
+        this.linksError = err.error?.message || 'Failed to save links';
+      },
     });
   }
 

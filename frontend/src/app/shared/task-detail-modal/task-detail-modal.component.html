@@ -1,0 +1,175 @@
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="!!task" (appModalClosed)="closed.emit()">
+  <div class="modal-dialog modal-dialog-centered tasklist-detail-dialog">
+  @if (task) {
+    <div class="modal-content tasklist-detail-content shadow-lg">
+
+      <!-- Colored header -->
+      <div class="modal-header detail-header"
+           [class.detail-header-todo]="task.status === 'todo'"
+           [class.detail-header-pending]="task.status === 'pending'"
+           [class.detail-header-completed]="task.status === 'completed'">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div class="dropdown">
+            <span class="detail-status-pill dropdown-toggle"
+                  [class.pill-todo]="task.status === 'todo'"
+                  [class.pill-pending]="task.status === 'pending'"
+                  [class.pill-completed]="task.status === 'completed'"
+                  data-bs-toggle="dropdown" aria-expanded="false"
+                  title="Change status">
+              <i class="bi me-1"
+                 [class.bi-circle]="task.status === 'todo'"
+                 [class.bi-hourglass-split]="task.status === 'pending'"
+                 [class.bi-check-circle-fill]="task.status === 'completed'"></i>
+              {{ task.status === 'todo' ? 'Todo' : task.status === 'pending' ? 'Pending' : 'Completed' }}
+              <i class="bi bi-chevron-down ms-1" style="opacity:.5;font-size:.6rem"></i>
+            </span>
+            <ul class="dropdown-menu status-dropdown shadow-sm">
+              <li><a class="dropdown-item status-opt" (click)="statusChange.emit('todo')">
+                <i class="bi bi-circle me-2 status-icon-todo"></i>Todo
+              </a></li>
+              <li><a class="dropdown-item status-opt" (click)="statusChange.emit('pending')">
+                <i class="bi bi-hourglass-split me-2 status-icon-pending"></i>Pending
+              </a></li>
+              <li><a class="dropdown-item status-opt" (click)="statusChange.emit('completed')">
+                <i class="bi bi-check-circle-fill me-2 status-icon-completed"></i>Completed
+              </a></li>
+            </ul>
+          </div>
+          <button type="button" class="detail-x" data-bs-dismiss="modal">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+        <h4 class="detail-title">
+          @if (task.numericId) { <span class="detail-id">#{{ task.numericId }}</span> }
+          {{ task.title }}
+        </h4>
+      </div>
+
+      <!-- Body -->
+      <div class="modal-body detail-body">
+        @if (task.description) {
+          <p class="detail-desc">{{ task.description }}</p>
+        } @else {
+          <p class="detail-desc fst-italic" style="color:#94a3b8">No description provided.</p>
+        }
+
+        @if (task.tags.length > 0) {
+          <div class="detail-tag-row">
+            @for (tag of task.tags; track tag._id) {
+              <app-tag-pill [tag]="tag"></app-tag-pill>
+            }
+          </div>
+        }
+
+        <div class="detail-meta-grid">
+          <div class="detail-meta-cell">
+            <span class="detail-meta-label"><i class="bi bi-person-fill me-1"></i>Assigned To</span>
+            <span class="detail-meta-val">
+              @if (task.assignedTo.username) {
+                @if (auth.avatarUrl(task.assignedTo) && !assigneeAvatarBroken) {
+                  <img class="meta-pip-img" [src]="auth.avatarUrl(task.assignedTo)!" [alt]="task.assignedTo.username"
+                       (error)="assigneeAvatarBroken = true" />
+                } @else {
+                  <span class="meta-pip meta-pip-blue">{{ (task.assignedTo.username[0] || 'U').toUpperCase() }}</span>
+                }
+                {{ task.assignedTo.username }}
+              } @else { <span class="text-muted">—</span> }
+            </span>
+          </div>
+          <div class="detail-meta-cell">
+            <span class="detail-meta-label"><i class="bi bi-person-workspace me-1"></i>Created By</span>
+            <span class="detail-meta-val">
+              @if (task.createdBy.username) {
+                @if (auth.avatarUrl(task.createdBy) && !creatorAvatarBroken) {
+                  <img class="meta-pip-img" [src]="auth.avatarUrl(task.createdBy)!" [alt]="task.createdBy.username"
+                       (error)="creatorAvatarBroken = true" />
+                } @else {
+                  <span class="meta-pip meta-pip-purple">{{ (task.createdBy.username[0] || 'U').toUpperCase() }}</span>
+                }
+                {{ task.createdBy.username }}
+              } @else { <span class="text-muted">—</span> }
+            </span>
+          </div>
+          <div class="detail-meta-cell">
+            <span class="detail-meta-label"><i class="bi bi-calendar3 me-1"></i>Created</span>
+            <span class="detail-meta-val">{{ task.createdAt | date:'MMM d, yyyy' }}</span>
+          </div>
+          <div class="detail-meta-cell">
+            <span class="detail-meta-label"><i class="bi bi-clock-history me-1"></i>Updated</span>
+            <span class="detail-meta-val">{{ task.updatedAt | date:'MMM d, yyyy' }}</span>
+          </div>
+        </div>
+
+        <!-- Subtasks -->
+        <div class="subtasks-section">
+          <div class="subtask-header">
+            <i class="bi bi-list-nested me-1"></i>
+            Subtasks
+            @if (subtasks.length > 0) {
+              <span class="subtask-count">{{ subtasks.length }}</span>
+            }
+          </div>
+
+          @if (subtasks.length > 0) {
+            <ul class="subtask-list">
+              @for (sub of subtasks; track sub._id) {
+                <li class="subtask-item">
+                  <span class="subtask-status-dot"
+                        [class.dot-todo]="sub.status === 'todo'"
+                        [class.dot-pending]="sub.status === 'pending'"
+                        [class.dot-completed]="sub.status === 'completed'">
+                    <i class="bi"
+                       [class.bi-circle]="sub.status === 'todo'"
+                       [class.bi-hourglass-split]="sub.status === 'pending'"
+                       [class.bi-check-circle-fill]="sub.status === 'completed'"></i>
+                  </span>
+                  <span class="subtask-title" [class.subtask-done]="sub.status === 'completed'">
+                    {{ sub.title }}
+                  </span>
+                  <button class="subtask-del-btn" (click)="subtaskDelete.emit(sub._id)" title="Delete subtask">
+                    <i class="bi bi-x"></i>
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+
+          <div class="add-subtask-row">
+            <input class="add-subtask-input"
+                   type="text"
+                   [(ngModel)]="subtaskTitle"
+                   placeholder="Add a subtask…"
+                   (keydown.enter)="addSubtask()"
+                   maxlength="200" />
+            <button class="add-subtask-btn"
+                    (click)="addSubtask()"
+                    [disabled]="subtaskLoading || !subtaskTitle.trim()">
+              @if (subtaskLoading) {
+                <span class="spinner-border spinner-border-sm"></span>
+              } @else {
+                <i class="bi bi-plus-lg"></i>
+              }
+            </button>
+          </div>
+          @if (subtaskError) {
+            <div class="subtask-error">{{ subtaskError }}</div>
+          }
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="modal-footer detail-footer">
+        <button type="button" class="detail-action-btn detail-btn-edit" (click)="editRequested.emit()">
+          <i class="bi bi-pencil-square me-1"></i>Edit
+        </button>
+        @if (canDeleteTask) {
+          <button type="button" class="detail-action-btn detail-btn-delete" (click)="deleteRequested.emit()">
+            <i class="bi bi-trash3 me-1"></i>Delete
+          </button>
+        }
+        <button type="button" class="detail-action-btn detail-btn-close ms-auto" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  }
+  </div>
+</div>

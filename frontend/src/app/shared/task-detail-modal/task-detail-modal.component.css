@@ -1,0 +1,300 @@
+/* ── Close button ── */
+.detail-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.06);
+  border: none;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.detail-x:hover { background: rgba(0, 0, 0, 0.12); }
+
+/* ── Status dropdown menu (shared look with the table's status dropdown) ── */
+.status-dropdown {
+  min-width: 150px;
+  border-radius: 10px;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+}
+
+.status-opt {
+  display: flex;
+  align-items: center;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 7px 10px;
+  color: var(--text-secondary);
+}
+
+.status-opt:hover { background: var(--bg-hover); }
+
+.status-icon-todo      { color: #0284c7; }
+.status-icon-pending   { color: #d97706; }
+.status-icon-completed { color: #16a34a; }
+
+/* ── Task detail modal ── */
+.tasklist-detail-dialog { max-width: 520px; }
+
+.tasklist-detail-content {
+  border-radius: 16px;
+  border: none;
+  background: var(--bg-card);
+}
+
+/* override Bootstrap's .modal-header { display: flex } — this header
+   stacks the status-pill row and the title vertically, not as a flex row */
+.detail-header { display: block; padding: 22px 24px 20px; }
+
+.detail-header-todo      { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-bottom: 1px solid #bae6fd; }
+.detail-header-pending   { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border-bottom: 1px solid #fde68a; }
+.detail-header-completed { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-bottom: 1px solid #bbf7d0; }
+
+[data-theme="dark"] .detail-header-todo      { background: linear-gradient(135deg, #0c2338 0%, #10304a 100%); border-bottom-color: #1e3a52; }
+[data-theme="dark"] .detail-header-pending   { background: linear-gradient(135deg, #2b2308 0%, #3a2e0a 100%); border-bottom-color: #4d3d10; }
+[data-theme="dark"] .detail-header-completed { background: linear-gradient(135deg, #0c2818 0%, #103420 100%); border-bottom-color: #1a4a2c; }
+
+.detail-status-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 99px;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.15s;
+}
+.detail-status-pill:hover { opacity: 0.75; }
+
+.pill-todo      { background: #bae6fd; color: #075985; }
+.pill-pending   { background: #fde68a; color: #92400e; }
+.pill-completed { background: #bbf7d0; color: #15803d; }
+
+[data-theme="dark"] .pill-todo      { background: rgba(56, 189, 248, 0.18); color: #7dd3fc; }
+[data-theme="dark"] .pill-pending   { background: rgba(250, 204, 21, 0.18); color: #fde047; }
+[data-theme="dark"] .pill-completed { background: rgba(34, 197, 94, 0.18); color: #86efac; }
+
+.detail-title { font-size: 1.15rem; font-weight: 700; color: #0f172a; margin: 0; line-height: 1.4; }
+
+.detail-id { font-weight: 500; opacity: 0.55; }
+
+[data-theme="dark"] .detail-title { color: #e6edf3; }
+
+.detail-body { padding: 20px 24px; border-bottom: 1px solid var(--border); }
+
+.detail-desc { font-size: 0.9rem; color: var(--text-muted); line-height: 1.65; margin-bottom: 20px; }
+
+.detail-tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+
+.detail-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+.detail-meta-cell { display: flex; flex-direction: column; gap: 5px; }
+
+.detail-meta-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-dim);
+}
+
+.detail-meta-val {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.meta-pip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 0.62rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.meta-pip-blue   { background: #dbeafe; color: #1d4ed8; }
+.meta-pip-purple { background: #ede9fe; color: #6d28d9; }
+
+.meta-pip-img {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.detail-footer {
+  padding: 14px 24px;
+  background: var(--bg-card-alt);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-action-btn {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 7px 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.detail-btn-edit   { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+.detail-btn-edit:hover { background: #dbeafe; }
+.detail-btn-delete { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+.detail-btn-delete:hover { background: #fee2e2; }
+.detail-btn-close  { background: var(--bg-muted); color: var(--text-muted); border-color: var(--border-strong); }
+.detail-btn-close:hover { background: var(--bg-hover); }
+
+/* ── Subtasks section ── */
+.subtasks-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.subtask-header {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.subtask-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: var(--border-strong);
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.subtask-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  transition: background 0.1s;
+}
+.subtask-item:hover { background: var(--bg-muted); }
+
+.subtask-status-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.dot-todo      { color: #0284c7; }
+.dot-pending   { color: #d97706; }
+.dot-completed { color: #16a34a; }
+
+.subtask-title { flex: 1; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.3; }
+.subtask-done  { text-decoration: line-through; color: var(--text-dim); }
+
+.subtask-del-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+  padding: 0;
+}
+.subtask-del-btn:hover { background: #fee2e2; color: #dc2626; }
+
+.add-subtask-row { display: flex; gap: 6px; align-items: center; }
+
+.add-subtask-input {
+  flex: 1;
+  height: 36px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 0.85rem;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.add-subtask-input:focus {
+  border-color: #3b82f6;
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+.add-subtask-input::placeholder { color: var(--text-dim); }
+
+.add-subtask-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  padding: 0;
+}
+.add-subtask-btn:hover:not(:disabled) { background: #2563eb; }
+.add-subtask-btn:disabled { background: #93c5fd; cursor: not-allowed; }
+
+.subtask-error { font-size: 0.76rem; color: #ef4444; margin-top: 5px; }

@@ -1,0 +1,164 @@
+<div class="cat-layout">
+  <div class="cat-tree-panel">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h6 class="mb-0 text-muted">Categories</h6>
+      @if (isManager) {
+        <button class="btn btn-success btn-sm" (click)="openCreate(null)">
+          <i class="bi bi-plus-lg me-1"></i>New
+        </button>
+      }
+    </div>
+
+    @if (error) {
+      <div class="alert alert-danger py-2">{{ error }}</div>
+    }
+
+    @if (loading) {
+      <div class="text-center py-4 text-muted">
+        <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+      </div>
+    } @else if (visibleCategories.length === 0) {
+      <div class="empty-state text-center py-5 text-muted">
+        <i class="bi bi-bookmark display-5 d-block mb-3"></i>
+        <p class="mb-0">No categories yet.</p>
+      </div>
+    } @else {
+      <div class="cat-tree">
+        @for (cat of visibleCategories; track cat._id) {
+          <div
+            class="cat-row"
+            [class.cat-row-active]="cat._id === selectedId"
+            [style.padding-left.px]="16 + cat.depth * 20"
+            (click)="selectCategory(cat)"
+          >
+            @if (cat.childCount) {
+              <button class="cat-collapse-btn" type="button" (click)="toggleCollapse(cat._id, $event)">
+                <i class="bi" [class.bi-chevron-down]="!isCollapsed(cat._id)" [class.bi-chevron-right]="isCollapsed(cat._id)"></i>
+              </button>
+            } @else {
+              <span class="cat-collapse-spacer"></span>
+            }
+
+            <span class="cat-color-dot" [style.background]="cat.color"></span>
+            <span class="cat-name" [style.color]="cat.color">{{ cat.name }}</span>
+
+            <span class="cat-counts">
+              @if (cat.projectCount) { <span class="cat-count-pill"><i class="bi bi-kanban-fill"></i>{{ cat.projectCount }}</span> }
+            </span>
+
+            @if (isManager) {
+              <span class="cat-row-actions">
+                <button class="cat-action-btn" type="button" title="Add sub-category" (click)="openCreate(cat); $event.stopPropagation()">
+                  <i class="bi bi-plus-lg"></i>
+                </button>
+                <button class="cat-action-btn" type="button" title="Edit" (click)="openEdit(cat, $event)">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <button class="cat-action-btn cat-action-danger" type="button" title="Delete" (click)="requestDelete(cat, $event)">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </span>
+            }
+          </div>
+        }
+      </div>
+
+      @if (totalPages > 1) {
+        <div class="pagination-bar d-flex align-items-center justify-content-between px-2 py-3">
+          <span class="page-info">{{ pageStart }}–{{ pageEnd }} of {{ totalItems }} categories</span>
+          <nav>
+            <ul class="pagination pagination-sm mb-0">
+              <li class="page-item" [class.disabled]="currentPage === 1">
+                <button class="page-link" (click)="loadPage(currentPage - 1)"><i class="bi bi-chevron-left"></i></button>
+              </li>
+              @for (p of pageNumbers; track $index) {
+                @if (p === -1) {
+                  <li class="page-item disabled"><span class="page-link ellipsis">…</span></li>
+                } @else {
+                  <li class="page-item" [class.active]="p === currentPage">
+                    <button class="page-link" (click)="loadPage(p)">{{ p }}</button>
+                  </li>
+                }
+              }
+              <li class="page-item" [class.disabled]="currentPage === totalPages">
+                <button class="page-link" (click)="loadPage(currentPage + 1)"><i class="bi bi-chevron-right"></i></button>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      }
+    }
+  </div>
+
+  <div class="cat-detail-panel">
+    @if (!selectedId) {
+      <div class="empty-state text-center py-5 text-muted">
+        <i class="bi bi-bookmark display-5 d-block mb-3"></i>
+        <p class="mb-0">Select a category to view its details.</p>
+      </div>
+    } @else if (detailLoading) {
+      <div class="text-center py-5 text-muted">
+        <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+      </div>
+    } @else if (detailError) {
+      <div class="alert alert-danger py-2">{{ detailError }}</div>
+    } @else if (detail) {
+      <div class="cat-detail-header">
+        <h4 class="mb-1" [style.color]="detail.category.color">{{ detail.category.name }}</h4>
+        @if (detail.category.overview) {
+          <p class="text-muted mb-0">{{ detail.category.overview }}</p>
+        }
+      </div>
+
+      @if (detail.children.length) {
+        <div class="cat-detail-section">
+          <h6 class="text-muted">Sub-categories</h6>
+          <div class="d-flex flex-wrap gap-2">
+            @for (child of detail.children; track child._id) {
+              <button type="button" class="cat-chip" [style.borderColor]="child.color" (click)="selectCategory(child)">
+                <span class="cat-color-dot" [style.background]="child.color"></span>
+                <span [style.color]="child.color">{{ child.name }}</span>
+              </button>
+            }
+          </div>
+        </div>
+      }
+
+      <div class="cat-detail-section">
+        <h6 class="text-muted">Projects ({{ detail.projects.length }})</h6>
+        @if (detail.projects.length === 0) {
+          <p class="text-muted small mb-0">No projects assigned to this category.</p>
+        } @else {
+          <div class="cat-project-list">
+            @for (project of detail.projects; track project._id) {
+              <a [routerLink]="['/projects', project._id]" class="cat-project-row">
+                <i class="bi bi-kanban me-2"></i>{{ project.name }}
+              </a>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>
+
+<app-category-form
+  [open]="formOpen"
+  [mode]="formMode"
+  [parentName]="formParentName"
+  [initial]="formInitial"
+  [loading]="formLoading"
+  [error]="formError"
+  (closed)="closeForm()"
+  (submitted)="submitForm($event)">
+</app-category-form>
+
+<app-confirm-dialog
+  [open]="confirmOpen"
+  title="Delete Category"
+  [message]="confirmMessage"
+  confirmLabel="Delete"
+  [loading]="confirmLoading"
+  (confirmed)="confirmDelete()"
+  (cancelled)="closeConfirm()">
+</app-confirm-dialog>

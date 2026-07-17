@@ -35,16 +35,18 @@
         <table class="table table-hover align-middle mb-0">
           <thead>
             <tr class="table-dark-header">
-              <th class="ps-4" style="width: 28%">Member</th>
-              <th style="width: 28%">Email</th>
-              <th style="width: 18%">Role</th>
-              <th style="width: 14%">Status</th>
+              <th style="width: 8%">ID</th>
+              <th class="ps-4" style="width: 26%">Member</th>
+              <th style="width: 26%">Email</th>
+              <th style="width: 16%">Role</th>
+              <th style="width: 12%">Status</th>
               <th style="width: 12%"></th>
             </tr>
           </thead>
           <tbody>
             @for (invite of invitedUsers; track invite._id) {
               <tr class="user-row invited-row">
+                <td><span class="text-muted">—</span></td>
                 <td class="ps-4">
                   <div class="d-flex align-items-center gap-3">
                     <span class="user-avatar avatar-invited">
@@ -69,6 +71,7 @@
             }
             @for (user of pendingUsers; track user.id) {
               <tr class="user-row pending-row">
+                <td><span class="text-muted">{{ user.numericId ? '#' + user.numericId : '—' }}</span></td>
                 <td class="ps-4">
                   <div class="d-flex align-items-center gap-3">
                     <span class="user-avatar" [class]="'avatar-' + roleClass(user.role)">
@@ -101,6 +104,7 @@
             }
             @for (user of activeUsers; track user.id) {
               <tr class="user-row">
+                <td><span class="text-muted">{{ user.numericId ? '#' + user.numericId : '—' }}</span></td>
                 <td class="ps-4">
                   <div class="d-flex align-items-center gap-3">
                     <span class="user-avatar" [class]="'avatar-' + roleClass(user.role)">
@@ -128,6 +132,31 @@
           </tbody>
         </table>
       </div>
+
+      @if (!isTeamLead && totalPages > 1) {
+        <div class="pagination-bar d-flex align-items-center justify-content-between px-4 py-3">
+          <span class="page-info">{{ pageStart }}–{{ pageEnd }} of {{ totalItems }} active users</span>
+          <nav>
+            <ul class="pagination pagination-sm mb-0">
+              <li class="page-item" [class.disabled]="currentPage === 1">
+                <button class="page-link" (click)="loadActivePage(currentPage - 1)"><i class="bi bi-chevron-left"></i></button>
+              </li>
+              @for (p of pageNumbers; track $index) {
+                @if (p === -1) {
+                  <li class="page-item disabled"><span class="page-link ellipsis">…</span></li>
+                } @else {
+                  <li class="page-item" [class.active]="p === currentPage">
+                    <button class="page-link" (click)="loadActivePage(p)">{{ p }}</button>
+                  </li>
+                }
+              }
+              <li class="page-item" [class.disabled]="currentPage === totalPages">
+                <button class="page-link" (click)="loadActivePage(currentPage + 1)"><i class="bi bi-chevron-right"></i></button>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      }
 
       <div class="table-footer px-4 py-2 d-flex align-items-center">
         <i class="bi bi-shield-check me-2 text-muted"></i>

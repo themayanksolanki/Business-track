@@ -16,8 +16,27 @@ export const getAllUsers = async (req, res, next) => {
       filter.departments = { $in: accessibleIds };
     }
 
-    const users = await User.find(filter).select('-password');
-    res.status(200).json(users);
+    if (req.query.page === undefined) {
+      const users = await User.find(filter).select('-password');
+      return res.status(200).json(users);
+    }
+
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 12));
+    const skip = (page - 1) * limit;
+
+    const [users, total] = await Promise.all([
+      User.find(filter).select('-password').sort({ username: 1 }).skip(skip).limit(limit),
+      User.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      users,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    });
   } catch (err) {
     next(err);
   }

@@ -213,3 +213,105 @@ export const deleteItemAttachment = async (req, res, next) => {
     next(err);
   }
 };
+
+export const getProjectAttachments = async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
+    const attachments = await Attachment.find({ project: project._id })
+      .populate('uploadedBy', 'username email role')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(attachments);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const uploadProjectAttachment = async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
+    if (!req.file) return next(new AppError('No file uploaded', 400));
+
+    const gridFsId = await uploadBufferToGridFS(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype
+    );
+
+    const attachment = await Attachment.create({
+      project: project._id,
+      fileName: req.file.originalname,
+      gridFsId,
+      mimeType: req.file.mimetype,
+      size: req.file.size,
+      uploadedBy: req.user._id,
+    });
+
+    const populated = await attachment.populate('uploadedBy', 'username email role');
+
+    res.status(201).json({ message: 'File uploaded', attachment: populated });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const downloadProjectAttachment = async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
+    const attachment = await Attachment.findOne({
+      _id: req.params.attachmentId,
+      project: req.params.projectId,
+    });
+    if (!attachment) return next(new AppError('Attachment not found', 404));
+
+    res.set({
+      'Content-Type': attachment.mimeType,
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(attachment.fileName)}"`,
+      'Content-Length': attachment.size,
+    });
+
+    const stream = openDownloadStream(attachment.gridFsId);
+    stream.on('error', () => next(new AppError('File not found in storage', 404)));
+    stream.pipe(res);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteProjectAttachment = async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
+    const attachment = await Attachment.findOne({
+      _id: req.params.attachmentId,
+      project: req.params.projectId,
+    });
+    if (!attachment) return next(new AppError('Attachment not found', 404));
+
+    try {
+      await deleteFile(attachment.gridFsId);
+    } catch {
+      // best-effort: continue even if the blob is already gone
+    }
+    await Attachment.findByIdAndDelete(attachment._id);
+
+    res.status(200).json({ message: 'Attachment deleted' });
+  } catch (err) {
+    next(err);
+  }
+};

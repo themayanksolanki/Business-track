@@ -1,7 +1,15 @@
 import mongoose from 'mongoose';
+import { getNextSequence } from '../utils/counter.js';
 
 const userSchema = new mongoose.Schema(
   {
+    numericId: {
+      type: Number,
+      default: null,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
     username: {
       type: String,
       required: true,
@@ -61,5 +69,11 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+userSchema.pre('save', async function () {
+  if (this.isNew && this.numericId == null) {
+    this.numericId = await getNextSequence('user');
+  }
+});
 
 export default mongoose.model('User', userSchema);

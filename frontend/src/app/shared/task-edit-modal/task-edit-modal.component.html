@@ -1,0 +1,79 @@
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="closed.emit()">
+  <div class="modal-dialog modal-dialog-centered tasklist-dialog tasklist-dialog-lg">
+  @if (open) {
+    <div class="modal-content tasklist-modal-content shadow-lg">
+
+      <div class="modal-header modal-form-header">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 fw-bold"><i class="bi bi-pencil-square me-2 text-primary"></i>Edit Task</h5>
+          <button type="button" class="detail-x" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+        </div>
+      </div>
+
+      <div class="modal-body p-4">
+        @if (error) {
+          <div class="alert alert-danger py-2 small mb-4">{{ error }}</div>
+        }
+
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <div class="mb-4">
+            <label class="field-label">Title <span class="text-danger">*</span></label>
+            <input type="text" class="form-control field-input" formControlName="title" placeholder="Task title" />
+            @if (form.get('title')?.touched && form.get('title')?.invalid) {
+              <div class="field-error">Title is required</div>
+            }
+          </div>
+
+          <div class="mb-4">
+            <label class="field-label">Description</label>
+            <textarea class="form-control field-input" style="height:auto" formControlName="description"
+                      rows="3" placeholder="Add a description..."></textarea>
+          </div>
+
+          <div class="mb-4">
+            <label class="field-label">Tags</label>
+            <app-tag-picker
+              [allTags]="allTags"
+              [selectedTags]="selectedTags"
+              (tagsChange)="onTagsChange($event)"
+              (tagCreated)="onTagCreated($event)">
+            </app-tag-picker>
+          </div>
+
+          <div class="mb-5">
+            <label class="field-label">Status</label>
+            <div class="status-toggle-grid">
+              <div class="status-toggle-card"
+                   [class.status-toggle-todo]="form.get('status')?.value === 'todo'"
+                   (click)="selectStatus('todo')">
+                <i class="bi bi-circle"></i>
+                <span>Todo</span>
+              </div>
+              <div class="status-toggle-card"
+                   [class.status-toggle-pending]="form.get('status')?.value === 'pending'"
+                   (click)="selectStatus('pending')">
+                <i class="bi bi-hourglass-split"></i>
+                <span>Pending</span>
+              </div>
+              <div class="status-toggle-card"
+                   [class.status-toggle-completed]="form.get('status')?.value === 'completed'"
+                   (click)="selectStatus('completed')">
+                <i class="bi bi-check-circle-fill"></i>
+                <span>Completed</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary modal-submit-btn" [disabled]="loading">
+              @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+              {{ loading ? 'Saving...' : 'Save Changes' }}
+            </button>
+            <button type="button" class="btn btn-light modal-submit-btn" data-bs-dismiss="modal">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+  </div>
+</div>

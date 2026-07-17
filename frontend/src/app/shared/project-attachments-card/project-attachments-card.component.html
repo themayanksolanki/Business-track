@@ -1,0 +1,69 @@
+<div class="card project-tasks-card shadow-sm details-card">
+  <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-paperclip me-1"></i>Attachments</h6>
+
+  @if (attachmentsError) {
+    <div class="alert alert-danger py-2">{{ attachmentsError }}</div>
+  }
+
+  @if (attachmentsLoading) {
+    <div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</div>
+  } @else if (attachments.length === 0) {
+    <p class="text-muted small mb-3">No files uploaded yet.</p>
+  } @else {
+    <ul class="attachment-list mb-3">
+      @for (a of attachments; track a._id) {
+        <li class="attachment-item">
+          <i class="bi attachment-file-icon" [class]="fileIcon(a.mimeType)"></i>
+          <div class="attachment-info">
+            <span class="attachment-name">{{ a.fileName }}</span>
+            <span class="attachment-meta">{{ formatSize(a.size) }} · {{ a.uploadedBy.username }}</span>
+          </div>
+          <button class="attachment-download-btn" (click)="openViewer(a)" title="Preview">
+            <i class="bi bi-eye"></i>
+          </button>
+          <button class="attachment-download-btn" (click)="download(a)" [disabled]="downloadingId === a._id" title="Download">
+            @if (downloadingId === a._id) {
+              <span class="spinner-border spinner-border-sm"></span>
+            } @else {
+              <i class="bi bi-download"></i>
+            }
+          </button>
+          <button class="subtask-del-btn" (click)="deleteAttachment(a)" title="Delete">
+            <i class="bi bi-x"></i>
+          </button>
+        </li>
+      }
+    </ul>
+  }
+
+  @if (uploading) {
+    <div class="progress-bar progress-bar-striped progress-bar-animated mb-2"
+         role="progressbar" [style.width.%]="progress"
+         [attr.aria-valuenow]="progress" aria-valuemin="0" aria-valuemax="100">
+      {{ progress }}%
+    </div>
+  }
+
+  <div class="attachment-upload-row">
+    <label class="attachment-upload-btn" [class.disabled]="uploading">
+      @if (uploading) {
+        <span class="spinner-border spinner-border-sm me-2"></span>Uploading…
+      } @else {
+        <i class="bi bi-cloud-arrow-up me-2"></i>Upload File
+      }
+      <input type="file" hidden [accept]="acceptedFileTypes" (change)="onFileSelected($event)" [disabled]="uploading" />
+    </label>
+  </div>
+  @if (uploadError) {
+    <div class="field-error mt-2">{{ uploadError }}</div>
+  }
+</div>
+
+<app-attachment-viewer
+  [open]="viewerOpen"
+  [attachments]="attachments"
+  [startIndex]="viewerIndex"
+  [loadBlob]="loadAttachmentBlob"
+  (closed)="viewerOpen = false"
+  (download)="download($event)">
+</app-attachment-viewer>

@@ -1,7 +1,15 @@
 import mongoose from 'mongoose';
+import { getNextSequence } from '../utils/counter.js';
 
 const projectItemSchema = new mongoose.Schema(
   {
+    numericId: {
+      type: Number,
+      default: null,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
     project: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Project',
@@ -49,6 +57,11 @@ const projectItemSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
     depth: {
       type: Number,
       required: true,
@@ -66,10 +79,21 @@ const projectItemSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    tags: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: 'Tag',
+      default: [],
+    },
   },
   { timestamps: true }
 );
 
 projectItemSchema.index({ project: 1, parentId: 1, order: 1 });
+
+projectItemSchema.pre('save', async function () {
+  if (this.isNew && this.numericId == null) {
+    this.numericId = await getNextSequence('projectItem');
+  }
+});
 
 export default mongoose.model('ProjectItem', projectItemSchema);

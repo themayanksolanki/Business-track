@@ -10,6 +10,7 @@ export interface Department {
   depth: number;
   order: number;
   createdBy: User;
+  updatedBy?: User | null;
   createdAt: string;
   updatedAt: string;
   userCount?: number;
@@ -35,4 +36,12 @@ export interface UpdateDepartmentPayload {
   name?: string;
   overview?: string;
   color?: string;
+}
+
+export interface PaginatedDepartments {
+  departments: Department[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }

@@ -24,6 +24,11 @@ export class UserListComponent implements OnInit {
   activating: Set<string> = new Set();
   isTeamLead = false;
 
+  readonly pageSize = 12;
+  currentPage = 1;
+  totalItems = 0;
+  totalPages = 1;
+
   editPassUser: User | null = null;
   editPassword = '';
   showPassword = false;
@@ -47,26 +52,66 @@ export class UserListComponent implements OnInit {
 
   ngOnInit() {
     this.isTeamLead = this.auth.getUser()?.role === 'Team Lead';
-    this.loadUsers();
+    this.loadPendingAndInvited();
+
+    if (this.isTeamLead) {
+      this.userService.getTeamMembers().subscribe({
+        next: (res) => (this.activeUsers = res),
+        error: (err) => (this.error = err.error?.message || 'Failed to load users'),
+      });
+    } else {
+      this.loadActivePage(1);
+    }
   }
 
-  loadUsers() {
-    const active$ = this.isTeamLead
-      ? this.userService.getTeamMembers()
-      : this.userService.getAllUsers();
-
+  private loadPendingAndInvited() {
     forkJoin({
-      active: active$,
       pending: this.userService.getPendingUsers(),
       invited: this.orgService.getInvites(),
     }).subscribe({
-      next: ({ active, pending, invited }) => {
-        this.activeUsers = active;
+      next: ({ pending, invited }) => {
         this.pendingUsers = pending;
         this.invitedUsers = invited;
       },
       error: (err) => (this.error = err.error?.message || 'Failed to load users'),
     });
+  }
+
+  loadActivePage(page: number) {
+    if (this.isTeamLead) return;
+    if (page < 1 || (page > this.totalPages && this.totalItems > 0)) return;
+    this.userService.getUsersPage(page, this.pageSize).subscribe({
+      next: (res) => {
+        this.activeUsers = res.users;
+        this.currentPage = res.page;
+        this.totalItems = res.total;
+        this.totalPages = res.totalPages;
+      },
+      error: (err) => (this.error = err.error?.message || 'Failed to load users'),
+    });
+  }
+
+  get pageNumbers(): number[] {
+    const total = this.totalPages;
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+    const pages: number[] = [1];
+    const left = Math.max(2, this.currentPage - 1);
+    const right = Math.min(total - 1, this.currentPage + 1);
+
+    if (left > 2) pages.push(-1);
+    for (let i = left; i <= right; i++) pages.push(i);
+    if (right < total - 1) pages.push(-1);
+    pages.push(total);
+    return pages;
+  }
+
+  get pageStart(): number {
+    return this.totalItems === 0 ? 0 : (this.currentPage - 1) * this.pageSize + 1;
+  }
+
+  get pageEnd(): number {
+    return Math.min(this.currentPage * this.pageSize, this.totalItems);
   }
 
   activate(user: User) {
@@ -78,9 +123,13 @@ export class UserListComponent implements OnInit {
     this.userService.activateUser(id).subscribe({
       next: (res) => {
         this.successMessage = res.message;
-        this.activeUsers = [...this.activeUsers, { ...user, isActive: true }];
         this.pendingUsers = this.pendingUsers.filter((u) => (u._id ?? u.id) !== id);
         this.activating.delete(id);
+        if (this.isTeamLead) {
+          this.activeUsers = [...this.activeUsers, { ...user, isActive: true }];
+        } else {
+          this.loadActivePage(this.currentPage);
+        }
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to activate user';
@@ -173,8 +222,12 @@ export class UserListComponent implements OnInit {
         next: (res) => {
           this.activateSuccess = res.message;
           this.activateLoading = false;
-          this.activeUsers = [...this.activeUsers, res.user];
           this.invitedUsers = this.invitedUsers.filter((i) => i._id !== invite._id);
+          if (this.isTeamLead) {
+            this.activeUsers = [...this.activeUsers, res.user];
+          } else {
+            this.loadActivePage(this.currentPage);
+          }
           setTimeout(() => this.closeActivateInvite(), 1600);
         },
         error: (err) => {
@@ -185,7 +238,8 @@ export class UserListComponent implements OnInit {
   }
 
   get totalCount(): number {
-    return this.activeUsers.length + this.pendingUsers.length + this.invitedUsers.length;
+    const activeCount = this.isTeamLead ? this.activeUsers.length : this.totalItems;
+    return activeCount + this.pendingUsers.length + this.invitedUsers.length;
   }
 
   roleClass(role: string): string {

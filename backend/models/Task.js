@@ -1,7 +1,15 @@
 import mongoose from 'mongoose';
+import { getNextSequence } from '../utils/counter.js';
 
 const taskSchema = new mongoose.Schema(
   {
+    numericId: {
+      type: Number,
+      default: null,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
     title: {
       type: String,
       required: true,
@@ -22,6 +30,11 @@ const taskSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -38,8 +51,19 @@ const taskSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    tags: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: 'Tag',
+      default: [],
+    },
   },
   { timestamps: true }
 );
+
+taskSchema.pre('save', async function () {
+  if (this.isNew && this.numericId == null) {
+    this.numericId = await getNextSequence('task');
+  }
+});
 
 export default mongoose.model('Task', taskSchema);

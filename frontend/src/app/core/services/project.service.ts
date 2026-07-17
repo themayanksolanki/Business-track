@@ -7,6 +7,7 @@ import {
   UpdateProjectPayload,
   PaginatedProjects,
 } from '../../models/project.model';
+import { Attachment } from '../../models/attachment.model';
 import {
   ProjectItem,
   CreateProjectItemPayload,
@@ -14,7 +15,6 @@ import {
   ProjectItemSummary,
 } from '../../models/project-item.model';
 import { ProjectComment, CreateCommentPayload } from '../../models/comment.model';
-import { Attachment } from '../../models/attachment.model';
 import { Observable } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
@@ -131,5 +131,44 @@ export class ProjectService {
     return this.http.delete<{ message: string }>(
       `${this.api}/${projectId}/items/${itemId}/attachments/${attachmentId}`
     );
+  }
+
+  // Project-level attachments (Details tab)
+  getProjectAttachments(projectId: string) {
+    return this.http.get<Attachment[]>(`${this.api}/${projectId}/attachments`);
+  }
+
+  uploadProjectAttachment(projectId: string, file: File): Observable<HttpEvent<any>> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post(`${this.api}/${projectId}/attachments`, formData, {
+      reportProgress: true,
+      observe: 'events',
+    });
+  }
+
+  downloadProjectAttachment(projectId: string, attachmentId: string) {
+    return this.http.get(`${this.api}/${projectId}/attachments/${attachmentId}/download`, {
+      responseType: 'blob',
+    });
+  }
+
+  deleteProjectAttachment(projectId: string, attachmentId: string) {
+    return this.http.delete<{ message: string }>(`${this.api}/${projectId}/attachments/${attachmentId}`);
+  }
+
+  // Project plan (Details tab)
+  uploadProjectPlan(projectId: string, file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.put<{ message: string; project: Project }>(`${this.api}/${projectId}/plan`, formData);
+  }
+
+  downloadProjectPlan(projectId: string) {
+    return this.http.get(`${this.api}/${projectId}/plan/download`, { responseType: 'blob' });
+  }
+
+  removeProjectPlan(projectId: string) {
+    return this.http.delete<{ message: string; project: Project }>(`${this.api}/${projectId}/plan`);
   }
 }

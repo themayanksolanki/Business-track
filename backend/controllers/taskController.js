@@ -20,8 +20,10 @@ export const getTasks = async (req, res, next) => {
     }
 
     const tasks = await Task.find(filter)
-      .populate('createdBy', 'username email role')
-      .populate('assignedTo', 'username email role');
+      .populate('createdBy', 'username email role profileImage')
+      .populate('updatedBy', 'username email role profileImage')
+      .populate('assignedTo', 'username email role profileImage')
+      .populate('tags', 'name textColor backgroundColor');
 
     res.status(200).json(tasks);
   } catch (err) {
@@ -32,8 +34,10 @@ export const getTasks = async (req, res, next) => {
 export const getTaskById = async (req, res, next) => {
   try {
     const task = await Task.findById(req.params.id)
-      .populate('createdBy', 'username email role')
-      .populate('assignedTo', 'username email role');
+      .populate('createdBy', 'username email role profileImage')
+      .populate('updatedBy', 'username email role profileImage')
+      .populate('assignedTo', 'username email role profileImage')
+      .populate('tags', 'name textColor backgroundColor');
 
     if (!task || String(task.organization ?? '') !== String(req.user.organization ?? ''))
       return next(new AppError('Task not found', 404));
@@ -58,7 +62,7 @@ export const getTaskById = async (req, res, next) => {
 
 export const createTask = async (req, res, next) => {
   try {
-    const { title, description, assignedTo, parentTask } = req.body;
+    const { title, description, assignedTo, parentTask, tags } = req.body;
 
     let resolvedAssignee = req.user._id;
 
@@ -87,11 +91,14 @@ export const createTask = async (req, res, next) => {
       assignedTo: resolvedAssignee,
       parentTask: parentTask ?? null,
       organization: req.user.organization,
+      tags: tags ?? [],
     });
 
     const populated = await task.populate([
-      { path: 'createdBy', select: 'username email role' },
-      { path: 'assignedTo', select: 'username email role' },
+      { path: 'createdBy', select: 'username email role profileImage' },
+      { path: 'updatedBy', select: 'username email role profileImage' },
+      { path: 'assignedTo', select: 'username email role profileImage' },
+      { path: 'tags', select: 'name textColor backgroundColor' },
     ]);
 
     res.status(201).json({ message: 'Task created', task: populated });
@@ -106,7 +113,7 @@ export const updateTask = async (req, res, next) => {
     if (!task || String(task.organization ?? '') !== String(req.user.organization ?? ''))
       return next(new AppError('Task not found', 404));
 
-    const { title, description, status } = req.body;
+    const { title, description, status, tags } = req.body;
 
     if (req.user.role === 'User') {
       const isOwn =
@@ -123,12 +130,16 @@ export const updateTask = async (req, res, next) => {
     if (title !== undefined) task.title = title.trim();
     if (description !== undefined) task.description = description;
     if (status !== undefined) task.status = status;
+    if (tags !== undefined) task.tags = tags;
+    task.updatedBy = req.user._id;
 
     await task.save();
 
     const populated = await task.populate([
-      { path: 'createdBy', select: 'username email role' },
-      { path: 'assignedTo', select: 'username email role' },
+      { path: 'createdBy', select: 'username email role profileImage' },
+      { path: 'updatedBy', select: 'username email role profileImage' },
+      { path: 'assignedTo', select: 'username email role profileImage' },
+      { path: 'tags', select: 'name textColor backgroundColor' },
     ]);
 
     res.status(200).json({ message: 'Task updated', task: populated });
@@ -170,8 +181,10 @@ export const getSubtasks = async (req, res, next) => {
       return next(new AppError('Task not found', 404));
 
     const subtasks = await Task.find({ parentTask: req.params.id })
-      .populate('createdBy', 'username email role')
-      .populate('assignedTo', 'username email role');
+      .populate('createdBy', 'username email role profileImage')
+      .populate('updatedBy', 'username email role profileImage')
+      .populate('assignedTo', 'username email role profileImage')
+      .populate('tags', 'name textColor backgroundColor');
     res.status(200).json(subtasks);
   } catch (err) {
     next(err);
@@ -191,11 +204,13 @@ export const reassignTask = async (req, res, next) => {
 
     const task = await Task.findByIdAndUpdate(
       req.params.id,
-      { assignedTo },
+      { assignedTo, updatedBy: req.user._id },
       { new: true }
     ).populate([
-      { path: 'createdBy', select: 'username email role' },
-      { path: 'assignedTo', select: 'username email role' },
+      { path: 'createdBy', select: 'username email role profileImage' },
+      { path: 'updatedBy', select: 'username email role profileImage' },
+      { path: 'assignedTo', select: 'username email role profileImage' },
+      { path: 'tags', select: 'name textColor backgroundColor' },
     ]);
 
     res.status(200).json({ message: 'Task reassigned', task });

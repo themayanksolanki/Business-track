@@ -17,6 +17,8 @@ import {
   flattenLeaves,
 } from '../../models/project-item.model';
 import { User } from '../../models/user.model';
+import { AuthService } from '../../core/services/auth.service';
+import { TagPillComponent } from '../tag-pill/tag-pill.component';
 
 export type KanbanGroupMode = 'status' | 'assignee' | 'priority';
 
@@ -43,7 +45,7 @@ const PRIORITY_DEFS: { value: ProjectItemPriority; label: string; icon: string; 
 @Component({
   selector: 'app-kanban-board',
   standalone: true,
-  imports: [DragDropModule, DatePipe, FormsModule],
+  imports: [DragDropModule, DatePipe, FormsModule, TagPillComponent],
   templateUrl: './kanban-board.component.html',
   styleUrl: './kanban-board.component.css',
 })
@@ -69,7 +71,19 @@ export class KanbanBoardComponent implements OnChanges, OnDestroy {
   addLoading = false;
   addError = '';
 
-  constructor(private projectService: ProjectService) {}
+  private brokenAvatarIds = new Set<string>();
+
+  constructor(private projectService: ProjectService, public auth: AuthService) {}
+
+  avatarUrl(user: User): string | null {
+    const id = (user._id ?? user.id) as string;
+    if (this.brokenAvatarIds.has(id)) return null;
+    return this.auth.avatarUrl(user);
+  }
+
+  onAvatarError(user: User) {
+    this.brokenAvatarIds.add((user._id ?? user.id) as string);
+  }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['tree'] || changes['users']) this.rebuildColumns();
@@ -187,8 +201,27 @@ export class KanbanBoardComponent implements OnChanges, OnDestroy {
     return 'priority-' + priority;
   }
 
+  visibleTags(node: ProjectTreeNode) {
+    return node.tags.slice(0, 2);
+  }
+
+  hiddenTagCount(node: ProjectTreeNode): number {
+    return Math.max(0, node.tags.length - 2);
+  }
+
   onCardClick(node: ProjectTreeNode) {
     this.openDetail.emit(node);
+  }
+
+  selectAssignee(node: ProjectTreeNode, user: User | null) {
+    const assignedTo = user ? this.userId(user) : null;
+    if (this.userId(node.assignedTo) === assignedTo) return;
+    node.assignedTo = user ?? null;
+    if (this.groupMode === 'assignee') this.rebuildColumns();
+    this.projectService.updateItem(this.projectId, node._id, { assignedTo }).subscribe({
+      next: () => this.refresh.emit(),
+      error: () => this.refresh.emit(),
+    });
   }
 
   drop(event: CdkDragDrop<ProjectTreeNode[]>, column: KanbanColumn) {

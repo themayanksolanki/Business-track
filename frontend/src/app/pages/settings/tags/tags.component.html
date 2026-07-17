@@ -1,0 +1,73 @@
+<div class="tags-panel">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h6 class="mb-0 text-muted">Tags</h6>
+    @if (isManager) {
+      <button class="btn btn-success btn-sm" (click)="openCreate()">
+        <i class="bi bi-plus-lg me-1"></i>New Tag
+      </button>
+    }
+  </div>
+
+  <div class="mb-3">
+    <input type="text" class="form-control tags-search-input" [(ngModel)]="search" placeholder="Search tags…" />
+  </div>
+
+  @if (error) {
+    <div class="alert alert-danger py-2">{{ error }}</div>
+  }
+
+  @if (loading) {
+    <div class="text-center py-4 text-muted">
+      <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+    </div>
+  } @else if (filteredTags.length === 0) {
+    <div class="empty-state text-center py-5 text-muted">
+      <i class="bi bi-tags display-5 d-block mb-3"></i>
+      <p class="mb-0">{{ tags.length === 0 ? 'No tags yet.' : 'No tags match your search.' }}</p>
+    </div>
+  } @else {
+    <div class="tags-list">
+      @for (tag of filteredTags; track tag._id) {
+        <div class="tag-row">
+          <app-tag-pill [tag]="tag"></app-tag-pill>
+
+          <span class="tag-counts">
+            @if (tag.projectCount) { <span class="tag-count-pill"><i class="bi bi-kanban-fill"></i>{{ tag.projectCount }}</span> }
+            @if (tag.taskCount) { <span class="tag-count-pill"><i class="bi bi-check2-square"></i>{{ tag.taskCount }}</span> }
+          </span>
+
+          @if (isManager) {
+            <span class="tag-row-actions">
+              <button class="tag-action-btn" type="button" title="Edit" (click)="openEdit(tag)">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button class="tag-action-btn tag-action-danger" type="button" title="Delete" (click)="requestDelete(tag)">
+                <i class="bi bi-trash"></i>
+              </button>
+            </span>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<app-tag-form
+  [open]="formOpen"
+  [mode]="formMode"
+  [initial]="formInitial"
+  [loading]="formLoading"
+  [error]="formError"
+  (closed)="closeForm()"
+  (submitted)="submitForm($event)">
+</app-tag-form>
+
+<app-confirm-dialog
+  [open]="confirmOpen"
+  title="Delete Tag"
+  [message]="confirmMessage"
+  confirmLabel="Delete"
+  [loading]="confirmLoading"
+  (confirmed)="confirmDelete()"
+  (cancelled)="closeConfirm()">
+</app-confirm-dialog>

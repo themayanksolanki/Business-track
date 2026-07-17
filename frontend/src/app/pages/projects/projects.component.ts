@@ -1,21 +1,23 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, effect } from '@angular/core';
 import { Router } from '@angular/router';
 import { DatePipe } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import dayjs from 'dayjs/esm';
 import { ProjectService } from '../../core/services/project.service';
 import { DepartmentService } from '../../core/services/department.service';
 import { ProjectsViewService } from '../../core/services/projects-view.service';
-import { Project } from '../../models/project.model';
+import { Project, CreateProjectPayload } from '../../models/project.model';
 import { Department } from '../../models/department.model';
-import { DatePickerComponent } from '../../shared/date-picker/date-picker.component';
-import { TimePickerComponent } from '../../shared/time-picker/time-picker.component';
-import { ModalDirective } from '../../shared/modal.directive';
+import { Category } from '../../models/category.model';
+import { CategoryService } from '../../core/services/category.service';
+import { Tag } from '../../models/tag.model';
+import { TagService } from '../../core/services/tag.service';
+import { ProjectFormComponent } from '../../shared/project-form/project-form.component';
+import { TagPillComponent } from '../../shared/tag-pill/tag-pill.component';
 
 @Component({
   selector: 'app-projects',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule, DatePickerComponent, TimePickerComponent, ModalDirective],
+  imports: [DatePipe, ProjectFormComponent, TagPillComponent],
   templateUrl: './projects.component.html',
   styleUrl: './projects.component.css',
 })
@@ -55,30 +57,21 @@ export class ProjectsComponent implements OnInit, OnDestroy {
   totalPages = 1;
 
   createOpen = false;
-  createForm: FormGroup;
   createLoading = false;
   createError = '';
 
-  createStartDate: string | null = null;
-  createStartTime: string | null = null;
-  createEndDate: string | null = null;
-  createEndTime: string | null = null;
-
   departments: Department[] = [];
+  categories: Category[] = [];
+  allTags: Tag[] = [];
 
   constructor(
-    private fb: FormBuilder,
     private projectService: ProjectService,
     private departmentService: DepartmentService,
+    private categoryService: CategoryService,
+    private tagService: TagService,
     private viewSvc: ProjectsViewService,
     private router: Router
   ) {
-    this.createForm = this.fb.group({
-      name: ['', Validators.required],
-      description: [''],
-      department: [''],
-    });
-
     // Reacts to view mode changes from anywhere (e.g. the sidebar's
     // Projects submenu), including the initial value on construction.
     effect(() => {
@@ -92,6 +85,26 @@ export class ProjectsComponent implements OnInit, OnDestroy {
       next: (res) => (this.departments = res),
       error: () => {},
     });
+    this.categoryService.getCategories().subscribe({
+      next: (res) => (this.categories = res),
+      error: () => {},
+    });
+    this.tagService.getTags().subscribe({
+      next: (res) => (this.allTags = res),
+      error: () => {},
+    });
+  }
+
+  onTagCreated(tag: Tag) {
+    this.allTags = [...this.allTags, tag];
+  }
+
+  visibleTags(project: Project) {
+    return project.tags.slice(0, 3);
+  }
+
+  hiddenTagCount(project: Project): number {
+    return Math.max(0, project.tags.length - 3);
   }
 
   ngOnDestroy() {
@@ -189,11 +202,6 @@ export class ProjectsComponent implements OnInit, OnDestroy {
   }
 
   openCreate() {
-    this.createForm.reset({ name: '', description: '', department: '' });
-    this.createStartDate = null;
-    this.createStartTime = null;
-    this.createEndDate = null;
-    this.createEndTime = null;
     this.createError = '';
     this.createOpen = true;
   }
@@ -203,21 +211,9 @@ export class ProjectsComponent implements OnInit, OnDestroy {
     this.createError = '';
   }
 
-  private combineDateTime(date: string | null, time: string | null): string | null {
-    if (!date) return null;
-    return dayjs(`${date} ${time || '00:00'}`, 'YYYY-MM-DD HH:mm').toISOString();
-  }
-
-  submitCreate() {
-    if (this.createForm.invalid) return;
+  submitCreate(payload: CreateProjectPayload) {
     this.createLoading = true;
     this.createError = '';
-    const payload = {
-      ...this.createForm.value,
-      department: this.createForm.value.department || null,
-      startDate: this.combineDateTime(this.createStartDate, this.createStartTime),
-      endDate: this.combineDateTime(this.createEndDate, this.createEndTime),
-    };
     this.projectService.createProject(payload).subscribe({
       next: () => {
         this.createLoading = false;

@@ -1,0 +1,110 @@
+/* ── Modals (Bootstrap .modal/.modal-dialog/.modal-content) ── */
+.tasklist-dialog { max-width: 480px; }
+.tasklist-dialog-lg { max-width: 540px; }
+
+.tasklist-modal-content {
+  border-radius: 14px;
+  border: none;
+  background: var(--bg-card);
+}
+
+/* ── Assignment dropdown ── */
+.assign-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg-input);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.assign-trigger:hover,
+.assign-trigger.show {
+  border-color: #94a3b8;
+  background: var(--bg-card);
+  box-shadow: none;
+}
+
+.assign-trigger::after { margin-left: 0; color: #94a3b8; flex-shrink: 0; }
+
+.assign-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.avatar-self      { background: #f1f5f9; color: #64748b; }
+.avatar-admin     { background: #fef3c7; color: #92400e; }
+.avatar-manager   { background: #dbeafe; color: #1d4ed8; }
+.avatar-team-lead { background: #ede9fe; color: #6d28d9; }
+.avatar-user      { background: #dcfce7; color: #15803d; }
+
+.assign-avatar-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.assign-trigger-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.assign-role-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 99px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.role-admin     { background: #fef3c7; color: #92400e; }
+.role-manager   { background: #dbeafe; color: #1d4ed8; }
+.role-team-lead { background: #ede9fe; color: #6d28d9; }
+.role-user      { background: #dcfce7; color: #15803d; }
+
+.assign-dropdown {
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: var(--shadow-lg);
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--bg-card);
+}
+
+.assign-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--text-secondary);
+  transition: background 0.1s;
+}
+
+.assign-item:hover { background: var(--bg-hover); color: var(--text-secondary); }
+
+.assign-item-name { font-size: 0.875rem; font-weight: 500; flex: 1; }

@@ -14,6 +14,12 @@ const attachmentSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    project: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Project',
+      default: null,
+      index: true,
+    },
     fileName: {
       type: String,
       required: true,
@@ -40,8 +46,9 @@ const attachmentSchema = new mongoose.Schema(
 );
 
 attachmentSchema.pre('validate', function () {
-  if (!!this.task === !!this.projectItem) {
-    throw new Error('Attachment must reference exactly one of task or projectItem');
+  const refCount = [this.task, this.projectItem, this.project].filter(Boolean).length;
+  if (refCount !== 1) {
+    throw new Error('Attachment must reference exactly one of task, projectItem, or project');
   }
 });
 

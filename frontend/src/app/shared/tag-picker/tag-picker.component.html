@@ -1,0 +1,70 @@
+<div class="tag-picker">
+  <div class="tag-picker-trigger-row">
+    @for (t of selectedTags; track t._id) {
+      <span class="tag-picker-pill">
+        <app-tag-pill [tag]="t"></app-tag-pill>
+        <button type="button" class="tag-picker-remove" (click)="removeTag(t)" title="Remove tag">
+          <i class="bi bi-x"></i>
+        </button>
+      </span>
+    }
+    <button type="button" class="tag-picker-add-btn" (click)="toggleOpen()" title="Add tag">
+      <i class="bi bi-plus-lg"></i>
+    </button>
+  </div>
+
+  @if (open) {
+    <div class="tag-picker-backdrop" (click)="closeDropdown()"></div>
+    <div class="tag-picker-dropdown">
+      <input
+        #searchInput
+        type="text"
+        class="tag-picker-search"
+        [(ngModel)]="query"
+        (ngModelChange)="onQueryChange()"
+        (keydown)="onKeydown($event)"
+        placeholder="Search tags…"
+      />
+
+      <div class="tag-picker-list">
+        @for (tag of filteredTags; track tag._id; let i = $index) {
+          <button
+            type="button"
+            class="tag-picker-item"
+            [class.tag-picker-item-active]="i === highlightedIndex"
+            (click)="selectTag(tag)"
+            (mouseenter)="highlightedIndex = i"
+          >
+            <app-tag-pill [tag]="tag"></app-tag-pill>
+          </button>
+        } @empty {
+          @if (!canShowCreateRow) {
+            <div class="tag-picker-empty">No matching tags</div>
+          }
+        }
+
+        @if (canShowCreateRow) {
+          <button
+            type="button"
+            class="tag-picker-item tag-picker-create"
+            [class.tag-picker-item-active]="highlightedIndex === filteredTags.length"
+            (click)="createTag()"
+            (mouseenter)="highlightedIndex = filteredTags.length"
+            [disabled]="creating"
+          >
+            @if (creating) {
+              <span class="spinner-border spinner-border-sm me-2"></span>
+            } @else {
+              <i class="bi bi-plus-lg me-2"></i>
+            }
+            Create tag "{{ query.trim() }}"
+          </button>
+        }
+      </div>
+
+      @if (createError) {
+        <div class="tag-picker-error">{{ createError }}</div>
+      }
+    </div>
+  }
+</div>

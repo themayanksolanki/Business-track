@@ -12,13 +12,15 @@ import {
   ProjectTreeNode,
 } from '../../models/project-item.model';
 import { User } from '../../models/user.model';
-import { Attachment } from '../../models/attachment.model';
+import { Tag, TagLite } from '../../models/tag.model';
+import { Attachment, ACCEPTED_ATTACHMENT_TYPES } from '../../models/attachment.model';
 import { ProjectComment } from '../../models/comment.model';
 import { DatePickerComponent } from '../date-picker/date-picker.component';
 import { TimePickerComponent } from '../time-picker/time-picker.component';
 import { ModalDirective } from '../modal.directive';
 import { AttachmentViewerComponent } from '../attachment-viewer/attachment-viewer.component';
 import { AutoGrowDirective } from '../auto-grow.directive';
+import { TagPickerComponent } from '../tag-picker/tag-picker.component';
 import { HttpEventType } from '@angular/common/http';
 
 @Component({
@@ -33,6 +35,7 @@ import { HttpEventType } from '@angular/common/http';
     ModalDirective,
     AttachmentViewerComponent,
     AutoGrowDirective,
+    TagPickerComponent,
   ],
   templateUrl: './project-item-detail.component.html',
   styleUrl: './project-item-detail.component.css',
@@ -42,6 +45,7 @@ export class ProjectItemDetailComponent implements OnChanges {
   @Input() item: ProjectItem | null = null;
   @Input() childCount = 0;
   @Input() breadcrumbPath: ProjectTreeNode[] = [];
+  @Input() allTags: Tag[] = [];
 
   @Output() closed = new EventEmitter<void>();
   // Emits the freshly-saved item (not just a signal) so the parent can patch
@@ -50,6 +54,7 @@ export class ProjectItemDetailComponent implements OnChanges {
   // on every field edit.
   @Output() saved = new EventEmitter<ProjectItem>();
   @Output() breadcrumbNavigate = new EventEmitter<ProjectTreeNode>();
+  @Output() tagCreated = new EventEmitter<Tag>();
 
   editForm: FormGroup;
   editLoading = false;
@@ -73,6 +78,7 @@ export class ProjectItemDetailComponent implements OnChanges {
 
   readonly statusOptions: ProjectItemStatus[] = ['todo', 'doing', 'completed'];
   readonly priorityOptions: ProjectItemPriority[] = ['low', 'medium', 'high'];
+  readonly acceptedFileTypes = ACCEPTED_ATTACHMENT_TYPES;
 
   startDateStr: string | null = null;
   startTimeStr: string | null = null;
@@ -109,6 +115,18 @@ export class ProjectItemDetailComponent implements OnChanges {
 
   roleClass(role: string): string {
     return role.toLowerCase().replace(' ', '-');
+  }
+
+  private brokenAvatarIds = new Set<string>();
+
+  avatarUrl(user: User): string | null {
+    const id = (user._id ?? user.id) as string;
+    if (this.brokenAvatarIds.has(id)) return null;
+    return this.auth.avatarUrl(user);
+  }
+
+  onAvatarError(user: User) {
+    this.brokenAvatarIds.add((user._id ?? user.id) as string);
   }
 
   get isGroup(): boolean {
@@ -152,6 +170,20 @@ export class ProjectItemDetailComponent implements OnChanges {
         this.saved.emit(res.item);
       },
     });
+  }
+
+  selectTags(tags: TagLite[]) {
+    if (!this.item) return;
+    this.projectService.updateItem(this.projectId, this.item._id, { tags: tags.map((t) => t._id) }).subscribe({
+      next: (res) => {
+        this.item = res.item;
+        this.saved.emit(res.item);
+      },
+    });
+  }
+
+  onTagCreated(tag: Tag) {
+    this.tagCreated.emit(tag);
   }
 
   private combineDateTime(date: string | null, time: string | null): string | null {
@@ -342,6 +374,7 @@ export class ProjectItemDetailComponent implements OnChanges {
 
   fileIcon(mimeType: string): string {
     if (mimeType.startsWith('image/')) return 'bi-file-earmark-image';
+    if (mimeType.startsWith('video/')) return 'bi-file-earmark-play';
     if (mimeType === 'application/pdf') return 'bi-file-earmark-pdf';
     if (mimeType.includes('zip')) return 'bi-file-earmark-zip';
     if (mimeType.includes('word')) return 'bi-file-earmark-word';

@@ -28,7 +28,10 @@
           <div class="project-card" (click)="open(project)">
             <div class="project-card-icon"><i class="bi bi-kanban"></i></div>
             <div class="project-card-body">
-              <h5 class="project-card-title">{{ project.name }}</h5>
+              <h5 class="project-card-title">
+                @if (project.numericId) { <span class="text-muted-em">#{{ project.numericId }}</span> }
+                {{ project.name }}
+              </h5>
               @if (project.description) {
                 <p class="project-card-desc">{{ project.description }}</p>
               }
@@ -36,6 +39,21 @@
                 <span class="dept-badge" [style.color]="project.department.color" [style.borderColor]="project.department.color">
                   {{ project.department.name }}
                 </span>
+              }
+              @if (project.category) {
+                <span class="dept-badge" [style.color]="project.category.color" [style.borderColor]="project.category.color">
+                  {{ project.category.name }}
+                </span>
+              }
+              @if (project.tags.length > 0) {
+                <div class="project-tag-row">
+                  @for (tag of visibleTags(project); track tag._id) {
+                    <app-tag-pill [tag]="tag"></app-tag-pill>
+                  }
+                  @if (hiddenTagCount(project) > 0) {
+                    <span class="tag-overflow">+{{ hiddenTagCount(project) }}</span>
+                  }
+                </div>
               }
               <div class="project-card-meta">
                 <i class="bi bi-person-fill me-1"></i>{{ project.createdBy.username }}
@@ -79,9 +97,12 @@
         <table class="table table-hover align-middle mb-0">
           <thead>
             <tr class="table-dark-header">
-              <th class="ps-4">Name</th>
+              <th class="ps-4">ID</th>
+              <th>Name</th>
               <th>Owner</th>
               <th>Department</th>
+              <th>Category</th>
+              <th>Tags</th>
               <th>Priority</th>
               <th>Dates</th>
               <th>Created By</th>
@@ -91,7 +112,8 @@
           <tbody>
             @for (project of pagedItems; track project._id) {
               <tr class="project-row" (click)="open(project)">
-                <td class="ps-4">
+                <td class="ps-4"><span class="text-muted-em">{{ project.numericId ? '#' + project.numericId : '—' }}</span></td>
+                <td>
                   <div class="d-flex align-items-center gap-2">
                     <span class="project-row-icon"><i class="bi bi-kanban"></i></span>
                     <span class="fw-medium project-row-title">{{ project.name }}</span>
@@ -110,6 +132,29 @@
                     <span class="dept-badge" [style.color]="project.department.color" [style.borderColor]="project.department.color">
                       {{ project.department.name }}
                     </span>
+                  } @else {
+                    <span class="text-muted-em">—</span>
+                  }
+                </td>
+                <td>
+                  @if (project.category) {
+                    <span class="dept-badge" [style.color]="project.category.color" [style.borderColor]="project.category.color">
+                      {{ project.category.name }}
+                    </span>
+                  } @else {
+                    <span class="text-muted-em">—</span>
+                  }
+                </td>
+                <td>
+                  @if (project.tags.length > 0) {
+                    <div class="project-tag-row">
+                      @for (tag of visibleTags(project); track tag._id) {
+                        <app-tag-pill [tag]="tag"></app-tag-pill>
+                      }
+                      @if (hiddenTagCount(project) > 0) {
+                        <span class="tag-overflow">+{{ hiddenTagCount(project) }}</span>
+                      }
+                    </div>
                   } @else {
                     <span class="text-muted-em">—</span>
                   }
@@ -159,7 +204,10 @@
         <div class="project-list-row" (click)="open(project)">
           <span class="project-list-icon"><i class="bi bi-kanban"></i></span>
           <div class="project-list-main">
-            <span class="project-list-title">{{ project.name }}</span>
+            <span class="project-list-title">
+              @if (project.numericId) { <span class="text-muted-em">#{{ project.numericId }}</span> }
+              {{ project.name }}
+            </span>
             @if (project.description) {
               <span class="project-list-desc">{{ project.description }}</span>
             }
@@ -169,6 +217,21 @@
             <span class="dept-badge" [style.color]="project.department.color" [style.borderColor]="project.department.color">
               {{ project.department.name }}
             </span>
+          }
+          @if (project.category) {
+            <span class="dept-badge" [style.color]="project.category.color" [style.borderColor]="project.category.color">
+              {{ project.category.name }}
+            </span>
+          }
+          @if (project.tags.length > 0) {
+            <div class="project-tag-row">
+              @for (tag of visibleTags(project); track tag._id) {
+                <app-tag-pill [tag]="tag"></app-tag-pill>
+              }
+              @if (hiddenTagCount(project) > 0) {
+                <span class="tag-overflow">+{{ hiddenTagCount(project) }}</span>
+              }
+            </div>
           }
           @if (project.owner) {
             <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(project.owner.role)" [title]="project.owner.username">
@@ -210,73 +273,14 @@
   }
 </div>
 
-<!-- Create project modal -->
-<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="createOpen" (appModalClosed)="closeCreate()">
-  <div class="modal-dialog modal-dialog-centered projects-create-dialog">
-    <div class="modal-content projects-create-content shadow-lg">
-      <div class="modal-body p-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-          <h5 class="card-title mb-0"><i class="bi bi-plus-circle me-2"></i>New Project</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-
-        @if (createError) {
-          <div class="alert alert-danger py-2">{{ createError }}</div>
-        }
-
-        <form [formGroup]="createForm" (ngSubmit)="submitCreate()">
-          <div class="mb-3">
-            <label class="field-label">Name <span class="text-danger">*</span></label>
-            <input type="text" class="form-control field-input" formControlName="name" placeholder="Project name" />
-            @if (createForm.get('name')?.touched && createForm.get('name')?.invalid) {
-              <div class="field-error">Name is required</div>
-            }
-          </div>
-
-          <div class="mb-3">
-            <label class="field-label">Description</label>
-            <textarea class="form-control field-input" style="height:auto" formControlName="description" rows="3"
-                      placeholder="Optional description"></textarea>
-          </div>
-
-          @if (departments.length > 0) {
-            <div class="mb-4">
-              <label class="field-label">Department</label>
-              <select class="form-select field-input" formControlName="department">
-                <option value="">No department</option>
-                @for (dept of departments; track dept._id) {
-                  <option [value]="dept._id">{{ dept.name }}</option>
-                }
-              </select>
-            </div>
-          }
-
-          <div class="row g-3 mb-4">
-            <div class="col-12">
-              <label class="field-label mb-2">Start</label>
-              <div class="d-flex gap-2">
-                <app-date-picker [value]="createStartDate" (valueChange)="createStartDate = $event"></app-date-picker>
-                <app-time-picker [value]="createStartTime" (valueChange)="createStartTime = $event"></app-time-picker>
-              </div>
-            </div>
-            <div class="col-12">
-              <label class="field-label mb-2">End</label>
-              <div class="d-flex gap-2">
-                <app-date-picker [value]="createEndDate" [min]="createStartDate" (valueChange)="createEndDate = $event"></app-date-picker>
-                <app-time-picker [value]="createEndTime" (valueChange)="createEndTime = $event"></app-time-picker>
-              </div>
-            </div>
-          </div>
-
-          <div class="d-flex justify-content-end gap-2">
-            <button type="button" class="btn btn-light modal-submit-btn" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary modal-submit-btn" [disabled]="createLoading">
-              @if (createLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
-              {{ createLoading ? 'Creating...' : 'Create Project' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-</div>
+<app-project-form
+  [open]="createOpen"
+  [departments]="departments"
+  [categories]="categories"
+  [allTags]="allTags"
+  [loading]="createLoading"
+  [error]="createError"
+  (closed)="closeCreate()"
+  (submitted)="submitCreate($event)"
+  (tagCreated)="onTagCreated($event)">
+</app-project-form>

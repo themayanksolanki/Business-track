@@ -47,6 +47,7 @@ export const updateOrganization = async (req, res, next) => {
       organization.emailDomain = normalizedDomain;
     }
 
+    organization.updatedBy = req.user._id;
     await organization.save();
     res.status(200).json({ message: 'Organization updated', organization });
   } catch (err) {

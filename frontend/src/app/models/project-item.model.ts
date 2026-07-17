@@ -1,4 +1,5 @@
 import { User } from './user.model';
+import { TagLite } from './tag.model';
 
 export type ProjectItemType = 'group' | 'task' | 'subtask';
 export type ProjectItemStatus = 'todo' | 'doing' | 'completed';
@@ -8,6 +9,7 @@ export const MAX_PROJECT_ITEM_DEPTH = 4; // depths 0-4 => 5 levels total
 
 export interface ProjectItem {
   _id: string;
+  numericId?: number | null;
   project: string;
   parentId: string | null;
   type: ProjectItemType;
@@ -17,10 +19,12 @@ export interface ProjectItem {
   priority: ProjectItemPriority;
   assignedTo: User | null;
   createdBy: User;
+  updatedBy?: User | null;
   depth: number;
   order: number;
   startDate: string | null;
   endDate: string | null;
+  tags: TagLite[];
   createdAt: string;
   updatedAt: string;
 }
@@ -33,6 +37,7 @@ export interface CreateProjectItemPayload {
   parentId?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  tags?: string[];
 }
 
 export interface UpdateProjectItemPayload {
@@ -43,6 +48,7 @@ export interface UpdateProjectItemPayload {
   status?: ProjectItemStatus;
   startDate?: string | null;
   endDate?: string | null;
+  tags?: string[];
 }
 
 // Frontend-only: recursive tree built client-side from the flat ProjectItem[] response.

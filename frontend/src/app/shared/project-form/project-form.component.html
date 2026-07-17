@@ -1,0 +1,91 @@
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="closed.emit()">
+  <div class="modal-dialog modal-dialog-centered projects-create-dialog">
+    <div class="modal-content projects-create-content shadow-lg">
+      <div class="modal-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h5 class="card-title mb-0"><i class="bi bi-plus-circle me-2"></i>New Project</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        @if (error) {
+          <div class="alert alert-danger py-2">{{ error }}</div>
+        }
+
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <div class="mb-3">
+            <label class="field-label">Name <span class="text-danger">*</span></label>
+            <input type="text" class="form-control field-input" formControlName="name" placeholder="Project name" />
+            @if (form.get('name')?.touched && form.get('name')?.invalid) {
+              <div class="field-error">Name is required</div>
+            }
+          </div>
+
+          <div class="mb-3">
+            <label class="field-label">Description</label>
+            <textarea class="form-control field-input" style="height:auto" formControlName="description" rows="3"
+                      placeholder="Optional description"></textarea>
+          </div>
+
+          @if (departments.length > 0) {
+            <div class="mb-4">
+              <label class="field-label">Department</label>
+              <select class="form-select field-input" formControlName="department">
+                <option value="">No department</option>
+                @for (dept of departments; track dept._id) {
+                  <option [value]="dept._id">{{ dept.name }}</option>
+                }
+              </select>
+            </div>
+          }
+
+          @if (categories.length > 0) {
+            <div class="mb-4">
+              <label class="field-label">Category</label>
+              <select class="form-select field-input" formControlName="category">
+                <option value="">No category</option>
+                @for (cat of categories; track cat._id) {
+                  <option [value]="cat._id">{{ cat.name }}</option>
+                }
+              </select>
+            </div>
+          }
+
+          <div class="mb-4">
+            <label class="field-label">Tags</label>
+            <app-tag-picker
+              [allTags]="allTags"
+              [selectedTags]="selectedTags"
+              (tagsChange)="onTagsChange($event)"
+              (tagCreated)="onTagCreated($event)">
+            </app-tag-picker>
+          </div>
+
+          <div class="row g-3 mb-4">
+            <div class="col-12">
+              <label class="field-label mb-2">Start</label>
+              <div class="d-flex gap-2">
+                <app-date-picker [value]="startDate" (valueChange)="startDate = $event"></app-date-picker>
+                <app-time-picker [value]="startTime" (valueChange)="startTime = $event"></app-time-picker>
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="field-label mb-2">End</label>
+              <div class="d-flex gap-2">
+                <app-date-picker [value]="endDate" [min]="startDate" (valueChange)="endDate = $event"></app-date-picker>
+                <app-time-picker [value]="endTime" (valueChange)="endTime = $event"></app-time-picker>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-light modal-submit-btn" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary modal-submit-btn" [disabled]="loading">
+              @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+              {{ loading ? 'Creating...' : 'Create Project' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

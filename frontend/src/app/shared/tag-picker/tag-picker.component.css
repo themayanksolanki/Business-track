@@ -1,0 +1,133 @@
+.tag-picker {
+  position: relative;
+  display: inline-block;
+}
+
+.tag-picker-trigger-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tag-picker-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tag-picker-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  padding: 0;
+  margin-left: -6px;
+  font-size: 0.7rem;
+  border-radius: 50%;
+}
+.tag-picker-remove:hover {
+  background: var(--bg-muted);
+  color: var(--text-primary);
+}
+
+.tag-picker-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 50%;
+  font-size: 0.68rem;
+}
+.tag-picker-add-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.tag-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1040;
+  background: transparent;
+}
+
+.tag-picker-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 1041;
+  width: 260px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  background: var(--bg-card);
+  padding: 8px;
+}
+
+.tag-picker-search {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+}
+.tag-picker-search:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.tag-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.tag-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  text-align: left;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.tag-picker-item:hover,
+.tag-picker-item-active {
+  background: var(--bg-hover);
+}
+
+.tag-picker-create {
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.tag-picker-empty {
+  padding: 10px 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.tag-picker-error {
+  margin-top: 6px;
+  font-size: 0.76rem;
+  color: #ef4444;
+}

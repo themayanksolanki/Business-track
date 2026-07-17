@@ -1,19 +1,19 @@
 import { Component, OnInit } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DepartmentService } from '../../../core/services/department.service';
 import { UserService } from '../../../core/services/user.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { Department, DepartmentDetail } from '../../../models/department.model';
 import { User } from '../../../models/user.model';
-import { ModalDirective } from '../../../shared/modal.directive';
+import { DepartmentFormComponent, DepartmentFormMode, DepartmentFormPayload } from '../../../shared/department-form/department-form.component';
+import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 
-type FormMode = 'create' | 'edit';
+type FormMode = DepartmentFormMode;
 
 @Component({
   selector: 'app-departments',
   standalone: true,
-  imports: [FormsModule, RouterLink, ModalDirective],
+  imports: [RouterLink, DepartmentFormComponent, ConfirmDialogComponent],
   templateUrl: './departments.component.html',
   styleUrl: './departments.component.css',
 })
@@ -27,6 +27,11 @@ export class DepartmentsComponent implements OnInit {
 
   loading = false;
   error = '';
+
+  readonly pageSize = 12;
+  currentPage = 1;
+  totalItems = 0;
+  totalPages = 1;
 
   selectedId: string | null = null;
   detail: DepartmentDetail | null = null;
@@ -42,15 +47,19 @@ export class DepartmentsComponent implements OnInit {
   editingId: string | null = null;
   formParentId: string | null = null;
   formParentName: string | null = null;
-  formName = '';
-  formOverview = '';
-  formColor = '#3b82f6';
+  formInitial: DepartmentFormPayload | null = null;
   formLoading = false;
   formError = '';
 
   confirmOpen = false;
   confirmTarget: Department | null = null;
   confirmLoading = false;
+
+  get confirmMessage(): string {
+    if (!this.confirmTarget) return '';
+    const suffix = this.confirmTarget.childCount ? ' and all of its sub-departments' : '';
+    return `Delete "${this.confirmTarget.name}"${suffix} — this cannot be undone. Users and projects assigned to it will be unassigned.`;
+  }
 
   constructor(
     private departmentService: DepartmentService,
@@ -62,15 +71,19 @@ export class DepartmentsComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.loadDepartments();
+    this.loadPage(1);
   }
 
-  loadDepartments() {
+  loadPage(page: number) {
+    if (page < 1 || (page > this.totalPages && this.totalItems > 0)) return;
     this.loading = true;
     this.error = '';
-    this.departmentService.getDepartments().subscribe({
+    this.departmentService.getDepartmentsPage(page, this.pageSize).subscribe({
       next: (res) => {
-        this.departments = res;
+        this.departments = res.departments;
+        this.currentPage = res.page;
+        this.totalItems = res.total;
+        this.totalPages = res.totalPages;
         this.rebuildTree();
         this.loading = false;
       },
@@ -79,6 +92,29 @@ export class DepartmentsComponent implements OnInit {
         this.loading = false;
       },
     });
+  }
+
+  get pageNumbers(): number[] {
+    const total = this.totalPages;
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+    const pages: number[] = [1];
+    const left = Math.max(2, this.currentPage - 1);
+    const right = Math.min(total - 1, this.currentPage + 1);
+
+    if (left > 2) pages.push(-1);
+    for (let i = left; i <= right; i++) pages.push(i);
+    if (right < total - 1) pages.push(-1);
+    pages.push(total);
+    return pages;
+  }
+
+  get pageStart(): number {
+    return this.totalItems === 0 ? 0 : (this.currentPage - 1) * this.pageSize + 1;
+  }
+
+  get pageEnd(): number {
+    return Math.min(this.currentPage * this.pageSize, this.totalItems);
   }
 
   private rebuildTree() {
@@ -181,7 +217,7 @@ export class DepartmentsComponent implements OnInit {
       next: () => {
         user.departments = updated;
         this.reloadDetail();
-        this.loadDepartments();
+        this.loadPage(this.currentPage);
       },
       error: (err) => {
         this.userToggleError = err.error?.message || 'Failed to update assignment';
@@ -194,9 +230,7 @@ export class DepartmentsComponent implements OnInit {
     this.editingId = null;
     this.formParentId = parent?._id ?? null;
     this.formParentName = parent?.name ?? null;
-    this.formName = '';
-    this.formOverview = '';
-    this.formColor = '#3b82f6';
+    this.formInitial = null;
     this.formError = '';
     this.formOpen = true;
   }
@@ -207,9 +241,7 @@ export class DepartmentsComponent implements OnInit {
     this.editingId = dept._id;
     this.formParentId = dept.parentId;
     this.formParentName = null;
-    this.formName = dept.name;
-    this.formOverview = dept.overview;
-    this.formColor = dept.color;
+    this.formInitial = { name: dept.name, overview: dept.overview, color: dept.color };
     this.formError = '';
     this.formOpen = true;
   }
@@ -219,19 +251,9 @@ export class DepartmentsComponent implements OnInit {
     this.formError = '';
   }
 
-  submitForm() {
-    if (!this.formName.trim()) {
-      this.formError = 'Name is required';
-      return;
-    }
+  submitForm(payload: DepartmentFormPayload) {
     this.formLoading = true;
     this.formError = '';
-
-    const payload = {
-      name: this.formName.trim(),
-      overview: this.formOverview,
-      color: this.formColor,
-    };
 
     const request =
       this.formMode === 'create'
@@ -242,7 +264,7 @@ export class DepartmentsComponent implements OnInit {
       next: () => {
         this.formLoading = false;
         this.closeForm();
-        this.loadDepartments();
+        this.loadPage(this.currentPage);
         if (this.formMode === 'edit' && this.selectedId === this.editingId) this.reloadDetail();
       },
       error: (err) => {
@@ -274,7 +296,7 @@ export class DepartmentsComponent implements OnInit {
           this.detail = null;
         }
         this.closeConfirm();
-        this.loadDepartments();
+        this.loadPage(this.currentPage);
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to delete department';

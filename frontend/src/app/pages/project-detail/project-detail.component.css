@@ -1,4 +1,5 @@
 .page {
+  --col-id: 46px;
   --col-assignee: 30px;
   --col-status: 110px;
   --col-due: 120px;
@@ -10,6 +11,7 @@
 
 @media (max-width: 860px) {
   .page {
+    --col-id: 38px;
     --col-assignee: 24px;
     --col-status: 88px;
     --col-due: 96px;
@@ -25,7 +27,7 @@
 
 .item-table-header {
   display: grid;
-  grid-template-columns: var(--col-icon) var(--col-assignee) minmax(160px, 1fr) var(--col-status) var(--col-due) var(--col-priority) var(--col-icon) var(--col-icon) var(--col-icon);
+  grid-template-columns: var(--col-id) var(--col-icon) var(--col-assignee) minmax(160px, 1fr) var(--col-status) var(--col-due) var(--col-priority) var(--col-icon) var(--col-icon) var(--col-icon);
   column-gap: 8px;
   align-items: center;
   padding: 4px 4px 10px;
@@ -157,6 +159,8 @@
   flex-direction: column;
 }
 
+.text-muted-em { color: var(--text-muted); font-size: 0.875rem; }
+
 .project-header-actions {
   display: flex;
   align-items: center;
@@ -265,6 +269,14 @@
 .avatar-admin     { background: #fef3c7; color: #92400e; }
 .avatar-manager   { background: #dbeafe; color: #1d4ed8; }
 .avatar-team-lead { background: #ede9fe; color: #6d28d9; }
+
+.assign-avatar-img {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
 .avatar-user      { background: #dcfce7; color: #15803d; }
 .avatar-empty     { background: var(--bg-muted); color: var(--text-dim); }
 
@@ -517,3 +529,134 @@
 .subtask-del-btn:hover { background: #fee2e2; color: #dc2626; }
 
 .subtask-error { font-size: 0.76rem; color: #ef4444; margin-top: 6px; }
+
+/* ── Details tab: card grid ── */
+.details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .details-grid { grid-template-columns: 1fr; }
+}
+
+.details-card { margin: 0; }
+
+.field-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 7px;
+}
+
+.field-input {
+  border-color: var(--border-strong);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field-input:focus {
+  background: var(--bg-card);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  color: var(--text-primary);
+}
+
+.field-error { font-size: 0.76rem; color: #ef4444; margin-top: 5px; }
+
+.details-textarea { resize: vertical; }
+
+/* ── Priority / Effort sliders ── */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.slider-row .form-range { flex: 1; }
+
+.slider-value-badge {
+  min-width: 40px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.effort-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  padding: 6px 12px;
+  border-radius: 99px;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.slider-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+/* ── Important Links ── */
+.links-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.link-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+}
+
+.link-icon { color: var(--text-dim); flex-shrink: 0; }
+
+.link-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #3b82f6;
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.link-title:hover { text-decoration: underline; }
+
+.link-url {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.add-link-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.add-link-row .field-input:first-child { flex: 0 0 40%; }
+.add-link-row .field-input:nth-child(2) { flex: 1; }
+
+@media (max-width: 480px) {
+  .add-link-row { flex-wrap: wrap; }
+  .add-link-row .field-input:first-child { flex: 1 1 100%; }
+}

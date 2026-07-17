@@ -18,6 +18,9 @@ import { AttachmentPanelComponent } from '../attachment-panel/attachment-panel.c
 import { CommonModule } from '@angular/common';
 import { NotificationService } from '../notification.service';
 import { AutoGrowDirective } from '../auto-grow.directive';
+import { AuthService } from '../../core/services/auth.service';
+import { User } from '../../models/user.model';
+import { TagPillComponent } from '../tag-pill/tag-pill.component';
 
 @Component({
   selector: 'app-project-tree-node',
@@ -32,6 +35,7 @@ import { AutoGrowDirective } from '../auto-grow.directive';
     ProjectTreeNodeComponent,
     CommonModule,
     AutoGrowDirective,
+    TagPillComponent,
   ],
   templateUrl: './project-tree-node.component.html',
   styleUrl: './project-tree-node.component.css',
@@ -39,6 +43,7 @@ import { AutoGrowDirective } from '../auto-grow.directive';
 export class ProjectTreeNodeComponent {
   @Input({ required: true }) node!: ProjectTreeNode;
   @Input({ required: true }) projectId!: string;
+  @Input() users: User[] = [];
   @Input() isFirst = false;
   @Input() isLast = false;
 
@@ -65,10 +70,31 @@ export class ProjectTreeNodeComponent {
   readonly statusOptions: ProjectItemStatus[] = ['todo', 'doing', 'completed'];
   readonly priorityOptions: ProjectItemPriority[] = ['low', 'medium', 'high'];
 
+  private brokenAvatarIds = new Set<string>();
+
   constructor(
     private projectService: ProjectService,
-    private notifications: NotificationService
+    private notifications: NotificationService,
+    public auth: AuthService
   ) {}
+
+  avatarUrl(user: User): string | null {
+    const id = (user._id ?? user.id) as string;
+    if (this.brokenAvatarIds.has(id)) return null;
+    return this.auth.avatarUrl(user);
+  }
+
+  onAvatarError(user: User) {
+    this.brokenAvatarIds.add((user._id ?? user.id) as string);
+  }
+
+  visibleTags(node: ProjectTreeNode) {
+    return node.tags.slice(0, 3);
+  }
+
+  hiddenTagCount(node: ProjectTreeNode): number {
+    return Math.max(0, node.tags.length - 3);
+  }
 
   get dropListId(): string {
     return 'drop-' + this.node._id;
@@ -211,6 +237,20 @@ export class ProjectTreeNodeComponent {
 
   roleClass(role: string): string {
     return role.toLowerCase().replace(' ', '-');
+  }
+
+  selectAssignee(user: User | null) {
+    if (this.isGroup) return;
+    const assignedTo = user ? user.id ?? user._id ?? null : null;
+    this.projectService.updateItem(this.projectId, this.node._id, { assignedTo }).subscribe({
+      next: (res) => {
+        this.node.assignedTo = res.item.assignedTo;
+        this.notifications.success(user ? `Reassigned to ${user.username}` : 'Task unassigned');
+      },
+      error: (err) => {
+        this.notifications.error(err.error?.message || 'Failed to reassign task');
+      },
+    });
   }
 
   toggleExpand() {

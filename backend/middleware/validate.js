@@ -5,6 +5,13 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DOMAIN_REGEX = /^[^\s@]+\.[^\s@]+$/;
 const VALID_ROLES = ['Admin', 'Manager', 'Team Lead', 'User'];
 
+const validateTagIdsArray = (tags) => {
+  if (tags === undefined) return null;
+  if (!Array.isArray(tags)) return 'tags must be an array';
+  if (!tags.every((id) => mongoose.isValidObjectId(id))) return 'tags must all be valid IDs';
+  return null;
+};
+
 export const validateRegister = (req, res, next) => {
   const { username, email, password, role, referenceEmail } = req.body;
 
@@ -97,7 +104,7 @@ export const validateLogin = (req, res, next) => {
 };
 
 export const validateTask = (req, res, next) => {
-  const { title, status, assignedTo, parentTask } = req.body;
+  const { title, status, assignedTo, parentTask, tags } = req.body;
 
   if (req.method === 'POST' && (!title || !title.trim()))
     return next(new AppError('Title is required', 400));
@@ -110,6 +117,9 @@ export const validateTask = (req, res, next) => {
 
   if (parentTask && !mongoose.isValidObjectId(parentTask))
     return next(new AppError('parentTask is not a valid ID', 400));
+
+  const tagsError = validateTagIdsArray(tags);
+  if (tagsError) return next(new AppError(tagsError, 400));
 
   next();
 };
@@ -162,9 +172,10 @@ const validateDateRange = (startDate, endDate) => {
 
 const VALID_PRIORITIES = ['low', 'medium', 'high'];
 const VALID_PROJECT_STATUSES = ['active', 'completed'];
+const URL_REGEX = /^https?:\/\/[^\s]+\.[^\s]+$/i;
 
 export const validateProject = (req, res, next) => {
-  const { name, startDate, endDate, owner, priority, department, status } = req.body;
+  const { name, startDate, endDate, owner, priority, department, category, status, detailsText, effort, links, tags } = req.body;
 
   if (req.method === 'POST' && (!name || !name.trim()))
     return next(new AppError('Project name is required', 400));
@@ -175,6 +186,12 @@ export const validateProject = (req, res, next) => {
   if (department && !mongoose.isValidObjectId(department))
     return next(new AppError('department is not a valid ID', 400));
 
+  if (category && !mongoose.isValidObjectId(category))
+    return next(new AppError('category is not a valid ID', 400));
+
+  const tagsError = validateTagIdsArray(tags);
+  if (tagsError) return next(new AppError(tagsError, 400));
+
   if (priority !== undefined && !VALID_PRIORITIES.includes(priority))
     return next(new AppError(`Priority must be one of: ${VALID_PRIORITIES.join(', ')}`, 400));
 
@@ -184,6 +201,25 @@ export const validateProject = (req, res, next) => {
   const dateError = validateDateRange(startDate, endDate);
   if (dateError) return next(new AppError(dateError, 400));
 
+  if (detailsText !== undefined && typeof detailsText !== 'string')
+    return next(new AppError('detailsText must be a string', 400));
+
+  if (effort !== undefined && effort !== null) {
+    const effortNum = Number(effort);
+    if (!Number.isFinite(effortNum) || effortNum < 1 || effortNum > 10)
+      return next(new AppError('effort must be a number between 1 and 10', 400));
+  }
+
+  if (links !== undefined) {
+    if (!Array.isArray(links)) return next(new AppError('links must be an array', 400));
+    for (const link of links) {
+      if (!link || typeof link !== 'object' || !link.title || !link.title.trim())
+        return next(new AppError('Each link must have a title', 400));
+      if (!link.url || !URL_REGEX.test(link.url))
+        return next(new AppError(`"${link.title}" has an invalid URL — it must start with http:// or https://`, 400));
+    }
+  }
+
   next();
 };
 
@@ -191,7 +227,7 @@ const VALID_ITEM_STATUSES = ['todo', 'doing', 'completed'];
 const VALID_ITEM_PRIORITIES = VALID_PRIORITIES;
 
 export const validateProjectItem = (req, res, next) => {
-  const { title, status, priority, assignedTo, parentId, startDate, endDate } = req.body;
+  const { title, status, priority, assignedTo, parentId, startDate, endDate, tags } = req.body;
 
   if (req.method === 'POST' && (!title || !title.trim()))
     return next(new AppError('Title is required', 400));
@@ -210,6 +246,9 @@ export const validateProjectItem = (req, res, next) => {
 
   const dateError = validateDateRange(startDate, endDate);
   if (dateError) return next(new AppError(dateError, 400));
+
+  const tagsError = validateTagIdsArray(tags);
+  if (tagsError) return next(new AppError(tagsError, 400));
 
   next();
 };
@@ -279,3 +318,37 @@ export const validateDepartmentIds = (req, res, next) => {
 
   next();
 };
+
+export const validateTag = (req, res, next) => {
+  const { name, textColor, backgroundColor } = req.body;
+
+  if (req.method === 'POST' && (!name || !name.trim()))
+    return next(new AppError('Tag name is required', 400));
+
+  if (textColor !== undefined && !HEX_COLOR_REGEX.test(textColor))
+    return next(new AppError('textColor must be a valid hex color', 400));
+
+  if (backgroundColor !== undefined && !HEX_COLOR_REGEX.test(backgroundColor))
+    return next(new AppError('backgroundColor must be a valid hex color', 400));
+
+  next();
+};
+
+export const validateTagId = validateParamId('id');
+
+export const validateCategory = (req, res, next) => {
+  const { name, color, parentId } = req.body;
+
+  if (req.method === 'POST' && (!name || !name.trim()))
+    return next(new AppError('Category name is required', 400));
+
+  if (color !== undefined && !HEX_COLOR_REGEX.test(color))
+    return next(new AppError('color must be a valid hex color', 400));
+
+  if (parentId && !mongoose.isValidObjectId(parentId))
+    return next(new AppError('parentId is not a valid ID', 400));
+
+  next();
+};
+
+export const validateCategoryId = validateParamId('id');

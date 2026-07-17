@@ -1,0 +1,55 @@
+<div class="card project-tasks-card shadow-sm details-card">
+  <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-file-earmark-text me-1"></i>Project Plan</h6>
+
+  @if (plan) {
+    <div class="plan-file-row">
+      <i class="bi plan-file-icon" [class]="fileIcon(plan.mimeType)"></i>
+      <div class="plan-file-info">
+        <span class="plan-file-name">{{ plan.fileName }}</span>
+        <span class="plan-file-meta">{{ formatSize(plan.size) }}</span>
+      </div>
+      <button class="attachment-download-btn" (click)="download()" [disabled]="downloading" title="Download">
+        @if (downloading) {
+          <span class="spinner-border spinner-border-sm"></span>
+        } @else {
+          <i class="bi bi-download"></i>
+        }
+      </button>
+      <button class="subtask-del-btn" (click)="remove()" [disabled]="removing" title="Remove">
+        @if (removing) {
+          <span class="spinner-border spinner-border-sm"></span>
+        } @else {
+          <i class="bi bi-x"></i>
+        }
+      </button>
+    </div>
+
+    <div class="attachment-upload-row mt-3">
+      <label class="attachment-upload-btn" [class.disabled]="uploading">
+        @if (uploading) {
+          <span class="spinner-border spinner-border-sm me-2"></span>Replacing…
+        } @else {
+          <i class="bi bi-arrow-repeat me-2"></i>Replace File
+        }
+        <input type="file" hidden [accept]="acceptedFileTypes" (change)="onFileSelected($event)" [disabled]="uploading" />
+      </label>
+    </div>
+  } @else {
+    <p class="text-muted small mb-3">No plan document uploaded yet.</p>
+
+    <div class="attachment-upload-row">
+      <label class="attachment-upload-btn" [class.disabled]="uploading">
+        @if (uploading) {
+          <span class="spinner-border spinner-border-sm me-2"></span>Uploading…
+        } @else {
+          <i class="bi bi-cloud-arrow-up me-2"></i>Upload Plan
+        }
+        <input type="file" hidden [accept]="acceptedFileTypes" (change)="onFileSelected($event)" [disabled]="uploading" />
+      </label>
+    </div>
+  }
+
+  @if (uploadError) {
+    <div class="field-error mt-2">{{ uploadError }}</div>
+  }
+</div>

@@ -3,13 +3,16 @@ import ProjectItem from '../models/ProjectItem.js';
 import Comment from '../models/Comment.js';
 import Attachment from '../models/Attachment.js';
 import AppError from '../utils/AppError.js';
-import { deleteFile } from '../utils/gridfs.js';
+import { uploadBufferToGridFS, openDownloadStream, deleteFile } from '../utils/gridfs.js';
 import { getAccessibleDepartmentIds, canAccessDepartment } from '../utils/access.js';
 
 const POPULATE_FIELDS = [
-  { path: 'createdBy', select: 'username email role' },
-  { path: 'owner', select: 'username email role' },
+  { path: 'createdBy', select: 'username email role profileImage' },
+  { path: 'updatedBy', select: 'username email role profileImage' },
+  { path: 'owner', select: 'username email role profileImage' },
   { path: 'department', select: 'name color' },
+  { path: 'category', select: 'name color' },
+  { path: 'tags', select: 'name textColor backgroundColor' },
 ];
 
 // Admins see every project in their organization. Everyone else sees
@@ -88,7 +91,7 @@ export const getProjects = async (req, res, next) => {
 
 export const createProject = async (req, res, next) => {
   try {
-    const { name, description, startDate, endDate, owner, priority, department, status } = req.body;
+    const { name, description, startDate, endDate, owner, priority, department, category, status, tags } = req.body;
 
     if (department && req.user.role !== 'Admin') {
       const accessibleIds = await getAccessibleDepartmentIds(req.user);
@@ -104,9 +107,11 @@ export const createProject = async (req, res, next) => {
       priority: priority ?? 'medium',
       status: status ?? 'active',
       department: department ?? null,
+      category: category ?? null,
       organization: req.user.organization,
       startDate: startDate ?? null,
       endDate: endDate ?? null,
+      tags: tags ?? [],
     });
 
     const populated = await project.populate(POPULATE_FIELDS);
@@ -140,7 +145,21 @@ export const updateProject = async (req, res, next) => {
     if (!canManageProjectSettings(req.user, project))
       return next(new AppError('You do not have permission to update this project', 403));
 
-    const { name, description, startDate, endDate, owner, priority, department, status } = req.body;
+    const {
+      name,
+      description,
+      startDate,
+      endDate,
+      owner,
+      priority,
+      department,
+      category,
+      status,
+      detailsText,
+      effort,
+      links,
+      tags,
+    } = req.body;
 
     if (department && req.user.role !== 'Admin') {
       const accessibleIds = await getAccessibleDepartmentIds(req.user);
@@ -156,6 +175,12 @@ export const updateProject = async (req, res, next) => {
     if (priority !== undefined) project.priority = priority;
     if (status !== undefined) project.status = status;
     if (department !== undefined) project.department = department || null;
+    if (category !== undefined) project.category = category || null;
+    if (detailsText !== undefined) project.detailsText = detailsText;
+    if (effort !== undefined) project.effort = effort;
+    if (links !== undefined) project.links = links.map((l) => ({ title: l.title.trim(), url: l.url.trim() }));
+    if (tags !== undefined) project.tags = tags;
+    project.updatedBy = req.user._id;
 
     await project.save();
 
@@ -190,8 +215,104 @@ export const deleteProject = async (req, res, next) => {
       await ProjectItem.deleteMany({ _id: { $in: allItemIds } });
     }
 
+    const projectAttachments = await Attachment.find({ project: project._id });
+    await Promise.allSettled(projectAttachments.map((a) => deleteFile(a.gridFsId)));
+    await Attachment.deleteMany({ project: project._id });
+
+    if (project.plan?.gridFsId) {
+      await deleteFile(project.plan.gridFsId).catch(() => {});
+    }
+
     await Project.findByIdAndDelete(project._id);
     res.status(200).json({ message: 'Project deleted' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const uploadProjectPlan = async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+    if (!canManageProjectSettings(req.user, project))
+      return next(new AppError('You do not have permission to update this project', 403));
+
+    if (!req.file) return next(new AppError('No file uploaded', 400));
+
+    if (project.plan?.gridFsId) {
+      await deleteFile(project.plan.gridFsId).catch(() => {});
+    }
+
+    const gridFsId = await uploadBufferToGridFS(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype
+    );
+
+    project.plan = {
+      fileName: req.file.originalname,
+      gridFsId,
+      mimeType: req.file.mimetype,
+      size: req.file.size,
+      uploadedBy: req.user._id,
+      uploadedAt: new Date(),
+    };
+    project.updatedBy = req.user._id;
+    await project.save();
+
+    const populated = await project.populate(POPULATE_FIELDS);
+    res.status(200).json({ message: 'Plan uploaded', project: populated });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const downloadProjectPlan = async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
+    if (!project.plan?.gridFsId) return next(new AppError('No plan has been uploaded', 404));
+
+    res.set({
+      'Content-Type': project.plan.mimeType,
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(project.plan.fileName)}"`,
+      'Content-Length': project.plan.size,
+    });
+
+    const stream = openDownloadStream(project.plan.gridFsId);
+    stream.on('error', () => next(new AppError('File not found in storage', 404)));
+    stream.pipe(res);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const removeProjectPlan = async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+    if (!canManageProjectSettings(req.user, project))
+      return next(new AppError('You do not have permission to update this project', 403));
+
+    if (project.plan?.gridFsId) {
+      await deleteFile(project.plan.gridFsId).catch(() => {});
+    }
+    project.plan = null;
+    project.updatedBy = req.user._id;
+    await project.save();
+
+    const populated = await project.populate(POPULATE_FIELDS);
+    res.status(200).json({ message: 'Plan removed', project: populated });
   } catch (err) {
     next(err);
   }

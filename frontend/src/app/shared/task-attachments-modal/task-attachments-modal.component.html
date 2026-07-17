@@ -1,0 +1,67 @@
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="closed.emit()">
+  <div class="modal-dialog modal-dialog-centered tasklist-dialog tasklist-dialog-lg">
+  @if (open) {
+    <div class="modal-content tasklist-modal-content shadow-lg">
+      <div class="modal-header modal-form-header">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 fw-bold">
+            <i class="bi bi-paperclip me-2 text-primary"></i>Attachments
+            @if (task) { <span class="text-muted fw-normal">— {{ task.title }}</span> }
+          </h5>
+          <button type="button" class="detail-x" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+        </div>
+      </div>
+
+      <div class="modal-body p-4">
+        @if (error) {
+          <div class="alert alert-danger py-2 small mb-3">{{ error }}</div>
+        }
+
+        @if (loading) {
+          <div class="text-center py-4 text-muted">
+            <span class="spinner-border spinner-border-sm me-2"></span>Loading files…
+          </div>
+        } @else if (attachments.length === 0) {
+          <p class="text-muted small mb-4">No files uploaded yet.</p>
+        } @else {
+          <ul class="attachment-list mb-4">
+            @for (a of attachments; track a._id) {
+              <li class="attachment-item">
+                <i class="bi attachment-file-icon" [class]="fileIcon(a.mimeType)"></i>
+                <div class="attachment-info">
+                  <span class="attachment-name">{{ a.fileName }}</span>
+                  <span class="attachment-meta">{{ formatSize(a.size) }} · {{ a.uploadedBy.username }}</span>
+                </div>
+                <button class="attachment-download-btn" (click)="viewRequested.emit(a)" title="Preview">
+                  <i class="bi bi-eye"></i>
+                </button>
+                <button class="attachment-download-btn" (click)="download.emit(a)" [disabled]="downloadingId === a._id" title="Download">
+                  @if (downloadingId === a._id) {
+                    <span class="spinner-border spinner-border-sm"></span>
+                  } @else {
+                    <i class="bi bi-download"></i>
+                  }
+                </button>
+              </li>
+            }
+          </ul>
+        }
+
+        <div class="attachment-upload-row">
+          <label class="attachment-upload-btn" [class.disabled]="uploading">
+            @if (uploading) {
+              <span class="spinner-border spinner-border-sm me-2"></span>Uploading…
+            } @else {
+              <i class="bi bi-cloud-arrow-up me-2"></i>Upload File
+            }
+            <input #fileInput type="file" hidden [accept]="acceptedFileTypes" (change)="onFileSelected($event)" [disabled]="uploading" />
+          </label>
+        </div>
+        @if (uploadError) {
+          <div class="field-error mt-2">{{ uploadError }}</div>
+        }
+      </div>
+    </div>
+  }
+  </div>
+</div>

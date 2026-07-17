@@ -1,0 +1,108 @@
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="closed.emit()">
+  <div class="modal-dialog modal-dialog-centered tasklist-dialog tasklist-dialog-lg">
+    <div class="modal-content tasklist-modal-content shadow-lg">
+      <div class="modal-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h5 class="card-title mb-0"><i class="bi bi-plus-circle me-2"></i>New Task</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        @if (error) {
+          <div class="alert alert-danger py-2">{{ error }}</div>
+        }
+
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Title <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" formControlName="title" placeholder="Task title" />
+            @if (form.get('title')?.touched && form.get('title')?.invalid) {
+              <div class="text-danger small mt-1">Title is required</div>
+            }
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Description</label>
+            <textarea class="form-control" formControlName="description" rows="3"
+                      placeholder="Optional description"></textarea>
+          </div>
+
+          @if (!isUser && assignees.length > 0) {
+            <div class="mb-4">
+              <label class="form-label fw-semibold">Assign To</label>
+              <div class="dropdown">
+                <button type="button" class="assign-trigger dropdown-toggle"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                  @if (assignee) {
+                    @if (avatarUrl(assignee)) {
+                      <img class="assign-avatar-img" [src]="avatarUrl(assignee)!" [alt]="assignee.username"
+                           (error)="onAvatarError(assignee)" />
+                    } @else {
+                      <span class="assign-avatar" [class]="'avatar-' + roleClass(assignee.role)">
+                        {{ assignee.username[0].toUpperCase() }}
+                      </span>
+                    }
+                    <span class="assign-trigger-name">{{ assignee.username }}</span>
+                    <span class="assign-role-badge ms-auto" [class]="'role-' + roleClass(assignee.role)">
+                      {{ assignee.role }}
+                    </span>
+                  } @else {
+                    <span class="assign-avatar avatar-self"><i class="bi bi-person"></i></span>
+                    <span class="assign-trigger-name text-muted">Assign to self</span>
+                  }
+                </button>
+                <ul class="dropdown-menu assign-dropdown w-100">
+                  <li>
+                    <a class="assign-item" (click)="selectAssignee(null)">
+                      <span class="assign-avatar avatar-self"><i class="bi bi-person"></i></span>
+                      <span class="assign-item-name text-muted">Assign to self</span>
+                    </a>
+                  </li>
+                  <li><hr class="dropdown-divider my-1"></li>
+                  @for (u of assignees; track u.id) {
+                    <li>
+                      <a class="assign-item" (click)="selectAssignee(u)">
+                        @if (avatarUrl(u)) {
+                          <img class="assign-avatar-img" [src]="avatarUrl(u)!" [alt]="u.username"
+                               (error)="onAvatarError(u)" />
+                        } @else {
+                          <span class="assign-avatar" [class]="'avatar-' + roleClass(u.role)">
+                            {{ u.username[0].toUpperCase() }}
+                          </span>
+                        }
+                        <span class="assign-item-name">{{ u.username }}</span>
+                        <span class="assign-role-badge ms-auto" [class]="'role-' + roleClass(u.role)">
+                          {{ u.role }}
+                        </span>
+                      </a>
+                    </li>
+                  }
+                </ul>
+              </div>
+            </div>
+          }
+
+          @if (isUser) {
+            <div class="alert alert-info py-2 small mb-4">Task will be automatically assigned to you.</div>
+          }
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Tags</label>
+            <app-tag-picker
+              [allTags]="allTags"
+              [selectedTags]="selectedTags"
+              (tagsChange)="onTagsChange($event)"
+              (tagCreated)="onTagCreated($event)">
+            </app-tag-picker>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary" [disabled]="loading">
+              {{ loading ? 'Creating...' : 'Create Task' }}
+            </button>
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

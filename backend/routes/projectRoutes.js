@@ -18,6 +18,9 @@ import {
   getProjectById,
   updateProject,
   deleteProject,
+  uploadProjectPlan,
+  downloadProjectPlan,
+  removeProjectPlan,
 } from '../controllers/projectController.js';
 import {
   getItems,
@@ -39,6 +42,10 @@ import {
   uploadItemAttachment,
   downloadItemAttachment,
   deleteItemAttachment,
+  getProjectAttachments,
+  uploadProjectAttachment,
+  downloadProjectAttachment,
+  deleteProjectAttachment,
 } from '../controllers/attachmentController.js';
 
 const router = Router();
@@ -48,6 +55,33 @@ router.post('/', protect, validateProject, createProject);
 router.get('/:projectId', protect, validateProjectId, getProjectById);
 router.put('/:projectId', protect, validateProjectId, validateProject, updateProject);
 router.delete('/:projectId', protect, validateProjectId, deleteProject);
+
+router.get('/:projectId/attachments', protect, validateProjectId, getProjectAttachments);
+router.post(
+  '/:projectId/attachments',
+  protect,
+  validateProjectId,
+  attachmentUpload,
+  uploadProjectAttachment
+);
+router.get(
+  '/:projectId/attachments/:attachmentId/download',
+  protect,
+  validateProjectId,
+  validateAttachmentId,
+  downloadProjectAttachment
+);
+router.delete(
+  '/:projectId/attachments/:attachmentId',
+  protect,
+  validateProjectId,
+  validateAttachmentId,
+  deleteProjectAttachment
+);
+
+router.put('/:projectId/plan', protect, validateProjectId, attachmentUpload, uploadProjectPlan);
+router.get('/:projectId/plan/download', protect, validateProjectId, downloadProjectPlan);
+router.delete('/:projectId/plan', protect, validateProjectId, removeProjectPlan);
 
 router.get('/:projectId/items', protect, validateProjectId, getItems);
 router.post('/:projectId/items', protect, validateProjectId, validateProjectItem, createItem);

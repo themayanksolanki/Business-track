@@ -19,6 +19,9 @@
       <div class="project-header-icon"><i class="bi bi-kanban"></i></div>
 
       <div class="project-header-titleblock">
+        @if (project.numericId) {
+          <span class="text-muted-em">#{{ project.numericId }}</span>
+        }
         <input type="text" class="project-title-input" [(ngModel)]="editName"
                (blur)="saveNameDescription()" (keydown.enter)="$event.preventDefault(); $any($event.target).blur()"
                placeholder="Project name" maxlength="200" />
@@ -53,9 +56,14 @@
         <div class="dropdown">
           <button type="button" class="assign-trigger dropdown-toggle" data-bs-toggle="dropdown">
             @if (project.owner) {
-              <span class="assign-avatar" [class]="'avatar-' + roleClass(project.owner.role)">
-                {{ project.owner.username[0].toUpperCase() }}
-              </span>
+              @if (avatarUrl(project.owner)) {
+                <img class="assign-avatar-img" [src]="avatarUrl(project.owner)!" [alt]="project.owner.username"
+                     (error)="onAvatarError(project.owner)" />
+              } @else {
+                <span class="assign-avatar" [class]="'avatar-' + roleClass(project.owner.role)">
+                  {{ project.owner.username[0].toUpperCase() }}
+                </span>
+              }
               <span class="assign-trigger-name">{{ project.owner.username }}</span>
             } @else {
               <span class="assign-avatar avatar-empty"><i class="bi bi-person"></i></span>
@@ -73,7 +81,11 @@
             @for (u of users; track u.id) {
               <li>
                 <a class="assign-item" (click)="selectOwner(u)">
-                  <span class="assign-avatar" [class]="'avatar-' + roleClass(u.role)">{{ u.username[0].toUpperCase() }}</span>
+                  @if (avatarUrl(u)) {
+                    <img class="assign-avatar-img" [src]="avatarUrl(u)!" [alt]="u.username" (error)="onAvatarError(u)" />
+                  } @else {
+                    <span class="assign-avatar" [class]="'avatar-' + roleClass(u.role)">{{ u.username[0].toUpperCase() }}</span>
+                  }
                   <span class="assign-item-name">{{ u.username }}</span>
                 </a>
               </li>
@@ -112,6 +124,48 @@
             }
           </ul>
         </div>
+      </div>
+
+      <div class="meta-cell">
+        <span class="meta-label"><i class="bi bi-bookmark me-1"></i>Category</span>
+        <div class="dropdown">
+          <button type="button" class="assign-trigger dropdown-toggle" data-bs-toggle="dropdown">
+            @if (project.category) {
+              <span class="dept-dot" [style.background]="project.category.color"></span>
+              <span class="assign-trigger-name">{{ project.category.name }}</span>
+            } @else {
+              <span class="assign-avatar avatar-empty"><i class="bi bi-bookmark"></i></span>
+              <span class="assign-trigger-name text-muted">Unassigned</span>
+            }
+          </button>
+          <ul class="dropdown-menu assign-dropdown">
+            <li>
+              <a class="assign-item" (click)="selectCategory(null)">
+                <span class="assign-avatar avatar-empty"><i class="bi bi-bookmark"></i></span>
+                <span class="assign-item-name text-muted">Unassigned</span>
+              </a>
+            </li>
+            <li><hr class="dropdown-divider my-1" /></li>
+            @for (c of categories; track c._id) {
+              <li>
+                <a class="assign-item" (click)="selectCategory(c)">
+                  <span class="dept-dot" [style.background]="c.color"></span>
+                  <span class="assign-item-name">{{ c.name }}</span>
+                </a>
+              </li>
+            }
+          </ul>
+        </div>
+      </div>
+
+      <div class="meta-cell">
+        <span class="meta-label"><i class="bi bi-tags me-1"></i>Tags</span>
+        <app-tag-picker
+          [allTags]="allTags"
+          [selectedTags]="project.tags"
+          (tagsChange)="selectTags($event)"
+          (tagCreated)="onTagCreated($event)">
+        </app-tag-picker>
       </div>
 
       <div class="meta-cell">
@@ -194,6 +248,7 @@
       } @else {
         <div class="card project-tasks-card shadow-sm">
           <div class="item-table-header">
+            <span>ID</span>
             <span></span>
             <span></span>
             <span>Task</span>
@@ -211,6 +266,7 @@
                 <app-project-tree-node
                   [node]="node"
                   [projectId]="projectId"
+                  [users]="users"
                   [isFirst]="first"
                   [isLast]="last"
                   (refresh)="loadItems()"
@@ -246,29 +302,103 @@
     }
 
     @if (activeTab === 'detail') {
-      <div class="card project-tasks-card shadow-sm">
-        <h6 class="text-muted mb-3 text-uppercase small fw-bold">Schedule</h6>
-        <div class="detail-schedule-row">
-          <div class="detail-schedule-grid">
-            <div class="meta-cell">
-              <span class="meta-label">Start</span>
-              <div class="d-flex gap-2">
-                <app-date-picker [value]="startDateStr" (valueChange)="onStartDateChange($event)"></app-date-picker>
-                <app-time-picker [value]="startTimeStr" (valueChange)="onStartTimeChange($event)"></app-time-picker>
+      <div class="details-grid">
+        <div class="card project-tasks-card shadow-sm details-card">
+          <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-card-text me-1"></i>Project Details</h6>
+          <textarea class="form-control field-input details-textarea" rows="6" [(ngModel)]="detailsText"
+                    (blur)="saveDetailsText()" placeholder="Add detailed project information…" maxlength="10000"></textarea>
+        </div>
+
+        <app-project-attachments-card [projectId]="projectId"></app-project-attachments-card>
+
+        <app-project-plan-card [projectId]="projectId" [plan]="project.plan" (planChanged)="onPlanChanged($event)"></app-project-plan-card>
+
+        <div class="card project-tasks-card shadow-sm details-card">
+          <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-calendar3 me-1"></i>Project Dates</h6>
+          <div class="detail-schedule-row">
+            <div class="detail-schedule-grid">
+              <div class="meta-cell">
+                <span class="meta-label">Start</span>
+                <div class="d-flex gap-2">
+                  <app-date-picker [value]="startDateStr" (valueChange)="onStartDateChange($event)"></app-date-picker>
+                  <app-time-picker [value]="startTimeStr" (valueChange)="onStartTimeChange($event)"></app-time-picker>
+                </div>
+              </div>
+              <div class="meta-cell">
+                <span class="meta-label">End</span>
+                <div class="d-flex gap-2">
+                  <app-date-picker [value]="endDateStr" [min]="startDateStr" align="right" (valueChange)="onEndDateChange($event)"></app-date-picker>
+                  <app-time-picker [value]="endTimeStr" align="right" (valueChange)="onEndTimeChange($event)"></app-time-picker>
+                </div>
               </div>
             </div>
-            <div class="meta-cell">
-              <span class="meta-label">End</span>
-              <div class="d-flex gap-2">
-                <app-date-picker [value]="endDateStr" [min]="startDateStr" align="right" (valueChange)="onEndDateChange($event)"></app-date-picker>
-                <app-time-picker [value]="endTimeStr" align="right" (valueChange)="onEndTimeChange($event)"></app-time-picker>
-              </div>
+
+            <div class="meta-cell duration-cell">
+              <span class="meta-label">Duration</span>
+              <span class="duration-value">{{ durationLabel }}</span>
             </div>
           </div>
+        </div>
 
-          <div class="meta-cell duration-cell">
-            <span class="meta-label">Duration</span>
-            <span class="duration-value">{{ durationLabel }}</span>
+        <div class="card project-tasks-card shadow-sm details-card">
+          <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-flag-fill me-1"></i>Priority</h6>
+          <div class="slider-row">
+            <input type="range" class="form-range" min="0" max="2" step="1"
+                   [ngModel]="priorityIndex" (change)="onPriorityIndexChange($any($event.target).valueAsNumber)" />
+            <span class="slider-value-badge priority-badge"
+                  [class.priority-low]="project.priority === 'low'"
+                  [class.priority-medium]="project.priority === 'medium'"
+                  [class.priority-high]="project.priority === 'high'">
+              {{ project.priority }}
+            </span>
+          </div>
+          <div class="slider-ticks">
+            <span>Low</span>
+            <span>Medium</span>
+            <span>High</span>
+          </div>
+        </div>
+
+        <div class="card project-tasks-card shadow-sm details-card">
+          <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-speedometer2 me-1"></i>Effort</h6>
+          <div class="slider-row">
+            <input type="range" class="form-range" min="1" max="10" step="1"
+                   [ngModel]="effortValue" (change)="onEffortChange($any($event.target).valueAsNumber)" />
+            <span class="slider-value-badge effort-badge">{{ effortValue }}</span>
+          </div>
+        </div>
+
+        <div class="card project-tasks-card shadow-sm details-card">
+          <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-link-45deg me-1"></i>Important Links</h6>
+
+          @if (links.length === 0) {
+            <p class="text-muted small mb-3">No links added yet.</p>
+          } @else {
+            <ul class="links-list mb-3">
+              @for (link of links; track $index) {
+                <li class="link-item">
+                  <i class="bi bi-link-45deg link-icon"></i>
+                  <a [href]="link.url" target="_blank" rel="noopener" class="link-title">{{ link.title }}</a>
+                  <span class="link-url">{{ link.url }}</span>
+                  <button class="subtask-del-btn" (click)="removeLink($index)" title="Remove link">
+                    <i class="bi bi-x"></i>
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+
+          @if (linksError) {
+            <div class="field-error mb-2">{{ linksError }}</div>
+          }
+
+          <div class="add-link-row">
+            <input type="text" class="form-control field-input" [(ngModel)]="newLinkTitle" placeholder="Title" maxlength="200" />
+            <input type="url" class="form-control field-input" [(ngModel)]="newLinkUrl" placeholder="https://…" maxlength="2000"
+                   [class.is-invalid]="!isValidLinkUrl" />
+            <button class="add-subtask-btn" (click)="addLink()" [disabled]="!newLinkTitle.trim() || !newLinkUrl.trim()">
+              <i class="bi bi-plus-lg"></i>
+            </button>
           </div>
         </div>
       </div>
@@ -281,9 +411,11 @@
   [item]="selectedNode"
   [childCount]="selectedNode?.childCount || 0"
   [breadcrumbPath]="selectedPath"
+  [allTags]="allTags"
   (closed)="closeDetail()"
   (saved)="onItemSaved($event)"
-  (breadcrumbNavigate)="onOpenDetail($event)">
+  (breadcrumbNavigate)="onOpenDetail($event)"
+  (tagCreated)="onTagCreated($event)">
 </app-project-item-detail>
 
 

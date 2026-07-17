@@ -4,7 +4,10 @@ import Project from '../models/Project.js';
 import AppError from '../utils/AppError.js';
 import { getAccessibleDepartmentIds, canAccessDepartment, getDescendantIds } from '../utils/access.js';
 
-const POPULATE_FIELDS = [{ path: 'createdBy', select: 'username email role' }];
+const POPULATE_FIELDS = [
+  { path: 'createdBy', select: 'username email role' },
+  { path: 'updatedBy', select: 'username email role' },
+];
 const PROJECT_POPULATE_FIELDS = [
   { path: 'createdBy', select: 'username email role' },
   { path: 'owner', select: 'username email role' },
@@ -12,44 +15,85 @@ const PROJECT_POPULATE_FIELDS = [
 
 const sameOrg = (a, b) => String(a ?? '') === String(b ?? '');
 
+// Merges userCount/projectCount/childCount onto each department. The three
+// aggregates are org-agnostic by design (they just describe absolute usage
+// across the whole collection), so the same merge works whether `departments`
+// is the full org list or a single page's worth.
+const attachCounts = async (departments) => {
+  const [userCounts, projectCounts, childCounts] = await Promise.all([
+    User.aggregate([
+      { $unwind: '$departments' },
+      { $group: { _id: '$departments', count: { $sum: 1 } } },
+    ]),
+    Project.aggregate([
+      { $match: { department: { $ne: null } } },
+      { $group: { _id: '$department', count: { $sum: 1 } } },
+    ]),
+    Department.aggregate([
+      { $match: { parentId: { $ne: null } } },
+      { $group: { _id: '$parentId', count: { $sum: 1 } } },
+    ]),
+  ]);
+
+  const toMap = (rows) => new Map(rows.map((r) => [String(r._id), r.count]));
+  const userCountMap = toMap(userCounts);
+  const projectCountMap = toMap(projectCounts);
+  const childCountMap = toMap(childCounts);
+
+  return departments.map((d) => ({
+    ...d.toObject(),
+    userCount: userCountMap.get(String(d._id)) ?? 0,
+    projectCount: projectCountMap.get(String(d._id)) ?? 0,
+    childCount: childCountMap.get(String(d._id)) ?? 0,
+  }));
+};
+
 export const getDepartments = async (req, res, next) => {
   try {
     const accessibleIds = await getAccessibleDepartmentIds(req.user);
-    const filter = { organization: req.user.organization };
-    if (accessibleIds !== null) filter._id = { $in: accessibleIds };
 
-    const departments = await Department.find(filter)
+    if (req.query.page === undefined) {
+      const filter = { organization: req.user.organization };
+      if (accessibleIds !== null) filter._id = { $in: accessibleIds };
+
+      const departments = await Department.find(filter)
+        .populate(POPULATE_FIELDS)
+        .sort({ parentId: 1, order: 1 });
+
+      return res.status(200).json(await attachCounts(departments));
+    }
+
+    // Paginated: the tree is built client-side from parentId links, so a page
+    // must contain complete subtrees, never orphaned children whose parent
+    // landed on a different page. Paginate over root-level departments only,
+    // then pull in every descendant of that page's roots regardless of depth.
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 12));
+    const skip = (page - 1) * limit;
+
+    const rootFilter = { organization: req.user.organization, parentId: null };
+    if (accessibleIds !== null) rootFilter._id = { $in: accessibleIds };
+
+    const [total, roots] = await Promise.all([
+      Department.countDocuments(rootFilter),
+      Department.find(rootFilter).sort({ order: 1 }).skip(skip).limit(limit).select('_id'),
+    ]);
+
+    const rootIds = roots.map((r) => r._id);
+    const descendantIds = await getDescendantIds(rootIds);
+    const allIds = [...rootIds, ...descendantIds];
+
+    const departments = await Department.find({ _id: { $in: allIds } })
       .populate(POPULATE_FIELDS)
       .sort({ parentId: 1, order: 1 });
 
-    const [userCounts, projectCounts, childCounts] = await Promise.all([
-      User.aggregate([
-        { $unwind: '$departments' },
-        { $group: { _id: '$departments', count: { $sum: 1 } } },
-      ]),
-      Project.aggregate([
-        { $match: { department: { $ne: null } } },
-        { $group: { _id: '$department', count: { $sum: 1 } } },
-      ]),
-      Department.aggregate([
-        { $match: { parentId: { $ne: null } } },
-        { $group: { _id: '$parentId', count: { $sum: 1 } } },
-      ]),
-    ]);
-
-    const toMap = (rows) => new Map(rows.map((r) => [String(r._id), r.count]));
-    const userCountMap = toMap(userCounts);
-    const projectCountMap = toMap(projectCounts);
-    const childCountMap = toMap(childCounts);
-
-    const withCounts = departments.map((d) => ({
-      ...d.toObject(),
-      userCount: userCountMap.get(String(d._id)) ?? 0,
-      projectCount: projectCountMap.get(String(d._id)) ?? 0,
-      childCount: childCountMap.get(String(d._id)) ?? 0,
-    }));
-
-    res.status(200).json(withCounts);
+    res.status(200).json({
+      departments: await attachCounts(departments),
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    });
   } catch (err) {
     next(err);
   }
@@ -135,6 +179,7 @@ export const updateDepartment = async (req, res, next) => {
     if (name !== undefined) department.name = name.trim();
     if (overview !== undefined) department.overview = overview;
     if (color !== undefined) department.color = color;
+    department.updatedBy = req.user._id;
 
     await department.save();
 

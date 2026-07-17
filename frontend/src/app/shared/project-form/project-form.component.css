@@ -1,0 +1,45 @@
+/* ── Modal shell (Bootstrap .modal/.modal-dialog/.modal-content) ── */
+.projects-create-dialog {
+  max-width: 60vw;
+}
+
+.projects-create-content {
+  border-radius: 14px;
+  border: none;
+  background: var(--bg-card);
+}
+
+.field-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 7px;
+}
+
+.field-input {
+  height: 46px;
+  border-color: var(--border-strong);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field-input:focus {
+  background: var(--bg-card);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  color: var(--text-primary);
+}
+
+.field-error { font-size: 0.76rem; color: #ef4444; margin-top: 5px; }
+
+.modal-submit-btn {
+  height: 42px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding-left: 22px;
+  padding-right: 22px;
+}
