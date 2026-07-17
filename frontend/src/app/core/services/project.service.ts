@@ -89,6 +89,20 @@ export class ProjectService {
     );
   }
 
+  moveItemToParent(projectId: string, itemId: string, parentId: string | null, index?: number) {
+    return this.http.patch<{ message: string; item: ProjectItem }>(
+      `${this.api}/${projectId}/items/${itemId}/move-to`,
+      { parentId, index }
+    );
+  }
+
+  bulkMoveItemsToParent(projectId: string, itemIds: string[], parentId: string) {
+    return this.http.patch<{ message: string; movedCount: number; alreadyInGroupCount: number }>(
+      `${this.api}/${projectId}/items/bulk-move-to`,
+      { itemIds, parentId }
+    );
+  }
+
   // Comments
   getComments(projectId: string, itemId: string) {
     return this.http.get<ProjectComment[]>(`${this.api}/${projectId}/items/${itemId}/comments`);

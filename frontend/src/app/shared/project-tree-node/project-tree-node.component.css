@@ -26,6 +26,13 @@
   color: var(--text-dim);
 }
 
+.tree-select-checkbox {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
 .tree-cell-task {
   display: flex;
   align-items: flex-start;
@@ -305,6 +312,62 @@
 
 .attachment-panel-wrap { padding-right: 10px; }
 
+.description-panel {
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg-card-alt);
+  padding: 10px 14px 14px;
+  margin: 4px 0;
+}
+
+.description-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.attachment-panel-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.attachment-panel-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.attachment-panel-close:hover { background: var(--bg-muted); color: var(--text-primary); }
+
+.description-panel-textarea {
+  height: auto;
+  resize: vertical;
+  border-color: var(--border-strong);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.description-panel-textarea:focus {
+  background: var(--bg-card);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  color: var(--text-primary);
+}
+
 .tree-add-child-row {
   display: flex;
   gap: 6px;
@@ -317,7 +380,48 @@
   flex-direction: column;
   gap: 4px;
   margin-top: 4px;
+  border-radius: 8px;
+  transition: background-color 150ms ease, box-shadow 150ms ease;
 }
+
+.tree-children.cdk-drop-list-dragging { box-shadow: inset 0 0 0 1px var(--border-strong); }
+
+.tree-children.cdk-drop-list-receiving {
+  background: rgba(59, 130, 246, 0.06);
+  box-shadow: inset 0 0 0 1.5px #3b82f6;
+}
+
+/* Empty containers keep a constant, non-zero size at all times — never
+   resized or collapsed based on drag state. CDK snapshots each connected
+   list's on-screen size synchronously the instant a drag starts (before any
+   Angular re-render could expand it), and never re-measures it afterwards, so
+   a container that's 0×0 at that moment is permanently un-droppable for the
+   rest of that drag. Only opacity/color (not layout) react to
+   .cdk-drop-list-receiving, which is CDK's own real "am I a valid target for
+   the current drag" signal, to keep clutter down without breaking geometry. */
+.tree-children-empty {
+  min-height: 4px;
+  margin-top: 0;
+  display: flex;
+  align-items: center;
+  border: 1.5px dashed transparent;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.tree-children-empty.cdk-drop-list-receiving {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.tree-children-placeholder {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.tree-children-empty.cdk-drop-list-receiving .tree-children-placeholder { opacity: 1; }
 
 .tree-drag-item.cdk-drag-preview {
   box-shadow: var(--shadow-lg);

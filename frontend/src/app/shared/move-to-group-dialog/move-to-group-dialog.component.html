@@ -1,0 +1,50 @@
+<div
+  class="modal fade"
+  tabindex="-1"
+  aria-hidden="true"
+  [appModal]="open"
+  [appModalOptions]="{ backdrop: 'static' }"
+  (appModalClosed)="cancelled.emit()"
+>
+  <div class="modal-dialog modal-dialog-centered mtg-dialog">
+    <div class="modal-content mtg-content" (click)="$event.stopPropagation()">
+
+      <div class="mtg-icon-wrap">
+        <i class="bi bi-folder-symlink mtg-icon"></i>
+      </div>
+
+      <h5 class="mtg-title">Move to Group</h5>
+      <p class="mtg-message">Select a destination group.</p>
+
+      @if (groups.length === 0) {
+        <p class="mtg-empty text-muted">No groups available.</p>
+      } @else {
+        <div class="mtg-list">
+          @for (group of groups; track group._id) {
+            <button type="button" class="mtg-group-item" [disabled]="loading"
+                    (click)="groupSelected.emit(group._id)">
+              <i class="bi bi-folder2 me-2"></i>
+              <span class="mtg-group-title">{{ group.title }}</span>
+              @if (group._id === currentGroupId) {
+                <span class="mtg-current-badge">Current</span>
+              }
+            </button>
+          }
+        </div>
+      }
+
+      <div class="mtg-actions">
+        <button type="button" class="mtg-btn mtg-btn-cancel" data-bs-dismiss="modal" [disabled]="loading">
+          Cancel
+        </button>
+      </div>
+
+      @if (loading) {
+        <div class="mtg-loading-overlay">
+          <span class="spinner-border spinner-border-sm"></span>
+        </div>
+      }
+
+    </div>
+  </div>
+</div>

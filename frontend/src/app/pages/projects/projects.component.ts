@@ -11,6 +11,8 @@ import { Category } from '../../models/category.model';
 import { CategoryService } from '../../core/services/category.service';
 import { Tag } from '../../models/tag.model';
 import { TagService } from '../../core/services/tag.service';
+import { User } from '../../models/user.model';
+import { UserService } from '../../core/services/user.service';
 import { ProjectFormComponent } from '../../shared/project-form/project-form.component';
 import { TagPillComponent } from '../../shared/tag-pill/tag-pill.component';
 
@@ -63,12 +65,14 @@ export class ProjectsComponent implements OnInit, OnDestroy {
   departments: Department[] = [];
   categories: Category[] = [];
   allTags: Tag[] = [];
+  users: User[] = [];
 
   constructor(
     private projectService: ProjectService,
     private departmentService: DepartmentService,
     private categoryService: CategoryService,
     private tagService: TagService,
+    private userService: UserService,
     private viewSvc: ProjectsViewService,
     private router: Router
   ) {
@@ -91,6 +95,10 @@ export class ProjectsComponent implements OnInit, OnDestroy {
     });
     this.tagService.getTags().subscribe({
       next: (res) => (this.allTags = res),
+      error: () => {},
+    });
+    this.userService.getAllUsers().subscribe({
+      next: (res) => (this.users = res),
       error: () => {},
     });
   }

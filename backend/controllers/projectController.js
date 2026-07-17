@@ -91,7 +91,7 @@ export const getProjects = async (req, res, next) => {
 
 export const createProject = async (req, res, next) => {
   try {
-    const { name, description, startDate, endDate, owner, priority, department, category, status, tags } = req.body;
+    const { name, description, startDate, endDate, owner, priority, effort, department, category, status, tags } = req.body;
 
     if (department && req.user.role !== 'Admin') {
       const accessibleIds = await getAccessibleDepartmentIds(req.user);
@@ -105,6 +105,7 @@ export const createProject = async (req, res, next) => {
       createdBy: req.user._id,
       owner: owner ?? req.user._id,
       priority: priority ?? 'medium',
+      effort: effort ?? 'medium',
       status: status ?? 'active',
       department: department ?? null,
       category: category ?? null,

@@ -3,7 +3,6 @@ import { FormsModule } from '@angular/forms';
 import { ProjectService } from '../../core/services/project.service';
 import { ProjectItem } from '../../models/project-item.model';
 import { Attachment } from '../../models/attachment.model';
-import { TabStripComponent, TabDef } from '../tab-strip/tab-strip.component';
 import { HttpEventType } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { AttachmentViewerComponent } from '../attachment-viewer/attachment-viewer.component';
@@ -11,7 +10,7 @@ import { AttachmentViewerComponent } from '../attachment-viewer/attachment-viewe
 @Component({
   selector: 'app-attachment-panel',
   standalone: true,
-  imports: [FormsModule, TabStripComponent, CommonModule, AttachmentViewerComponent],
+  imports: [FormsModule, CommonModule, AttachmentViewerComponent],
   templateUrl: './attachment-panel.component.html',
   styleUrl: './attachment-panel.component.css',
 })
@@ -20,15 +19,6 @@ export class AttachmentPanelComponent implements OnChanges {
   @Input({ required: true }) item!: ProjectItem;
 
   @Output() closed = new EventEmitter<void>();
-  @Output() saved = new EventEmitter<void>();
-
-  readonly tabs: TabDef[] = [
-    { key: 'attachments', label: 'Attachments', icon: 'bi-paperclip' },
-    { key: 'description', label: 'Description', icon: 'bi-card-text' },
-  ];
-  activeTab = 'attachments';
-
-  description = '';
 
   attachments: Attachment[] = [];
   attachmentsLoading = false;
@@ -42,26 +32,9 @@ export class AttachmentPanelComponent implements OnChanges {
   constructor(private projectService: ProjectService) {}
 
   ngOnChanges(changes: SimpleChanges) {
-    if (changes['item'] && this.item) {
-      this.description = this.item.description;
-      if (changes['item'].firstChange) {
-        this.loadAttachments();
-      }
+    if (changes['item'] && this.item && changes['item'].firstChange) {
+      this.loadAttachments();
     }
-  }
-
-  saveDescription() {
-    if (this.description === this.item.description) return;
-    this.projectService
-      .updateItem(this.projectId, this.item._id, {
-        description: this.description,
-      })
-      .subscribe({
-        next: (res) => {
-          this.item = res.item;
-          this.saved.emit();
-        },
-      });
   }
 
   loadAttachments() {

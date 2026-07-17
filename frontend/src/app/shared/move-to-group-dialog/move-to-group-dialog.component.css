@@ -1,0 +1,138 @@
+.mtg-dialog {
+  max-width: 380px;
+}
+
+.mtg-content {
+  background: var(--bg-card);
+  border: none;
+  border-radius: 16px;
+  padding: 32px 28px 24px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  position: relative;
+}
+
+.mtg-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #eff6ff;
+  margin-bottom: 16px;
+}
+
+.mtg-icon {
+  font-size: 1.4rem;
+  color: #3b82f6;
+}
+
+.mtg-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.mtg-message {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin-bottom: 16px;
+}
+
+.mtg-empty {
+  font-size: 0.875rem;
+  margin-bottom: 16px;
+}
+
+.mtg-list {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.mtg-group-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.mtg-group-item:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: #3b82f6;
+}
+
+.mtg-group-item:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.mtg-group-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mtg-current-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: var(--bg-muted);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.mtg-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.mtg-btn {
+  flex: 1;
+  height: 42px;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.mtg-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.mtg-btn-cancel {
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  border: 1px solid var(--border-strong);
+}
+
+.mtg-btn-cancel:hover:not(:disabled) { background: var(--border-strong); }
+
+.mtg-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 16px;
+}

@@ -204,11 +204,8 @@ export const validateProject = (req, res, next) => {
   if (detailsText !== undefined && typeof detailsText !== 'string')
     return next(new AppError('detailsText must be a string', 400));
 
-  if (effort !== undefined && effort !== null) {
-    const effortNum = Number(effort);
-    if (!Number.isFinite(effortNum) || effortNum < 1 || effortNum > 10)
-      return next(new AppError('effort must be a number between 1 and 10', 400));
-  }
+  if (effort !== undefined && !VALID_PRIORITIES.includes(effort))
+    return next(new AppError(`effort must be one of: ${VALID_PRIORITIES.join(', ')}`, 400));
 
   if (links !== undefined) {
     if (!Array.isArray(links)) return next(new AppError('links must be an array', 400));
@@ -260,6 +257,33 @@ export const validateMove = (req, res, next) => {
 
   if (!VALID_MOVE_DIRECTIONS.includes(direction))
     return next(new AppError(`direction must be one of: ${VALID_MOVE_DIRECTIONS.join(', ')}`, 400));
+
+  next();
+};
+
+export const validateMoveToParent = (req, res, next) => {
+  const { parentId, index } = req.body;
+
+  if (parentId != null && !mongoose.isValidObjectId(parentId))
+    return next(new AppError('parentId is not a valid ID', 400));
+
+  if (index !== undefined && (!Number.isInteger(index) || index < 0))
+    return next(new AppError('index must be a non-negative integer', 400));
+
+  next();
+};
+
+export const validateBulkMoveToParent = (req, res, next) => {
+  const { itemIds, parentId } = req.body;
+
+  if (!mongoose.isValidObjectId(parentId))
+    return next(new AppError('parentId is not a valid ID', 400));
+
+  if (!Array.isArray(itemIds) || itemIds.length === 0)
+    return next(new AppError('itemIds must be a non-empty array', 400));
+
+  if (!itemIds.every((id) => mongoose.isValidObjectId(id)))
+    return next(new AppError('itemIds must all be valid IDs', 400));
 
   next();
 };

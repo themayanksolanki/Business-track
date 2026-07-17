@@ -47,6 +47,23 @@
   color: var(--text-dim);
 }
 
+.bulk-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-strong);
+}
+
+.bulk-actions-count {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-right: 4px;
+}
+
 .page-breadcrumb {
   display: flex;
   align-items: center;
@@ -102,11 +119,10 @@
 }
 
 .detail-schedule-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  max-width: 520px;
-  flex: 1;
+  display: flex;
+  max-width: fit-content;
+  flex-wrap: wrap;
+  gap: 24px;
 }
 
 @media (max-width: 560px) {
@@ -569,7 +585,101 @@
 
 .field-error { font-size: 0.76rem; color: #ef4444; margin-top: 5px; }
 
-.details-textarea { resize: vertical; }
+.details-textarea { display: block; }
+
+.details-textarea ::ng-deep .ck.ck-editor__main > .ck-content {
+  min-height: 140px;
+  border-color: var(--border-strong);
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+  font-size: 0.9rem;
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.details-textarea ::ng-deep .ck.ck-toolbar {
+  border-color: var(--border-strong);
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  background: var(--bg-input);
+}
+
+.details-textarea ::ng-deep .ck.ck-editor__editable_inline:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.details-textarea ::ng-deep .ck.ck-button,
+.details-textarea ::ng-deep .ck.ck-toolbar .ck.ck-icon,
+.details-textarea ::ng-deep .ck.ck-heading-dropdown .ck-button__label {
+  color: var(--text-primary);
+}
+
+.details-expand-btn {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+.details-expand-btn:hover { color: var(--text-primary); }
+
+.details-expand-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1040;
+}
+
+/* ── Resizable (drag bottom-right corner) ── */
+.details-card-resizable {
+  resize: both;
+  overflow: hidden;
+  min-width: 280px;
+  min-height: 200px;
+  height: 200px;
+}
+
+/* ── Fullscreen expand ── */
+.details-card-expanded {
+  position: fixed;
+  inset: 5vh 5vw;
+  z-index: 1050;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+/* Both states stretch the editor to fill the card's available height */
+.details-card-resizable,
+.details-card-expanded {
+  display: flex;
+  flex-direction: column;
+}
+
+.details-card-resizable .details-textarea,
+.details-card-expanded .details-textarea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.details-card-resizable .details-textarea ::ng-deep .ck-editor,
+.details-card-expanded .details-textarea ::ng-deep .ck-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.details-card-resizable .details-textarea ::ng-deep .ck.ck-editor__main,
+.details-card-expanded .details-textarea ::ng-deep .ck.ck-editor__main {
+  flex: 1;
+  overflow: hidden;
+}
+
+.details-card-resizable .details-textarea ::ng-deep .ck.ck-editor__main > .ck-content,
+.details-card-expanded .details-textarea ::ng-deep .ck.ck-editor__main > .ck-content {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+}
 
 /* ── Priority / Effort sliders ── */
 .slider-row {
@@ -584,17 +694,6 @@
   min-width: 40px;
   text-align: center;
   font-weight: 700;
-}
-
-.effort-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.85rem;
-  padding: 6px 12px;
-  border-radius: 99px;
-  background: #eff6ff;
-  color: #1d4ed8;
 }
 
 .slider-ticks {

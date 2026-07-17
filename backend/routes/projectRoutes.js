@@ -6,6 +6,8 @@ import {
   validateProjectItem,
   validateReorder,
   validateMove,
+  validateMoveToParent,
+  validateBulkMoveToParent,
   validateComment,
   validateProjectId,
   validateItemId,
@@ -31,6 +33,8 @@ import {
   deleteItem,
   reorderItems,
   moveItem,
+  moveItemToParent,
+  bulkMoveItemsToParent,
 } from '../controllers/projectItemController.js';
 import {
   getComments,
@@ -95,6 +99,21 @@ router.patch(
   validateItemId,
   validateMove,
   moveItem
+);
+router.patch(
+  '/:projectId/items/:itemId/move-to',
+  protect,
+  validateProjectId,
+  validateItemId,
+  validateMoveToParent,
+  moveItemToParent
+);
+router.patch(
+  '/:projectId/items/bulk-move-to',
+  protect,
+  validateProjectId,
+  validateBulkMoveToParent,
+  bulkMoveItemsToParent
 );
 router.put(
   '/:projectId/items/:itemId',

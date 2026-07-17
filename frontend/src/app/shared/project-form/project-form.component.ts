@@ -3,8 +3,9 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import dayjs from 'dayjs/esm';
 import { Department } from '../../models/department.model';
 import { Category } from '../../models/category.model';
-import { CreateProjectPayload } from '../../models/project.model';
+import { CreateProjectPayload, ProjectPriority, ProjectEffort } from '../../models/project.model';
 import { Tag, TagLite } from '../../models/tag.model';
+import { User } from '../../models/user.model';
 import { DatePickerComponent } from '../date-picker/date-picker.component';
 import { TimePickerComponent } from '../time-picker/time-picker.component';
 import { ModalDirective } from '../modal.directive';
@@ -22,8 +23,12 @@ export class ProjectFormComponent implements OnChanges {
   @Input() departments: Department[] = [];
   @Input() categories: Category[] = [];
   @Input() allTags: Tag[] = [];
+  @Input() users: User[] = [];
   @Input() loading = false;
   @Input() error = '';
+
+  readonly priorityOptions: ProjectPriority[] = ['low', 'medium', 'high'];
+  readonly effortOptions: ProjectEffort[] = ['low', 'medium', 'high'];
 
   @Output() closed = new EventEmitter<void>();
   @Output() submitted = new EventEmitter<CreateProjectPayload>();
@@ -42,12 +47,15 @@ export class ProjectFormComponent implements OnChanges {
       description: [''],
       department: [''],
       category: [''],
+      owner: [''],
+      priority: [''],
+      effort: [''],
     });
   }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['open'] && this.open) {
-      this.form.reset({ name: '', description: '', department: '', category: '' });
+      this.form.reset({ name: '', description: '', department: '', category: '', owner: '', priority: '', effort: '' });
       this.startDate = null;
       this.startTime = null;
       this.endDate = null;
@@ -70,6 +78,9 @@ export class ProjectFormComponent implements OnChanges {
       ...this.form.value,
       department: this.form.value.department || null,
       category: this.form.value.category || null,
+      owner: this.form.value.owner || null,
+      priority: this.form.value.priority || undefined,
+      effort: this.form.value.effort || undefined,
       startDate: this.combineDateTime(this.startDate, this.startTime),
       endDate: this.combineDateTime(this.endDate, this.endTime),
       tags: this.selectedTags.map((t) => t._id),

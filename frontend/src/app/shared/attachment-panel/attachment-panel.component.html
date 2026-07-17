@@ -1,6 +1,6 @@
 <div class="attachment-panel" (click)="$event.stopPropagation()">
   <div class="attachment-panel-header">
-    <app-tab-strip [tabs]="tabs" [activeKey]="activeTab" (tabChange)="activeTab = $event"></app-tab-strip>
+    <span class="attachment-panel-title"><i class="bi bi-paperclip me-1"></i>Attachments</span>
     <button type="button" class="attachment-panel-close" (click)="closed.emit()" title="Close">
       <i class="bi bi-x-lg"></i>
     </button>
@@ -16,54 +16,49 @@
     </div>
 
   <div class="attachment-panel-body">
-    @if (activeTab === 'attachments') {
-      @if (attachmentsLoading) {
-        <div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</div>
-      } @else if (attachments.length === 0) {
-        <p class="text-muted small mb-2">No files uploaded yet.</p>
-      } @else {
-        <ul class="attachment-list mb-2">
-          @for (a of attachments; track a._id) {
-            <li class="attachment-item">
-              <i class="bi attachment-file-icon" [class]="fileIcon(a.mimeType)"></i>
-              <div class="attachment-info">
-                <span class="attachment-name">{{ a.fileName }}</span>
-                <span class="attachment-meta">{{ formatSize(a.size) }} · {{ a.uploadedBy.username }}</span>
-              </div>
-              <button class="attachment-download-btn" (click)="openViewer(a)" title="Preview">
-                <i class="bi bi-eye"></i>
-              </button>
-              <button class="attachment-download-btn" (click)="download(a)" [disabled]="downloadingId === a._id" title="Download">
-                @if (downloadingId === a._id) {
-                  <span class="spinner-border spinner-border-sm"></span>
-                } @else {
-                  <i class="bi bi-download"></i>
-                }
-              </button>
-              <button class="subtask-del-btn" (click)="deleteAttachment(a)" title="Delete">
-                <i class="bi bi-x"></i>
-              </button>
-            </li>
-          }
-        </ul>
-      }
-
-      <div class="attachment-upload-row">
-        <label class="attachment-upload-btn" [class.disabled]="attachmentUploading">
-          @if (attachmentUploading) {
-            <span class="spinner-border spinner-border-sm me-2"></span>Uploading…
-          } @else {
-            <i class="bi bi-cloud-arrow-up me-2"></i>Upload File
-          }
-          <input type="file" hidden (change)="onFileSelected($event)" [disabled]="attachmentUploading" />
-        </label>
-      </div>
-      @if (attachmentUploadError) {
-        <div class="field-error mt-2">{{ attachmentUploadError }}</div>
-      }
+    @if (attachmentsLoading) {
+      <div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</div>
+    } @else if (attachments.length === 0) {
+      <p class="text-muted small mb-2">No files uploaded yet.</p>
     } @else {
-      <textarea class="form-control field-input attachment-panel-desc" rows="4" [(ngModel)]="description"
-                (blur)="saveDescription()" placeholder="Add a description…"></textarea>
+      <ul class="attachment-list mb-2">
+        @for (a of attachments; track a._id) {
+          <li class="attachment-item">
+            <i class="bi attachment-file-icon" [class]="fileIcon(a.mimeType)"></i>
+            <div class="attachment-info">
+              <span class="attachment-name">{{ a.fileName }}</span>
+              <span class="attachment-meta">{{ formatSize(a.size) }} · {{ a.uploadedBy.username }}</span>
+            </div>
+            <button class="attachment-download-btn" (click)="openViewer(a)" title="Preview">
+              <i class="bi bi-eye"></i>
+            </button>
+            <button class="attachment-download-btn" (click)="download(a)" [disabled]="downloadingId === a._id" title="Download">
+              @if (downloadingId === a._id) {
+                <span class="spinner-border spinner-border-sm"></span>
+              } @else {
+                <i class="bi bi-download"></i>
+              }
+            </button>
+            <button class="subtask-del-btn" (click)="deleteAttachment(a)" title="Delete">
+              <i class="bi bi-x"></i>
+            </button>
+          </li>
+        }
+      </ul>
+    }
+
+    <div class="attachment-upload-row">
+      <label class="attachment-upload-btn" [class.disabled]="attachmentUploading">
+        @if (attachmentUploading) {
+          <span class="spinner-border spinner-border-sm me-2"></span>Uploading…
+        } @else {
+          <i class="bi bi-cloud-arrow-up me-2"></i>Upload File
+        }
+        <input type="file" hidden (change)="onFileSelected($event)" [disabled]="attachmentUploading" />
+      </label>
+    </div>
+    @if (attachmentUploadError) {
+      <div class="field-error mt-2">{{ attachmentUploadError }}</div>
     }
   </div>
 </div>

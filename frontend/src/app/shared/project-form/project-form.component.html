@@ -50,6 +50,39 @@
             </div>
           }
 
+          @if (users.length > 0) {
+            <div class="mb-4">
+              <label class="field-label">Owner</label>
+              <select class="form-select field-input" formControlName="owner">
+                <option value="">Me (default)</option>
+                @for (u of users; track u.id) {
+                  <option [value]="u.id">{{ u.username }}</option>
+                }
+              </select>
+            </div>
+          }
+
+          <div class="row g-3 mb-4">
+            <div class="col-6">
+              <label class="field-label">Priority</label>
+              <select class="form-select field-input" formControlName="priority">
+                <option value="">Default (Medium)</option>
+                @for (p of priorityOptions; track p) {
+                  <option [value]="p">{{ p }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="field-label">Effort</label>
+              <select class="form-select field-input" formControlName="effort">
+                <option value="">Default (Medium)</option>
+                @for (e of effortOptions; track e) {
+                  <option [value]="e">{{ e }}</option>
+                }
+              </select>
+            </div>
+          </div>
+
           <div class="mb-4">
             <label class="field-label">Tags</label>
             <app-tag-picker

@@ -2,11 +2,30 @@ import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
+import { forkJoin } from 'rxjs';
 import dayjs from 'dayjs/esm';
+import { CKEditorModule } from '@ckeditor/ckeditor5-angular';
+import {
+  ClassicEditor,
+  Essentials,
+  Paragraph,
+  Heading,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+  Link,
+  List,
+  BlockQuote,
+  Indent,
+  IndentBlock,
+} from 'ckeditor5';
+import 'ckeditor5/ckeditor5.css';
+import { environment } from '../../../environments/environment';
 import { ProjectService } from '../../core/services/project.service';
 import { UserService } from '../../core/services/user.service';
 import { DepartmentService } from '../../core/services/department.service';
-import { Project, ProjectPriority, ProjectLink } from '../../models/project.model';
+import { Project, ProjectPriority, ProjectEffort, ProjectLink } from '../../models/project.model';
 import { User } from '../../models/user.model';
 import { Department } from '../../models/department.model';
 import { Category } from '../../models/category.model';
@@ -26,6 +45,9 @@ import { ProjectPlanCardComponent } from '../../shared/project-plan-card/project
 import { TagService } from '../../core/services/tag.service';
 import { Tag, TagLite } from '../../models/tag.model';
 import { TagPickerComponent } from '../../shared/tag-picker/tag-picker.component';
+import { DropListRegistryService } from '../../shared/drop-list-registry.service';
+import { NotificationService } from '../../shared/notification.service';
+import { MoveToGroupDialogComponent } from '../../shared/move-to-group-dialog/move-to-group-dialog.component';
 
 @Component({
   selector: 'app-project-detail',
@@ -45,7 +67,10 @@ import { TagPickerComponent } from '../../shared/tag-picker/tag-picker.component
     ProjectAttachmentsCardComponent,
     ProjectPlanCardComponent,
     TagPickerComponent,
+    CKEditorModule,
+    MoveToGroupDialogComponent,
   ],
+  providers: [DropListRegistryService],
   templateUrl: './project-detail.component.html',
   styleUrl: './project-detail.component.css',
 })
@@ -73,6 +98,17 @@ export class ProjectDetailComponent implements OnInit {
 
   selectedNode: ProjectTreeNode | null = null;
 
+  selectionMode = false;
+  selectedIds = new Set<string>();
+
+  moveGroupOpen = false;
+  moveGroupMode: 'single' | 'bulk' = 'single';
+  moveGroupLoading = false;
+  moveGroupTargetNode: ProjectTreeNode | null = null;
+
+  bulkDeleteConfirmOpen = false;
+  bulkDeleteLoading = false;
+
   editName = '';
   editDescription = '';
   startDateStr: string | null = null;
@@ -87,9 +123,28 @@ export class ProjectDetailComponent implements OnInit {
   departments: Department[] = [];
   categories: Category[] = [];
   readonly priorityOptions: ProjectPriority[] = ['low', 'medium', 'high'];
+  readonly effortOptions: ProjectEffort[] = ['low', 'medium', 'high'];
 
   detailsText = '';
-  effortValue = 5;
+
+  readonly DetailsEditor = ClassicEditor;
+  readonly detailsEditorConfig = {
+    licenseKey: environment.ckeditorLicenseKey,
+    plugins: [Essentials, Paragraph, Heading, Bold, Italic, Underline, Strikethrough, Link, List, BlockQuote, Indent, IndentBlock],
+    toolbar: [
+      'heading', '|',
+      'bold', 'italic', 'underline', 'strikethrough', '|',
+      'bulletedList', 'numberedList', '|',
+      'outdent', 'indent', '|',
+      'link', 'blockQuote', '|',
+      'undo', 'redo',
+    ],
+  };
+  detailsEditorExpanded = false;
+
+  toggleDetailsEditorExpanded() {
+    this.detailsEditorExpanded = !this.detailsEditorExpanded;
+  }
 
   links: ProjectLink[] = [];
   newLinkTitle = '';
@@ -106,24 +161,33 @@ export class ProjectDetailComponent implements OnInit {
     private departmentService: DepartmentService,
     private categoryService: CategoryService,
     private tagService: TagService,
-    public auth: AuthService
+    private notifications: NotificationService,
+    public auth: AuthService,
   ) {}
 
   ngOnInit() {
     this.projectId = this.route.snapshot.paramMap.get('id') || '';
+    const tab = this.route.snapshot.queryParamMap.get('tab');
+    if (tab === 'detail' || tab === 'tasks' || tab === 'kanban') this.activeTab = tab;
     this.loadProject();
     this.loadItems();
     this.userService.getAllUsers().subscribe({ next: (u) => (this.users = u) });
-    this.departmentService.getDepartments().subscribe({ next: (d) => (this.departments = d) });
-    this.categoryService.getCategories().subscribe({ next: (c) => (this.categories = c) });
+    this.departmentService
+      .getDepartments()
+      .subscribe({ next: (d) => (this.departments = d) });
+    this.categoryService
+      .getCategories()
+      .subscribe({ next: (c) => (this.categories = c) });
     this.tagService.getTags().subscribe({ next: (t) => (this.allTags = t) });
   }
 
   selectTags(tags: TagLite[]) {
     if (!this.project) return;
-    this.projectService.updateProject(this.projectId, { tags: tags.map((t) => t._id) }).subscribe({
-      next: (res) => (this.project = res.project),
-    });
+    this.projectService
+      .updateProject(this.projectId, { tags: tags.map((t) => t._id) })
+      .subscribe({
+        next: (res) => (this.project = res.project),
+      });
   }
 
   onTagCreated(tag: Tag) {
@@ -137,7 +201,10 @@ export class ProjectDetailComponent implements OnInit {
   get durationLabel(): string {
     if (!this.project?.startDate || !this.project?.endDate) return '—';
 
-    const totalMinutes = dayjs(this.project.endDate).diff(dayjs(this.project.startDate), 'minute');
+    const totalMinutes = dayjs(this.project.endDate).diff(
+      dayjs(this.project.startDate),
+      'minute',
+    );
     if (totalMinutes <= 0) return '0m';
 
     const days = Math.floor(totalMinutes / 1440);
@@ -170,7 +237,7 @@ export class ProjectDetailComponent implements OnInit {
 
   selectOwner(user: User | null) {
     if (!this.project) return;
-    const owner = user ? user.id ?? user._id ?? null : null;
+    const owner = user ? (user.id ?? user._id ?? null) : null;
     this.projectService.updateProject(this.projectId, { owner }).subscribe({
       next: (res) => (this.project = res.project),
     });
@@ -184,7 +251,9 @@ export class ProjectDetailComponent implements OnInit {
   }
 
   get priorityIndex(): number {
-    return this.project ? this.priorityOptions.indexOf(this.project.priority) : 1;
+    return this.project
+      ? this.priorityOptions.indexOf(this.project.priority)
+      : 1;
   }
 
   onPriorityIndexChange(index: number) {
@@ -195,9 +264,11 @@ export class ProjectDetailComponent implements OnInit {
     if (!this.project) return;
     const department = dept ? dept._id : null;
     if ((this.project.department?._id ?? null) === department) return;
-    this.projectService.updateProject(this.projectId, { department }).subscribe({
-      next: (res) => (this.project = res.project),
-    });
+    this.projectService
+      .updateProject(this.projectId, { department })
+      .subscribe({
+        next: (res) => (this.project = res.project),
+      });
   }
 
   selectCategory(cat: Category | null) {
@@ -224,12 +295,19 @@ export class ProjectDetailComponent implements OnInit {
         this.project = project;
         this.editName = project.name;
         this.editDescription = project.description;
-        this.startDateStr = project.startDate ? dayjs(project.startDate).format('YYYY-MM-DD') : null;
-        this.startTimeStr = project.startDate ? dayjs(project.startDate).format('HH:mm') : null;
-        this.endDateStr = project.endDate ? dayjs(project.endDate).format('YYYY-MM-DD') : null;
-        this.endTimeStr = project.endDate ? dayjs(project.endDate).format('HH:mm') : null;
+        this.startDateStr = project.startDate
+          ? dayjs(project.startDate).format('YYYY-MM-DD')
+          : null;
+        this.startTimeStr = project.startDate
+          ? dayjs(project.startDate).format('HH:mm')
+          : null;
+        this.endDateStr = project.endDate
+          ? dayjs(project.endDate).format('YYYY-MM-DD')
+          : null;
+        this.endTimeStr = project.endDate
+          ? dayjs(project.endDate).format('HH:mm')
+          : null;
         this.detailsText = project.detailsText ?? '';
-        this.effortValue = project.effort ?? 5;
         this.links = project.links ?? [];
         this.loading = false;
       },
@@ -240,8 +318,11 @@ export class ProjectDetailComponent implements OnInit {
     });
   }
 
+  // Only shows the loading spinner on the very first fetch — once the tree
+  // is populated, later calls (reorder/indent/outdent resyncs, error
+  // recovery) swap the data in quietly instead of blanking the whole area.
   loadItems() {
-    this.itemsLoading = true;
+    if (this.tree.length === 0) this.itemsLoading = true;
     this.projectService.getItems(this.projectId).subscribe({
       next: (items) => {
         this.tree = buildProjectTree(items);
@@ -277,7 +358,10 @@ export class ProjectDetailComponent implements OnInit {
     return false;
   }
 
-  private findNode(nodes: ProjectTreeNode[], id: string): ProjectTreeNode | null {
+  private findNode(
+    nodes: ProjectTreeNode[],
+    id: string,
+  ): ProjectTreeNode | null {
     for (const node of nodes) {
       if (node._id === id) return node;
       const found = this.findNode(node.children, id);
@@ -286,7 +370,11 @@ export class ProjectDetailComponent implements OnInit {
     return null;
   }
 
-  private findPath(nodes: ProjectTreeNode[], id: string, trail: ProjectTreeNode[]): ProjectTreeNode[] | null {
+  private findPath(
+    nodes: ProjectTreeNode[],
+    id: string,
+    trail: ProjectTreeNode[],
+  ): ProjectTreeNode[] | null {
     for (const node of nodes) {
       const nextTrail = [...trail, node];
       if (node._id === id) return nextTrail;
@@ -298,11 +386,23 @@ export class ProjectDetailComponent implements OnInit {
 
   get selectedPath(): ProjectTreeNode[] {
     if (!this.selectedNode) return [];
-    return this.findPath(this.tree, this.selectedNode._id, []) ?? [this.selectedNode];
+    return (
+      this.findPath(this.tree, this.selectedNode._id, []) ?? [this.selectedNode]
+    );
   }
 
   backToProjects() {
     this.router.navigate(['/projects']);
+  }
+
+  setActiveTab(key: string) {
+    this.activeTab = key;
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: key },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   saveNameDescription() {
@@ -312,20 +412,35 @@ export class ProjectDetailComponent implements OnInit {
       this.editName = this.project.name;
       return;
     }
-    if (name === this.project.name && this.editDescription === this.project.description) return;
+    if (
+      name === this.project.name &&
+      this.editDescription === this.project.description
+    )
+      return;
 
-    this.projectService.updateProject(this.projectId, { name, description: this.editDescription }).subscribe({
-      next: (res) => {
-        this.project = res.project;
-        this.editName = res.project.name;
-        this.editDescription = res.project.description;
-      },
-    });
+    this.projectService
+      .updateProject(this.projectId, {
+        name,
+        description: this.editDescription,
+      })
+      .subscribe({
+        next: (res) => {
+          this.project = res.project;
+          this.editName = res.project.name;
+          this.editDescription = res.project.description;
+        },
+      });
   }
 
-  private combineDateTime(date: string | null, time: string | null): string | null {
+  private combineDateTime(
+    date: string | null,
+    time: string | null,
+  ): string | null {
     if (!date) return null;
-    return dayjs(`${date} ${time || '00:00'}`, 'YYYY-MM-DD HH:mm').toISOString();
+    return dayjs(
+      `${date} ${time || '00:00'}`,
+      'YYYY-MM-DD HH:mm',
+    ).toISOString();
   }
 
   onStartDateChange(date: string | null) {
@@ -352,25 +467,40 @@ export class ProjectDetailComponent implements OnInit {
 
   private saveDates() {
     if (!this.project) return;
-    const startDate = this.combineDateTime(this.startDateStr, this.startTimeStr);
+    const startDate = this.combineDateTime(
+      this.startDateStr,
+      this.startTimeStr,
+    );
     const endDate = this.combineDateTime(this.endDateStr, this.endTimeStr);
-    this.projectService.updateProject(this.projectId, { startDate, endDate }).subscribe({
-      next: (res) => (this.project = res.project),
-    });
+    this.projectService
+      .updateProject(this.projectId, { startDate, endDate })
+      .subscribe({
+        next: (res) => (this.project = res.project),
+      });
   }
 
   saveDetailsText() {
     if (!this.project || this.detailsText === this.project.detailsText) return;
-    this.projectService.updateProject(this.projectId, { detailsText: this.detailsText }).subscribe({
+    this.projectService
+      .updateProject(this.projectId, { detailsText: this.detailsText })
+      .subscribe({
+        next: (res) => (this.project = res.project),
+      });
+  }
+
+  setEffort(effort: ProjectEffort) {
+    if (!this.project || this.project.effort === effort) return;
+    this.projectService.updateProject(this.projectId, { effort }).subscribe({
       next: (res) => (this.project = res.project),
     });
   }
 
-  onEffortChange(value: number) {
-    if (!this.project || this.project.effort === value) return;
-    this.projectService.updateProject(this.projectId, { effort: value }).subscribe({
-      next: (res) => (this.project = res.project),
-    });
+  get effortIndex(): number {
+    return this.project ? this.effortOptions.indexOf(this.project.effort) : 1;
+  }
+
+  onEffortIndexChange(index: number) {
+    this.setEffort(this.effortOptions[index]);
   }
 
   onPlanChanged(project: Project) {
@@ -378,7 +508,10 @@ export class ProjectDetailComponent implements OnInit {
   }
 
   get isValidLinkUrl(): boolean {
-    return !this.newLinkUrl.trim() || /^https?:\/\/[^\s]+\.[^\s]+$/i.test(this.newLinkUrl.trim());
+    return (
+      !this.newLinkUrl.trim() ||
+      /^https?:\/\/[^\s]+\.[^\s]+$/i.test(this.newLinkUrl.trim())
+    );
   }
 
   addLink() {
@@ -409,16 +542,18 @@ export class ProjectDetailComponent implements OnInit {
 
   private saveLinks(updated: ProjectLink[], onSuccess?: () => void) {
     if (!this.project) return;
-    this.projectService.updateProject(this.projectId, { links: updated }).subscribe({
-      next: (res) => {
-        this.project = res.project;
-        this.links = res.project.links;
-        onSuccess?.();
-      },
-      error: (err) => {
-        this.linksError = err.error?.message || 'Failed to save links';
-      },
-    });
+    this.projectService
+      .updateProject(this.projectId, { links: updated })
+      .subscribe({
+        next: (res) => {
+          this.project = res.project;
+          this.links = res.project.links;
+          onSuccess?.();
+        },
+        error: (err) => {
+          this.linksError = err.error?.message || 'Failed to save links';
+        },
+      });
   }
 
   openDeleteConfirm() {
@@ -466,17 +601,19 @@ export class ProjectDetailComponent implements OnInit {
     if (!title) return;
     this.addGroupLoading = true;
     this.addGroupError = '';
-    this.projectService.createItem(this.projectId, { title, parentId: null }).subscribe({
-      next: () => {
-        this.addGroupLoading = false;
-        this.addGroupOpen = false;
-        this.loadItems();
-      },
-      error: (err) => {
-        this.addGroupError = err.error?.message || 'Failed to add group';
-        this.addGroupLoading = false;
-      },
-    });
+    this.projectService
+      .createItem(this.projectId, { title, parentId: null })
+      .subscribe({
+        next: (res) => {
+          this.addGroupLoading = false;
+          this.addGroupOpen = false;
+          this.tree = [...this.tree, { ...res.item, children: [], childCount: 0 }];
+        },
+        error: (err) => {
+          this.addGroupError = err.error?.message || 'Failed to add group';
+          this.addGroupLoading = false;
+        },
+      });
   }
 
   onOpenDetail(node: ProjectTreeNode) {
@@ -487,12 +624,185 @@ export class ProjectDetailComponent implements OnInit {
     this.selectedNode = null;
   }
 
+  // Removes a node from wherever it lives in the tree (any depth) in place,
+  // instead of refetching the whole tree after a delete.
+  private removeNodeById(nodes: ProjectTreeNode[], id: string): boolean {
+    const index = nodes.findIndex((n) => n._id === id);
+    if (index !== -1) {
+      nodes.splice(index, 1);
+      return true;
+    }
+    for (const node of nodes) {
+      if (this.removeNodeById(node.children, id)) {
+        node.childCount = node.children.length;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  onNodeDeleted(id: string) {
+    this.removeNodeById(this.tree, id);
+    this.tree = [...this.tree];
+    if (this.selectedNode?._id === id) this.selectedNode = null;
+  }
+
   onDropRoot(event: CdkDragDrop<ProjectTreeNode[]>) {
     if (event.previousIndex === event.currentIndex) return;
     moveItemInArray(this.tree, event.previousIndex, event.currentIndex);
     const orderedIds = this.tree.map((n) => n._id);
-    this.projectService.reorderItems(this.projectId, null, orderedIds).subscribe({
-      error: () => this.loadItems(),
+    this.projectService
+      .reorderItems(this.projectId, null, orderedIds)
+      .subscribe({
+        error: () => this.loadItems(),
+      });
+  }
+
+  // ── Multi-select & bulk actions ──
+  get groups(): ProjectTreeNode[] {
+    return this.tree.filter((n) => n.type === 'group');
+  }
+
+  toggleSelectionMode() {
+    this.selectionMode = !this.selectionMode;
+    this.selectedIds.clear();
+  }
+
+  onToggleSelect(id: string) {
+    if (this.selectedIds.has(id)) this.selectedIds.delete(id);
+    else this.selectedIds.add(id);
+  }
+
+  openMoveToGroupForTask(node: ProjectTreeNode) {
+    this.moveGroupMode = 'single';
+    this.moveGroupTargetNode = node;
+    this.moveGroupOpen = true;
+  }
+
+  openBulkMoveToGroup() {
+    if (this.selectedIds.size === 0) return;
+    this.moveGroupMode = 'bulk';
+    this.moveGroupOpen = true;
+  }
+
+  cancelMoveToGroup() {
+    this.moveGroupOpen = false;
+  }
+
+  // Task-to-group moves never change depth (tasks always live directly under
+  // a group), so the move can be reflected locally: splice the node out of
+  // its old group's children and push it into the new one, no refetch needed.
+  private applyTaskMoveLocally(node: ProjectTreeNode, newGroupId: string) {
+    const oldGroup = this.groups.find((g) => g._id === node.parentId);
+    if (oldGroup) {
+      oldGroup.children = oldGroup.children.filter((c) => c._id !== node._id);
+      oldGroup.childCount = oldGroup.children.length;
+    }
+    const newGroup = this.groups.find((g) => g._id === newGroupId);
+    if (newGroup) {
+      node.parentId = newGroupId;
+      newGroup.children = [...newGroup.children, node];
+      newGroup.childCount = newGroup.children.length;
+    }
+    this.tree = [...this.tree];
+  }
+
+  private applyBulkTaskMoveLocally(itemIds: string[], newGroupId: string) {
+    const newGroup = this.groups.find((g) => g._id === newGroupId);
+    if (!newGroup) return;
+    for (const id of itemIds) {
+      for (const group of this.groups) {
+        if (group._id === newGroupId) continue;
+        const index = group.children.findIndex((c) => c._id === id);
+        if (index !== -1) {
+          const [moved] = group.children.splice(index, 1);
+          group.childCount = group.children.length;
+          moved.parentId = newGroupId;
+          newGroup.children.push(moved);
+          break;
+        }
+      }
+    }
+    newGroup.childCount = newGroup.children.length;
+    this.tree = [...this.tree];
+  }
+
+  onGroupSelectedForMove(groupId: string) {
+    if (this.moveGroupMode === 'single') {
+      const node = this.moveGroupTargetNode;
+      if (!node) return;
+      if (node.parentId === groupId) {
+        this.moveGroupOpen = false;
+        this.notifications.error('Task is already in this group.');
+        return;
+      }
+      this.moveGroupLoading = true;
+      this.projectService.moveItemToParent(this.projectId, node._id, groupId).subscribe({
+        next: () => {
+          this.moveGroupLoading = false;
+          this.moveGroupOpen = false;
+          const groupTitle = this.groups.find((g) => g._id === groupId)?.title ?? 'group';
+          this.applyTaskMoveLocally(node, groupId);
+          this.notifications.success(`Task moved to "${groupTitle}".`);
+        },
+        error: (err) => {
+          this.moveGroupLoading = false;
+          this.notifications.error(err.error?.message || 'Failed to move task');
+        },
+      });
+    } else {
+      const itemIds = Array.from(this.selectedIds);
+      this.moveGroupLoading = true;
+      this.projectService.bulkMoveItemsToParent(this.projectId, itemIds, groupId).subscribe({
+        next: (res) => {
+          this.moveGroupLoading = false;
+          this.moveGroupOpen = false;
+          this.applyBulkTaskMoveLocally(itemIds, groupId);
+          this.selectedIds.clear();
+          this.notifications.success(
+            `${res.movedCount} task(s) moved${res.alreadyInGroupCount ? ` (${res.alreadyInGroupCount} already in this group)` : ''}.`
+          );
+        },
+        error: (err) => {
+          this.moveGroupLoading = false;
+          this.notifications.error(err.error?.message || 'Failed to move tasks');
+        },
+      });
+    }
+  }
+
+  openBulkDeleteConfirm() {
+    if (this.selectedIds.size === 0) return;
+    this.bulkDeleteConfirmOpen = true;
+  }
+
+  cancelBulkDelete() {
+    this.bulkDeleteConfirmOpen = false;
+  }
+
+  confirmBulkDelete() {
+    const ids = Array.from(this.selectedIds);
+    if (ids.length === 0) {
+      this.bulkDeleteConfirmOpen = false;
+      return;
+    }
+    this.bulkDeleteLoading = true;
+    forkJoin(ids.map((id) => this.projectService.deleteItem(this.projectId, id))).subscribe({
+      next: () => {
+        this.bulkDeleteLoading = false;
+        this.bulkDeleteConfirmOpen = false;
+        for (const id of ids) this.removeNodeById(this.tree, id);
+        this.tree = [...this.tree];
+        this.selectedIds.clear();
+        if (this.selectedNode && ids.includes(this.selectedNode._id)) this.selectedNode = null;
+        this.notifications.success(`${ids.length} task(s) deleted.`);
+      },
+      error: () => {
+        this.bulkDeleteLoading = false;
+        this.bulkDeleteConfirmOpen = false;
+        this.selectedIds.clear();
+        this.loadItems();
+      },
     });
   }
 }

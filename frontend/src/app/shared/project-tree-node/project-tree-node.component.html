@@ -1,6 +1,13 @@
 <div class="tree-row">
   <div class="tree-row-main" [class.tree-row-group]="node.depth === 0" (contextmenu)="openContextMenu($event)">
-    <span class="tree-cell-id">{{ node.numericId ? '#' + node.numericId : '—' }}</span>
+    <span class="tree-cell-id" (click)="$event.stopPropagation()">
+      @if (selectionMode && node.depth === 1) {
+        <input type="checkbox" class="tree-select-checkbox" [checked]="selectedIds.has(node._id)"
+               (change)="toggleSelect.emit(node._id)" title="Select task" />
+      } @else {
+        {{ node.numericId ? '#' + node.numericId : '—' }}
+      }
+    </span>
 
     <div class="dropdown tree-cell-reorder" (click)="$event.stopPropagation()">
       <button type="button" class="tree-icon-btn dropdown-toggle" data-bs-toggle="dropdown" title="Reorder">
@@ -174,8 +181,10 @@
       <i class="bi bi-paperclip"></i>
     </button>
 
-    <button type="button" class="tree-icon-btn" (click)="$event.stopPropagation(); openDetail.emit(node)" title="Comments">
-      <i class="bi bi-chat-left-text"></i>
+    <button type="button" class="tree-icon-btn" [class.active]="descriptionOpen"
+            [class.tree-icon-hidden]="node.type === 'group'"
+            (click)="$event.stopPropagation(); toggleDescription()" title="Description">
+      <i class="bi bi-card-text"></i>
     </button>
 
     <button type="button" class="tree-icon-btn" (click)="openContextMenu($event)" title="More actions">
@@ -188,9 +197,23 @@
       <app-attachment-panel
         [projectId]="projectId"
         [item]="node"
-        (closed)="attachmentsOpen = false"
-        (saved)="refresh.emit()">
+        (closed)="attachmentsOpen = false">
       </app-attachment-panel>
+    </div>
+  }
+
+  @if (descriptionOpen) {
+    <div class="attachment-panel-wrap" [style.padding-left]="'calc(' + node.depth + ' * var(--tree-indent-unit, 22px) + 40px)'">
+      <div class="description-panel" (click)="$event.stopPropagation()">
+        <div class="description-panel-header">
+          <span class="attachment-panel-title"><i class="bi bi-card-text me-1"></i>Description</span>
+          <button type="button" class="attachment-panel-close" (click)="descriptionOpen = false" title="Close">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+        <textarea class="form-control description-panel-textarea" rows="4" [(ngModel)]="description"
+                  (blur)="saveDescription()" placeholder="Add a description…"></textarea>
+      </div>
     </div>
   }
 
@@ -211,8 +234,11 @@
     }
   }
 
-  @if (expanded && node.children.length > 0) {
-    <div class="tree-children" cdkDropList [id]="dropListId" [cdkDropListData]="node.children" (cdkDropListDropped)="onDrop($event)">
+  @if (expanded && (node.children.length > 0 || (canAddChild && node.depth === 0))) {
+    <div class="tree-children"
+         [class.tree-children-empty]="node.children.length === 0"
+         cdkDropList [id]="dropListId" [cdkDropListData]="node.children"
+         [cdkDropListConnectedTo]="connectedDropLists" (cdkDropListDropped)="onDrop($event)">
       @for (child of node.children; track child._id; let first = $first; let last = $last) {
         <div cdkDrag [cdkDragData]="child" class="tree-drag-item">
           <div class="tree-drag-placeholder" *cdkDragPlaceholder></div>
@@ -222,9 +248,19 @@
             [users]="users"
             [isFirst]="first"
             [isLast]="last"
+            [selectionMode]="selectionMode"
+            [selectedIds]="selectedIds"
             (refresh)="refresh.emit()"
-            (openDetail)="openDetail.emit($event)">
+            (openDetail)="openDetail.emit($event)"
+            (toggleSelect)="toggleSelect.emit($event)"
+            (moveToGroupRequested)="moveToGroupRequested.emit($event)"
+            (deleted)="deleted.emit($event)">
           </app-project-tree-node>
+        </div>
+      }
+      @if (node.children.length === 0) {
+        <div class="tree-children-placeholder" [style.padding-left]="'calc(' + (node.depth + 1) + ' * var(--tree-indent-unit, 22px) + 40px)'">
+          Drop here
         </div>
       }
     </div>

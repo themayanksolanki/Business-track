@@ -8,9 +8,15 @@
 
 .attachment-panel-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.attachment-panel-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
 }
 
 .attachment-panel-close {
@@ -31,26 +37,6 @@
 .attachment-panel-close:hover { background: var(--bg-muted); color: var(--text-primary); }
 
 .attachment-panel-body { padding-top: 10px; }
-
-.attachment-panel-desc {
-  height: auto;
-  resize: vertical;
-}
-
-.field-input {
-  border-color: var(--border-strong);
-  border-radius: 10px;
-  font-size: 0.9rem;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-.field-input:focus {
-  background: var(--bg-card);
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-  color: var(--text-primary);
-}
 
 .field-error { font-size: 0.76rem; color: #ef4444; margin-top: 5px; }
 

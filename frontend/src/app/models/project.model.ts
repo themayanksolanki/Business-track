@@ -4,6 +4,7 @@ import { Category } from './category.model';
 import { TagLite } from './tag.model';
 
 export type ProjectPriority = 'low' | 'medium' | 'high';
+export type ProjectEffort = 'low' | 'medium' | 'high';
 export type ProjectStatus = 'active' | 'completed';
 
 export interface ProjectPlan {
@@ -35,7 +36,7 @@ export interface Project {
   startDate: string | null;
   endDate: string | null;
   detailsText: string;
-  effort: number;
+  effort: ProjectEffort;
   plan: ProjectPlan | null;
   links: ProjectLink[];
   tags: TagLite[];
@@ -50,6 +51,7 @@ export interface CreateProjectPayload {
   department?: string | null;
   category?: string | null;
   priority?: ProjectPriority;
+  effort?: ProjectEffort;
   status?: ProjectStatus;
   startDate?: string | null;
   endDate?: string | null;
@@ -67,7 +69,7 @@ export interface UpdateProjectPayload {
   startDate?: string | null;
   endDate?: string | null;
   detailsText?: string;
-  effort?: number;
+  effort?: ProjectEffort;
   links?: ProjectLink[];
   tags?: string[];
 }

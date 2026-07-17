@@ -1,6 +1,6 @@
-import { Component, Input, Output, EventEmitter, viewChild, TemplateRef, ViewChild, ElementRef } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, OnDestroy, SimpleChanges, viewChild, TemplateRef, ViewChild, ElementRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
+import { DragDropModule, CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import dayjs from 'dayjs/esm';
 import { ProjectService } from '../../core/services/project.service';
 import {
@@ -21,6 +21,7 @@ import { AutoGrowDirective } from '../auto-grow.directive';
 import { AuthService } from '../../core/services/auth.service';
 import { User } from '../../models/user.model';
 import { TagPillComponent } from '../tag-pill/tag-pill.component';
+import { DropListRegistryService } from '../drop-list-registry.service';
 
 @Component({
   selector: 'app-project-tree-node',
@@ -40,19 +41,26 @@ import { TagPillComponent } from '../tag-pill/tag-pill.component';
   templateUrl: './project-tree-node.component.html',
   styleUrl: './project-tree-node.component.css',
 })
-export class ProjectTreeNodeComponent {
+export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   @Input({ required: true }) node!: ProjectTreeNode;
   @Input({ required: true }) projectId!: string;
   @Input() users: User[] = [];
   @Input() isFirst = false;
   @Input() isLast = false;
+  @Input() selectionMode = false;
+  @Input() selectedIds: Set<string> = new Set();
 
   @Output() refresh = new EventEmitter<void>();
   @Output() openDetail = new EventEmitter<ProjectTreeNode>();
+  @Output() toggleSelect = new EventEmitter<string>();
+  @Output() moveToGroupRequested = new EventEmitter<ProjectTreeNode>();
+  @Output() deleted = new EventEmitter<string>();
   @ViewChild('titleInput') titleInput!: ElementRef<HTMLTextAreaElement>;
 
-  expanded = true;
+  expanded = false;
   attachmentsOpen = false;
+  descriptionOpen = false;
+  description = '';
 
   addChildOpen = false;
   addChildTitle = '';
@@ -75,8 +83,35 @@ export class ProjectTreeNodeComponent {
   constructor(
     private projectService: ProjectService,
     private notifications: NotificationService,
-    public auth: AuthService
+    public auth: AuthService,
+    private dropListRegistry: DropListRegistryService
   ) {}
+
+  ngOnInit() {
+    this.description = this.node.description;
+    // Groups start collapsed except the first one, so the page doesn't open
+    // with every group's task list expanded; deeper nodes (tasks, subtasks)
+    // keep the old always-expanded default.
+    this.expanded = this.node.depth !== 0 || this.isFirst;
+    if (this.canAddChild) this.dropListRegistry.register(this.node.depth + 1, this.dropListId);
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    const change = changes['node'];
+    if (!change || change.firstChange) return;
+    const prevDepth = change.previousValue?.depth;
+    if (prevDepth === this.node.depth) return;
+    this.dropListRegistry.unregister(prevDepth + 1, this.dropListId);
+    if (this.canAddChild) this.dropListRegistry.register(this.node.depth + 1, this.dropListId);
+  }
+
+  ngOnDestroy() {
+    this.dropListRegistry.unregister(this.node.depth + 1, this.dropListId);
+  }
+
+  get connectedDropLists(): string[] {
+    return this.dropListRegistry.idsForDepth(this.node.depth + 1);
+  }
 
   avatarUrl(user: User): string | null {
     const id = (user._id ?? user.id) as string;
@@ -118,10 +153,11 @@ export class ProjectTreeNodeComponent {
     return !this.isFirst && this.node.depth < MAX_PROJECT_ITEM_DEPTH;
   }
 
-  // Outdenting moves the item up to its parent's level — only possible if
-  // it has a parent to begin with.
+  // Outdenting moves the item up to its parent's level. A task directly
+  // under a group (depth 1) has nowhere sensible to go — its parent's level
+  // (depth 0) is groups-only — so only subtasks (depth 2+) can outdent.
   get canOutdent(): boolean {
-    return this.node.depth > 0;
+    return this.node.depth > 1;
   }
 
   get typeIcon(): string {
@@ -226,6 +262,12 @@ export class ProjectTreeNodeComponent {
         action: 'add-child',
       });
     items.push({ label: 'View Details', icon: 'bi-eye', action: 'view' });
+    if (this.node.type === 'task')
+      items.push({
+        label: 'Move to Group',
+        icon: 'bi-folder-symlink',
+        action: 'move-to-group',
+      });
     items.push({
       label: 'Delete',
       icon: 'bi-trash3',
@@ -263,6 +305,25 @@ export class ProjectTreeNodeComponent {
     this.attachmentsOpen = !this.attachmentsOpen;
   }
 
+  toggleDescription() {
+    if (this.isGroup) return;
+    this.descriptionOpen = !this.descriptionOpen;
+  }
+
+  saveDescription() {
+    if (this.description === this.node.description) return;
+    this.projectService
+      .updateItem(this.projectId, this.node._id, { description: this.description })
+      .subscribe({
+        next: () => {
+          this.node.description = this.description;
+        },
+        error: (err) => {
+          this.notifications.error(err.error?.message || 'Failed to update description');
+        },
+      });
+  }
+
   async onTitleClick() {
     this.editTitle = !this.editTitle;
     if (this.editTitle) {
@@ -282,6 +343,7 @@ export class ProjectTreeNodeComponent {
   onMenuAction(action: string) {
     if (action === 'add-child') this.openAddChild();
     else if (action === 'view') this.openDetail.emit(this.node);
+    else if (action === 'move-to-group') this.moveToGroupRequested.emit(this.node);
     else if (action === 'delete') this.confirmOpen = true;
   }
 
@@ -312,10 +374,11 @@ export class ProjectTreeNodeComponent {
     this.projectService
       .createItem(this.projectId, { title, parentId: this.node._id })
       .subscribe({
-        next: () => {
+        next: (res) => {
           this.addChildLoading = false;
           this.addChildOpen = false;
-          this.refresh.emit();
+          this.node.children = [...this.node.children, { ...res.item, children: [], childCount: 0 }];
+          this.node.childCount = this.node.children.length;
         },
         error: (err) => {
           this.addChildError = err.error?.message || 'Failed to add item';
@@ -330,7 +393,7 @@ export class ProjectTreeNodeComponent {
       next: () => {
         this.confirmLoading = false;
         this.confirmOpen = false;
-        this.refresh.emit();
+        this.deleted.emit(this.node._id);
       },
       error: () => {
         this.confirmLoading = false;
@@ -367,17 +430,37 @@ export class ProjectTreeNodeComponent {
   }
 
   onDrop(event: CdkDragDrop<ProjectTreeNode[]>) {
-    if (event.previousIndex === event.currentIndex) return;
-    moveItemInArray(
-      this.node.children,
+    if (event.previousContainer === event.container) {
+      if (event.previousIndex === event.currentIndex) return;
+      moveItemInArray(
+        this.node.children,
+        event.previousIndex,
+        event.currentIndex,
+      );
+      const orderedIds = this.node.children.map((c) => c._id);
+      this.projectService
+        .reorderItems(this.projectId, this.node._id, orderedIds)
+        .subscribe({
+          error: () => this.refresh.emit(),
+        });
+      return;
+    }
+
+    const movedItem = event.previousContainer.data[event.previousIndex];
+    transferArrayItem(
+      event.previousContainer.data,
+      event.container.data,
       event.previousIndex,
       event.currentIndex,
     );
-    const orderedIds = this.node.children.map((c) => c._id);
     this.projectService
-      .reorderItems(this.projectId, this.node._id, orderedIds)
+      .moveItemToParent(this.projectId, movedItem._id, this.node._id, event.currentIndex)
       .subscribe({
-        error: () => this.refresh.emit(),
+        next: () => this.refresh.emit(),
+        error: (err) => {
+          this.notifications.error(err.error?.message || 'Failed to move item');
+          this.refresh.emit();
+        },
       });
   }
 

@@ -74,10 +74,9 @@ const projectSchema = new mongoose.Schema(
       default: '',
     },
     effort: {
-      type: Number,
-      min: 1,
-      max: 10,
-      default: 5,
+      type: String,
+      enum: ['low', 'medium', 'high'],
+      default: 'medium',
     },
     plan: {
       type: new mongoose.Schema(
