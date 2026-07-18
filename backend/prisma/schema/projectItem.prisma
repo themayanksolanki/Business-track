@@ -1,0 +1,62 @@
+enum ProjectItemType {
+  group
+  task
+  subtask
+}
+
+enum ProjectItemStatus {
+  todo
+  doing
+  completed
+}
+
+model ProjectItem {
+  id           Int               @id @default(autoincrement())
+  numericId    Int?              @unique
+  projectId    Int
+  parentId     Int?
+  type         ProjectItemType
+  title        String
+  description  String            @default("")
+  status       ProjectItemStatus @default(todo)
+  priority     ProjectPriority   @default(medium)
+  assignedToId Int?
+  createdById  Int
+  updatedById  Int?
+  depth        Int
+  order        Int               @default(0)
+  startDate    DateTime?
+  endDate      DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  project  Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent   ProjectItem?  @relation("ProjectItemHierarchy", fields: [parentId], references: [id])
+  children ProjectItem[] @relation("ProjectItemHierarchy")
+
+  assignedTo User? @relation("ProjectItemAssignedTo", fields: [assignedToId], references: [id])
+  createdBy  User  @relation("ProjectItemCreatedBy", fields: [createdById], references: [id])
+  updatedBy  User? @relation("ProjectItemUpdatedBy", fields: [updatedById], references: [id])
+
+  tags        Tag[]
+  comments    Comment[]
+  attachments Attachment[]
+
+  @@index([projectId, parentId, order])
+  @@map("project_items")
+}
+
+model Comment {
+  id            Int      @id @default(autoincrement())
+  projectItemId Int
+  authorId      Int
+  body          String   @db.VarChar(2000)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  projectItem ProjectItem @relation(fields: [projectItemId], references: [id], onDelete: Cascade)
+  author      User        @relation("CommentAuthor", fields: [authorId], references: [id])
+
+  @@index([projectItemId])
+  @@map("comments")
+}

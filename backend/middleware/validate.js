@@ -1,14 +1,21 @@
-import mongoose from 'mongoose';
 import AppError from '../utils/AppError.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DOMAIN_REGEX = /^[^\s@]+\.[^\s@]+$/;
 const VALID_ROLES = ['Admin', 'Manager', 'Team Lead', 'User'];
 
+// Ids are Postgres autoincrement integers — accept a positive integer or the
+// numeric string a route param/JSON body would carry it as.
+const isValidId = (value) => {
+  if (typeof value === 'number') return Number.isInteger(value) && value > 0;
+  if (typeof value === 'string') return /^[1-9]\d*$/.test(value);
+  return false;
+};
+
 const validateTagIdsArray = (tags) => {
   if (tags === undefined) return null;
   if (!Array.isArray(tags)) return 'tags must be an array';
-  if (!tags.every((id) => mongoose.isValidObjectId(id))) return 'tags must all be valid IDs';
+  if (!tags.every((id) => isValidId(id))) return 'tags must all be valid IDs';
   return null;
 };
 
@@ -112,10 +119,10 @@ export const validateTask = (req, res, next) => {
   if (status !== undefined && !['todo', 'pending', 'completed'].includes(status))
     return next(new AppError("Status must be 'todo', 'pending', or 'completed'", 400));
 
-  if (assignedTo && !mongoose.isValidObjectId(assignedTo))
+  if (assignedTo && !isValidId(assignedTo))
     return next(new AppError('assignedTo is not a valid ID', 400));
 
-  if (parentTask && !mongoose.isValidObjectId(parentTask))
+  if (parentTask && !isValidId(parentTask))
     return next(new AppError('parentTask is not a valid ID', 400));
 
   const tagsError = validateTagIdsArray(tags);
@@ -130,21 +137,21 @@ export const validateReassign = (req, res, next) => {
   if (!assignedTo)
     return next(new AppError('assignedTo is required', 400));
 
-  if (!mongoose.isValidObjectId(assignedTo))
+  if (!isValidId(assignedTo))
     return next(new AppError('assignedTo is not a valid ID', 400));
 
   next();
 };
 
 export const validateObjectId = (req, res, next) => {
-  if (!mongoose.isValidObjectId(req.params.id))
+  if (!isValidId(req.params.id))
     return next(new AppError(`Invalid ID: ${req.params.id}`, 400));
 
   next();
 };
 
 const validateParamId = (paramName) => (req, res, next) => {
-  if (!mongoose.isValidObjectId(req.params[paramName]))
+  if (!isValidId(req.params[paramName]))
     return next(new AppError(`Invalid ID: ${req.params[paramName]}`, 400));
 
   next();
@@ -196,13 +203,13 @@ export const validateProject = (req, res, next) => {
   if (req.method === 'POST' && (!name || !name.trim()))
     return next(new AppError('Project name is required', 400));
 
-  if (owner && !mongoose.isValidObjectId(owner))
+  if (owner && !isValidId(owner))
     return next(new AppError('owner is not a valid ID', 400));
 
-  if (department && !mongoose.isValidObjectId(department))
+  if (department && !isValidId(department))
     return next(new AppError('department is not a valid ID', 400));
 
-  if (category && !mongoose.isValidObjectId(category))
+  if (category && !isValidId(category))
     return next(new AppError('category is not a valid ID', 400));
 
   const tagsError = validateTagIdsArray(tags);
@@ -260,10 +267,10 @@ export const validateProjectItem = (req, res, next) => {
   if (priority !== undefined && !VALID_ITEM_PRIORITIES.includes(priority))
     return next(new AppError(`Priority must be one of: ${VALID_ITEM_PRIORITIES.join(', ')}`, 400));
 
-  if (assignedTo && !mongoose.isValidObjectId(assignedTo))
+  if (assignedTo && !isValidId(assignedTo))
     return next(new AppError('assignedTo is not a valid ID', 400));
 
-  if (parentId && !mongoose.isValidObjectId(parentId))
+  if (parentId && !isValidId(parentId))
     return next(new AppError('parentId is not a valid ID', 400));
 
   const dateError = validateDateRange(startDate, endDate);
@@ -289,7 +296,7 @@ export const validateMove = (req, res, next) => {
 export const validateMoveToParent = (req, res, next) => {
   const { parentId, index } = req.body;
 
-  if (parentId != null && !mongoose.isValidObjectId(parentId))
+  if (parentId != null && !isValidId(parentId))
     return next(new AppError('parentId is not a valid ID', 400));
 
   if (index !== undefined && (!Number.isInteger(index) || index < 0))
@@ -301,13 +308,13 @@ export const validateMoveToParent = (req, res, next) => {
 export const validateBulkMoveToParent = (req, res, next) => {
   const { itemIds, parentId } = req.body;
 
-  if (!mongoose.isValidObjectId(parentId))
+  if (!isValidId(parentId))
     return next(new AppError('parentId is not a valid ID', 400));
 
   if (!Array.isArray(itemIds) || itemIds.length === 0)
     return next(new AppError('itemIds must be a non-empty array', 400));
 
-  if (!itemIds.every((id) => mongoose.isValidObjectId(id)))
+  if (!itemIds.every((id) => isValidId(id)))
     return next(new AppError('itemIds must all be valid IDs', 400));
 
   next();
@@ -316,13 +323,13 @@ export const validateBulkMoveToParent = (req, res, next) => {
 export const validateReorder = (req, res, next) => {
   const { parentId, orderedIds } = req.body;
 
-  if (parentId && !mongoose.isValidObjectId(parentId))
+  if (parentId && !isValidId(parentId))
     return next(new AppError('parentId is not a valid ID', 400));
 
   if (!Array.isArray(orderedIds) || orderedIds.length === 0)
     return next(new AppError('orderedIds must be a non-empty array', 400));
 
-  if (!orderedIds.every((id) => mongoose.isValidObjectId(id)))
+  if (!orderedIds.every((id) => isValidId(id)))
     return next(new AppError('orderedIds must all be valid IDs', 400));
 
   next();
@@ -348,7 +355,7 @@ export const validateDepartment = (req, res, next) => {
   if (color !== undefined && !HEX_COLOR_REGEX.test(color))
     return next(new AppError('color must be a valid hex color', 400));
 
-  if (parentId && !mongoose.isValidObjectId(parentId))
+  if (parentId && !isValidId(parentId))
     return next(new AppError('parentId is not a valid ID', 400));
 
   next();
@@ -362,7 +369,7 @@ export const validateDepartmentIds = (req, res, next) => {
   if (!Array.isArray(departmentIds))
     return next(new AppError('departmentIds must be an array', 400));
 
-  if (!departmentIds.every((id) => mongoose.isValidObjectId(id)))
+  if (!departmentIds.every((id) => isValidId(id)))
     return next(new AppError('departmentIds must all be valid IDs', 400));
 
   next();
@@ -394,7 +401,7 @@ export const validateCategory = (req, res, next) => {
   if (color !== undefined && !HEX_COLOR_REGEX.test(color))
     return next(new AppError('color must be a valid hex color', 400));
 
-  if (parentId && !mongoose.isValidObjectId(parentId))
+  if (parentId && !isValidId(parentId))
     return next(new AppError('parentId is not a valid ID', 400));
 
   next();
@@ -422,7 +429,7 @@ export const validateProjectRoleReorder = (req, res, next) => {
   if (!Array.isArray(orderedIds) || orderedIds.length === 0)
     return next(new AppError('orderedIds must be a non-empty array', 400));
 
-  if (!orderedIds.every((id) => mongoose.isValidObjectId(id)))
+  if (!orderedIds.every((id) => isValidId(id)))
     return next(new AppError('orderedIds must all be valid IDs', 400));
 
   next();
@@ -431,10 +438,10 @@ export const validateProjectRoleReorder = (req, res, next) => {
 export const validateAddMember = (req, res, next) => {
   const { userId, roleId } = req.body;
 
-  if (!userId || !mongoose.isValidObjectId(userId))
+  if (!userId || !isValidId(userId))
     return next(new AppError('userId is not a valid ID', 400));
 
-  if (!roleId || !mongoose.isValidObjectId(roleId))
+  if (!roleId || !isValidId(roleId))
     return next(new AppError('roleId is not a valid ID', 400));
 
   next();
@@ -443,7 +450,7 @@ export const validateAddMember = (req, res, next) => {
 export const validateUpdateMemberRole = (req, res, next) => {
   const { roleId } = req.body;
 
-  if (!roleId || !mongoose.isValidObjectId(roleId))
+  if (!roleId || !isValidId(roleId))
     return next(new AppError('roleId is not a valid ID', 400));
 
   next();

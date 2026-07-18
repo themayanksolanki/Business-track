@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import prisma from './lib/prisma.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -43,6 +44,11 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+// Tracked via connection events rather than an active ping on every request —
+// Postgres is now the database every route depends on; Mongo is kept
+// connected for future use but nothing reads/writes it yet.
+let postgresConnected = false;
+
 // Lightweight liveness check — kept ahead of body parsing/auth so it always
 // responds fast regardless of DB state; an external monitor pings this on an
 // interval shorter than Render free tier's 15-minute idle timeout to keep
@@ -51,7 +57,8 @@ app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
     uptime: process.uptime(),
-    dbConnected: mongoose.connection.readyState === 1,
+    dbConnected: postgresConnected,
+    mongoConnected: mongoose.connection.readyState === 1,
     timestamp: new Date().toISOString(),
   });
 });
@@ -75,15 +82,26 @@ app.use('/api/project-roles', projectRoleRoutes);
 
 app.use(errorMiddleware);
 
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log('MongoDB connected');
-    server.listen(process.env.PORT, () => {
-      console.log(`Server running on port ${process.env.PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error('MongoDB connection error:', err.message);
+async function start() {
+  try {
+    await prisma.$connect();
+    postgresConnected = true;
+    console.log('Postgres connected (Prisma)');
+  } catch (err) {
+    console.error('Postgres connection error:', err.message);
     process.exit(1);
+  }
+
+  // Mongo is kept connected for future use — nothing reads/writes it yet, so
+  // a Mongo outage shouldn't block startup the way it used to.
+  mongoose
+    .connect(process.env.MONGO_URI)
+    .then(() => console.log('MongoDB connected'))
+    .catch((err) => console.error('MongoDB connection error (non-fatal):', err.message));
+
+  server.listen(process.env.PORT, () => {
+    console.log(`Server running on port ${process.env.PORT}`);
   });
+}
+
+start();

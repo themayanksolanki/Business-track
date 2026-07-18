@@ -1,23 +1,22 @@
 import bcrypt from 'bcryptjs';
-import User from '../models/User.js';
-import Department from '../models/Department.js';
+import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
 import { sendPasswordChangedEmail } from '../utils/mailer.js';
 import { canManageRole, getAccessibleDepartmentIds } from '../utils/access.js';
 
-const sameOrg = (a, b) => String(a ?? '') === String(b ?? '');
+const sameOrg = (a, b) => (a ?? null) === (b ?? null);
 
 export const getAllUsers = async (req, res, next) => {
   try {
-    const filter = { isActive: true, organization: req.user.organization };
+    const where = { isActive: true, organizationId: req.user.organizationId };
 
     if (req.user.role === 'Manager') {
       const accessibleIds = await getAccessibleDepartmentIds(req.user);
-      filter.departments = { $in: accessibleIds };
+      where.departments = { some: { id: { in: accessibleIds } } };
     }
 
     if (req.query.page === undefined) {
-      const users = await User.find(filter).select('-password');
+      const users = await prisma.user.findMany({ where, omit: { password: true } });
       return res.status(200).json(users);
     }
 
@@ -26,8 +25,14 @@ export const getAllUsers = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const [users, total] = await Promise.all([
-      User.find(filter).select('-password').sort({ username: 1 }).skip(skip).limit(limit),
-      User.countDocuments(filter),
+      prisma.user.findMany({
+        where,
+        omit: { password: true },
+        orderBy: { username: 'asc' },
+        skip,
+        take: limit,
+      }),
+      prisma.user.count({ where }),
     ]);
 
     res.status(200).json({
@@ -44,11 +49,10 @@ export const getAllUsers = async (req, res, next) => {
 
 export const getTeamLeads = async (req, res, next) => {
   try {
-    const teamLeads = await User.find({
-      role: 'Team Lead',
-      isActive: true,
-      organization: req.user.organization,
-    }).select('-password');
+    const teamLeads = await prisma.user.findMany({
+      where: { role: 'Team Lead', isActive: true, organizationId: req.user.organizationId },
+      omit: { password: true },
+    });
     res.status(200).json(teamLeads);
   } catch (err) {
     next(err);
@@ -57,12 +61,10 @@ export const getTeamLeads = async (req, res, next) => {
 
 export const getTeamMembers = async (req, res, next) => {
   try {
-    const members = await User.find({
-      teamLeadId: req.user._id,
-      role: 'User',
-      isActive: true,
-      organization: req.user.organization,
-    }).select('-password');
+    const members = await prisma.user.findMany({
+      where: { teamLeadId: req.user.id, role: 'User', isActive: true, organizationId: req.user.organizationId },
+      omit: { password: true },
+    });
     res.status(200).json(members);
   } catch (err) {
     next(err);
@@ -71,19 +73,19 @@ export const getTeamMembers = async (req, res, next) => {
 
 export const getPendingUsers = async (req, res, next) => {
   try {
-    let query = { isActive: false, organization: req.user.organization };
+    const where = { isActive: false, organizationId: req.user.organizationId };
 
     if (req.user.role === 'Admin') {
       // org-wide
     } else if (req.user.role === 'Manager') {
-      query.managerId = req.user._id;
+      where.managerId = req.user.id;
     } else if (req.user.role === 'Team Lead') {
-      query.teamLeadId = req.user._id;
+      where.teamLeadId = req.user.id;
     } else {
       return res.status(200).json([]);
     }
 
-    const users = await User.find(query).select('-password');
+    const users = await prisma.user.findMany({ where, omit: { password: true } });
     res.status(200).json(users);
   } catch (err) {
     next(err);
@@ -92,8 +94,8 @@ export const getPendingUsers = async (req, res, next) => {
 
 export const activateUser = async (req, res, next) => {
   try {
-    const target = await User.findById(req.params.id);
-    if (!target || !sameOrg(target.organization, req.user.organization))
+    const target = await prisma.user.findUnique({ where: { id: Number(req.params.id) } });
+    if (!target || !sameOrg(target.organizationId, req.user.organizationId))
       return next(new AppError('User not found', 404));
 
     const currentRole = req.user.role;
@@ -102,16 +104,19 @@ export const activateUser = async (req, res, next) => {
     const canActivate =
       canManageRole(currentRole, targetRole) &&
       (currentRole === 'Admin' ||
-        (currentRole === 'Manager' && String(target.managerId) === String(req.user._id)) ||
-        (currentRole === 'Team Lead' && String(target.teamLeadId) === String(req.user._id)));
+        (currentRole === 'Manager' && target.managerId === req.user.id) ||
+        (currentRole === 'Team Lead' && target.teamLeadId === req.user.id));
 
     if (!canActivate)
       return next(new AppError('You do not have permission to activate this user', 403));
 
-    target.isActive = true;
-    await target.save();
+    const updated = await prisma.user.update({
+      where: { id: target.id },
+      data: { isActive: true },
+      omit: { password: true },
+    });
 
-    res.status(200).json({ message: `${target.username} has been activated`, user: target });
+    res.status(200).json({ message: `${updated.username} has been activated`, user: updated });
   } catch (err) {
     next(err);
   }
@@ -119,20 +124,23 @@ export const activateUser = async (req, res, next) => {
 
 export const deactivateUser = async (req, res, next) => {
   try {
-    const target = await User.findById(req.params.id);
-    if (!target || !sameOrg(target.organization, req.user.organization))
+    const target = await prisma.user.findUnique({ where: { id: Number(req.params.id) } });
+    if (!target || !sameOrg(target.organizationId, req.user.organizationId))
       return next(new AppError('User not found', 404));
 
-    if (String(target._id) === String(req.user._id))
+    if (target.id === req.user.id)
       return next(new AppError('You cannot deactivate your own account', 400));
 
     if (!canManageRole(req.user.role, target.role))
       return next(new AppError('You do not have permission to deactivate this user', 403));
 
-    target.isActive = false;
-    await target.save();
+    const updated = await prisma.user.update({
+      where: { id: target.id },
+      data: { isActive: false },
+      omit: { password: true },
+    });
 
-    res.status(200).json({ message: `${target.username} has been deactivated`, user: target });
+    res.status(200).json({ message: `${updated.username} has been deactivated`, user: updated });
   } catch (err) {
     next(err);
   }
@@ -144,8 +152,8 @@ export const updateUserPassword = async (req, res, next) => {
     if (!password || password.length < 6)
       return next(new AppError('Password must be at least 6 characters', 400));
 
-    const target = await User.findById(req.params.id);
-    if (!target || !sameOrg(target.organization, req.user.organization))
+    const target = await prisma.user.findUnique({ where: { id: Number(req.params.id) } });
+    if (!target || !sameOrg(target.organizationId, req.user.organizationId))
       return next(new AppError('User not found', 404));
 
     const callerRole = req.user.role;
@@ -155,13 +163,15 @@ export const updateUserPassword = async (req, res, next) => {
       canManageRole(callerRole, targetRole) &&
       (callerRole === 'Admin' ||
         callerRole === 'Manager' ||
-        (callerRole === 'Team Lead' && String(target.teamLeadId) === String(req.user._id)));
+        (callerRole === 'Team Lead' && target.teamLeadId === req.user.id));
 
     if (!allowed)
       return next(new AppError('You do not have permission to update this password', 403));
 
-    target.password = await bcrypt.hash(password, 10);
-    await target.save();
+    await prisma.user.update({
+      where: { id: target.id },
+      data: { password: await bcrypt.hash(password, 10) },
+    });
 
     sendPasswordChangedEmail(target.email, target.username, password).catch(() => {});
 
@@ -175,33 +185,33 @@ export const updateUserDepartments = async (req, res, next) => {
   try {
     const { departmentIds } = req.body;
 
-    const target = await User.findById(req.params.id);
-    if (!target || !sameOrg(target.organization, req.user.organization))
+    const target = await prisma.user.findUnique({ where: { id: Number(req.params.id) } });
+    if (!target || !sameOrg(target.organizationId, req.user.organizationId))
       return next(new AppError('User not found', 404));
 
-    const uniqueIds = [...new Set(departmentIds)];
+    const uniqueIds = [...new Set(departmentIds.map(Number))];
 
     if (req.user.role === 'Manager') {
       const accessibleIds = await getAccessibleDepartmentIds(req.user);
-      const outOfScope = uniqueIds.some((id) => !accessibleIds.includes(String(id)));
+      const outOfScope = uniqueIds.some((id) => !accessibleIds.includes(id));
       if (outOfScope)
         return next(new AppError('You can only assign departments within your own scope', 403));
     }
 
-    const count = await Department.countDocuments({
-      _id: { $in: uniqueIds },
-      organization: req.user.organization,
+    const count = await prisma.department.count({
+      where: { id: { in: uniqueIds }, organizationId: req.user.organizationId },
     });
     if (count !== uniqueIds.length)
       return next(new AppError('One or more departments were not found', 404));
 
-    target.departments = uniqueIds;
-    await target.save();
+    const updated = await prisma.user.update({
+      where: { id: target.id },
+      data: { departments: { set: uniqueIds.map((id) => ({ id })) } },
+      omit: { password: true },
+      include: { departments: { select: { id: true, name: true, color: true, depth: true } } },
+    });
 
-    const populated = await User.findById(target._id)
-      .select('-password')
-      .populate({ path: 'departments', select: 'name color depth' });
-    res.status(200).json({ message: `Departments updated for ${target.username}`, user: populated });
+    res.status(200).json({ message: `Departments updated for ${updated.username}`, user: updated });
   } catch (err) {
     next(err);
   }

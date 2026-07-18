@@ -1,68 +1,52 @@
-import Category from '../models/Category.js';
-import Project from '../models/Project.js';
+import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
 
-const POPULATE_FIELDS = [
-  { path: 'createdBy', select: 'username email role' },
-  { path: 'updatedBy', select: 'username email role' },
-];
-const PROJECT_POPULATE_FIELDS = [
-  { path: 'createdBy', select: 'username email role' },
-  { path: 'owner', select: 'username email role' },
-];
+const USER_SELECT = { id: true, username: true, email: true, role: true };
+const PROJECT_INCLUDE = {
+  createdBy: { select: USER_SELECT },
+  owner: { select: USER_SELECT },
+};
 
-const sameOrg = (a, b) => String(a ?? '') === String(b ?? '');
-
-// Accepts one root or many — batching multiple roots into the same frontier
-// keeps this to one query per depth level total, instead of one full walk
-// per root (mirrors the same pattern in projectController.js/utils/access.js).
+// Accepts one root id or many — batches multiple roots into the same
+// frontier so a multi-root walk costs one query per depth level total,
+// instead of one full walk per root (mirrors the same pattern in
+// projectController.js/utils/access.js, but walks Category, not Department).
 const getDescendantIds = async (rootIds) => {
   const result = [];
   let frontier = Array.isArray(rootIds) ? rootIds : [rootIds];
   while (frontier.length) {
-    const children = await Category.find({ parentId: { $in: frontier } }).select('_id');
-    const ids = children.map((c) => c._id);
+    const children = await prisma.category.findMany({
+      where: { parentId: { in: frontier } },
+      select: { id: true },
+    });
+    const ids = children.map((c) => c.id);
     result.push(...ids);
     frontier = ids;
   }
   return result;
 };
 
-// Merges projectCount/childCount onto each category. Both aggregates are
-// org-agnostic (they describe absolute usage across the whole collection),
-// so the same merge works whether `categories` is the full org list or a
-// single page's worth.
-const attachCounts = async (categories) => {
-  const [projectCounts, childCounts] = await Promise.all([
-    Project.aggregate([
-      { $match: { category: { $ne: null } } },
-      { $group: { _id: '$category', count: { $sum: 1 } } },
-    ]),
-    Category.aggregate([
-      { $match: { parentId: { $ne: null } } },
-      { $group: { _id: '$parentId', count: { $sum: 1 } } },
-    ]),
-  ]);
+const CATEGORY_INCLUDE = {
+  createdBy: { select: USER_SELECT },
+  updatedBy: { select: USER_SELECT },
+  _count: { select: { projects: true, children: true } },
+};
 
-  const toMap = (rows) => new Map(rows.map((r) => [String(r._id), r.count]));
-  const projectCountMap = toMap(projectCounts);
-  const childCountMap = toMap(childCounts);
-
-  return categories.map((c) => ({
-    ...c.toObject(),
-    projectCount: projectCountMap.get(String(c._id)) ?? 0,
-    childCount: childCountMap.get(String(c._id)) ?? 0,
-  }));
+const withCounts = (c) => {
+  const { _count, ...rest } = c;
+  return { ...rest, projectCount: _count.projects, childCount: _count.children };
 };
 
 export const getCategories = async (req, res, next) => {
   try {
     if (req.query.page === undefined) {
-      const categories = await Category.find({ organization: req.user.organization })
-        .populate(POPULATE_FIELDS)
-        .sort({ parentId: 1, order: 1 });
+      const categories = await prisma.category.findMany({
+        where: { organizationId: req.user.organizationId },
+        include: CATEGORY_INCLUDE,
+        orderBy: [{ parentId: { sort: 'asc', nulls: 'first' } }, { order: 'asc' }],
+      });
 
-      return res.status(200).json(await attachCounts(categories));
+      return res.status(200).json(categories.map(withCounts));
     }
 
     // Paginated: same root-then-descendants approach as Departments, since
@@ -72,23 +56,31 @@ export const getCategories = async (req, res, next) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 12));
     const skip = (page - 1) * limit;
 
-    const rootFilter = { organization: req.user.organization, parentId: null };
+    const rootWhere = { organizationId: req.user.organizationId, parentId: null };
 
     const [total, roots] = await Promise.all([
-      Category.countDocuments(rootFilter),
-      Category.find(rootFilter).sort({ order: 1 }).skip(skip).limit(limit).select('_id'),
+      prisma.category.count({ where: rootWhere }),
+      prisma.category.findMany({
+        where: rootWhere,
+        orderBy: { order: 'asc' },
+        skip,
+        take: limit,
+        select: { id: true },
+      }),
     ]);
 
-    const rootIds = roots.map((r) => r._id);
+    const rootIds = roots.map((r) => r.id);
     const descendantIds = await getDescendantIds(rootIds);
     const allIds = [...rootIds, ...descendantIds];
 
-    const categories = await Category.find({ _id: { $in: allIds } })
-      .populate(POPULATE_FIELDS)
-      .sort({ parentId: 1, order: 1 });
+    const categories = await prisma.category.findMany({
+      where: { id: { in: allIds } },
+      include: CATEGORY_INCLUDE,
+      orderBy: [{ parentId: { sort: 'asc', nulls: 'first' } }, { order: 'asc' }],
+    });
 
     res.status(200).json({
-      categories: await attachCounts(categories),
+      categories: categories.map(withCounts),
       total,
       page,
       limit,
@@ -102,30 +94,33 @@ export const getCategories = async (req, res, next) => {
 export const createCategory = async (req, res, next) => {
   try {
     const { name, overview, color, parentId } = req.body;
+    const parentIdNum = parentId ? Number(parentId) : null;
 
     let depth = 0;
-    if (parentId) {
-      const parent = await Category.findById(parentId);
-      if (!parent || !sameOrg(parent.organization, req.user.organization))
+    if (parentIdNum) {
+      const parent = await prisma.category.findUnique({ where: { id: parentIdNum } });
+      if (!parent || parent.organizationId !== req.user.organizationId)
         return next(new AppError('Parent category not found', 404));
       depth = parent.depth + 1;
     }
 
-    const order = await Category.countDocuments({ parentId: parentId ?? null });
+    const order = await prisma.category.count({ where: { parentId: parentIdNum } });
 
-    const category = await Category.create({
-      name: name.trim(),
-      overview: overview ?? '',
-      color: color ?? '#3b82f6',
-      parentId: parentId ?? null,
-      organization: req.user.organization,
-      depth,
-      order,
-      createdBy: req.user._id,
+    const category = await prisma.category.create({
+      data: {
+        name: name.trim(),
+        overview: overview ?? '',
+        color: color ?? '#3b82f6',
+        parentId: parentIdNum,
+        organizationId: req.user.organizationId,
+        depth,
+        order,
+        createdById: req.user.id,
+      },
+      include: CATEGORY_INCLUDE,
     });
 
-    const populated = await category.populate(POPULATE_FIELDS);
-    res.status(201).json({ message: 'Category created', category: populated });
+    res.status(201).json({ message: 'Category created', category: withCounts(category) });
   } catch (err) {
     next(err);
   }
@@ -133,16 +128,19 @@ export const createCategory = async (req, res, next) => {
 
 export const getCategoryById = async (req, res, next) => {
   try {
-    const category = await Category.findById(req.params.id).populate(POPULATE_FIELDS);
-    if (!category || !sameOrg(category.organization, req.user.organization))
+    const category = await prisma.category.findUnique({
+      where: { id: Number(req.params.id) },
+      include: CATEGORY_INCLUDE,
+    });
+    if (!category || category.organizationId !== req.user.organizationId)
       return next(new AppError('Category not found', 404));
 
     const [children, projects] = await Promise.all([
-      Category.find({ parentId: category._id }).sort({ order: 1 }),
-      Project.find({ category: category._id }).populate(PROJECT_POPULATE_FIELDS),
+      prisma.category.findMany({ where: { parentId: category.id }, orderBy: { order: 'asc' } }),
+      prisma.project.findMany({ where: { categoryId: category.id }, include: PROJECT_INCLUDE }),
     ]);
 
-    res.status(200).json({ category, children, projects });
+    res.status(200).json({ category: withCounts(category), children, projects });
   } catch (err) {
     next(err);
   }
@@ -150,20 +148,23 @@ export const getCategoryById = async (req, res, next) => {
 
 export const updateCategory = async (req, res, next) => {
   try {
-    const category = await Category.findById(req.params.id);
-    if (!category || !sameOrg(category.organization, req.user.organization))
+    const category = await prisma.category.findUnique({ where: { id: Number(req.params.id) } });
+    if (!category || category.organizationId !== req.user.organizationId)
       return next(new AppError('Category not found', 404));
 
     const { name, overview, color } = req.body;
-    if (name !== undefined) category.name = name.trim();
-    if (overview !== undefined) category.overview = overview;
-    if (color !== undefined) category.color = color;
-    category.updatedBy = req.user._id;
+    const data = { updatedById: req.user.id };
+    if (name !== undefined) data.name = name.trim();
+    if (overview !== undefined) data.overview = overview;
+    if (color !== undefined) data.color = color;
 
-    await category.save();
+    const updated = await prisma.category.update({
+      where: { id: category.id },
+      data,
+      include: CATEGORY_INCLUDE,
+    });
 
-    const populated = await category.populate(POPULATE_FIELDS);
-    res.status(200).json({ message: 'Category updated', category: populated });
+    res.status(200).json({ message: 'Category updated', category: withCounts(updated) });
   } catch (err) {
     next(err);
   }
@@ -171,15 +172,17 @@ export const updateCategory = async (req, res, next) => {
 
 export const deleteCategory = async (req, res, next) => {
   try {
-    const category = await Category.findById(req.params.id);
-    if (!category || !sameOrg(category.organization, req.user.organization))
+    const category = await prisma.category.findUnique({ where: { id: Number(req.params.id) } });
+    if (!category || category.organizationId !== req.user.organizationId)
       return next(new AppError('Category not found', 404));
 
-    const descendantIds = await getDescendantIds(category._id);
-    const allIds = [category._id, ...descendantIds];
+    const descendantIds = await getDescendantIds(category.id);
+    const allIds = [category.id, ...descendantIds];
 
-    await Project.updateMany({ category: { $in: allIds } }, { $set: { category: null } });
-    await Category.deleteMany({ _id: { $in: allIds } });
+    await prisma.$transaction([
+      prisma.project.updateMany({ where: { categoryId: { in: allIds } }, data: { categoryId: null } }),
+      prisma.category.deleteMany({ where: { id: { in: allIds } } }),
+    ]);
 
     res.status(200).json({ message: 'Category deleted' });
   } catch (err) {

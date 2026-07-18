@@ -29,7 +29,13 @@ function initAuth(auth: AuthService) {
     return firstValueFrom(
       auth.refresh().pipe(
         timeout({ first: 5000, with: () => of(null) }),
-        catchError(() => of(null))
+        catchError(() => {
+          // A stale/expired/invalid refresh token, or a deactivated account,
+          // means there's no session to restore — clear the leftover
+          // localStorage state instead of leaving it looking logged-in.
+          auth.clearSessionSilent();
+          return of(null);
+        })
       )
     );
   };

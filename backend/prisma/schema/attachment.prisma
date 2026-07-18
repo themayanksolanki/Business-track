@@ -1,0 +1,27 @@
+// Exactly one of task/projectItem/project must be set — enforced at the
+// application layer (mirrors the old Mongoose pre('validate') hook), since
+// Prisma's schema DSL has no arbitrary CHECK constraint syntax.
+model Attachment {
+  id            Int      @id @default(autoincrement())
+  taskId        Int?
+  projectItemId Int?
+  projectId     Int?
+  fileName      String
+  url           String
+  publicId      String?
+  mimeType      String
+  size          Int
+  uploadedById  Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  task        Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  projectItem ProjectItem? @relation(fields: [projectItemId], references: [id], onDelete: Cascade)
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy  User         @relation("AttachmentUploadedBy", fields: [uploadedById], references: [id])
+
+  @@index([taskId])
+  @@index([projectItemId])
+  @@index([projectId])
+  @@map("attachments")
+}

@@ -1,0 +1,50 @@
+model Organization {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  emailDomain String   @unique
+  createdById Int
+  updatedById Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy User  @relation("OrganizationCreatedBy", fields: [createdById], references: [id])
+  updatedBy User? @relation("OrganizationUpdatedBy", fields: [updatedById], references: [id])
+
+  users        User[]        @relation("UserOrganization")
+  invites      Invite[]
+  departments  Department[]
+  categories   Category[]
+  tags         Tag[]
+  projectRoles ProjectRole[]
+  projects     Project[]
+  tasks        Task[]
+
+  @@map("organizations")
+}
+
+enum InviteStatus {
+  pending
+  accepted
+}
+
+model Invite {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  email          String
+  role           String
+  managerId      Int?
+  teamLeadId     Int?
+  invitedById    Int
+  status         InviteStatus @default(pending)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  manager      User?        @relation("InviteManager", fields: [managerId], references: [id])
+  teamLead     User?        @relation("InviteTeamLead", fields: [teamLeadId], references: [id])
+  invitedBy    User         @relation("InviteInvitedBy", fields: [invitedById], references: [id])
+  departments  Department[] @relation("InviteDepartments")
+
+  @@index([organizationId, email])
+  @@map("invites")
+}

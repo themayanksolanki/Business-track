@@ -1,0 +1,48 @@
+enum MessageType {
+  text
+  image
+  call
+}
+
+enum CallType {
+  audio
+  video
+}
+
+enum CallStatus {
+  completed
+  missed
+  rejected
+}
+
+model Message {
+  id           Int         @id @default(autoincrement())
+  senderId     Int
+  receiverId   Int
+  content      String      @default("")
+  type         MessageType @default(text)
+  fileUrl      String?
+  read         Boolean     @default(false)
+  delivered    Boolean     @default(false)
+  callType     CallType?
+  callStatus   CallStatus?
+  callDuration Int?
+  isPinned     Boolean     @default(false)
+  isEdited     Boolean     @default(false)
+  editedAt     DateTime?
+  isDeleted    Boolean     @default(false)
+  replyToId    Int?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  sender   User      @relation("MessageSender", fields: [senderId], references: [id])
+  receiver User      @relation("MessageReceiver", fields: [receiverId], references: [id])
+  replyTo  Message?  @relation("MessageReplyTo", fields: [replyToId], references: [id])
+  replies  Message[] @relation("MessageReplyTo")
+
+  deletedFor User[] @relation("MessageDeletedFor")
+
+  @@index([senderId, receiverId])
+  @@index([receiverId, read])
+  @@map("messages")
+}

@@ -1,0 +1,35 @@
+enum TaskStatus {
+  todo
+  pending
+  completed
+}
+
+model Task {
+  id             Int        @id @default(autoincrement())
+  numericId      Int?       @unique
+  title          String
+  description    String     @default("")
+  status         TaskStatus @default(todo)
+  startDate      DateTime?
+  dueDate        DateTime?
+  createdById    Int
+  updatedById    Int?
+  assignedToId   Int
+  parentTaskId   Int?
+  organizationId Int?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  createdBy    User          @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?         @relation("TaskUpdatedBy", fields: [updatedById], references: [id])
+  assignedTo   User          @relation("TaskAssignedTo", fields: [assignedToId], references: [id])
+  parentTask   Task?         @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
+  subtasks     Task[]        @relation("TaskHierarchy")
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  tags        Tag[]
+  attachments Attachment[]
+
+  @@index([organizationId])
+  @@map("tasks")
+}

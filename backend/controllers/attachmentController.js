@@ -1,44 +1,41 @@
-import Task from '../models/Task.js';
-import User from '../models/User.js';
-import Project from '../models/Project.js';
-import Attachment from '../models/Attachment.js';
-import ProjectItem from '../models/ProjectItem.js';
+import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
-import { uploadBufferToGridFS, openDownloadStream, deleteFile } from '../utils/gridfs.js';
+import { cloudinary } from '../middleware/upload.js';
 import { canAccessProject } from './projectController.js';
 
+const UPLOADED_BY_SELECT = { id: true, username: true, email: true, role: true };
+const ACCESS_INCLUDE = { members: { select: { userId: true } } };
+
 const getTeamMemberIds = async (teamLeadId) => {
-  const members = await User.find({ teamLeadId, role: 'User' }).select('_id');
-  return members.map((m) => m._id);
+  const members = await prisma.user.findMany({ where: { teamLeadId, role: 'User' }, select: { id: true } });
+  return members.map((m) => m.id);
 };
 
 const canAccessTask = async (task, user) => {
-  if (String(task.organization ?? '') !== String(user.organization ?? '')) return false;
+  if (task.organizationId !== user.organizationId) return false;
   if (user.role === 'Admin' || user.role === 'Manager') return true;
 
   if (user.role === 'Team Lead') {
-    const memberIds = await getTeamMemberIds(user._id);
-    const allowed = [String(user._id), ...memberIds.map(String)];
-    return allowed.includes(String(task.assignedTo));
+    const memberIds = await getTeamMemberIds(user.id);
+    const allowed = [user.id, ...memberIds];
+    return allowed.includes(task.assignedToId);
   }
 
-  return (
-    String(task.assignedTo) === String(user._id) ||
-    String(task.createdBy) === String(user._id)
-  );
+  return task.assignedToId === user.id || task.createdById === user.id;
 };
 
 export const getAttachments = async (req, res, next) => {
   try {
-    const task = await Task.findById(req.params.id);
+    const task = await prisma.task.findUnique({ where: { id: Number(req.params.id) } });
     if (!task) return next(new AppError('Task not found', 404));
 
-    if (!(await canAccessTask(task, req.user)))
-      return next(new AppError('Access denied', 403));
+    if (!(await canAccessTask(task, req.user))) return next(new AppError('Access denied', 403));
 
-    const attachments = await Attachment.find({ task: task._id })
-      .populate('uploadedBy', 'username email role')
-      .sort({ createdAt: -1 });
+    const attachments = await prisma.attachment.findMany({
+      where: { taskId: task.id },
+      include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
+      orderBy: { createdAt: 'desc' },
+    });
 
     res.status(200).json(attachments);
   } catch (err) {
@@ -48,57 +45,45 @@ export const getAttachments = async (req, res, next) => {
 
 export const uploadAttachment = async (req, res, next) => {
   try {
-    const task = await Task.findById(req.params.id);
+    const task = await prisma.task.findUnique({ where: { id: Number(req.params.id) } });
     if (!task) return next(new AppError('Task not found', 404));
 
-    if (!(await canAccessTask(task, req.user)))
-      return next(new AppError('Access denied', 403));
+    if (!(await canAccessTask(task, req.user))) return next(new AppError('Access denied', 403));
 
     if (!req.file) return next(new AppError('No file uploaded', 400));
 
-    const gridFsId = await uploadBufferToGridFS(
-      req.file.buffer,
-      req.file.originalname,
-      req.file.mimetype
-    );
-
-    const attachment = await Attachment.create({
-      task: task._id,
-      fileName: req.file.originalname,
-      gridFsId,
-      mimeType: req.file.mimetype,
-      size: req.file.size,
-      uploadedBy: req.user._id,
+    const attachment = await prisma.attachment.create({
+      data: {
+        taskId: task.id,
+        fileName: req.file.originalname,
+        url: req.file.path, // Cloudinary secure URL
+        publicId: req.file.filename, // Cloudinary public_id
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        uploadedById: req.user.id,
+      },
+      include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
     });
 
-    const populated = await attachment.populate('uploadedBy', 'username email role');
-
-    res.status(201).json({ message: 'File uploaded', attachment: populated });
+    res.status(201).json({ message: 'File uploaded', attachment });
   } catch (err) {
     next(err);
   }
 };
 
+// The file now lives on Cloudinary, so "download" is just handing back the
+// direct URL instead of piping bytes through this server.
 export const downloadAttachment = async (req, res, next) => {
   try {
-    const attachment = await Attachment.findById(req.params.attachmentId);
+    const attachment = await prisma.attachment.findUnique({ where: { id: Number(req.params.attachmentId) } });
     if (!attachment) return next(new AppError('Attachment not found', 404));
 
-    const task = await Task.findById(attachment.task);
+    const task = await prisma.task.findUnique({ where: { id: attachment.taskId } });
     if (!task) return next(new AppError('Task not found', 404));
 
-    if (!(await canAccessTask(task, req.user)))
-      return next(new AppError('Access denied', 403));
+    if (!(await canAccessTask(task, req.user))) return next(new AppError('Access denied', 403));
 
-    res.set({
-      'Content-Type': attachment.mimeType,
-      'Content-Disposition': `attachment; filename="${encodeURIComponent(attachment.fileName)}"`,
-      'Content-Length': attachment.size,
-    });
-
-    const stream = openDownloadStream(attachment.gridFsId);
-    stream.on('error', () => next(new AppError('File not found in storage', 404)));
-    stream.pipe(res);
+    res.redirect(attachment.url);
   } catch (err) {
     next(err);
   }
@@ -106,18 +91,25 @@ export const downloadAttachment = async (req, res, next) => {
 
 export const getItemAttachments = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
-    const item = await ProjectItem.findOne({ _id: req.params.itemId, project: req.params.projectId });
+    const item = await prisma.projectItem.findFirst({
+      where: { id: Number(req.params.itemId), projectId: project.id },
+    });
     if (!item) return next(new AppError('Item not found', 404));
     if (item.type === 'group') return next(new AppError('Groups do not support attachments', 400));
 
-    const attachments = await Attachment.find({ projectItem: item._id })
-      .populate('uploadedBy', 'username email role')
-      .sort({ createdAt: -1 });
+    const attachments = await prisma.attachment.findMany({
+      where: { projectItemId: item.id },
+      include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
+      orderBy: { createdAt: 'desc' },
+    });
 
     res.status(200).json(attachments);
   } catch (err) {
@@ -127,35 +119,36 @@ export const getItemAttachments = async (req, res, next) => {
 
 export const uploadItemAttachment = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
-    const item = await ProjectItem.findOne({ _id: req.params.itemId, project: req.params.projectId });
+    const item = await prisma.projectItem.findFirst({
+      where: { id: Number(req.params.itemId), projectId: project.id },
+    });
     if (!item) return next(new AppError('Item not found', 404));
     if (item.type === 'group') return next(new AppError('Groups do not support attachments', 400));
 
     if (!req.file) return next(new AppError('No file uploaded', 400));
 
-    const gridFsId = await uploadBufferToGridFS(
-      req.file.buffer,
-      req.file.originalname,
-      req.file.mimetype
-    );
-
-    const attachment = await Attachment.create({
-      projectItem: item._id,
-      fileName: req.file.originalname,
-      gridFsId,
-      mimeType: req.file.mimetype,
-      size: req.file.size,
-      uploadedBy: req.user._id,
+    const attachment = await prisma.attachment.create({
+      data: {
+        projectItemId: item.id,
+        fileName: req.file.originalname,
+        url: req.file.path,
+        publicId: req.file.filename,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        uploadedById: req.user.id,
+      },
+      include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
     });
 
-    const populated = await attachment.populate('uploadedBy', 'username email role');
-
-    res.status(201).json({ message: 'File uploaded', attachment: populated });
+    res.status(201).json({ message: 'File uploaded', attachment });
   } catch (err) {
     next(err);
   }
@@ -163,26 +156,20 @@ export const uploadItemAttachment = async (req, res, next) => {
 
 export const downloadItemAttachment = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
-    const attachment = await Attachment.findOne({
-      _id: req.params.attachmentId,
-      projectItem: req.params.itemId,
+    const attachment = await prisma.attachment.findFirst({
+      where: { id: Number(req.params.attachmentId), projectItemId: Number(req.params.itemId) },
     });
     if (!attachment) return next(new AppError('Attachment not found', 404));
 
-    res.set({
-      'Content-Type': attachment.mimeType,
-      'Content-Disposition': `attachment; filename="${encodeURIComponent(attachment.fileName)}"`,
-      'Content-Length': attachment.size,
-    });
-
-    const stream = openDownloadStream(attachment.gridFsId);
-    stream.on('error', () => next(new AppError('File not found in storage', 404)));
-    stream.pipe(res);
+    res.redirect(attachment.url);
   } catch (err) {
     next(err);
   }
@@ -190,23 +177,25 @@ export const downloadItemAttachment = async (req, res, next) => {
 
 export const deleteItemAttachment = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
-    const attachment = await Attachment.findOne({
-      _id: req.params.attachmentId,
-      projectItem: req.params.itemId,
+    const attachment = await prisma.attachment.findFirst({
+      where: { id: Number(req.params.attachmentId), projectItemId: Number(req.params.itemId) },
     });
     if (!attachment) return next(new AppError('Attachment not found', 404));
 
-    try {
-      await deleteFile(attachment.gridFsId);
-    } catch {
-      // best-effort: continue even if the blob is already gone
+    if (attachment.publicId) {
+      await cloudinary.uploader.destroy(attachment.publicId).catch(() => {
+        // best-effort: continue even if the blob is already gone
+      });
     }
-    await Attachment.findByIdAndDelete(attachment._id);
+    await prisma.attachment.delete({ where: { id: attachment.id } });
 
     res.status(200).json({ message: 'Attachment deleted' });
   } catch (err) {
@@ -216,14 +205,19 @@ export const deleteItemAttachment = async (req, res, next) => {
 
 export const getProjectAttachments = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
-    const attachments = await Attachment.find({ project: project._id })
-      .populate('uploadedBy', 'username email role')
-      .sort({ createdAt: -1 });
+    const attachments = await prisma.attachment.findMany({
+      where: { projectId: project.id },
+      include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
+      orderBy: { createdAt: 'desc' },
+    });
 
     res.status(200).json(attachments);
   } catch (err) {
@@ -233,31 +227,30 @@ export const getProjectAttachments = async (req, res, next) => {
 
 export const uploadProjectAttachment = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
     if (!req.file) return next(new AppError('No file uploaded', 400));
 
-    const gridFsId = await uploadBufferToGridFS(
-      req.file.buffer,
-      req.file.originalname,
-      req.file.mimetype
-    );
-
-    const attachment = await Attachment.create({
-      project: project._id,
-      fileName: req.file.originalname,
-      gridFsId,
-      mimeType: req.file.mimetype,
-      size: req.file.size,
-      uploadedBy: req.user._id,
+    const attachment = await prisma.attachment.create({
+      data: {
+        projectId: project.id,
+        fileName: req.file.originalname,
+        url: req.file.path,
+        publicId: req.file.filename,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        uploadedById: req.user.id,
+      },
+      include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
     });
 
-    const populated = await attachment.populate('uploadedBy', 'username email role');
-
-    res.status(201).json({ message: 'File uploaded', attachment: populated });
+    res.status(201).json({ message: 'File uploaded', attachment });
   } catch (err) {
     next(err);
   }
@@ -265,26 +258,20 @@ export const uploadProjectAttachment = async (req, res, next) => {
 
 export const downloadProjectAttachment = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
-    const attachment = await Attachment.findOne({
-      _id: req.params.attachmentId,
-      project: req.params.projectId,
+    const attachment = await prisma.attachment.findFirst({
+      where: { id: Number(req.params.attachmentId), projectId: project.id },
     });
     if (!attachment) return next(new AppError('Attachment not found', 404));
 
-    res.set({
-      'Content-Type': attachment.mimeType,
-      'Content-Disposition': `attachment; filename="${encodeURIComponent(attachment.fileName)}"`,
-      'Content-Length': attachment.size,
-    });
-
-    const stream = openDownloadStream(attachment.gridFsId);
-    stream.on('error', () => next(new AppError('File not found in storage', 404)));
-    stream.pipe(res);
+    res.redirect(attachment.url);
   } catch (err) {
     next(err);
   }
@@ -292,23 +279,25 @@ export const downloadProjectAttachment = async (req, res, next) => {
 
 export const deleteProjectAttachment = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
-    const attachment = await Attachment.findOne({
-      _id: req.params.attachmentId,
-      project: req.params.projectId,
+    const attachment = await prisma.attachment.findFirst({
+      where: { id: Number(req.params.attachmentId), projectId: project.id },
     });
     if (!attachment) return next(new AppError('Attachment not found', 404));
 
-    try {
-      await deleteFile(attachment.gridFsId);
-    } catch {
-      // best-effort: continue even if the blob is already gone
+    if (attachment.publicId) {
+      await cloudinary.uploader.destroy(attachment.publicId).catch(() => {
+        // best-effort: continue even if the blob is already gone
+      });
     }
-    await Attachment.findByIdAndDelete(attachment._id);
+    await prisma.attachment.delete({ where: { id: attachment.id } });
 
     res.status(200).json({ message: 'Attachment deleted' });
   } catch (err) {

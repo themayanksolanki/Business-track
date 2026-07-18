@@ -1,7 +1,5 @@
 import bcrypt from 'bcryptjs';
-import Organization from '../models/Organization.js';
-import Invite from '../models/Invite.js';
-import User from '../models/User.js';
+import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
 import { getAccessibleDepartmentIds, canAccessDepartment } from '../utils/access.js';
 
@@ -13,9 +11,9 @@ const CREATABLE_ROLES = {
 
 export const getMyOrganization = async (req, res, next) => {
   try {
-    if (!req.user.organization) return next(new AppError('You are not part of an organization', 404));
+    if (!req.user.organizationId) return next(new AppError('You are not part of an organization', 404));
 
-    const organization = await Organization.findById(req.user.organization);
+    const organization = await prisma.organization.findUnique({ where: { id: req.user.organizationId } });
     if (!organization) return next(new AppError('Organization not found', 404));
 
     res.status(200).json(organization);
@@ -26,30 +24,31 @@ export const getMyOrganization = async (req, res, next) => {
 
 export const updateOrganization = async (req, res, next) => {
   try {
-    const organization = await Organization.findById(req.user.organization);
+    const organization = await prisma.organization.findUnique({ where: { id: req.user.organizationId } });
     if (!organization) return next(new AppError('Organization not found', 404));
 
     const { name, emailDomain } = req.body;
+    const data = { updatedById: req.user.id };
 
     if (name !== undefined) {
-      const existing = await Organization.findOne({ name: name.trim(), _id: { $ne: organization._id } });
+      const existing = await prisma.organization.findFirst({
+        where: { name: name.trim(), id: { not: organization.id } },
+      });
       if (existing) return next(new AppError('Organization name already taken', 409));
-      organization.name = name.trim();
+      data.name = name.trim();
     }
 
     if (emailDomain !== undefined) {
       const normalizedDomain = emailDomain.toLowerCase().trim();
-      const existing = await Organization.findOne({
-        emailDomain: normalizedDomain,
-        _id: { $ne: organization._id },
+      const existing = await prisma.organization.findFirst({
+        where: { emailDomain: normalizedDomain, id: { not: organization.id } },
       });
       if (existing) return next(new AppError('Organization email domain already registered', 409));
-      organization.emailDomain = normalizedDomain;
+      data.emailDomain = normalizedDomain;
     }
 
-    organization.updatedBy = req.user._id;
-    await organization.save();
-    res.status(200).json({ message: 'Organization updated', organization });
+    const updated = await prisma.organization.update({ where: { id: organization.id }, data });
+    res.status(200).json({ message: 'Organization updated', organization: updated });
   } catch (err) {
     next(err);
   }
@@ -57,7 +56,10 @@ export const updateOrganization = async (req, res, next) => {
 
 export const getAdmins = async (req, res, next) => {
   try {
-    const admins = await User.find({ organization: req.user.organization, role: 'Admin' }).select('-password');
+    const admins = await prisma.user.findMany({
+      where: { organizationId: req.user.organizationId, role: 'Admin' },
+      omit: { password: true },
+    });
     res.status(200).json(admins);
   } catch (err) {
     next(err);
@@ -69,23 +71,20 @@ export const createInvite = async (req, res, next) => {
     const { email, role, departments, managerId, teamLeadId } = req.body;
 
     const allowedRoles = CREATABLE_ROLES[req.user.role] ?? [];
-    if (!allowedRoles.includes(role))
-      return next(new AppError(`You cannot invite a ${role}`, 403));
+    if (!allowedRoles.includes(role)) return next(new AppError(`You cannot invite a ${role}`, 403));
 
     const normalizedEmail = email.toLowerCase().trim();
-    const organization = await Organization.findById(req.user.organization);
+    const organization = await prisma.organization.findUnique({ where: { id: req.user.organizationId } });
     if (!organization) return next(new AppError('Organization not found', 404));
 
     if (normalizedEmail.split('@')[1] !== organization.emailDomain)
       return next(new AppError('Invite email must belong to the organization email domain', 400));
 
-    const existingUser = await User.findOne({ email: normalizedEmail });
+    const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) return next(new AppError('A user with that email already exists', 409));
 
-    const existingInvite = await Invite.findOne({
-      organization: organization._id,
-      email: normalizedEmail,
-      status: 'pending',
+    const existingInvite = await prisma.invite.findFirst({
+      where: { organizationId: organization.id, email: normalizedEmail, status: 'pending' },
     });
     if (existingInvite) return next(new AppError('An invite for that email is already pending', 409));
 
@@ -97,28 +96,30 @@ export const createInvite = async (req, res, next) => {
         if (outOfScope)
           return next(new AppError('You can only invite into departments within your scope', 403));
       }
-      deptIds = departments;
+      deptIds = departments.map(Number);
     }
 
-    let resolvedManagerId = managerId ?? null;
-    let resolvedTeamLeadId = teamLeadId ?? null;
+    let resolvedManagerId = managerId ? Number(managerId) : null;
+    let resolvedTeamLeadId = teamLeadId ? Number(teamLeadId) : null;
 
     if (req.user.role === 'Manager' && role === 'Team Lead' && !resolvedManagerId) {
-      resolvedManagerId = req.user._id;
+      resolvedManagerId = req.user.id;
     }
     if (req.user.role === 'Team Lead' && role === 'User') {
-      resolvedTeamLeadId = resolvedTeamLeadId ?? req.user._id;
+      resolvedTeamLeadId = resolvedTeamLeadId ?? req.user.id;
       resolvedManagerId = resolvedManagerId ?? req.user.managerId ?? null;
     }
 
-    const invite = await Invite.create({
-      organization: organization._id,
-      email: normalizedEmail,
-      role,
-      departments: deptIds,
-      managerId: resolvedManagerId,
-      teamLeadId: resolvedTeamLeadId,
-      invitedBy: req.user._id,
+    const invite = await prisma.invite.create({
+      data: {
+        organizationId: organization.id,
+        email: normalizedEmail,
+        role,
+        departments: { connect: deptIds.map((id) => ({ id })) },
+        managerId: resolvedManagerId,
+        teamLeadId: resolvedTeamLeadId,
+        invitedById: req.user.id,
+      },
     });
 
     res.status(201).json({ message: 'Invite created', invite });
@@ -129,10 +130,10 @@ export const createInvite = async (req, res, next) => {
 
 export const getInvites = async (req, res, next) => {
   try {
-    const filter = { organization: req.user.organization, status: 'pending' };
-    if (req.user.role !== 'Admin') filter.invitedBy = req.user._id;
+    const where = { organizationId: req.user.organizationId, status: 'pending' };
+    if (req.user.role !== 'Admin') where.invitedById = req.user.id;
 
-    const invites = await Invite.find(filter).sort({ createdAt: -1 });
+    const invites = await prisma.invite.findMany({ where, orderBy: { createdAt: 'desc' } });
     res.status(200).json(invites);
   } catch (err) {
     next(err);
@@ -143,39 +144,42 @@ export const activateInvite = async (req, res, next) => {
   try {
     const { username, password } = req.body;
 
-    const invite = await Invite.findById(req.params.id);
-    if (!invite || String(invite.organization) !== String(req.user.organization))
+    const invite = await prisma.invite.findUnique({
+      where: { id: Number(req.params.id) },
+      include: { departments: { select: { id: true } } },
+    });
+    if (!invite || invite.organizationId !== req.user.organizationId)
       return next(new AppError('Invite not found', 404));
 
     if (invite.status !== 'pending')
       return next(new AppError('This invite has already been accepted', 409));
 
-    if (req.user.role !== 'Admin' && String(invite.invitedBy) !== String(req.user._id))
+    if (req.user.role !== 'Admin' && invite.invitedById !== req.user.id)
       return next(new AppError('You can only activate invites you created', 403));
 
-    const existingUser = await User.findOne({ email: invite.email });
+    const existingUser = await prisma.user.findUnique({ where: { email: invite.email } });
     if (existingUser) return next(new AppError('A user with that email already exists', 409));
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await User.create({
-      username: username.trim(),
-      email: invite.email,
-      password: hashedPassword,
-      role: invite.role,
-      organization: invite.organization,
-      isActive: true,
-      managerId: invite.managerId,
-      teamLeadId: invite.teamLeadId,
-      departments: invite.departments,
+    const user = await prisma.user.create({
+      data: {
+        username: username.trim(),
+        email: invite.email,
+        password: hashedPassword,
+        role: invite.role,
+        organizationId: invite.organizationId,
+        isActive: true,
+        managerId: invite.managerId,
+        teamLeadId: invite.teamLeadId,
+        departments: { connect: invite.departments.map((d) => ({ id: d.id })) },
+      },
+      omit: { password: true },
     });
 
-    invite.status = 'accepted';
-    await invite.save();
+    await prisma.invite.update({ where: { id: invite.id }, data: { status: 'accepted' } });
 
-    const populated = await User.findById(user._id).select('-password');
-
-    res.status(201).json({ message: `${user.username} has been activated`, user: populated });
+    res.status(201).json({ message: `${user.username} has been activated`, user });
   } catch (err) {
     next(err);
   }
@@ -183,14 +187,14 @@ export const activateInvite = async (req, res, next) => {
 
 export const revokeInvite = async (req, res, next) => {
   try {
-    const invite = await Invite.findById(req.params.id);
-    if (!invite || String(invite.organization) !== String(req.user.organization))
+    const invite = await prisma.invite.findUnique({ where: { id: Number(req.params.id) } });
+    if (!invite || invite.organizationId !== req.user.organizationId)
       return next(new AppError('Invite not found', 404));
 
-    if (req.user.role !== 'Admin' && String(invite.invitedBy) !== String(req.user._id))
+    if (req.user.role !== 'Admin' && invite.invitedById !== req.user.id)
       return next(new AppError('You can only revoke invites you created', 403));
 
-    await Invite.findByIdAndDelete(invite._id);
+    await prisma.invite.delete({ where: { id: invite.id } });
     res.status(200).json({ message: 'Invite revoked' });
   } catch (err) {
     next(err);

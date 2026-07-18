@@ -1,0 +1,27 @@
+model Category {
+  id             Int      @id @default(autoincrement())
+  name           String
+  overview       String   @default("")
+  color          String   @default("#3b82f6")
+  parentId       Int?
+  organizationId Int?
+  depth          Int      @default(0)
+  order          Int      @default(0)
+  createdById    Int
+  updatedById    Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  createdBy    User          @relation("CategoryCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?         @relation("CategoryUpdatedBy", fields: [updatedById], references: [id])
+
+  projects Project[]
+
+  @@index([parentId, order])
+  @@index([organizationId])
+  @@map("categories")
+}

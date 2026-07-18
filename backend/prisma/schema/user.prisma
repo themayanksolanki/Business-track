@@ -1,0 +1,67 @@
+model User {
+  id             Int       @id @default(autoincrement())
+  numericId      Int?      @unique
+  username       String
+  email          String    @unique
+  password       String
+  role           String
+  organizationId Int?
+  isActive       Boolean   @default(false)
+  managerId      Int?
+  teamLeadId     Int?
+  profileImage   String?
+  resetOtp       String?
+  resetOtpExpiry DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization? @relation("UserOrganization", fields: [organizationId], references: [id])
+  manager      User?         @relation("UserManager", fields: [managerId], references: [id])
+  teamLead     User?         @relation("UserTeamLead", fields: [teamLeadId], references: [id])
+
+  managedUsers User[] @relation("UserManager")
+  ledUsers     User[] @relation("UserTeamLead")
+
+  departments Department[] @relation("UserDepartments")
+
+  // Directional self-relations: A blocking/muting B does not imply the reverse.
+  blockedUsers User[] @relation("UserBlocks")
+  blockedBy    User[] @relation("UserBlocks")
+  mutedUsers   User[] @relation("UserMutes")
+  mutedBy      User[] @relation("UserMutes")
+
+  // Reverse sides of createdBy/updatedBy/etc. relations declared on other
+  // models — required by Prisma, rarely queried directly from this end.
+  createdOrganizations Organization[]  @relation("OrganizationCreatedBy")
+  updatedOrganizations Organization[]  @relation("OrganizationUpdatedBy")
+  invitesSent          Invite[]        @relation("InviteInvitedBy")
+  managerInvites       Invite[]        @relation("InviteManager")
+  teamLeadInvites      Invite[]        @relation("InviteTeamLead")
+  createdDepartments   Department[]    @relation("DepartmentCreatedBy")
+  updatedDepartments   Department[]    @relation("DepartmentUpdatedBy")
+  createdCategories    Category[]      @relation("CategoryCreatedBy")
+  updatedCategories    Category[]      @relation("CategoryUpdatedBy")
+  createdTags          Tag[]           @relation("TagCreatedBy")
+  updatedTags          Tag[]           @relation("TagUpdatedBy")
+  createdProjectRoles  ProjectRole[]   @relation("ProjectRoleCreatedBy")
+  updatedProjectRoles  ProjectRole[]   @relation("ProjectRoleUpdatedBy")
+  createdProjects      Project[]       @relation("ProjectCreatedBy")
+  updatedProjects      Project[]       @relation("ProjectUpdatedBy")
+  ownedProjects        Project[]       @relation("ProjectOwner")
+  uploadedProjectPlans Project[]       @relation("ProjectPlanUploadedBy")
+  projectMemberships   ProjectMember[] @relation("ProjectMemberUser")
+  addedProjectMembers  ProjectMember[] @relation("ProjectMemberAddedBy")
+  assignedProjectItems ProjectItem[]   @relation("ProjectItemAssignedTo")
+  createdProjectItems  ProjectItem[]   @relation("ProjectItemCreatedBy")
+  updatedProjectItems  ProjectItem[]   @relation("ProjectItemUpdatedBy")
+  comments             Comment[]       @relation("CommentAuthor")
+  uploadedAttachments  Attachment[]    @relation("AttachmentUploadedBy")
+  createdTasks         Task[]          @relation("TaskCreatedBy")
+  updatedTasks         Task[]          @relation("TaskUpdatedBy")
+  assignedTasks        Task[]          @relation("TaskAssignedTo")
+  sentMessages         Message[]       @relation("MessageSender")
+  receivedMessages     Message[]       @relation("MessageReceiver")
+  deletedMessagesFor   Message[]       @relation("MessageDeletedFor")
+
+  @@map("users")
+}

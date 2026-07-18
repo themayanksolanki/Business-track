@@ -1,0 +1,82 @@
+enum ProjectPriority {
+  low
+  medium
+  high
+}
+
+enum ProjectStatus {
+  active
+  archived
+  completed
+}
+
+model Project {
+  id             Int             @id @default(autoincrement())
+  numericId      Int?            @unique
+  name           String
+  description    String          @default("")
+  createdById    Int
+  updatedById    Int?
+  ownerId        Int?
+  departmentId   Int?
+  categoryId     Int?
+  organizationId Int?
+  priority       ProjectPriority @default(medium)
+  status         ProjectStatus   @default(active)
+  startDate      DateTime?
+  endDate        DateTime?
+  detailsText    String          @default("")
+  effort         ProjectPriority @default(medium)
+
+  // At most one plan per project — flattened onto the row instead of a
+  // separate 1:1 table since there's never more than one and nothing joins
+  // on it. Files now live on Cloudinary (see attachments) instead of GridFS.
+  planFileName     String?
+  planUrl          String?
+  planPublicId     String?
+  planMimeType     String?
+  planSize         Int?
+  planUploadedById Int?
+  planUploadedAt   DateTime?
+
+  // Small, never independently queried lists — kept as JSON instead of join
+  // tables (a join buys nothing here since nothing filters/sorts by them).
+  links         Json @default("[]")
+  detailsLayout Json @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBy      User          @relation("ProjectCreatedBy", fields: [createdById], references: [id])
+  updatedBy      User?         @relation("ProjectUpdatedBy", fields: [updatedById], references: [id])
+  owner          User?         @relation("ProjectOwner", fields: [ownerId], references: [id])
+  planUploadedBy User?         @relation("ProjectPlanUploadedBy", fields: [planUploadedById], references: [id])
+  department     Department?   @relation(fields: [departmentId], references: [id])
+  category       Category?     @relation(fields: [categoryId], references: [id])
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  tags        Tag[]
+  members     ProjectMember[]
+  items       ProjectItem[]
+  attachments Attachment[]
+
+  @@index([organizationId])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  userId    Int
+  roleId    Int
+  addedAt   DateTime @default(now())
+  addedById Int?
+
+  project Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User        @relation("ProjectMemberUser", fields: [userId], references: [id])
+  role    ProjectRole @relation(fields: [roleId], references: [id])
+  addedBy User?       @relation("ProjectMemberAddedBy", fields: [addedById], references: [id])
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}

@@ -1,5 +1,7 @@
 import multer from 'multer';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import AppError from '../utils/AppError.js';
+import { cloudinary } from './upload.js';
 
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
@@ -31,8 +33,16 @@ export const MAX_ATTACHMENT_SIZE = MAX_ATTACHMENT_SIZE_MB * 1024 * 1024;
 const SUPPORTED_TYPES_LABEL =
   'images (JPG, PNG, WEBP, GIF), videos (MP4, WEBM, MOV, MKV), PDF, Word, Excel, PowerPoint, ZIP, and text/CSV files';
 
+const attachmentStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: 'attachments',
+    resource_type: 'auto', // attachments aren't just images, unlike avatarUpload/chatImageUpload
+  },
+});
+
 export const attachmentUpload = multer({
-  storage: multer.memoryStorage(),
+  storage: attachmentStorage,
   limits: { fileSize: MAX_ATTACHMENT_SIZE },
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {

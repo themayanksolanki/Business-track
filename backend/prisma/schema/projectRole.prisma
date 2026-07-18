@@ -1,0 +1,22 @@
+model ProjectRole {
+  id             Int      @id @default(autoincrement())
+  numericId      Int?     @unique
+  title          String
+  description    String   @default("")
+  rank           Int      @default(0)
+  isDefault      Boolean  @default(false)
+  organizationId Int?
+  createdById    Int
+  updatedById    Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  createdBy    User          @relation("ProjectRoleCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?         @relation("ProjectRoleUpdatedBy", fields: [updatedById], references: [id])
+
+  members ProjectMember[]
+
+  @@unique([organizationId, title])
+  @@map("project_roles")
+}

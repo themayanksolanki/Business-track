@@ -1,25 +1,27 @@
-import ProjectItem from '../models/ProjectItem.js';
-import Project from '../models/Project.js';
-import Comment from '../models/Comment.js';
-import Attachment from '../models/Attachment.js';
+import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
-import { deleteFile } from '../utils/gridfs.js';
+import { cloudinary } from '../middleware/upload.js';
 import { MAX_DEPTH, typeForDepth, recomputeAncestorStatuses } from '../services/statusSync.service.js';
 import { canAccessProject } from './projectController.js';
 
-const POPULATE_FIELDS = [
-  { path: 'assignedTo', select: 'username email role profileImage' },
-  { path: 'createdBy', select: 'username email role profileImage' },
-  { path: 'updatedBy', select: 'username email role profileImage' },
-  { path: 'tags', select: 'name textColor backgroundColor' },
-];
+const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
+const ACCESS_INCLUDE = { members: { select: { userId: true } } };
+const ITEM_INCLUDE = {
+  assignedTo: { select: USER_SELECT },
+  createdBy: { select: USER_SELECT },
+  updatedBy: { select: USER_SELECT },
+  tags: { select: { id: true, name: true, textColor: true, backgroundColor: true } },
+};
 
 const getDescendantIds = async (rootId) => {
   const result = [];
   let frontier = [rootId];
   while (frontier.length) {
-    const children = await ProjectItem.find({ parentId: { $in: frontier } }).select('_id');
-    const ids = children.map((c) => c._id);
+    const children = await prisma.projectItem.findMany({
+      where: { parentId: { in: frontier } },
+      select: { id: true },
+    });
+    const ids = children.map((c) => c.id);
     result.push(...ids);
     frontier = ids;
   }
@@ -32,10 +34,13 @@ const getMaxDescendantDepth = async (rootId, rootDepth) => {
   let maxDepth = rootDepth;
   let frontier = [rootId];
   while (frontier.length) {
-    const children = await ProjectItem.find({ parentId: { $in: frontier } }).select('_id depth');
+    const children = await prisma.projectItem.findMany({
+      where: { parentId: { in: frontier } },
+      select: { id: true, depth: true },
+    });
     if (children.length === 0) break;
     maxDepth = Math.max(maxDepth, ...children.map((c) => c.depth));
-    frontier = children.map((c) => c._id);
+    frontier = children.map((c) => c.id);
   }
   return maxDepth;
 };
@@ -46,23 +51,29 @@ const getMaxDescendantDepth = async (rootId, rootDepth) => {
 const shiftDescendantDepths = async (rootId, delta) => {
   let frontier = [rootId];
   while (frontier.length) {
-    const children = await ProjectItem.find({ parentId: { $in: frontier } }).select('_id depth');
+    const children = await prisma.projectItem.findMany({
+      where: { parentId: { in: frontier } },
+      select: { id: true, depth: true },
+    });
     if (children.length === 0) break;
-    await ProjectItem.bulkWrite(
-      children.map((c) => ({
-        updateOne: {
-          filter: { _id: c._id },
-          update: { depth: c.depth + delta, type: typeForDepth(c.depth + delta) },
-        },
-      }))
+    await prisma.$transaction(
+      children.map((c) =>
+        prisma.projectItem.update({
+          where: { id: c.id },
+          data: { depth: c.depth + delta, type: typeForDepth(c.depth + delta) },
+        })
+      )
     );
-    frontier = children.map((c) => c._id);
+    frontier = children.map((c) => c.id);
   }
 };
 
 export const getItems = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
@@ -75,12 +86,14 @@ export const getItems = async (req, res, next) => {
       const skip = (page - 1) * parsedLimit;
 
       const [items, total] = await Promise.all([
-        ProjectItem.find({ project: project._id })
-          .populate(POPULATE_FIELDS)
-          .sort({ parentId: 1, order: 1 })
-          .skip(skip)
-          .limit(parsedLimit),
-        ProjectItem.countDocuments({ project: project._id }),
+        prisma.projectItem.findMany({
+          where: { projectId: project.id },
+          include: ITEM_INCLUDE,
+          orderBy: [{ parentId: { sort: 'asc', nulls: 'first' } }, { order: 'asc' }],
+          skip,
+          take: parsedLimit,
+        }),
+        prisma.projectItem.count({ where: { projectId: project.id } }),
       ]);
 
       return res.status(200).json({
@@ -92,9 +105,11 @@ export const getItems = async (req, res, next) => {
       });
     }
 
-    const items = await ProjectItem.find({ project: project._id })
-      .populate(POPULATE_FIELDS)
-      .sort({ parentId: 1, order: 1 });
+    const items = await prisma.projectItem.findMany({
+      where: { projectId: project.id },
+      include: ITEM_INCLUDE,
+      orderBy: [{ parentId: { sort: 'asc', nulls: 'first' } }, { order: 'asc' }],
+    });
 
     res.status(200).json(items);
   } catch (err) {
@@ -107,33 +122,42 @@ export const getItems = async (req, res, next) => {
 // round trips per card.
 export const getItemsSummary = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
-    const items = await ProjectItem.find({ project: project._id }).select('_id');
-    const itemIds = items.map((i) => i._id);
+    const items = await prisma.projectItem.findMany({
+      where: { projectId: project.id },
+      select: { id: true },
+    });
+    const itemIds = items.map((i) => i.id);
 
     const [commentCounts, imageAttachments] = await Promise.all([
-      Comment.aggregate([
-        { $match: { projectItem: { $in: itemIds } } },
-        { $group: { _id: '$projectItem', count: { $sum: 1 } } },
-      ]),
-      Attachment.find({ projectItem: { $in: itemIds }, mimeType: { $regex: '^image/' } })
-        .sort({ createdAt: 1 })
-        .select('projectItem fileName mimeType'),
+      prisma.comment.groupBy({
+        by: ['projectItemId'],
+        where: { projectItemId: { in: itemIds } },
+        _count: { _all: true },
+      }),
+      prisma.attachment.findMany({
+        where: { projectItemId: { in: itemIds }, mimeType: { startsWith: 'image/' } },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, projectItemId: true, fileName: true, mimeType: true },
+      }),
     ]);
 
     const summary = {};
-    for (const { _id, count } of commentCounts) {
-      summary[String(_id)] = { commentCount: count, cover: null };
+    for (const { projectItemId, _count } of commentCounts) {
+      summary[projectItemId] = { commentCount: _count._all, cover: null };
     }
     for (const a of imageAttachments) {
-      const key = String(a.projectItem);
+      const key = a.projectItemId;
       if (!summary[key]) summary[key] = { commentCount: 0, cover: null };
       if (!summary[key].cover)
-        summary[key].cover = { attachmentId: a._id, fileName: a.fileName, mimeType: a.mimeType };
+        summary[key].cover = { attachmentId: a.id, fileName: a.fileName, mimeType: a.mimeType };
     }
 
     res.status(200).json(summary);
@@ -144,22 +168,27 @@ export const getItemsSummary = async (req, res, next) => {
 
 export const createItem = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: { members: { select: { userId: true } } },
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
     const { title, description, priority, assignedTo, parentId, startDate, endDate, tags } = req.body;
+    const assignedToNum = assignedTo ? Number(assignedTo) : null;
+    const parentIdNum = parentId ? Number(parentId) : null;
 
-    if (assignedTo && !project.members.some((m) => String(m.user) === String(assignedTo)))
+    if (assignedToNum && !project.members.some((m) => m.userId === assignedToNum))
       return next(new AppError('assignedTo must be a project member', 400));
 
     let depth = 0;
     let parent = null;
 
-    if (parentId) {
-      parent = await ProjectItem.findById(parentId);
-      if (!parent || String(parent.project) !== String(project._id))
+    if (parentIdNum) {
+      parent = await prisma.projectItem.findUnique({ where: { id: parentIdNum } });
+      if (!parent || parent.projectId !== project.id)
         return next(new AppError('Parent item not found in this project', 404));
 
       if (parent.depth >= MAX_DEPTH)
@@ -168,28 +197,30 @@ export const createItem = async (req, res, next) => {
       depth = parent.depth + 1;
     }
 
-    const order = await ProjectItem.countDocuments({ project: project._id, parentId: parentId ?? null });
+    const order = await prisma.projectItem.count({ where: { projectId: project.id, parentId: parentIdNum } });
 
-    const item = await ProjectItem.create({
-      project: project._id,
-      parentId: parentId ?? null,
-      type: typeForDepth(depth),
-      title: title.trim(),
-      description: description ?? '',
-      priority: priority ?? 'medium',
-      assignedTo: depth === 0 ? null : assignedTo ?? null,
-      createdBy: req.user._id,
-      depth,
-      order,
-      startDate: startDate ?? null,
-      endDate: endDate ?? null,
-      tags: tags ?? [],
+    const item = await prisma.projectItem.create({
+      data: {
+        projectId: project.id,
+        parentId: parentIdNum,
+        type: typeForDepth(depth),
+        title: title.trim(),
+        description: description ?? '',
+        priority: priority ?? 'medium',
+        assignedToId: depth === 0 ? null : assignedToNum,
+        createdById: req.user.id,
+        depth,
+        order,
+        startDate: startDate ?? null,
+        endDate: endDate ?? null,
+        tags: { connect: (tags ?? []).map((id) => ({ id: Number(id) })) },
+      },
+      include: ITEM_INCLUDE,
     });
 
-    if (parent) await recomputeAncestorStatuses(parent._id);
+    if (parent) await recomputeAncestorStatuses(parent.id);
 
-    const populated = await item.populate(POPULATE_FIELDS);
-    res.status(201).json({ message: 'Item created', item: populated });
+    res.status(201).json({ message: 'Item created', item });
   } catch (err) {
     next(err);
   }
@@ -197,15 +228,18 @@ export const createItem = async (req, res, next) => {
 
 export const getItemById = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
-    const item = await ProjectItem.findOne({
-      _id: req.params.itemId,
-      project: req.params.projectId,
-    }).populate(POPULATE_FIELDS);
+    const item = await prisma.projectItem.findFirst({
+      where: { id: Number(req.params.itemId), projectId: project.id },
+      include: ITEM_INCLUDE,
+    });
     if (!item) return next(new AppError('Item not found', 404));
 
     res.status(200).json(item);
@@ -216,46 +250,54 @@ export const getItemById = async (req, res, next) => {
 
 export const updateItem = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: { members: { select: { userId: true } } },
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
-    const item = await ProjectItem.findOne({ _id: req.params.itemId, project: req.params.projectId });
+    const item = await prisma.projectItem.findFirst({
+      where: { id: Number(req.params.itemId), projectId: project.id },
+    });
     if (!item) return next(new AppError('Item not found', 404));
 
     const { title, description, priority, assignedTo, status, startDate, endDate, tags } = req.body;
+    const data = { updatedById: req.user.id };
 
     if (status !== undefined) {
-      if (item.type === 'group')
-        return next(new AppError('Groups do not have a status', 400));
-      const childCount = await ProjectItem.countDocuments({ parentId: item._id });
+      if (item.type === 'group') return next(new AppError('Groups do not have a status', 400));
+      const childCount = await prisma.projectItem.count({ where: { parentId: item.id } });
       if (childCount > 0)
         return next(new AppError('Status is derived from children and cannot be set directly', 400));
-      item.status = status;
+      data.status = status;
     }
 
     if (assignedTo !== undefined && item.type === 'group')
       return next(new AppError('Groups cannot be assigned', 400));
 
-    if (assignedTo && !project.members.some((m) => String(m.user) === String(assignedTo)))
+    const assignedToNum = assignedTo ? Number(assignedTo) : null;
+    if (assignedToNum && !project.members.some((m) => m.userId === assignedToNum))
       return next(new AppError('assignedTo must be a project member', 400));
 
-    if (title !== undefined) item.title = title.trim();
-    if (description !== undefined) item.description = description;
-    if (priority !== undefined) item.priority = priority;
-    if (assignedTo !== undefined) item.assignedTo = assignedTo || null;
-    if (startDate !== undefined) item.startDate = startDate || null;
-    if (endDate !== undefined) item.endDate = endDate || null;
-    if (tags !== undefined) item.tags = tags;
-    item.updatedBy = req.user._id;
+    if (title !== undefined) data.title = title.trim();
+    if (description !== undefined) data.description = description;
+    if (priority !== undefined) data.priority = priority;
+    if (assignedTo !== undefined) data.assignedToId = assignedToNum;
+    if (startDate !== undefined) data.startDate = startDate || null;
+    if (endDate !== undefined) data.endDate = endDate || null;
+    if (tags !== undefined) data.tags = { set: tags.map((id) => ({ id: Number(id) })) };
 
-    await item.save();
+    const updated = await prisma.projectItem.update({
+      where: { id: item.id },
+      data,
+      include: ITEM_INCLUDE,
+    });
 
     if (status !== undefined) await recomputeAncestorStatuses(item.parentId);
 
-    const populated = await item.populate(POPULATE_FIELDS);
-    res.status(200).json({ message: 'Item updated', item: populated });
+    res.status(200).json({ message: 'Item updated', item: updated });
   } catch (err) {
     next(err);
   }
@@ -263,24 +305,35 @@ export const updateItem = async (req, res, next) => {
 
 export const deleteItem = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
-    const item = await ProjectItem.findOne({ _id: req.params.itemId, project: req.params.projectId });
+    const item = await prisma.projectItem.findFirst({
+      where: { id: Number(req.params.itemId), projectId: project.id },
+    });
     if (!item) return next(new AppError('Item not found', 404));
 
-    const descendantIds = await getDescendantIds(item._id);
-    const allIds = [item._id, ...descendantIds];
+    const descendantIds = await getDescendantIds(item.id);
+    const allIds = [item.id, ...descendantIds];
 
-    const attachments = await Attachment.find({ projectItem: { $in: allIds } });
+    const attachments = await prisma.attachment.findMany({
+      where: { projectItemId: { in: allIds } },
+      select: { publicId: true },
+    });
     // best-effort: blob deletions are independent I/O, run concurrently and
     // continue cleanup even if some blobs are already gone
-    await Promise.allSettled(attachments.map((a) => deleteFile(a.gridFsId)));
-    await Attachment.deleteMany({ projectItem: { $in: allIds } });
-    await Comment.deleteMany({ projectItem: { $in: allIds } });
-    await ProjectItem.deleteMany({ _id: { $in: allIds } });
+    await Promise.allSettled(
+      attachments.filter((a) => a.publicId).map((a) => cloudinary.uploader.destroy(a.publicId))
+    );
+
+    // Comments and Attachments cascade-delete at the DB level once their
+    // ProjectItem is gone (see schema.prisma).
+    await prisma.projectItem.deleteMany({ where: { id: { in: allIds } } });
 
     if (item.parentId) await recomputeAncestorStatuses(item.parentId);
 
@@ -292,22 +345,28 @@ export const deleteItem = async (req, res, next) => {
 
 export const moveItem = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
-    const item = await ProjectItem.findOne({ _id: req.params.itemId, project: project._id });
+    const item = await prisma.projectItem.findFirst({
+      where: { id: Number(req.params.itemId), projectId: project.id },
+    });
     if (!item) return next(new AppError('Item not found', 404));
 
     const { direction } = req.body;
     const oldParentId = item.parentId;
 
     if (direction === 'up' || direction === 'down') {
-      const siblings = await ProjectItem.find({ project: project._id, parentId: oldParentId }).sort({
-        order: 1,
+      const siblings = await prisma.projectItem.findMany({
+        where: { projectId: project.id, parentId: oldParentId },
+        orderBy: { order: 'asc' },
       });
-      const index = siblings.findIndex((s) => String(s._id) === String(item._id));
+      const index = siblings.findIndex((s) => s.id === item.id);
       const swapWith = direction === 'up' ? index - 1 : index + 1;
       if (swapWith < 0 || swapWith >= siblings.length)
         return next(
@@ -315,53 +374,59 @@ export const moveItem = async (req, res, next) => {
         );
 
       const other = siblings[swapWith];
-      const itemOrder = item.order;
-      item.order = other.order;
-      other.order = itemOrder;
-      item.updatedBy = req.user._id;
-      await item.save();
-      await other.save();
+      await prisma.$transaction([
+        prisma.projectItem.update({
+          where: { id: item.id },
+          data: { order: other.order, updatedById: req.user.id },
+        }),
+        prisma.projectItem.update({ where: { id: other.id }, data: { order: item.order } }),
+      ]);
     } else if (direction === 'indent') {
-      const siblings = await ProjectItem.find({ project: project._id, parentId: oldParentId }).sort({
-        order: 1,
+      const siblings = await prisma.projectItem.findMany({
+        where: { projectId: project.id, parentId: oldParentId },
+        orderBy: { order: 'asc' },
       });
-      const index = siblings.findIndex((s) => String(s._id) === String(item._id));
+      const index = siblings.findIndex((s) => s.id === item.id);
       if (index === 0)
         return next(new AppError('Cannot indent the first item under its parent', 400));
 
       const newParent = siblings[index - 1];
       const newDepth = newParent.depth + 1;
-      const subtreeMaxDepth = await getMaxDescendantDepth(item._id, item.depth);
+      const subtreeMaxDepth = await getMaxDescendantDepth(item.id, item.depth);
       const depthDelta = newDepth - item.depth;
       if (subtreeMaxDepth + depthDelta > MAX_DEPTH)
         return next(new AppError(`Maximum hierarchy depth of ${MAX_DEPTH + 1} levels reached`, 400));
 
       // close the gap left behind among the old siblings
-      await ProjectItem.bulkWrite(
-        siblings.slice(index + 1).map((s, i) => ({
-          updateOne: { filter: { _id: s._id }, update: { order: index + i } },
-        }))
-      );
+      const toClose = siblings.slice(index + 1);
+      if (toClose.length)
+        await prisma.$transaction(
+          toClose.map((s, i) => prisma.projectItem.update({ where: { id: s.id }, data: { order: index + i } }))
+        );
 
-      const newSiblingCount = await ProjectItem.countDocuments({
-        project: project._id,
-        parentId: newParent._id,
+      const newSiblingCount = await prisma.projectItem.count({
+        where: { projectId: project.id, parentId: newParent.id },
       });
-      item.parentId = newParent._id;
-      item.order = newSiblingCount;
-      item.depth = newDepth;
-      item.type = typeForDepth(newDepth);
-      item.updatedBy = req.user._id;
-      await item.save();
 
-      if (depthDelta !== 0) await shiftDescendantDepths(item._id, depthDelta);
+      await prisma.projectItem.update({
+        where: { id: item.id },
+        data: {
+          parentId: newParent.id,
+          order: newSiblingCount,
+          depth: newDepth,
+          type: typeForDepth(newDepth),
+          updatedById: req.user.id,
+        },
+      });
 
-      await recomputeAncestorStatuses(newParent._id);
+      if (depthDelta !== 0) await shiftDescendantDepths(item.id, depthDelta);
+
+      await recomputeAncestorStatuses(newParent.id);
       if (oldParentId) await recomputeAncestorStatuses(oldParentId);
     } else if (direction === 'outdent') {
       if (!oldParentId) return next(new AppError('Item is already at the top level', 400));
 
-      const oldParent = await ProjectItem.findById(oldParentId);
+      const oldParent = await prisma.projectItem.findUnique({ where: { id: oldParentId } });
       if (!oldParent) return next(new AppError('Parent item not found', 404));
 
       if (oldParent.depth === 0)
@@ -370,46 +435,47 @@ export const moveItem = async (req, res, next) => {
       const newParentId = oldParent.parentId ?? null;
 
       // close the gap left behind among the old siblings
-      const oldSiblings = await ProjectItem.find({
-        project: project._id,
-        parentId: oldParentId,
-        _id: { $ne: item._id },
-      }).sort({ order: 1 });
-      await ProjectItem.bulkWrite(
-        oldSiblings.map((s, i) => ({
-          updateOne: { filter: { _id: s._id }, update: { order: i } },
-        }))
-      );
+      const oldSiblings = await prisma.projectItem.findMany({
+        where: { projectId: project.id, parentId: oldParentId, id: { not: item.id } },
+        orderBy: { order: 'asc' },
+      });
+      if (oldSiblings.length)
+        await prisma.$transaction(
+          oldSiblings.map((s, i) => prisma.projectItem.update({ where: { id: s.id }, data: { order: i } }))
+        );
 
       // make room right after the old parent among the new siblings
-      const newSiblings = await ProjectItem.find({ project: project._id, parentId: newParentId }).sort({
-        order: 1,
+      const newSiblings = await prisma.projectItem.findMany({
+        where: { projectId: project.id, parentId: newParentId },
+        orderBy: { order: 'asc' },
       });
       const insertAt = oldParent.order + 1;
-      await ProjectItem.bulkWrite(
-        newSiblings
-          .filter((s) => s.order >= insertAt)
-          .map((s) => ({
-            updateOne: { filter: { _id: s._id }, update: { order: s.order + 1 } },
-          }))
-      );
+      const toShift = newSiblings.filter((s) => s.order >= insertAt);
+      if (toShift.length)
+        await prisma.$transaction(
+          toShift.map((s) => prisma.projectItem.update({ where: { id: s.id }, data: { order: s.order + 1 } }))
+        );
 
       const depthDelta = oldParent.depth - item.depth;
-      item.parentId = newParentId;
-      item.order = insertAt;
-      item.depth = oldParent.depth;
-      item.type = typeForDepth(oldParent.depth);
-      item.updatedBy = req.user._id;
-      await item.save();
+      await prisma.projectItem.update({
+        where: { id: item.id },
+        data: {
+          parentId: newParentId,
+          order: insertAt,
+          depth: oldParent.depth,
+          type: typeForDepth(oldParent.depth),
+          updatedById: req.user.id,
+        },
+      });
 
-      if (depthDelta !== 0) await shiftDescendantDepths(item._id, depthDelta);
+      if (depthDelta !== 0) await shiftDescendantDepths(item.id, depthDelta);
 
       await recomputeAncestorStatuses(oldParentId);
       if (newParentId) await recomputeAncestorStatuses(newParentId);
     }
 
-    const populated = await item.populate(POPULATE_FIELDS);
-    res.status(200).json({ message: 'Item moved', item: populated });
+    const updated = await prisma.projectItem.findUnique({ where: { id: item.id }, include: ITEM_INCLUDE });
+    res.status(200).json({ message: 'Item moved', item: updated });
   } catch (err) {
     next(err);
   }
@@ -421,34 +487,39 @@ export const moveItem = async (req, res, next) => {
 // adjacent sibling.
 export const moveItemToParent = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
-    const item = await ProjectItem.findOne({ _id: req.params.itemId, project: project._id });
+    const item = await prisma.projectItem.findFirst({
+      where: { id: Number(req.params.itemId), projectId: project.id },
+    });
     if (!item) return next(new AppError('Item not found', 404));
 
     const { parentId, index } = req.body;
-    const oldParentId = item.parentId ? String(item.parentId) : null;
-    const newParentId = parentId ?? null;
+    const oldParentId = item.parentId;
+    const newParentId = parentId ? Number(parentId) : null;
 
-    if (newParentId && newParentId === String(item._id))
+    if (newParentId && newParentId === item.id)
       return next(new AppError('An item cannot be its own parent', 400));
 
     let newParent = null;
     let newDepth = 0;
     if (newParentId) {
-      newParent = await ProjectItem.findOne({ _id: newParentId, project: project._id });
+      newParent = await prisma.projectItem.findFirst({ where: { id: newParentId, projectId: project.id } });
       if (!newParent) return next(new AppError('Parent item not found in this project', 404));
       newDepth = newParent.depth + 1;
 
-      const descendantIds = await getDescendantIds(item._id);
-      if (descendantIds.some((id) => String(id) === newParentId))
+      const descendantIds = await getDescendantIds(item.id);
+      if (descendantIds.includes(newParentId))
         return next(new AppError('Cannot move an item into its own descendant', 400));
     }
 
-    const subtreeMaxDepth = await getMaxDescendantDepth(item._id, item.depth);
+    const subtreeMaxDepth = await getMaxDescendantDepth(item.id, item.depth);
     const depthDelta = newDepth - item.depth;
     if (subtreeMaxDepth + depthDelta > MAX_DEPTH)
       return next(new AppError(`Maximum hierarchy depth of ${MAX_DEPTH + 1} levels reached`, 400));
@@ -457,49 +528,45 @@ export const moveItemToParent = async (req, res, next) => {
 
     // close the gap left behind among the old siblings
     if (!sameParent) {
-      const oldSiblings = await ProjectItem.find({
-        project: project._id,
-        parentId: oldParentId,
-        _id: { $ne: item._id },
-      }).sort({ order: 1 });
+      const oldSiblings = await prisma.projectItem.findMany({
+        where: { projectId: project.id, parentId: oldParentId, id: { not: item.id } },
+        orderBy: { order: 'asc' },
+      });
       if (oldSiblings.length)
-        await ProjectItem.bulkWrite(
-          oldSiblings.map((s, i) => ({
-            updateOne: { filter: { _id: s._id }, update: { order: i } },
-          }))
+        await prisma.$transaction(
+          oldSiblings.map((s, i) => prisma.projectItem.update({ where: { id: s.id }, data: { order: i } }))
         );
     }
 
     // make room at the requested position among the new siblings
-    const newSiblings = await ProjectItem.find({
-      project: project._id,
-      parentId: newParentId,
-      _id: { $ne: item._id },
-    }).sort({ order: 1 });
+    const newSiblings = await prisma.projectItem.findMany({
+      where: { projectId: project.id, parentId: newParentId, id: { not: item.id } },
+      orderBy: { order: 'asc' },
+    });
     const insertAt = Math.max(0, Math.min(index ?? newSiblings.length, newSiblings.length));
     const toShift = newSiblings.filter((s) => s.order >= insertAt);
     if (toShift.length)
-      await ProjectItem.bulkWrite(
-        toShift.map((s) => ({
-          updateOne: { filter: { _id: s._id }, update: { order: s.order + 1 } },
-        }))
+      await prisma.$transaction(
+        toShift.map((s) => prisma.projectItem.update({ where: { id: s.id }, data: { order: s.order + 1 } }))
       );
 
-    item.parentId = newParentId;
-    item.order = insertAt;
-    item.depth = newDepth;
-    item.type = typeForDepth(newDepth);
-    if (newDepth === 0) item.assignedTo = null;
-    item.updatedBy = req.user._id;
-    await item.save();
+    const data = {
+      parentId: newParentId,
+      order: insertAt,
+      depth: newDepth,
+      type: typeForDepth(newDepth),
+      updatedById: req.user.id,
+    };
+    if (newDepth === 0) data.assignedToId = null;
+    await prisma.projectItem.update({ where: { id: item.id }, data });
 
-    if (depthDelta !== 0) await shiftDescendantDepths(item._id, depthDelta);
+    if (depthDelta !== 0) await shiftDescendantDepths(item.id, depthDelta);
 
     if (oldParentId) await recomputeAncestorStatuses(oldParentId);
     if (newParentId) await recomputeAncestorStatuses(newParentId);
 
-    const populated = await item.populate(POPULATE_FIELDS);
-    res.status(200).json({ message: 'Item moved', item: populated });
+    const updated = await prisma.projectItem.findUnique({ where: { id: item.id }, include: ITEM_INCLUDE });
+    res.status(200).json({ message: 'Item moved', item: updated });
   } catch (err) {
     next(err);
   }
@@ -512,73 +579,76 @@ export const moveItemToParent = async (req, res, next) => {
 // to be, and callers just want the rest to move.
 export const bulkMoveItemsToParent = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
     const { itemIds, parentId } = req.body;
+    const parentIdNum = Number(parentId);
 
-    const newParent = await ProjectItem.findOne({ _id: parentId, project: project._id });
+    const newParent = await prisma.projectItem.findFirst({ where: { id: parentIdNum, projectId: project.id } });
     if (!newParent) return next(new AppError('Target group not found in this project', 404));
 
-    const newParentId = String(newParent._id);
     const newDepth = newParent.depth + 1;
 
-    const items = await ProjectItem.find({ _id: { $in: itemIds }, project: project._id });
+    const items = await prisma.projectItem.findMany({
+      where: { id: { in: itemIds.map(Number) }, projectId: project.id },
+    });
 
     let movedCount = 0;
     let alreadyInGroupCount = 0;
     const affectedParentIds = new Set();
 
     for (const item of items) {
-      const oldParentId = item.parentId ? String(item.parentId) : null;
+      const oldParentId = item.parentId;
 
-      if (oldParentId === newParentId) {
+      if (oldParentId === newParent.id) {
         alreadyInGroupCount += 1;
         continue;
       }
 
-      if (String(item._id) === newParentId) continue;
+      if (item.id === newParent.id) continue;
 
-      const descendantIds = await getDescendantIds(item._id);
-      if (descendantIds.some((id) => String(id) === newParentId)) continue;
+      const descendantIds = await getDescendantIds(item.id);
+      if (descendantIds.includes(newParent.id)) continue;
 
-      const subtreeMaxDepth = await getMaxDescendantDepth(item._id, item.depth);
+      const subtreeMaxDepth = await getMaxDescendantDepth(item.id, item.depth);
       const depthDelta = newDepth - item.depth;
       if (subtreeMaxDepth + depthDelta > MAX_DEPTH) continue;
 
       // close the gap left behind among the old siblings
-      const oldSiblings = await ProjectItem.find({
-        project: project._id,
-        parentId: oldParentId,
-        _id: { $ne: item._id },
-      }).sort({ order: 1 });
+      const oldSiblings = await prisma.projectItem.findMany({
+        where: { projectId: project.id, parentId: oldParentId, id: { not: item.id } },
+        orderBy: { order: 'asc' },
+      });
       if (oldSiblings.length)
-        await ProjectItem.bulkWrite(
-          oldSiblings.map((s, i) => ({
-            updateOne: { filter: { _id: s._id }, update: { order: i } },
-          }))
+        await prisma.$transaction(
+          oldSiblings.map((s, i) => prisma.projectItem.update({ where: { id: s.id }, data: { order: i } }))
         );
 
       // append to the end of the destination group's children
-      const newSiblingCount = await ProjectItem.countDocuments({
-        project: project._id,
-        parentId: newParentId,
+      const newSiblingCount = await prisma.projectItem.count({
+        where: { projectId: project.id, parentId: newParent.id },
       });
 
-      item.parentId = newParentId;
-      item.order = newSiblingCount;
-      item.depth = newDepth;
-      item.type = typeForDepth(newDepth);
-      if (newDepth === 0) item.assignedTo = null;
-      item.updatedBy = req.user._id;
-      await item.save();
+      const data = {
+        parentId: newParent.id,
+        order: newSiblingCount,
+        depth: newDepth,
+        type: typeForDepth(newDepth),
+        updatedById: req.user.id,
+      };
+      if (newDepth === 0) data.assignedToId = null;
+      await prisma.projectItem.update({ where: { id: item.id }, data });
 
-      if (depthDelta !== 0) await shiftDescendantDepths(item._id, depthDelta);
+      if (depthDelta !== 0) await shiftDescendantDepths(item.id, depthDelta);
 
       if (oldParentId) affectedParentIds.add(oldParentId);
-      affectedParentIds.add(newParentId);
+      affectedParentIds.add(newParent.id);
       movedCount += 1;
     }
 
@@ -596,30 +666,33 @@ export const bulkMoveItemsToParent = async (req, res, next) => {
 
 export const reorderItems = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
 
     const { parentId, orderedIds } = req.body;
+    const parentIdNum = parentId ? Number(parentId) : null;
 
-    const siblings = await ProjectItem.find({
-      project: project._id,
-      parentId: parentId ?? null,
-    }).select('_id');
-    const siblingIds = new Set(siblings.map((s) => String(s._id)));
+    const siblings = await prisma.projectItem.findMany({
+      where: { projectId: project.id, parentId: parentIdNum },
+      select: { id: true },
+    });
+    const siblingIds = new Set(siblings.map((s) => s.id));
+    const numericOrderedIds = orderedIds.map(Number);
 
     if (
-      orderedIds.length !== siblingIds.size ||
-      !orderedIds.every((id) => siblingIds.has(String(id)))
+      numericOrderedIds.length !== siblingIds.size ||
+      !numericOrderedIds.every((id) => siblingIds.has(id))
     ) {
       return next(new AppError('orderedIds must match exactly the siblings of this parent', 400));
     }
 
-    await ProjectItem.bulkWrite(
-      orderedIds.map((id, index) => ({
-        updateOne: { filter: { _id: id }, update: { order: index } },
-      }))
+    await prisma.$transaction(
+      numericOrderedIds.map((id, index) => prisma.projectItem.update({ where: { id }, data: { order: index } }))
     );
 
     res.status(200).json({ message: 'Order updated' });

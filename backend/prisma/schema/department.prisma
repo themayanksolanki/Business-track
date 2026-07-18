@@ -1,0 +1,29 @@
+model Department {
+  id             Int      @id @default(autoincrement())
+  name           String
+  overview       String   @default("")
+  color          String   @default("#3b82f6")
+  parentId       Int?
+  organizationId Int?
+  depth          Int      @default(0)
+  order          Int      @default(0)
+  createdById    Int
+  updatedById    Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  parent   Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children Department[] @relation("DepartmentHierarchy")
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  createdBy    User          @relation("DepartmentCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?         @relation("DepartmentUpdatedBy", fields: [updatedById], references: [id])
+
+  users    User[]    @relation("UserDepartments")
+  projects Project[]
+  invites  Invite[]  @relation("InviteDepartments")
+
+  @@index([parentId, order])
+  @@index([organizationId])
+  @@map("departments")
+}

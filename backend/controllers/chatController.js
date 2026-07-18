@@ -1,5 +1,4 @@
-import Message from '../models/Message.js';
-import User from '../models/User.js';
+import prisma from '../lib/prisma.js';
 
 export const getIceServers = (_req, res) => {
   const iceServers = [
@@ -21,54 +20,60 @@ export const getIceServers = (_req, res) => {
 
 export const getContacts = async (req, res, next) => {
   try {
-    const myId = req.user._id;
-    const me = await User.findById(myId).select('blockedUsers mutedContacts');
-    const blockedByThemIds = await User.find({ blockedUsers: myId }).distinct('_id');
-    const blockedByThemSet = new Set(blockedByThemIds.map(String));
-    const myBlockedSet = new Set((me?.blockedUsers ?? []).map(String));
-    const myMutedSet = new Set((me?.mutedContacts ?? []).map(String));
+    const myId = req.user.id;
 
-    const users = await User.find({ _id: { $ne: myId }, isActive: true })
-      .select('username profileImage role');
-
-    const contactStats = await Message.aggregate([
-      {
-        $match: {
-          $or: [{ sender: myId }, { receiver: myId }],
-          deletedFor: { $ne: myId },
+    const [me, blockedByThemRows, users, messages] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: myId },
+        select: {
+          blockedUsers: { select: { id: true } },
+          mutedUsers: { select: { id: true } },
         },
-      },
-      {
-        $addFields: {
-          otherUser: { $cond: [{ $eq: ['$sender', myId] }, '$receiver', '$sender'] },
+      }),
+      prisma.user.findMany({ where: { blockedUsers: { some: { id: myId } } }, select: { id: true } }),
+      prisma.user.findMany({
+        where: { id: { not: myId }, isActive: true },
+        select: { id: true, username: true, profileImage: true, role: true },
+      }),
+      // Ordered newest-first so the first message we see per contact while
+      // grouping below is necessarily their most recent one.
+      prisma.message.findMany({
+        where: {
+          OR: [{ senderId: myId }, { receiverId: myId }],
+          deletedFor: { none: { id: myId } },
         },
-      },
-      { $sort: { createdAt: -1 } },
-      {
-        $group: {
-          _id: '$otherUser',
-          lastMessage: { $first: '$$ROOT' },
-          unreadCount: {
-            $sum: {
-              $cond: [{ $and: [{ $eq: ['$receiver', myId] }, { $eq: ['$read', false] }] }, 1, 0],
-            },
-          },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          sender: { select: { id: true, username: true, profileImage: true } },
+          receiver: { select: { id: true, username: true, profileImage: true } },
         },
-      },
+      }),
     ]);
-    const statsByUser = new Map(contactStats.map((s) => [String(s._id), s]));
+
+    const blockedByThemSet = new Set(blockedByThemRows.map((u) => u.id));
+    const myBlockedSet = new Set((me?.blockedUsers ?? []).map((u) => u.id));
+    const myMutedSet = new Set((me?.mutedUsers ?? []).map((u) => u.id));
+
+    const statsByUser = new Map();
+    for (const msg of messages) {
+      const otherId = msg.senderId === myId ? msg.receiverId : msg.senderId;
+      let stats = statsByUser.get(otherId);
+      if (!stats) {
+        stats = { lastMessage: msg, unreadCount: 0 };
+        statsByUser.set(otherId, stats);
+      }
+      if (msg.receiverId === myId && !msg.read) stats.unreadCount += 1;
+    }
 
     const contacts = users.map((user) => {
-      const uidStr = user._id.toString();
-      const stats = statsByUser.get(uidStr);
-
+      const stats = statsByUser.get(user.id);
       return {
         user,
         lastMessage: stats?.lastMessage ?? null,
         unreadCount: stats?.unreadCount ?? 0,
-        isBlocked: myBlockedSet.has(uidStr),
-        blockedByThem: blockedByThemSet.has(uidStr),
-        isMuted: myMutedSet.has(uidStr),
+        isBlocked: myBlockedSet.has(user.id),
+        blockedByThem: blockedByThemSet.has(user.id),
+        isMuted: myMutedSet.has(user.id),
       };
     });
 
@@ -88,29 +93,36 @@ export const getContacts = async (req, res, next) => {
 
 export const getMessages = async (req, res, next) => {
   try {
-    const myId = req.user._id;
-    const { userId } = req.params;
+    const myId = req.user.id;
+    const userId = Number(req.params.userId);
 
-    const messages = await Message.find({
-      $or: [
-        { sender: myId, receiver: userId },
-        { sender: userId, receiver: myId },
-      ],
-      deletedFor: { $ne: myId },
-    })
-      .sort({ createdAt: 1 })
-      .populate('sender', 'username profileImage')
-      .populate('receiver', 'username profileImage')
-      .populate({
-        path: 'replyTo',
-        select: 'content type sender',
-        populate: { path: 'sender', select: 'username' },
-      });
+    const messages = await prisma.message.findMany({
+      where: {
+        OR: [
+          { senderId: myId, receiverId: userId },
+          { senderId: userId, receiverId: myId },
+        ],
+        deletedFor: { none: { id: myId } },
+      },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        sender: { select: { id: true, username: true, profileImage: true } },
+        receiver: { select: { id: true, username: true, profileImage: true } },
+        replyTo: {
+          select: {
+            id: true,
+            content: true,
+            type: true,
+            sender: { select: { id: true, username: true } },
+          },
+        },
+      },
+    });
 
-    await Message.updateMany(
-      { sender: userId, receiver: myId, read: false },
-      { read: true, delivered: true }
-    );
+    await prisma.message.updateMany({
+      where: { senderId: userId, receiverId: myId, read: false },
+      data: { read: true, delivered: true },
+    });
 
     res.status(200).json(messages);
   } catch (err) {
@@ -120,18 +132,28 @@ export const getMessages = async (req, res, next) => {
 
 export const clearChat = async (req, res, next) => {
   try {
-    const myId = req.user._id;
-    const { userId } = req.params;
+    const myId = req.user.id;
+    const userId = Number(req.params.userId);
 
-    await Message.updateMany(
-      {
-        $or: [
-          { sender: myId, receiver: userId },
-          { sender: userId, receiver: myId },
+    const messages = await prisma.message.findMany({
+      where: {
+        OR: [
+          { senderId: myId, receiverId: userId },
+          { senderId: userId, receiverId: myId },
         ],
       },
-      { $addToSet: { deletedFor: myId } }
-    );
+      select: { id: true },
+    });
+
+    // updateMany can't touch relation fields, so each message needs its own
+    // update — `connect` is idempotent, matching the old $addToSet semantics.
+    if (messages.length) {
+      await prisma.$transaction(
+        messages.map((m) =>
+          prisma.message.update({ where: { id: m.id }, data: { deletedFor: { connect: { id: myId } } } })
+        )
+      );
+    }
 
     res.status(200).json({ success: true });
   } catch (err) {
@@ -141,22 +163,21 @@ export const clearChat = async (req, res, next) => {
 
 export const toggleBlock = async (req, res, next) => {
   try {
-    const myId = req.user._id;
-    const { userId } = req.params;
+    const myId = req.user.id;
+    const userId = Number(req.params.userId);
 
-    const me = await User.findById(myId);
-    const idx = me.blockedUsers.findIndex((id) => id.toString() === userId);
-    let blocked;
-    if (idx >= 0) {
-      me.blockedUsers.splice(idx, 1);
-      blocked = false;
-    } else {
-      me.blockedUsers.push(userId);
-      blocked = true;
-    }
-    await me.save();
+    const me = await prisma.user.findUnique({
+      where: { id: myId },
+      select: { blockedUsers: { where: { id: userId }, select: { id: true } } },
+    });
+    const isBlocked = me.blockedUsers.length > 0;
 
-    res.status(200).json({ blocked });
+    await prisma.user.update({
+      where: { id: myId },
+      data: { blockedUsers: isBlocked ? { disconnect: { id: userId } } : { connect: { id: userId } } },
+    });
+
+    res.status(200).json({ blocked: !isBlocked });
   } catch (err) {
     next(err);
   }
@@ -164,22 +185,21 @@ export const toggleBlock = async (req, res, next) => {
 
 export const toggleMute = async (req, res, next) => {
   try {
-    const myId = req.user._id;
-    const { userId } = req.params;
+    const myId = req.user.id;
+    const userId = Number(req.params.userId);
 
-    const me = await User.findById(myId);
-    const idx = me.mutedContacts.findIndex((id) => id.toString() === userId);
-    let muted;
-    if (idx >= 0) {
-      me.mutedContacts.splice(idx, 1);
-      muted = false;
-    } else {
-      me.mutedContacts.push(userId);
-      muted = true;
-    }
-    await me.save();
+    const me = await prisma.user.findUnique({
+      where: { id: myId },
+      select: { mutedUsers: { where: { id: userId }, select: { id: true } } },
+    });
+    const isMuted = me.mutedUsers.length > 0;
 
-    res.status(200).json({ muted });
+    await prisma.user.update({
+      where: { id: myId },
+      data: { mutedUsers: isMuted ? { disconnect: { id: userId } } : { connect: { id: userId } } },
+    });
+
+    res.status(200).json({ muted: !isMuted });
   } catch (err) {
     next(err);
   }
@@ -187,15 +207,16 @@ export const toggleMute = async (req, res, next) => {
 
 export const getCallHistory = async (req, res, next) => {
   try {
-    const myId = req.user._id;
-    const calls = await Message.find({
-      type: 'call',
-      $or: [{ sender: myId }, { receiver: myId }],
-    })
-      .sort({ createdAt: -1 })
-      .limit(100)
-      .populate('sender',   'username profileImage role')
-      .populate('receiver', 'username profileImage role');
+    const myId = req.user.id;
+    const calls = await prisma.message.findMany({
+      where: { type: 'call', OR: [{ senderId: myId }, { receiverId: myId }] },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      include: {
+        sender: { select: { id: true, username: true, profileImage: true, role: true } },
+        receiver: { select: { id: true, username: true, profileImage: true, role: true } },
+      },
+    });
     res.status(200).json(calls);
   } catch (err) {
     next(err);

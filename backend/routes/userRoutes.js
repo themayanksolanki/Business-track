@@ -15,7 +15,7 @@ import { validateObjectId, validateDepartmentIds } from '../middleware/validate.
 
 const router = Router();
 
-router.get('/', protect, allowRoles('Admin', 'Manager'), getAllUsers);
+router.get('/', protect, getAllUsers);
 router.get('/team-leads', protect, allowRoles('Admin', 'Manager'), getTeamLeads);
 router.get('/team-members', protect, allowRoles('Admin', 'Team Lead'), getTeamMembers);
 router.get('/pending', protect, allowRoles('Admin', 'Manager', 'Team Lead'), getPendingUsers);

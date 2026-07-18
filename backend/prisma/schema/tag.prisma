@@ -1,0 +1,25 @@
+model Tag {
+  id              Int      @id @default(autoincrement())
+  name            String
+  textColor       String   @default("#1f2937")
+  backgroundColor String   @default("#e5e7eb")
+  organizationId  Int?
+  createdById     Int
+  updatedById     Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  createdBy    User          @relation("TagCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?         @relation("TagUpdatedBy", fields: [updatedById], references: [id])
+
+  projects     Project[]
+  tasks        Task[]
+  projectItems ProjectItem[]
+
+  // Exact-case uniqueness at the DB level; case-insensitive duplicate
+  // checks (matching the old Mongo collation-strength-2 index) are done in
+  // the controller via a `mode: "insensitive"` lookup before create/update.
+  @@unique([organizationId, name])
+  @@map("tags")
+}

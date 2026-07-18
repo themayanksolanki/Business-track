@@ -1,66 +1,44 @@
-import Department from '../models/Department.js';
-import User from '../models/User.js';
-import Project from '../models/Project.js';
+import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
-import { getAccessibleDepartmentIds, canAccessDepartment, getDescendantIds } from '../utils/access.js';
+import { getAccessibleDepartmentIds, canAccessDepartment, getDescendantIds, canManageRole } from '../utils/access.js';
 
-const POPULATE_FIELDS = [
-  { path: 'createdBy', select: 'username email role' },
-  { path: 'updatedBy', select: 'username email role' },
-];
-const PROJECT_POPULATE_FIELDS = [
-  { path: 'createdBy', select: 'username email role' },
-  { path: 'owner', select: 'username email role' },
-];
+const USER_SELECT = { id: true, username: true, email: true, role: true };
 
-const sameOrg = (a, b) => String(a ?? '') === String(b ?? '');
-
-// Merges userCount/projectCount/childCount onto each department. The three
-// aggregates are org-agnostic by design (they just describe absolute usage
-// across the whole collection), so the same merge works whether `departments`
-// is the full org list or a single page's worth.
-const attachCounts = async (departments) => {
-  const [userCounts, projectCounts, childCounts] = await Promise.all([
-    User.aggregate([
-      { $unwind: '$departments' },
-      { $group: { _id: '$departments', count: { $sum: 1 } } },
-    ]),
-    Project.aggregate([
-      { $match: { department: { $ne: null } } },
-      { $group: { _id: '$department', count: { $sum: 1 } } },
-    ]),
-    Department.aggregate([
-      { $match: { parentId: { $ne: null } } },
-      { $group: { _id: '$parentId', count: { $sum: 1 } } },
-    ]),
-  ]);
-
-  const toMap = (rows) => new Map(rows.map((r) => [String(r._id), r.count]));
-  const userCountMap = toMap(userCounts);
-  const projectCountMap = toMap(projectCounts);
-  const childCountMap = toMap(childCounts);
-
-  return departments.map((d) => ({
-    ...d.toObject(),
-    userCount: userCountMap.get(String(d._id)) ?? 0,
-    projectCount: projectCountMap.get(String(d._id)) ?? 0,
-    childCount: childCountMap.get(String(d._id)) ?? 0,
-  }));
+const DEPARTMENT_INCLUDE = {
+  createdBy: { select: USER_SELECT },
+  updatedBy: { select: USER_SELECT },
+  _count: { select: { users: true, projects: true, children: true } },
 };
+
+// Flattens Prisma's relation _count into the flat userCount/projectCount/
+// childCount shape the frontend expects.
+const withCounts = (d) => {
+  const { _count, ...rest } = d;
+  return { ...rest, userCount: _count.users, projectCount: _count.projects, childCount: _count.children };
+};
+
+// Admins and Managers see every department in the organization; Team Leads
+// and Users are scoped to their assigned subtree. This is deliberately wider
+// than getAccessibleDepartmentIds's usual meaning (which still scopes Manager
+// department creation/edits) — viewing the org chart is not a mutation.
+const getViewableDepartmentIds = (user) =>
+  user.role === 'Admin' || user.role === 'Manager' ? Promise.resolve(null) : getAccessibleDepartmentIds(user);
 
 export const getDepartments = async (req, res, next) => {
   try {
-    const accessibleIds = await getAccessibleDepartmentIds(req.user);
+    const accessibleIds = await getViewableDepartmentIds(req.user);
 
     if (req.query.page === undefined) {
-      const filter = { organization: req.user.organization };
-      if (accessibleIds !== null) filter._id = { $in: accessibleIds };
+      const where = { organizationId: req.user.organizationId };
+      if (accessibleIds !== null) where.id = { in: accessibleIds };
 
-      const departments = await Department.find(filter)
-        .populate(POPULATE_FIELDS)
-        .sort({ parentId: 1, order: 1 });
+      const departments = await prisma.department.findMany({
+        where,
+        include: DEPARTMENT_INCLUDE,
+        orderBy: [{ parentId: { sort: 'asc', nulls: 'first' } }, { order: 'asc' }],
+      });
 
-      return res.status(200).json(await attachCounts(departments));
+      return res.status(200).json(departments.map(withCounts));
     }
 
     // Paginated: the tree is built client-side from parentId links, so a page
@@ -71,24 +49,32 @@ export const getDepartments = async (req, res, next) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 12));
     const skip = (page - 1) * limit;
 
-    const rootFilter = { organization: req.user.organization, parentId: null };
-    if (accessibleIds !== null) rootFilter._id = { $in: accessibleIds };
+    const rootWhere = { organizationId: req.user.organizationId, parentId: null };
+    if (accessibleIds !== null) rootWhere.id = { in: accessibleIds };
 
     const [total, roots] = await Promise.all([
-      Department.countDocuments(rootFilter),
-      Department.find(rootFilter).sort({ order: 1 }).skip(skip).limit(limit).select('_id'),
+      prisma.department.count({ where: rootWhere }),
+      prisma.department.findMany({
+        where: rootWhere,
+        orderBy: { order: 'asc' },
+        skip,
+        take: limit,
+        select: { id: true },
+      }),
     ]);
 
-    const rootIds = roots.map((r) => r._id);
+    const rootIds = roots.map((r) => r.id);
     const descendantIds = await getDescendantIds(rootIds);
     const allIds = [...rootIds, ...descendantIds];
 
-    const departments = await Department.find({ _id: { $in: allIds } })
-      .populate(POPULATE_FIELDS)
-      .sort({ parentId: 1, order: 1 });
+    const departments = await prisma.department.findMany({
+      where: { id: { in: allIds } },
+      include: DEPARTMENT_INCLUDE,
+      orderBy: [{ parentId: { sort: 'asc', nulls: 'first' } }, { order: 'asc' }],
+    });
 
     res.status(200).json({
-      departments: await attachCounts(departments),
+      departments: departments.map(withCounts),
       total,
       page,
       limit,
@@ -102,40 +88,43 @@ export const getDepartments = async (req, res, next) => {
 export const createDepartment = async (req, res, next) => {
   try {
     const { name, overview, color, parentId } = req.body;
+    const parentIdNum = parentId ? Number(parentId) : null;
 
     if (req.user.role === 'Manager') {
-      if (!parentId)
+      if (!parentIdNum)
         return next(
           new AppError('Managers can only create sub-departments within their assigned departments', 403)
         );
       const accessibleIds = await getAccessibleDepartmentIds(req.user);
-      if (!canAccessDepartment(accessibleIds, parentId))
+      if (!canAccessDepartment(accessibleIds, parentIdNum))
         return next(new AppError('You do not have access to this department', 403));
     }
 
     let depth = 0;
-    if (parentId) {
-      const parent = await Department.findById(parentId);
-      if (!parent || !sameOrg(parent.organization, req.user.organization))
+    if (parentIdNum) {
+      const parent = await prisma.department.findUnique({ where: { id: parentIdNum } });
+      if (!parent || parent.organizationId !== req.user.organizationId)
         return next(new AppError('Parent department not found', 404));
       depth = parent.depth + 1;
     }
 
-    const order = await Department.countDocuments({ parentId: parentId ?? null });
+    const order = await prisma.department.count({ where: { parentId: parentIdNum } });
 
-    const department = await Department.create({
-      name: name.trim(),
-      overview: overview ?? '',
-      color: color ?? '#3b82f6',
-      parentId: parentId ?? null,
-      organization: req.user.organization,
-      depth,
-      order,
-      createdBy: req.user._id,
+    const department = await prisma.department.create({
+      data: {
+        name: name.trim(),
+        overview: overview ?? '',
+        color: color ?? '#3b82f6',
+        parentId: parentIdNum,
+        organizationId: req.user.organizationId,
+        depth,
+        order,
+        createdById: req.user.id,
+      },
+      include: DEPARTMENT_INCLUDE,
     });
 
-    const populated = await department.populate(POPULATE_FIELDS);
-    res.status(201).json({ message: 'Department created', department: populated });
+    res.status(201).json({ message: 'Department created', department: withCounts(department) });
   } catch (err) {
     next(err);
   }
@@ -143,21 +132,33 @@ export const createDepartment = async (req, res, next) => {
 
 export const getDepartmentById = async (req, res, next) => {
   try {
-    const department = await Department.findById(req.params.id).populate(POPULATE_FIELDS);
-    if (!department || !sameOrg(department.organization, req.user.organization))
+    const department = await prisma.department.findUnique({
+      where: { id: Number(req.params.id) },
+      include: DEPARTMENT_INCLUDE,
+    });
+    if (!department || department.organizationId !== req.user.organizationId)
       return next(new AppError('Department not found', 404));
 
-    const accessibleIds = await getAccessibleDepartmentIds(req.user);
-    if (!canAccessDepartment(accessibleIds, department._id))
+    const accessibleIds = await getViewableDepartmentIds(req.user);
+    if (!canAccessDepartment(accessibleIds, department.id))
       return next(new AppError('You do not have access to this department', 403));
 
     const [children, users, projects] = await Promise.all([
-      Department.find({ parentId: department._id }).sort({ order: 1 }),
-      User.find({ departments: department._id }).select('-password'),
-      Project.find({ department: department._id }).populate(PROJECT_POPULATE_FIELDS),
+      prisma.department.findMany({ where: { parentId: department.id }, orderBy: { order: 'asc' } }),
+      prisma.user.findMany({
+        where: { departments: { some: { id: department.id } } },
+        omit: { password: true },
+      }),
+      prisma.project.findMany({
+        where: { departmentId: department.id },
+        include: {
+          createdBy: { select: USER_SELECT },
+          owner: { select: USER_SELECT },
+        },
+      }),
     ]);
 
-    res.status(200).json({ department, children, users, projects });
+    res.status(200).json({ department: withCounts(department), children, users, projects });
   } catch (err) {
     next(err);
   }
@@ -165,26 +166,29 @@ export const getDepartmentById = async (req, res, next) => {
 
 export const updateDepartment = async (req, res, next) => {
   try {
-    const department = await Department.findById(req.params.id);
-    if (!department || !sameOrg(department.organization, req.user.organization))
+    const department = await prisma.department.findUnique({ where: { id: Number(req.params.id) } });
+    if (!department || department.organizationId !== req.user.organizationId)
       return next(new AppError('Department not found', 404));
 
     if (req.user.role === 'Manager') {
       const accessibleIds = await getAccessibleDepartmentIds(req.user);
-      if (!canAccessDepartment(accessibleIds, department._id))
+      if (!canAccessDepartment(accessibleIds, department.id))
         return next(new AppError('You do not have access to this department', 403));
     }
 
     const { name, overview, color } = req.body;
-    if (name !== undefined) department.name = name.trim();
-    if (overview !== undefined) department.overview = overview;
-    if (color !== undefined) department.color = color;
-    department.updatedBy = req.user._id;
+    const data = { updatedById: req.user.id };
+    if (name !== undefined) data.name = name.trim();
+    if (overview !== undefined) data.overview = overview;
+    if (color !== undefined) data.color = color;
 
-    await department.save();
+    const updated = await prisma.department.update({
+      where: { id: department.id },
+      data,
+      include: DEPARTMENT_INCLUDE,
+    });
 
-    const populated = await department.populate(POPULATE_FIELDS);
-    res.status(200).json({ message: 'Department updated', department: populated });
+    res.status(200).json({ message: 'Department updated', department: withCounts(updated) });
   } catch (err) {
     next(err);
   }
@@ -192,24 +196,32 @@ export const updateDepartment = async (req, res, next) => {
 
 export const deleteDepartment = async (req, res, next) => {
   try {
-    const department = await Department.findById(req.params.id);
-    if (!department || !sameOrg(department.organization, req.user.organization))
+    const department = await prisma.department.findUnique({
+      where: { id: Number(req.params.id) },
+      include: { createdBy: { select: { id: true, role: true } } },
+    });
+    if (!department || department.organizationId !== req.user.organizationId)
       return next(new AppError('Department not found', 404));
 
+    // Managers may delete a department they created themselves, or one
+    // created by a strictly lower-ranked role (never an Admin's, and never
+    // another Manager's) — mirrors canManageRole's use for user management.
     if (req.user.role === 'Manager') {
-      const accessibleIds = await getAccessibleDepartmentIds(req.user);
-      if (!canAccessDepartment(accessibleIds, department._id))
-        return next(new AppError('You do not have access to this department', 403));
+      const isOwnCreation = department.createdBy.id === req.user.id;
+      if (!isOwnCreation && !canManageRole(req.user.role, department.createdBy.role))
+        return next(new AppError('You do not have permission to delete this department', 403));
     }
 
-    const descendantIds = await getDescendantIds(department._id);
-    const allIds = [department._id, ...descendantIds];
+    const descendantIds = await getDescendantIds(department.id);
+    const allIds = [department.id, ...descendantIds];
 
-    await Promise.all([
-      User.updateMany({ departments: { $in: allIds } }, { $pull: { departments: { $in: allIds } } }),
-      Project.updateMany({ department: { $in: allIds } }, { $set: { department: null } }),
+    // User<->Department and Invite<->Department memberships are implicit m2m
+    // relations that Prisma manages with an ON DELETE CASCADE join table, so
+    // they clean themselves up automatically once the departments are gone.
+    await prisma.$transaction([
+      prisma.project.updateMany({ where: { departmentId: { in: allIds } }, data: { departmentId: null } }),
+      prisma.department.deleteMany({ where: { id: { in: allIds } } }),
     ]);
-    await Department.deleteMany({ _id: { $in: allIds } });
 
     res.status(200).json({ message: 'Department deleted' });
   } catch (err) {

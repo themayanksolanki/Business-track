@@ -1,13 +1,20 @@
 import { Server } from 'socket.io';
 import { randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
-import Message from './models/Message.js';
-import User from './models/User.js';
+import prisma from './lib/prisma.js';
 
-const REPLY_POPULATE = {
-  path: 'replyTo',
-  select: 'content type sender',
-  populate: { path: 'sender', select: 'username' },
+const SENDER_RECEIVER_SELECT = { id: true, username: true, profileImage: true };
+const MESSAGE_INCLUDE = {
+  sender: { select: SENDER_RECEIVER_SELECT },
+  receiver: { select: SENDER_RECEIVER_SELECT },
+  replyTo: {
+    select: {
+      id: true,
+      content: true,
+      type: true,
+      sender: { select: { id: true, username: true } },
+    },
+  },
 };
 
 const DELETE_FOR_ALL_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
@@ -48,7 +55,7 @@ export function setupSocket(server) {
   });
 
   const emitToUser = (userId, event, data) => {
-    const sockets = onlineUsers.get(userId);
+    const sockets = onlineUsers.get(String(userId));
     if (sockets) sockets.forEach((sid) => io.to(sid).emit(event, data));
   };
 
@@ -58,76 +65,79 @@ export function setupSocket(server) {
     const duration = startMs ? Math.round((Date.now() - startMs) / 1000) : null;
     callStartTimes.delete(callId);
     try {
-      const msg = await Message.create({
-        sender:       session.caller,
-        receiver:     session.callee,
-        type:         'call',
-        callType:     session.callType,
-        callStatus:   status,
-        callDuration: duration,
-        content:      '',
-        delivered:    true,
-        read:         true,
+      const msg = await prisma.message.create({
+        data: {
+          senderId: Number(session.caller),
+          receiverId: Number(session.callee),
+          type: 'call',
+          callType: session.callType,
+          callStatus: status,
+          callDuration: duration,
+          content: '',
+          delivered: true,
+          read: true,
+        },
+        include: { sender: { select: { id: true, username: true, profileImage: true, role: true } }, receiver: { select: { id: true, username: true, profileImage: true, role: true } } },
       });
-      const populated = await msg.populate([
-        { path: 'sender',   select: 'username profileImage role' },
-        { path: 'receiver', select: 'username profileImage role' },
-      ]);
-      emitToUser(session.caller, 'call:logged', populated);
-      emitToUser(session.callee, 'call:logged', populated);
+      emitToUser(session.caller, 'call:logged', msg);
+      emitToUser(session.callee, 'call:logged', msg);
     } catch { /* non-critical */ }
   };
 
   io.on('connection', async (socket) => {
     const userId = socket.userId;
+    const myId = Number(userId);
     if (!onlineUsers.has(userId)) onlineUsers.set(userId, new Set());
     onlineUsers.get(userId).add(socket.id);
     io.emit('users:online', Array.from(onlineUsers.keys()));
 
     // Deliver any messages sent while this user was offline
     try {
-      const senderIds = await Message.find({ receiver: userId, delivered: false }).distinct('sender');
-      if (senderIds.length) {
-        await Message.updateMany({ receiver: userId, delivered: false }, { delivered: true });
-        senderIds.forEach((sid) => emitToUser(sid.toString(), 'message:delivered', { by: userId }));
+      const undelivered = await prisma.message.findMany({
+        where: { receiverId: myId, delivered: false },
+        select: { senderId: true },
+        distinct: ['senderId'],
+      });
+      if (undelivered.length) {
+        await prisma.message.updateMany({ where: { receiverId: myId, delivered: false }, data: { delivered: true } });
+        undelivered.forEach(({ senderId }) => emitToUser(senderId, 'message:delivered', { by: userId }));
       }
     } catch { /* non-critical */ }
 
     // ── Chat messages ──────────────────────────────────────────────
     socket.on('message:send', async ({ to, content, type, fileUrl, replyTo }) => {
       try {
+        const toId = Number(to);
         const [me, recipient] = await Promise.all([
-          User.findById(userId).select('blockedUsers'),
-          User.findById(to).select('blockedUsers'),
+          prisma.user.findUnique({ where: { id: myId }, select: { blockedUsers: { select: { id: true } } } }),
+          prisma.user.findUnique({ where: { id: toId }, select: { blockedUsers: { select: { id: true } } } }),
         ]);
         const blocked =
-          me?.blockedUsers?.some((id) => id.toString() === to) ||
-          recipient?.blockedUsers?.some((id) => id.toString() === userId);
+          me?.blockedUsers?.some((u) => u.id === toId) ||
+          recipient?.blockedUsers?.some((u) => u.id === myId);
         if (blocked) {
           socket.emit('message:error', 'You cannot message this user.');
           return;
         }
 
-        const msg = await Message.create({
-          sender: userId,
-          receiver: to,
-          content: content || '',
-          type: type || 'text',
-          fileUrl: fileUrl || null,
-          replyTo: replyTo || null,
+        const msg = await prisma.message.create({
+          data: {
+            senderId: myId,
+            receiverId: toId,
+            content: content || '',
+            type: type || 'text',
+            fileUrl: fileUrl || null,
+            replyToId: replyTo ? Number(replyTo) : null,
+          },
+          include: MESSAGE_INCLUDE,
         });
-        const populated = await msg.populate([
-          { path: 'sender', select: 'username profileImage' },
-          { path: 'receiver', select: 'username profileImage' },
-          REPLY_POPULATE,
-        ]);
 
-        socket.emit('message:sent', populated);
+        socket.emit('message:sent', msg);
 
-        emitToUser(to, 'message:receive', populated);
+        emitToUser(to, 'message:receive', msg);
 
-        if (onlineUsers.has(to)) {
-          await Message.findByIdAndUpdate(msg._id, { delivered: true });
+        if (onlineUsers.has(String(to))) {
+          await prisma.message.update({ where: { id: msg.id }, data: { delivered: true } });
           emitToUser(userId, 'message:delivered', { by: to });
         }
       } catch (err) {
@@ -137,19 +147,16 @@ export function setupSocket(server) {
 
     socket.on('message:edit', async ({ messageId, content }) => {
       try {
-        const msg = await Message.findById(messageId);
-        if (!msg || msg.sender.toString() !== userId || msg.type !== 'text' || msg.isDeleted) return;
-        msg.content = content || '';
-        msg.isEdited = true;
-        msg.editedAt = new Date();
-        await msg.save();
-        const populated = await msg.populate([
-          { path: 'sender', select: 'username profileImage' },
-          { path: 'receiver', select: 'username profileImage' },
-          REPLY_POPULATE,
-        ]);
-        emitToUser(msg.sender.toString(), 'message:edited', populated);
-        emitToUser(msg.receiver.toString(), 'message:edited', populated);
+        const msg = await prisma.message.findUnique({ where: { id: Number(messageId) } });
+        if (!msg || msg.senderId !== myId || msg.type !== 'text' || msg.isDeleted) return;
+
+        const updated = await prisma.message.update({
+          where: { id: msg.id },
+          data: { content: content || '', isEdited: true, editedAt: new Date() },
+          include: MESSAGE_INCLUDE,
+        });
+        emitToUser(updated.senderId, 'message:edited', updated);
+        emitToUser(updated.receiverId, 'message:edited', updated);
       } catch (err) {
         socket.emit('message:error', err.message);
       }
@@ -157,10 +164,10 @@ export function setupSocket(server) {
 
     socket.on('message:delete', async ({ messageId, forAll }) => {
       try {
-        const msg = await Message.findById(messageId);
+        const msg = await prisma.message.findUnique({ where: { id: Number(messageId) } });
         if (!msg) return;
-        const isSender = msg.sender.toString() === userId;
-        const isReceiver = msg.receiver.toString() === userId;
+        const isSender = msg.senderId === myId;
+        const isReceiver = msg.receiverId === myId;
         if (!isSender && !isReceiver) return;
 
         if (forAll) {
@@ -169,17 +176,19 @@ export function setupSocket(server) {
             socket.emit('message:error', 'Delete for everyone is only available within 2 hours of sending.');
             return;
           }
-          msg.isDeleted = true;
-          msg.content = '';
-          msg.fileUrl = null;
-          await msg.save();
-          emitToUser(msg.sender.toString(), 'message:deleted', { messageId, forAll: true });
-          emitToUser(msg.receiver.toString(), 'message:deleted', { messageId, forAll: true });
+          await prisma.message.update({
+            where: { id: msg.id },
+            data: { isDeleted: true, content: '', fileUrl: null },
+          });
+          emitToUser(msg.senderId, 'message:deleted', { messageId, forAll: true });
+          emitToUser(msg.receiverId, 'message:deleted', { messageId, forAll: true });
         } else {
-          if (!msg.deletedFor.some((id) => id.toString() === userId)) {
-            msg.deletedFor.push(userId);
-            await msg.save();
-          }
+          // connect is idempotent, so no need to pre-check membership like
+          // the old $addToSet-guarded push did.
+          await prisma.message.update({
+            where: { id: msg.id },
+            data: { deletedFor: { connect: { id: myId } } },
+          });
           socket.emit('message:deleted', { messageId, forAll: false });
         }
       } catch (err) {
@@ -189,13 +198,15 @@ export function setupSocket(server) {
 
     socket.on('message:pin', async ({ messageId, pinned }) => {
       try {
-        const msg = await Message.findById(messageId);
+        const msg = await prisma.message.findUnique({ where: { id: Number(messageId) } });
         if (!msg) return;
-        if (![msg.sender.toString(), msg.receiver.toString()].includes(userId)) return;
-        msg.isPinned = !!pinned;
-        await msg.save();
-        emitToUser(msg.sender.toString(), 'message:pinned', { messageId, pinned: msg.isPinned });
-        emitToUser(msg.receiver.toString(), 'message:pinned', { messageId, pinned: msg.isPinned });
+        if (![msg.senderId, msg.receiverId].includes(myId)) return;
+        const updated = await prisma.message.update({
+          where: { id: msg.id },
+          data: { isPinned: !!pinned },
+        });
+        emitToUser(updated.senderId, 'message:pinned', { messageId, pinned: updated.isPinned });
+        emitToUser(updated.receiverId, 'message:pinned', { messageId, pinned: updated.isPinned });
       } catch (err) {
         socket.emit('message:error', err.message);
       }
@@ -209,9 +220,9 @@ export function setupSocket(server) {
     };
 
     socket.on('call:request', ({ to, callType, fromName }) => {
-      if (!onlineUsers.has(to)) { socket.emit('call:user-offline'); return; }
+      if (!onlineUsers.has(String(to))) { socket.emit('call:user-offline'); return; }
       const callId = randomUUID();
-      activeCalls.set(callId, { caller: userId, callee: to, callType, state: 'ringing' });
+      activeCalls.set(callId, { caller: userId, callee: String(to), callType, state: 'ringing' });
       socket.emit('call:session', { callId });
       emitToUser(to, 'call:incoming', { from: userId, fromName, callType, callId });
     });
@@ -251,10 +262,10 @@ export function setupSocket(server) {
     // ── Read receipts ─────────────────────────────────────────────
     socket.on('message:seen', async ({ from }) => {
       try {
-        await Message.updateMany(
-          { sender: from, receiver: userId, read: false },
-          { read: true, delivered: true }
-        );
+        await prisma.message.updateMany({
+          where: { senderId: Number(from), receiverId: myId, read: false },
+          data: { read: true, delivered: true },
+        });
         emitToUser(from, 'message:seen', { by: userId });
       } catch { /* non-critical */ }
     });
