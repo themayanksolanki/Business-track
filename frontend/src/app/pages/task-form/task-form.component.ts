@@ -48,12 +48,12 @@ export class TaskFormComponent implements OnInit {
   get selectedAssigneeLabel() {
     const id = this.form.get('assignedTo')?.value;
     if (!id) return '-- Assign to self --';
-    const u = this.assignableUsers.find((u) => (u.id ?? u._id) === id);
+    const u = this.assignableUsers.find((u) => (u.id ?? u.id) === id);
     return u ? `${u.username} (${u.role})` : '-- Assign to self --';
   }
 
   selectAssignee(user: User | null) {
-    this.form.get('assignedTo')?.setValue(user ? (user.id ?? user._id ?? '') : '');
+    this.form.get('assignedTo')?.setValue(user ? (user.id ?? user.id ?? '') : '');
   }
 
   submit() {

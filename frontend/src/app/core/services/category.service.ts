@@ -23,7 +23,7 @@ export class CategoryService {
     return this.http.get<PaginatedCategories>(this.api, { params: { page, limit } });
   }
 
-  getCategoryById(id: string) {
+  getCategoryById(id: number) {
     return this.http.get<CategoryDetail>(`${this.api}/${id}`);
   }
 
@@ -31,11 +31,11 @@ export class CategoryService {
     return this.http.post<{ message: string; category: Category }>(this.api, payload);
   }
 
-  updateCategory(id: string, payload: UpdateCategoryPayload) {
+  updateCategory(id: number, payload: UpdateCategoryPayload) {
     return this.http.put<{ message: string; category: Category }>(`${this.api}/${id}`, payload);
   }
 
-  deleteCategory(id: string) {
+  deleteCategory(id: number) {
     return this.http.delete<{ message: string }>(`${this.api}/${id}`);
   }
 }

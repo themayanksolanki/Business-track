@@ -44,7 +44,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (invite of invitedUsers; track invite._id) {
+            @for (invite of invitedUsers; track invite.id) {
               <tr class="user-row invited-row">
                 <td><span class="text-muted">—</span></td>
                 <td class="ps-4">

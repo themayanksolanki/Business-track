@@ -108,7 +108,7 @@ export class ProjectDetailComponent implements OnInit {
   selectedNode: ProjectTreeNode | null = null;
 
   selectionMode = false;
-  selectedIds = new Set<string>();
+  selectedIds = new Set<number>();
 
   expandCommand: { expand: boolean; token: number } | null = null;
   private expandToken = 0;
@@ -199,7 +199,7 @@ export class ProjectDetailComponent implements OnInit {
   selectTags(tags: TagLite[]) {
     if (!this.project) return;
     this.projectService
-      .updateProject(this.projectId, { tags: tags.map((t) => t._id) })
+      .updateProject(this.projectId, { tags: tags.map((t) => t.id) })
       .subscribe({
         next: (res) => (this.project = res.project),
       });
@@ -244,9 +244,9 @@ export class ProjectDetailComponent implements OnInit {
     const user = this.auth.getUser();
     if (!user || !this.project) return false;
     if (user.role === 'Admin' || user.role === 'Manager') return true;
-    const createdById = this.project.createdBy?._id ?? (this.project.createdBy as any)?.id;
-    const ownerId = this.project.owner?._id ?? (this.project.owner as any)?.id;
-    const userId = user._id ?? user.id;
+    const createdById = this.project.createdBy?.id ?? (this.project.createdBy as any)?.id;
+    const ownerId = this.project.owner?.id ?? (this.project.owner as any)?.id;
+    const userId = user.id ?? user.id;
     return createdById === userId || ownerId === userId;
   }
 
@@ -261,21 +261,20 @@ export class ProjectDetailComponent implements OnInit {
     return this.project?.members.map((m) => m.user) ?? [];
   }
 
-  private brokenAvatarIds = new Set<string>();
+  private brokenAvatarIds = new Set<number>();
 
   avatarUrl(user: User): string | null {
-    const id = (user._id ?? user.id) as string;
-    if (this.brokenAvatarIds.has(id)) return null;
+    if (this.brokenAvatarIds.has(user.id)) return null;
     return this.auth.avatarUrl(user);
   }
 
   onAvatarError(user: User) {
-    this.brokenAvatarIds.add((user._id ?? user.id) as string);
+    this.brokenAvatarIds.add(user.id);
   }
 
   selectOwner(user: User | null) {
     if (!this.project) return;
-    const owner = user ? (user.id ?? user._id ?? null) : null;
+    const owner = user ? user.id : null;
     this.projectService.updateProject(this.projectId, { owner }).subscribe({
       next: (res) => (this.project = res.project),
     });
@@ -300,8 +299,8 @@ export class ProjectDetailComponent implements OnInit {
 
   selectDepartment(dept: Department | null) {
     if (!this.project) return;
-    const department = dept ? dept._id : null;
-    if ((this.project.department?._id ?? null) === department) return;
+    const department = dept ? dept.id : null;
+    if ((this.project.department?.id ?? null) === department) return;
     this.projectService
       .updateProject(this.projectId, { department })
       .subscribe({
@@ -311,8 +310,8 @@ export class ProjectDetailComponent implements OnInit {
 
   selectCategory(cat: Category | null) {
     if (!this.project) return;
-    const category = cat ? cat._id : null;
-    if ((this.project.category?._id ?? null) === category) return;
+    const category = cat ? cat.id : null;
+    if ((this.project.category?.id ?? null) === category) return;
     this.projectService.updateProject(this.projectId, { category }).subscribe({
       next: (res) => (this.project = res.project),
     });
@@ -370,7 +369,7 @@ export class ProjectDetailComponent implements OnInit {
         this.tree = buildProjectTree(items);
         this.itemsLoading = false;
         if (this.selectedNode) {
-          const updated = this.findNode(this.tree, this.selectedNode._id);
+          const updated = this.findNode(this.tree, this.selectedNode.id);
           this.selectedNode = updated ?? null;
         }
       },
@@ -391,7 +390,7 @@ export class ProjectDetailComponent implements OnInit {
 
   private patchNode(nodes: ProjectTreeNode[], updated: ProjectItem): boolean {
     for (const node of nodes) {
-      if (node._id === updated._id) {
+      if (node.id === updated.id) {
         Object.assign(node, updated);
         return true;
       }
@@ -402,10 +401,10 @@ export class ProjectDetailComponent implements OnInit {
 
   private findNode(
     nodes: ProjectTreeNode[],
-    id: string,
+    id: number,
   ): ProjectTreeNode | null {
     for (const node of nodes) {
-      if (node._id === id) return node;
+      if (node.id === id) return node;
       const found = this.findNode(node.children, id);
       if (found) return found;
     }
@@ -414,12 +413,12 @@ export class ProjectDetailComponent implements OnInit {
 
   private findPath(
     nodes: ProjectTreeNode[],
-    id: string,
+    id: number,
     trail: ProjectTreeNode[],
   ): ProjectTreeNode[] | null {
     for (const node of nodes) {
       const nextTrail = [...trail, node];
-      if (node._id === id) return nextTrail;
+      if (node.id === id) return nextTrail;
       const found = this.findPath(node.children, id, nextTrail);
       if (found) return found;
     }
@@ -429,7 +428,7 @@ export class ProjectDetailComponent implements OnInit {
   get selectedPath(): ProjectTreeNode[] {
     if (!this.selectedNode) return [];
     return (
-      this.findPath(this.tree, this.selectedNode._id, []) ?? [this.selectedNode]
+      this.findPath(this.tree, this.selectedNode.id, []) ?? [this.selectedNode]
     );
   }
 
@@ -722,8 +721,8 @@ export class ProjectDetailComponent implements OnInit {
 
   // Removes a node from wherever it lives in the tree (any depth) in place,
   // instead of refetching the whole tree after a delete.
-  private removeNodeById(nodes: ProjectTreeNode[], id: string): boolean {
-    const index = nodes.findIndex((n) => n._id === id);
+  private removeNodeById(nodes: ProjectTreeNode[], id: number): boolean {
+    const index = nodes.findIndex((n) => n.id === id);
     if (index !== -1) {
       nodes.splice(index, 1);
       return true;
@@ -737,16 +736,16 @@ export class ProjectDetailComponent implements OnInit {
     return false;
   }
 
-  onNodeDeleted(id: string) {
+  onNodeDeleted(id: number) {
     this.removeNodeById(this.tree, id);
     this.tree = [...this.tree];
-    if (this.selectedNode?._id === id) this.selectedNode = null;
+    if (this.selectedNode?.id === id) this.selectedNode = null;
   }
 
   onDropRoot(event: CdkDragDrop<ProjectTreeNode[]>) {
     if (event.previousIndex === event.currentIndex) return;
     moveItemInArray(this.tree, event.previousIndex, event.currentIndex);
-    const orderedIds = this.tree.map((n) => n._id);
+    const orderedIds = this.tree.map((n) => n.id);
     this.projectService
       .reorderItems(this.projectId, null, orderedIds)
       .subscribe({
@@ -772,7 +771,7 @@ export class ProjectDetailComponent implements OnInit {
     this.expandCommand = { expand: false, token: ++this.expandToken };
   }
 
-  onToggleSelect(id: string) {
+  onToggleSelect(id: number) {
     if (this.selectedIds.has(id)) this.selectedIds.delete(id);
     else this.selectedIds.add(id);
   }
@@ -796,13 +795,13 @@ export class ProjectDetailComponent implements OnInit {
   // Task-to-group moves never change depth (tasks always live directly under
   // a group), so the move can be reflected locally: splice the node out of
   // its old group's children and push it into the new one, no refetch needed.
-  private applyTaskMoveLocally(node: ProjectTreeNode, newGroupId: string) {
-    const oldGroup = this.groups.find((g) => g._id === node.parentId);
+  private applyTaskMoveLocally(node: ProjectTreeNode, newGroupId: number) {
+    const oldGroup = this.groups.find((g) => g.id === node.parentId);
     if (oldGroup) {
-      oldGroup.children = oldGroup.children.filter((c) => c._id !== node._id);
+      oldGroup.children = oldGroup.children.filter((c) => c.id !== node.id);
       oldGroup.childCount = oldGroup.children.length;
     }
-    const newGroup = this.groups.find((g) => g._id === newGroupId);
+    const newGroup = this.groups.find((g) => g.id === newGroupId);
     if (newGroup) {
       node.parentId = newGroupId;
       newGroup.children = [...newGroup.children, node];
@@ -811,13 +810,13 @@ export class ProjectDetailComponent implements OnInit {
     this.tree = [...this.tree];
   }
 
-  private applyBulkTaskMoveLocally(itemIds: string[], newGroupId: string) {
-    const newGroup = this.groups.find((g) => g._id === newGroupId);
+  private applyBulkTaskMoveLocally(itemIds: number[], newGroupId: number) {
+    const newGroup = this.groups.find((g) => g.id === newGroupId);
     if (!newGroup) return;
     for (const id of itemIds) {
       for (const group of this.groups) {
-        if (group._id === newGroupId) continue;
-        const index = group.children.findIndex((c) => c._id === id);
+        if (group.id === newGroupId) continue;
+        const index = group.children.findIndex((c) => c.id === id);
         if (index !== -1) {
           const [moved] = group.children.splice(index, 1);
           group.childCount = group.children.length;
@@ -831,7 +830,7 @@ export class ProjectDetailComponent implements OnInit {
     this.tree = [...this.tree];
   }
 
-  onGroupSelectedForMove(groupId: string) {
+  onGroupSelectedForMove(groupId: number) {
     if (this.moveGroupMode === 'single') {
       const node = this.moveGroupTargetNode;
       if (!node) return;
@@ -841,11 +840,11 @@ export class ProjectDetailComponent implements OnInit {
         return;
       }
       this.moveGroupLoading = true;
-      this.projectService.moveItemToParent(this.projectId, node._id, groupId).subscribe({
+      this.projectService.moveItemToParent(this.projectId, node.id, groupId).subscribe({
         next: () => {
           this.moveGroupLoading = false;
           this.moveGroupOpen = false;
-          const groupTitle = this.groups.find((g) => g._id === groupId)?.title ?? 'group';
+          const groupTitle = this.groups.find((g) => g.id === groupId)?.title ?? 'group';
           this.applyTaskMoveLocally(node, groupId);
           this.notifications.success(`Task moved to "${groupTitle}".`);
         },
@@ -898,7 +897,7 @@ export class ProjectDetailComponent implements OnInit {
         for (const id of ids) this.removeNodeById(this.tree, id);
         this.tree = [...this.tree];
         this.selectedIds.clear();
-        if (this.selectedNode && ids.includes(this.selectedNode._id)) this.selectedNode = null;
+        if (this.selectedNode && ids.includes(this.selectedNode.id)) this.selectedNode = null;
         this.notifications.success(`${ids.length} task(s) deleted.`);
       },
       error: () => {

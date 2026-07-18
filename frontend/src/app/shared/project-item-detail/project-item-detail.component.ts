@@ -72,7 +72,7 @@ export class ProjectItemDetailComponent implements OnChanges {
   attachmentsLoading = false;
   attachmentUploading = false;
   attachmentUploadError = '';
-  downloadingId = '';
+  downloadingId: number | null = null;
   viewerOpen = false;
   viewerIndex = 0;
 
@@ -113,16 +113,15 @@ export class ProjectItemDetailComponent implements OnChanges {
     return role.toLowerCase().replace(' ', '-');
   }
 
-  private brokenAvatarIds = new Set<string>();
+  private brokenAvatarIds = new Set<number>();
 
   avatarUrl(user: User): string | null {
-    const id = (user._id ?? user.id) as string;
-    if (this.brokenAvatarIds.has(id)) return null;
+    if (this.brokenAvatarIds.has(user.id)) return null;
     return this.auth.avatarUrl(user);
   }
 
   onAvatarError(user: User) {
-    this.brokenAvatarIds.add((user._id ?? user.id) as string);
+    this.brokenAvatarIds.add(user.id);
   }
 
   get isGroup(): boolean {
@@ -135,7 +134,7 @@ export class ProjectItemDetailComponent implements OnChanges {
 
   setStatus(status: ProjectItemStatus) {
     if (!this.item || !this.canEditStatus || this.item.status === status) return;
-    this.projectService.updateItem(this.projectId, this.item._id, { status }).subscribe({
+    this.projectService.updateItem(this.projectId, this.item.id, { status }).subscribe({
       next: (res) => {
         this.item = res.item;
         this.saved.emit(res.item);
@@ -145,7 +144,7 @@ export class ProjectItemDetailComponent implements OnChanges {
 
   setPriority(priority: ProjectItemPriority) {
     if (!this.item || this.item.priority === priority) return;
-    this.projectService.updateItem(this.projectId, this.item._id, { priority }).subscribe({
+    this.projectService.updateItem(this.projectId, this.item.id, { priority }).subscribe({
       next: (res) => {
         this.item = res.item;
         this.saved.emit(res.item);
@@ -159,8 +158,8 @@ export class ProjectItemDetailComponent implements OnChanges {
 
   selectAssignee(user: User | null) {
     if (!this.item || this.isGroup) return;
-    const assignedTo = user ? user.id ?? user._id ?? null : null;
-    this.projectService.updateItem(this.projectId, this.item._id, { assignedTo }).subscribe({
+    const assignedTo = user ? user.id ?? user.id ?? null : null;
+    this.projectService.updateItem(this.projectId, this.item.id, { assignedTo }).subscribe({
       next: (res) => {
         this.item = res.item;
         this.saved.emit(res.item);
@@ -170,7 +169,7 @@ export class ProjectItemDetailComponent implements OnChanges {
 
   selectTags(tags: TagLite[]) {
     if (!this.item) return;
-    this.projectService.updateItem(this.projectId, this.item._id, { tags: tags.map((t) => t._id) }).subscribe({
+    this.projectService.updateItem(this.projectId, this.item.id, { tags: tags.map((t) => t.id) }).subscribe({
       next: (res) => {
         this.item = res.item;
         this.saved.emit(res.item);
@@ -213,7 +212,7 @@ export class ProjectItemDetailComponent implements OnChanges {
     if (!this.item) return;
     const startDate = this.combineDateTime(this.startDateStr, this.startTimeStr);
     const endDate = this.combineDateTime(this.endDateStr, this.endTimeStr);
-    this.projectService.updateItem(this.projectId, this.item._id, { startDate, endDate }).subscribe({
+    this.projectService.updateItem(this.projectId, this.item.id, { startDate, endDate }).subscribe({
       next: (res) => {
         this.item = res.item;
         this.saved.emit(res.item);
@@ -231,7 +230,7 @@ export class ProjectItemDetailComponent implements OnChanges {
     if (!this.item || this.editForm.invalid) return;
     this.editLoading = true;
     this.editError = '';
-    this.projectService.updateItem(this.projectId, this.item._id, this.editForm.value).subscribe({
+    this.projectService.updateItem(this.projectId, this.item.id, this.editForm.value).subscribe({
       next: (res) => {
         this.item = res.item;
         this.editLoading = false;
@@ -247,7 +246,7 @@ export class ProjectItemDetailComponent implements OnChanges {
   loadComments() {
     if (!this.item) return;
     this.commentsLoading = true;
-    this.projectService.getComments(this.projectId, this.item._id).subscribe({
+    this.projectService.getComments(this.projectId, this.item.id).subscribe({
       next: (list) => {
         this.comments = list;
         this.commentsLoading = false;
@@ -260,7 +259,7 @@ export class ProjectItemDetailComponent implements OnChanges {
     const body = this.commentBody.trim();
     if (!body || !this.item) return;
     this.commentSubmitting = true;
-    this.projectService.addComment(this.projectId, this.item._id, { body }).subscribe({
+    this.projectService.addComment(this.projectId, this.item.id, { body }).subscribe({
       next: (res) => {
         this.comments = [...this.comments, res.comment];
         this.commentBody = '';
@@ -272,22 +271,22 @@ export class ProjectItemDetailComponent implements OnChanges {
 
   deleteComment(comment: ProjectComment) {
     if (!this.item) return;
-    this.projectService.deleteComment(this.projectId, this.item._id, comment._id).subscribe({
-      next: () => (this.comments = this.comments.filter((c) => c._id !== comment._id)),
+    this.projectService.deleteComment(this.projectId, this.item.id, comment.id).subscribe({
+      next: () => (this.comments = this.comments.filter((c) => c.id !== comment.id)),
     });
   }
 
   isOwnComment(comment: ProjectComment): boolean {
     const user = this.auth.getUser();
     if (!user) return false;
-    const authorId = comment.author?._id ?? comment.author?.id;
-    return authorId === user.id || authorId === user._id;
+    const authorId = comment.author?.id ?? comment.author?.id;
+    return authorId === user.id || authorId === user.id;
   }
 
   loadAttachments() {
     if (!this.item || this.isGroup) return;
     this.attachmentsLoading = true;
-    this.projectService.getAttachments(this.projectId, this.item._id).subscribe({
+    this.projectService.getAttachments(this.projectId, this.item.id).subscribe({
       next: (list) => {
         this.attachments = list;
         this.attachmentsLoading = false;
@@ -304,7 +303,7 @@ export class ProjectItemDetailComponent implements OnChanges {
     this.attachmentUploading = true;
     this.attachmentUploadError = '';
     this.projectService
-      .uploadAttachment(this.projectId, this.item._id, file)
+      .uploadAttachment(this.projectId, this.item.id, file)
       .subscribe({
         next: (res) => {
           switch (res.type) {
@@ -331,8 +330,8 @@ export class ProjectItemDetailComponent implements OnChanges {
 
   download(attachment: Attachment) {
     if (!this.item) return;
-    this.downloadingId = attachment._id;
-    this.projectService.downloadAttachment(this.projectId, this.item._id, attachment._id).subscribe({
+    this.downloadingId = attachment.id;
+    this.projectService.downloadAttachment(this.projectId, this.item.id, attachment.id).subscribe({
       next: (blob) => {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -340,24 +339,24 @@ export class ProjectItemDetailComponent implements OnChanges {
         link.download = attachment.fileName;
         link.click();
         window.URL.revokeObjectURL(url);
-        this.downloadingId = '';
+        this.downloadingId = null;
       },
-      error: () => (this.downloadingId = ''),
+      error: () => (this.downloadingId = null),
     });
   }
 
   deleteAttachment(attachment: Attachment) {
     if (!this.item) return;
-    this.projectService.deleteAttachment(this.projectId, this.item._id, attachment._id).subscribe({
-      next: () => (this.attachments = this.attachments.filter((a) => a._id !== attachment._id)),
+    this.projectService.deleteAttachment(this.projectId, this.item.id, attachment.id).subscribe({
+      next: () => (this.attachments = this.attachments.filter((a) => a.id !== attachment.id)),
     });
   }
 
   loadAttachmentBlob = (attachment: Attachment) =>
-    this.projectService.downloadAttachment(this.projectId, this.item!._id, attachment._id);
+    this.projectService.downloadAttachment(this.projectId, this.item!.id, attachment.id);
 
   openViewer(attachment: Attachment) {
-    const index = this.attachments.findIndex((a) => a._id === attachment._id);
+    const index = this.attachments.findIndex((a) => a.id === attachment.id);
     this.viewerIndex = index >= 0 ? index : 0;
     this.viewerOpen = true;
   }

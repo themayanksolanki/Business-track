@@ -28,7 +28,7 @@ export class ProjectTeamsComponent implements OnInit {
   addLoading = false;
   addError = '';
 
-  roleSavingId: string | null = null;
+  roleSavingId: number | null = null;
 
   removeOpen = false;
   removeTarget: ProjectMember | null = null;
@@ -77,10 +77,10 @@ export class ProjectTeamsComponent implements OnInit {
     });
   }
 
-  changeRole(member: ProjectMember, roleId: string) {
-    if (roleId === member.role._id) return;
-    this.roleSavingId = member._id;
-    this.projectService.updateMemberRole(this.projectId, member._id, roleId).subscribe({
+  changeRole(member: ProjectMember, roleId: number) {
+    if (roleId === member.role.id) return;
+    this.roleSavingId = member.id;
+    this.projectService.updateMemberRole(this.projectId, member.id, roleId).subscribe({
       next: (res) => {
         this.roleSavingId = null;
         this.membersChanged.emit(res.members);
@@ -104,7 +104,7 @@ export class ProjectTeamsComponent implements OnInit {
   confirmRemove() {
     if (!this.removeTarget) return;
     this.removeLoading = true;
-    this.projectService.removeMember(this.projectId, this.removeTarget._id).subscribe({
+    this.projectService.removeMember(this.projectId, this.removeTarget.id).subscribe({
       next: (res) => {
         this.removeLoading = false;
         this.removeOpen = false;

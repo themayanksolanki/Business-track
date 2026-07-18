@@ -26,7 +26,7 @@ export class TagsComponent implements OnInit {
 
   formOpen = false;
   formMode: FormMode = 'create';
-  editingId: string | null = null;
+  editingId: number | null = null;
   formInitial: TagFormPayload | null = null;
   formLoading = false;
   formError = '';
@@ -91,7 +91,7 @@ export class TagsComponent implements OnInit {
 
   openEdit(tag: Tag) {
     this.formMode = 'edit';
-    this.editingId = tag._id;
+    this.editingId = tag.id;
     this.formInitial = { name: tag.name, textColor: tag.textColor, backgroundColor: tag.backgroundColor };
     this.formError = '';
     this.formOpen = true;
@@ -137,7 +137,7 @@ export class TagsComponent implements OnInit {
   confirmDelete() {
     if (!this.confirmTarget) return;
     this.confirmLoading = true;
-    this.tagService.deleteTag(this.confirmTarget._id).subscribe({
+    this.tagService.deleteTag(this.confirmTarget.id).subscribe({
       next: () => {
         this.confirmLoading = false;
         this.closeConfirm();

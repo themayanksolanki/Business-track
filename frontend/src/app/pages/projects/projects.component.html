@@ -43,7 +43,7 @@
       </div>
     } @else {
       <div class="project-grid">
-        @for (project of cardsItems; track project._id) {
+        @for (project of cardsItems; track project.id) {
           <div class="project-card" (click)="open(project)">
             <div class="project-card-icon"><i class="bi bi-kanban"></i></div>
             <div class="project-card-body">
@@ -67,7 +67,7 @@
               }
               @if (project.tags.length > 0) {
                 <div class="project-tag-row">
-                  @for (tag of visibleTags(project); track tag._id) {
+                  @for (tag of visibleTags(project); track tag.id) {
                     <app-tag-pill [tag]="tag"></app-tag-pill>
                   }
                   @if (hiddenTagCount(project) > 0) {
@@ -131,7 +131,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (project of pagedItems; track project._id) {
+            @for (project of pagedItems; track project.id) {
               <tr class="project-row" (click)="open(project)">
                 <td class="ps-4"><span class="text-muted-em">{{ project.numericId ? '#' + project.numericId : '—' }}</span></td>
                 <td>
@@ -174,7 +174,7 @@
                 <td>
                   @if (project.tags.length > 0) {
                     <div class="project-tag-row">
-                      @for (tag of visibleTags(project); track tag._id) {
+                      @for (tag of visibleTags(project); track tag.id) {
                         <app-tag-pill [tag]="tag"></app-tag-pill>
                       }
                       @if (hiddenTagCount(project) > 0) {
@@ -229,7 +229,7 @@
     </div>
   } @else {
     <div class="project-list">
-      @for (project of pagedItems; track project._id) {
+      @for (project of pagedItems; track project.id) {
         <div class="project-list-row" (click)="open(project)">
           <span class="project-list-icon"><i class="bi bi-kanban"></i></span>
           <div class="project-list-main">
@@ -255,7 +255,7 @@
           }
           @if (project.tags.length > 0) {
             <div class="project-tag-row">
-              @for (tag of visibleTags(project); track tag._id) {
+              @for (tag of visibleTags(project); track tag.id) {
                 <app-tag-pill [tag]="tag"></app-tag-pill>
               }
               @if (hiddenTagCount(project) > 0) {

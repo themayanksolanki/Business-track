@@ -17,11 +17,11 @@ export class TagService {
     return this.http.post<{ message: string; tag: Tag }>(this.api, payload);
   }
 
-  updateTag(id: string, payload: UpdateTagPayload) {
+  updateTag(id: number, payload: UpdateTagPayload) {
     return this.http.put<{ message: string; tag: Tag }>(`${this.api}/${id}`, payload);
   }
 
-  deleteTag(id: string) {
+  deleteTag(id: number) {
     return this.http.delete<{ message: string }>(`${this.api}/${id}`);
   }
 }

@@ -131,7 +131,7 @@
               </a>
             </li>
             <li><hr class="dropdown-divider my-1" /></li>
-            @for (d of departments; track d._id) {
+            @for (d of departments; track d.id) {
               <li>
                 <a class="assign-item" (click)="selectDepartment(d)">
                   <span class="dept-dot" [style.background]="d.color"></span>
@@ -163,7 +163,7 @@
               </a>
             </li>
             <li><hr class="dropdown-divider my-1" /></li>
-            @for (c of categories; track c._id) {
+            @for (c of categories; track c.id) {
               <li>
                 <a class="assign-item" (click)="selectCategory(c)">
                   <span class="dept-dot" [style.background]="c.color"></span>
@@ -309,7 +309,7 @@
             <span></span>
           </div>
           <div class="tree-children tree-root" cdkDropList id="drop-root" [cdkDropListData]="tree" (cdkDropListDropped)="onDropRoot($event)">
-            @for (node of tree; track node._id; let first = $first; let last = $last) {
+            @for (node of tree; track node.id; let first = $first; let last = $last) {
               <div cdkDrag [cdkDragData]="node" class="tree-drag-item">
                 <div class="tree-drag-placeholder" *cdkDragPlaceholder></div>
                 <app-project-tree-node

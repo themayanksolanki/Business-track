@@ -13,8 +13,8 @@ export class MoveToGroupDialogComponent {
   @Input() open = false;
   @Input() groups: ProjectTreeNode[] = [];
   @Input() loading = false;
-  @Input() currentGroupId: string | null = null;
+  @Input() currentGroupId: number | null = null;
 
-  @Output() groupSelected = new EventEmitter<string>();
+  @Output() groupSelected = new EventEmitter<number>();
   @Output() cancelled = new EventEmitter<void>();
 }

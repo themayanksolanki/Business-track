@@ -31,7 +31,7 @@ export class EditTaskComponent implements OnInit {
 
   ngOnInit() {
     this.taskId = this.route.snapshot.paramMap.get('id')!;
-    this.taskService.getTaskById(this.taskId).subscribe({
+    this.taskService.getTaskById(Number(this.taskId)).subscribe({
       next: (task) => {
         this.form.patchValue({
           title: task.title,
@@ -56,7 +56,7 @@ export class EditTaskComponent implements OnInit {
     this.loading = true;
     this.error = '';
 
-    this.taskService.updateTask(this.taskId, this.form.value).subscribe({
+    this.taskService.updateTask(Number(this.taskId), this.form.value).subscribe({
       next: () => this.router.navigate(['/tasks']),
       error: (err) => {
         this.error = err.error?.message || 'Failed to update task';

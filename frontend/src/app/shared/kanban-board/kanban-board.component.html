@@ -24,13 +24,13 @@
 
         <div class="kanban-column-body" cdkDropList [id]="col.id" [cdkDropListData]="col.items"
              [cdkDropListConnectedTo]="connectedIds" (cdkDropListDropped)="drop($event, col)">
-          @for (node of col.items; track node._id) {
+          @for (node of col.items; track node.id) {
             <div class="kanban-card" cdkDrag [cdkDragData]="node" (click)="onCardClick(node)">
               <div class="kanban-card-placeholder" *cdkDragPlaceholder></div>
 
-              @if (coverUrls.has(node._id)) {
+              @if (coverUrls.has(node.id)) {
                 <div class="kanban-card-cover">
-                  <img [src]="coverUrls.get(node._id)" alt="" />
+                  <img [src]="coverUrls.get(node.id)" alt="" />
                 </div>
               }
 
@@ -53,7 +53,7 @@
                 <div class="kanban-card-meta">
                   <span class="status-badge" [class]="statusColorClass(node.status)">{{ node.status }}</span>
                   <span class="priority-badge" [class]="priorityColorClass(node.priority)">{{ node.priority }}</span>
-                  @for (tag of visibleTags(node); track tag._id) {
+                  @for (tag of visibleTags(node); track tag.id) {
                     <app-tag-pill [tag]="tag"></app-tag-pill>
                   }
                   @if (hiddenTagCount(node) > 0) {

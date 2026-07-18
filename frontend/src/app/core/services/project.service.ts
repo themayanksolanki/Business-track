@@ -69,7 +69,7 @@ export class ProjectService {
     return this.http.get<Record<string, ProjectItemSummary>>(`${this.api}/${projectId}/items/summary`);
   }
 
-  getItemById(projectId: string, itemId: string) {
+  getItemById(projectId: string, itemId: number) {
     return this.http.get<ProjectItem>(`${this.api}/${projectId}/items/${itemId}`);
   }
 
@@ -80,39 +80,39 @@ export class ProjectService {
     );
   }
 
-  updateItem(projectId: string, itemId: string, payload: UpdateProjectItemPayload) {
+  updateItem(projectId: string, itemId: number, payload: UpdateProjectItemPayload) {
     return this.http.put<{ message: string; item: ProjectItem }>(
       `${this.api}/${projectId}/items/${itemId}`,
       payload
     );
   }
 
-  deleteItem(projectId: string, itemId: string) {
+  deleteItem(projectId: string, itemId: number) {
     return this.http.delete<{ message: string }>(`${this.api}/${projectId}/items/${itemId}`);
   }
 
-  reorderItems(projectId: string, parentId: string | null, orderedIds: string[]) {
+  reorderItems(projectId: string, parentId: number | null, orderedIds: number[]) {
     return this.http.patch<{ message: string }>(`${this.api}/${projectId}/items/reorder`, {
       parentId,
       orderedIds,
     });
   }
 
-  moveItem(projectId: string, itemId: string, direction: 'up' | 'down' | 'indent' | 'outdent') {
+  moveItem(projectId: string, itemId: number, direction: 'up' | 'down' | 'indent' | 'outdent') {
     return this.http.patch<{ message: string; item: ProjectItem }>(
       `${this.api}/${projectId}/items/${itemId}/move`,
       { direction }
     );
   }
 
-  moveItemToParent(projectId: string, itemId: string, parentId: string | null, index?: number) {
+  moveItemToParent(projectId: string, itemId: number, parentId: number | null, index?: number) {
     return this.http.patch<{ message: string; item: ProjectItem }>(
       `${this.api}/${projectId}/items/${itemId}/move-to`,
       { parentId, index }
     );
   }
 
-  bulkMoveItemsToParent(projectId: string, itemIds: string[], parentId: string) {
+  bulkMoveItemsToParent(projectId: string, itemIds: number[], parentId: number) {
     return this.http.patch<{ message: string; movedCount: number; alreadyInGroupCount: number }>(
       `${this.api}/${projectId}/items/bulk-move-to`,
       { itemIds, parentId }
@@ -120,29 +120,29 @@ export class ProjectService {
   }
 
   // Comments
-  getComments(projectId: string, itemId: string) {
+  getComments(projectId: string, itemId: number) {
     return this.http.get<ProjectComment[]>(`${this.api}/${projectId}/items/${itemId}/comments`);
   }
 
-  addComment(projectId: string, itemId: string, payload: CreateCommentPayload) {
+  addComment(projectId: string, itemId: number, payload: CreateCommentPayload) {
     return this.http.post<{ message: string; comment: ProjectComment }>(
       `${this.api}/${projectId}/items/${itemId}/comments`,
       payload
     );
   }
 
-  deleteComment(projectId: string, itemId: string, commentId: string) {
+  deleteComment(projectId: string, itemId: number, commentId: number) {
     return this.http.delete<{ message: string }>(
       `${this.api}/${projectId}/items/${itemId}/comments/${commentId}`
     );
   }
 
   // Attachments
-  getAttachments(projectId: string, itemId: string) {
+  getAttachments(projectId: string, itemId: number) {
     return this.http.get<Attachment[]>(`${this.api}/${projectId}/items/${itemId}/attachments`);
   }
 
-  uploadAttachment(projectId: string, itemId: string, file: File): Observable<HttpEvent<any>> {
+  uploadAttachment(projectId: string, itemId: number, file: File): Observable<HttpEvent<any>> {
     const formData = new FormData();
     formData.append('file', file);
     return this.http.post(`${this.api}/${projectId}/items/${itemId}/attachments`, formData, {
@@ -151,13 +151,13 @@ export class ProjectService {
     });
   }
 
-  downloadAttachment(projectId: string, itemId: string, attachmentId: string) {
+  downloadAttachment(projectId: string, itemId: number, attachmentId: number) {
     return this.http.get(`${this.api}/${projectId}/items/${itemId}/attachments/${attachmentId}/download`, {
       responseType: 'blob',
     });
   }
 
-  deleteAttachment(projectId: string, itemId: string, attachmentId: string) {
+  deleteAttachment(projectId: string, itemId: number, attachmentId: number) {
     return this.http.delete<{ message: string }>(
       `${this.api}/${projectId}/items/${itemId}/attachments/${attachmentId}`
     );
@@ -177,13 +177,13 @@ export class ProjectService {
     });
   }
 
-  downloadProjectAttachment(projectId: string, attachmentId: string) {
+  downloadProjectAttachment(projectId: string, attachmentId: number) {
     return this.http.get(`${this.api}/${projectId}/attachments/${attachmentId}/download`, {
       responseType: 'blob',
     });
   }
 
-  deleteProjectAttachment(projectId: string, attachmentId: string) {
+  deleteProjectAttachment(projectId: string, attachmentId: number) {
     return this.http.delete<{ message: string }>(`${this.api}/${projectId}/attachments/${attachmentId}`);
   }
 
@@ -215,21 +215,21 @@ export class ProjectService {
     return this.http.get<PaginatedUsers>(`${this.api}/${projectId}/members/candidates`, { params });
   }
 
-  addMember(projectId: string, userId: string, roleId: string) {
+  addMember(projectId: string, userId: number, roleId: number) {
     return this.http.post<{ message: string; members: ProjectMember[] }>(
       `${this.api}/${projectId}/members`,
       { userId, roleId }
     );
   }
 
-  updateMemberRole(projectId: string, memberId: string, roleId: string) {
+  updateMemberRole(projectId: string, memberId: number, roleId: number) {
     return this.http.patch<{ message: string; members: ProjectMember[] }>(
       `${this.api}/${projectId}/members/${memberId}`,
       { roleId }
     );
   }
 
-  removeMember(projectId: string, memberId: string) {
+  removeMember(projectId: string, memberId: number) {
     return this.http.delete<{ message: string; members: ProjectMember[] }>(
       `${this.api}/${projectId}/members/${memberId}`
     );

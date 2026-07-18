@@ -8,10 +8,10 @@ export type ProjectItemPriority = 'low' | 'medium' | 'high';
 export const MAX_PROJECT_ITEM_DEPTH = 4; // depths 0-4 => 5 levels total
 
 export interface ProjectItem {
-  _id: string;
+  id: number;
   numericId?: number | null;
-  project: string;
-  parentId: string | null;
+  project: number;
+  parentId: number | null;
   type: ProjectItemType;
   title: string;
   description: string;
@@ -33,22 +33,22 @@ export interface CreateProjectItemPayload {
   title: string;
   description?: string;
   priority?: ProjectItemPriority;
-  assignedTo?: string | null;
-  parentId?: string | null;
+  assignedTo?: number | null;
+  parentId?: number | null;
   startDate?: string | null;
   endDate?: string | null;
-  tags?: string[];
+  tags?: number[];
 }
 
 export interface UpdateProjectItemPayload {
   title?: string;
   description?: string;
   priority?: ProjectItemPriority;
-  assignedTo?: string | null;
+  assignedTo?: number | null;
   status?: ProjectItemStatus;
   startDate?: string | null;
   endDate?: string | null;
-  tags?: string[];
+  tags?: number[];
 }
 
 // Frontend-only: recursive tree built client-side from the flat ProjectItem[] response.
@@ -61,7 +61,7 @@ export interface ProjectTreeNode extends ProjectItem {
 // fetched in one batched request rather than per card.
 export interface ProjectItemSummary {
   commentCount: number;
-  cover: { attachmentId: string; fileName: string; mimeType: string } | null;
+  cover: { attachmentId: number; fileName: string; mimeType: string } | null;
 }
 
 export interface CompletionRollup {
@@ -109,8 +109,8 @@ export function flattenLeaves(nodes: ProjectTreeNode[]): ProjectTreeNode[] {
 }
 
 export function buildProjectTree(items: ProjectItem[]): ProjectTreeNode[] {
-  const byId = new Map<string, ProjectTreeNode>();
-  items.forEach((item) => byId.set(item._id, { ...item, children: [], childCount: 0 }));
+  const byId = new Map<number, ProjectTreeNode>();
+  items.forEach((item) => byId.set(item.id, { ...item, children: [], childCount: 0 }));
 
   const roots: ProjectTreeNode[] = [];
   byId.forEach((node) => {

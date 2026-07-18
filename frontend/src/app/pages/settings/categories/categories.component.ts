@@ -20,8 +20,8 @@ export class CategoriesComponent implements OnInit {
 
   categories: Category[] = [];
   ordered: Category[] = [];
-  collapsedIds = new Set<string>();
-  private parentMap = new Map<string, string | null>();
+  collapsedIds = new Set<number>();
+  private parentMap = new Map<number, number | null>();
 
   loading = false;
   error = '';
@@ -31,15 +31,15 @@ export class CategoriesComponent implements OnInit {
   totalItems = 0;
   totalPages = 1;
 
-  selectedId: string | null = null;
+  selectedId: number | null = null;
   detail: CategoryDetail | null = null;
   detailLoading = false;
   detailError = '';
 
   formOpen = false;
   formMode: FormMode = 'create';
-  editingId: string | null = null;
-  formParentId: string | null = null;
+  editingId: number | null = null;
+  formParentId: number | null = null;
   formParentName: string | null = null;
   formInitial: CategoryFormPayload | null = null;
   formLoading = false;
@@ -111,9 +111,9 @@ export class CategoriesComponent implements OnInit {
   }
 
   private rebuildTree() {
-    this.parentMap = new Map(this.categories.map((c) => [c._id, c.parentId]));
+    this.parentMap = new Map(this.categories.map((c) => [c.id, c.parentId]));
 
-    const byParent = new Map<string, Category[]>();
+    const byParent = new Map<number | 'root', Category[]>();
     for (const c of this.categories) {
       const key = c.parentId ?? 'root';
       if (!byParent.has(key)) byParent.set(key, []);
@@ -122,10 +122,10 @@ export class CategoriesComponent implements OnInit {
     for (const list of byParent.values()) list.sort((a, b) => a.order - b.order);
 
     const result: Category[] = [];
-    const visit = (key: string) => {
+    const visit = (key: number | 'root') => {
       for (const child of byParent.get(key) ?? []) {
         result.push(child);
-        visit(child._id);
+        visit(child.id);
       }
     };
     visit('root');
@@ -136,7 +136,7 @@ export class CategoriesComponent implements OnInit {
     return this.ordered.filter((c) => !this.hasCollapsedAncestor(c.parentId));
   }
 
-  private hasCollapsedAncestor(parentId: string | null): boolean {
+  private hasCollapsedAncestor(parentId: number | null): boolean {
     let current = parentId;
     while (current) {
       if (this.collapsedIds.has(current)) return true;
@@ -145,21 +145,21 @@ export class CategoriesComponent implements OnInit {
     return false;
   }
 
-  isCollapsed(id: string): boolean {
+  isCollapsed(id: number): boolean {
     return this.collapsedIds.has(id);
   }
 
-  toggleCollapse(id: string, event: Event) {
+  toggleCollapse(id: number, event: Event) {
     event.stopPropagation();
     if (this.collapsedIds.has(id)) this.collapsedIds.delete(id);
     else this.collapsedIds.add(id);
   }
 
   selectCategory(cat: Category) {
-    this.selectedId = cat._id;
+    this.selectedId = cat.id;
     this.detailError = '';
     this.detailLoading = true;
-    this.categoryService.getCategoryById(cat._id).subscribe({
+    this.categoryService.getCategoryById(cat.id).subscribe({
       next: (res) => {
         this.detail = res;
         this.detailLoading = false;
@@ -182,7 +182,7 @@ export class CategoriesComponent implements OnInit {
   openCreate(parent: Category | null) {
     this.formMode = 'create';
     this.editingId = null;
-    this.formParentId = parent?._id ?? null;
+    this.formParentId = parent?.id ?? null;
     this.formParentName = parent?.name ?? null;
     this.formInitial = null;
     this.formError = '';
@@ -192,7 +192,7 @@ export class CategoriesComponent implements OnInit {
   openEdit(cat: Category, event: Event) {
     event.stopPropagation();
     this.formMode = 'edit';
-    this.editingId = cat._id;
+    this.editingId = cat.id;
     this.formParentId = cat.parentId;
     this.formParentName = null;
     this.formInitial = { name: cat.name, overview: cat.overview, color: cat.color };
@@ -242,10 +242,10 @@ export class CategoriesComponent implements OnInit {
   confirmDelete() {
     if (!this.confirmTarget) return;
     this.confirmLoading = true;
-    this.categoryService.deleteCategory(this.confirmTarget._id).subscribe({
+    this.categoryService.deleteCategory(this.confirmTarget.id).subscribe({
       next: () => {
         this.confirmLoading = false;
-        if (this.selectedId === this.confirmTarget!._id) {
+        if (this.selectedId === this.confirmTarget!.id) {
           this.selectedId = null;
           this.detail = null;
         }

@@ -9,7 +9,7 @@
            [class.detail-header-completed]="item.status === 'completed'">
         @if (breadcrumbPath.length > 1) {
           <nav class="item-breadcrumb mb-2">
-            @for (crumb of breadcrumbPath; track crumb._id; let last = $last) {
+            @for (crumb of breadcrumbPath; track crumb.id; let last = $last) {
               <span class="breadcrumb-item" [class.breadcrumb-item-active]="last"
                     (click)="!last && breadcrumbNavigate.emit(crumb)">
                 {{ crumb.title }}
@@ -121,7 +121,7 @@
                   <p class="text-muted small mb-2">No files uploaded yet.</p>
                 } @else {
                   <ul class="attachment-list mb-2">
-                    @for (a of attachments; track a._id) {
+                    @for (a of attachments; track a.id) {
                       <li class="attachment-item">
                         <i class="bi attachment-file-icon" [class]="fileIcon(a.mimeType)"></i>
                         <div class="attachment-info">
@@ -131,8 +131,8 @@
                         <button class="attachment-download-btn" (click)="openViewer(a)" title="Preview">
                           <i class="bi bi-eye"></i>
                         </button>
-                        <button class="attachment-download-btn" (click)="download(a)" [disabled]="downloadingId === a._id" title="Download">
-                          @if (downloadingId === a._id) {
+                        <button class="attachment-download-btn" (click)="download(a)" [disabled]="downloadingId === a.id" title="Download">
+                          @if (downloadingId === a.id) {
                             <span class="spinner-border spinner-border-sm"></span>
                           } @else {
                             <i class="bi bi-download"></i>
@@ -173,7 +173,7 @@
                 <div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</div>
               } @else if (comments.length > 0) {
                 <ul class="attachment-list mb-2">
-                  @for (c of comments; track c._id) {
+                  @for (c of comments; track c.id) {
                     <li class="attachment-item comment-item">
                       <div class="attachment-info">
                         <span class="attachment-name">{{ c.author.username }}

@@ -13,7 +13,7 @@ export class TaskService {
     return this.http.get<Task[]>(this.api);
   }
 
-  getTaskById(id: string) {
+  getTaskById(id: number) {
     return this.http.get<Task>(`${this.api}/${id}`);
   }
 
@@ -21,19 +21,19 @@ export class TaskService {
     return this.http.post<{ message: string; task: Task }>(this.api, payload);
   }
 
-  updateTask(id: string, payload: UpdateTaskPayload) {
+  updateTask(id: number, payload: UpdateTaskPayload) {
     return this.http.put<{ message: string; task: Task }>(`${this.api}/${id}`, payload);
   }
 
-  deleteTask(id: string) {
+  deleteTask(id: number) {
     return this.http.delete<{ message: string }>(`${this.api}/${id}`);
   }
 
-  reassignTask(id: string, assignedTo: string) {
+  reassignTask(id: number, assignedTo: number) {
     return this.http.patch<{ message: string; task: Task }>(`${this.api}/${id}/reassign`, { assignedTo });
   }
 
-  getSubtasks(id: string) {
+  getSubtasks(id: number) {
     return this.http.get<Task[]>(`${this.api}/${id}/subtasks`);
   }
 }

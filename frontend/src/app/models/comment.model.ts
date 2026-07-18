@@ -1,8 +1,8 @@
 import { User } from './user.model';
 
 export interface ProjectComment {
-  _id: string;
-  projectItem: string;
+  id: number;
+  projectItem: number;
   author: User;
   body: string;
   createdAt: string;

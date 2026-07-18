@@ -71,7 +71,7 @@ export class TaskEditModalComponent implements OnChanges {
     }
     this.submitted.emit({
       ...this.form.value,
-      tags: this.selectedTags.map((t) => t._id),
+      tags: this.selectedTags.map((t) => t.id),
     });
   }
 }

@@ -2,11 +2,11 @@ import { User } from './user.model';
 import { Project } from './project.model';
 
 export interface Category {
-  _id: string;
+  id: number;
   name: string;
   overview: string;
   color: string;
-  parentId: string | null;
+  parentId: number | null;
   depth: number;
   order: number;
   createdBy: User;
@@ -27,7 +27,7 @@ export interface CreateCategoryPayload {
   name: string;
   overview?: string;
   color?: string;
-  parentId?: string | null;
+  parentId?: number | null;
 }
 
 export interface UpdateCategoryPayload {

@@ -133,14 +133,10 @@ export class ProfileComponent implements OnInit {
   }
 
   get managerName(): string {
-    const m = this.profile?.managerId;
-    if (!m || typeof m !== 'object') return '';
-    return (m as User).username;
+    return this.profile?.manager?.username ?? '';
   }
 
   get teamLeadName(): string {
-    const tl = this.profile?.teamLeadId;
-    if (!tl || typeof tl !== 'object') return '';
-    return (tl as User).username;
+    return this.profile?.teamLead?.username ?? '';
   }
 }

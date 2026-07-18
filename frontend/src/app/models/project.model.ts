@@ -10,20 +10,22 @@ export type ProjectStatus = 'active' | 'archived' | 'completed';
 
 export interface ProjectPlan {
   fileName: string;
+  url: string;
   mimeType: string;
   size: number;
-  uploadedBy?: string;
+  uploadedBy?: number;
   uploadedAt?: string;
 }
 
+// No id: links are stored as a plain JSON array on the project row (not
+// individual relational rows), so there's nothing to key on but array index.
 export interface ProjectLink {
-  _id?: string;
   title: string;
   url: string;
 }
 
 export interface ProjectMember {
-  _id: string;
+  id: number;
   user: User;
   role: ProjectRoleLite;
   addedAt: string;
@@ -37,15 +39,15 @@ export interface ProjectDetailsLayoutEntry {
 }
 
 export interface Project {
-  _id: string;
+  id: number;
   numericId?: number | null;
   name: string;
   description: string;
   createdBy: User;
   updatedBy?: User | null;
   owner: User | null;
-  department: Pick<Department, '_id' | 'name' | 'color'> | null;
-  category: Pick<Category, '_id' | 'name' | 'color'> | null;
+  department: Pick<Department, 'id' | 'name' | 'color'> | null;
+  category: Pick<Category, 'id' | 'name' | 'color'> | null;
   priority: ProjectPriority;
   status: ProjectStatus;
   startDate: string | null;
@@ -64,23 +66,23 @@ export interface Project {
 export interface CreateProjectPayload {
   name: string;
   description?: string;
-  owner?: string | null;
-  department?: string | null;
-  category?: string | null;
+  owner?: number | null;
+  department?: number | null;
+  category?: number | null;
   priority?: ProjectPriority;
   effort?: ProjectEffort;
   status?: ProjectStatus;
   startDate?: string | null;
   endDate?: string | null;
-  tags?: string[];
+  tags?: number[];
 }
 
 export interface UpdateProjectPayload {
   name?: string;
   description?: string;
-  owner?: string | null;
-  department?: string | null;
-  category?: string | null;
+  owner?: number | null;
+  department?: number | null;
+  category?: number | null;
   priority?: ProjectPriority;
   status?: ProjectStatus;
   startDate?: string | null;
@@ -88,7 +90,7 @@ export interface UpdateProjectPayload {
   detailsText?: string;
   effort?: ProjectEffort;
   links?: ProjectLink[];
-  tags?: string[];
+  tags?: number[];
 }
 
 export interface PaginatedProjects {

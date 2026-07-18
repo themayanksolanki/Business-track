@@ -63,7 +63,7 @@
           <p class="text-muted small mb-0">No members yet.</p>
         } @else {
           <div class="org-member-list">
-            @for (member of members; track member._id) {
+            @for (member of members; track member.id) {
               <div class="org-member-row">
                 <span class="org-member-avatar" [class]="'role-' + roleClass(member.role)">
                   {{ member.username[0].toUpperCase() }}
@@ -111,11 +111,11 @@
               <div class="mb-3">
                 <label class="field-label">Departments (optional)</label>
                 <div class="org-dept-checks">
-                  @for (dept of departments; track dept._id) {
+                  @for (dept of departments; track dept.id) {
                     <label class="org-dept-check">
                       <input type="checkbox"
-                             [checked]="isInviteDepartmentSelected(dept._id)"
-                             (change)="toggleInviteDepartment(dept._id, $any($event.target).checked)" />
+                             [checked]="isInviteDepartmentSelected(dept.id)"
+                             (change)="toggleInviteDepartment(dept.id, $any($event.target).checked)" />
                       {{ dept.name }}
                     </label>
                   }
@@ -140,7 +140,7 @@
             <p class="text-muted small mb-0">No pending invites.</p>
           } @else {
             <div class="org-invite-list">
-              @for (invite of invites; track invite._id) {
+              @for (invite of invites; track invite.id) {
                 <div class="org-invite-row">
                   <div class="org-member-info">
                     <span class="org-member-name">{{ invite.email }}</span>

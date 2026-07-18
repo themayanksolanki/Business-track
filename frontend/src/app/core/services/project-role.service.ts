@@ -17,15 +17,15 @@ export class ProjectRoleService {
     return this.http.post<{ message: string; role: ProjectRole }>(this.api, payload);
   }
 
-  updateRole(id: string, payload: UpdateProjectRolePayload) {
+  updateRole(id: number, payload: UpdateProjectRolePayload) {
     return this.http.put<{ message: string; role: ProjectRole }>(`${this.api}/${id}`, payload);
   }
 
-  deleteRole(id: string) {
+  deleteRole(id: number) {
     return this.http.delete<{ message: string }>(`${this.api}/${id}`);
   }
 
-  reorderRoles(orderedIds: string[]) {
+  reorderRoles(orderedIds: number[]) {
     return this.http.patch<{ message: string }>(`${this.api}/reorder`, { orderedIds });
   }
 }

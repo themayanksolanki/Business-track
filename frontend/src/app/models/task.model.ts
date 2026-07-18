@@ -4,7 +4,7 @@ import { TagLite } from './tag.model';
 export type TaskStatus = 'todo' | 'pending' | 'completed';
 
 export interface Task {
-  _id: string;
+  id: number;
   numericId?: number | null;
   title: string;
   description: string;
@@ -12,7 +12,7 @@ export interface Task {
   createdBy: User;
   updatedBy?: User | null;
   assignedTo: User;
-  parentTask?: string | null;
+  parentTask?: number | null;
   tags: TagLite[];
   createdAt: string;
   updatedAt: string;
@@ -21,14 +21,14 @@ export interface Task {
 export interface CreateTaskPayload {
   title: string;
   description?: string;
-  assignedTo?: string;
-  parentTask?: string;
-  tags?: string[];
+  assignedTo?: number;
+  parentTask?: number;
+  tags?: number[];
 }
 
 export interface UpdateTaskPayload {
   title?: string;
   description?: string;
   status?: TaskStatus;
-  tags?: string[];
+  tags?: number[];
 }

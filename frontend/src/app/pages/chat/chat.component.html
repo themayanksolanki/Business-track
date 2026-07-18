@@ -35,7 +35,7 @@
             <p>No contacts found</p>
           </div>
         }
-        @for (c of filteredContacts; track c.user._id) {
+        @for (c of filteredContacts; track c.user.id) {
           <div class="contact-row"
                [class.contact-selected]="selected && contactId(selected) === contactId(c)"
                [class.has-unread]="c.unreadCount > 0"
@@ -45,7 +45,7 @@
             <div class="contact-avatar-wrap">
               @if (avatarUrl(c.user)) {
                 <img class="contact-avatar-img" [src]="avatarUrl(c.user)!" [alt]="c.user.username"
-                     (error)="onAvatarError(contactId(c))" />
+                     (error)="onAvatarError(c.user.id)" />
               } @else {
                 <span class="contact-avatar" [class]="'ca-' + roleClass(c.user.role)">
                   {{ c.user.username[0].toUpperCase() }}
@@ -111,7 +111,7 @@
             <p>No call history yet</p>
           </div>
         } @else {
-          @for (call of callHistory; track call._id) {
+          @for (call of callHistory; track call.id) {
             <div class="contact-row call-history-row" (click)="selectFromCallHistory(call)">
 
               <!-- Avatar -->
@@ -120,13 +120,13 @@
                   <img class="contact-avatar-img"
                        [src]="avatarUrl(callHistoryOther(call))!"
                        [alt]="callHistoryOther(call).username"
-                       (error)="onAvatarError((callHistoryOther(call)._id ?? callHistoryOther(call).id)!)" />
+                       (error)="onAvatarError(callHistoryOther(call).id)" />
                 } @else {
                   <span class="contact-avatar" [class]="'ca-' + roleClass(callHistoryOther(call).role)">
                     {{ callHistoryOther(call).username[0].toUpperCase() }}
                   </span>
                 }
-                @if (isOnline((callHistoryOther(call)._id ?? callHistoryOther(call).id)!)) {
+                @if (isUserOnline(callHistoryOther(call))) {
                   <span class="online-dot"></span>
                 }
               </div>
@@ -179,7 +179,7 @@
             <div class="contact-avatar-wrap">
               @if (avatarUrl(selected.user)) {
                 <img class="contact-avatar-img" [src]="avatarUrl(selected.user)!" [alt]="selected.user.username"
-                     (error)="onAvatarError(contactId(selected))" />
+                     (error)="onAvatarError(selected.user.id)" />
               } @else {
                 <span class="contact-avatar" [class]="'ca-' + roleClass(selected.user.role)">
                   {{ selected.user.username[0].toUpperCase() }}
@@ -254,7 +254,7 @@
             <span class="spinner-border text-primary"></span>
           </div>
         } @else {
-          @for (msg of messages; track msg._id; let i = $index) {
+          @for (msg of messages; track msg.id; let i = $index) {
             @if (showDateSeparator(messages, i)) {
               <div class="date-separator">
                 <span>{{ formatDate(msg.createdAt) }}</span>
@@ -279,10 +279,10 @@
                 </div>
               </div>
             } @else {
-              <div class="msg-row" [id]="'msg-' + msg._id" [class.msg-row-mine]="isMine(msg)">
+              <div class="msg-row" [id]="'msg-' + msg.id" [class.msg-row-mine]="isMine(msg)">
                 <div class="msg-bubble" [class.msg-mine]="isMine(msg)" [class.msg-theirs]="!isMine(msg)"
-                     [class.msg-search-match]="isSearchMatch(msg._id)"
-                     [class.msg-search-active]="isActiveSearchMatch(msg._id)"
+                     [class.msg-search-match]="isSearchMatch(msg.id)"
+                     [class.msg-search-active]="isActiveSearchMatch(msg.id)"
                      (contextmenu)="openMessageMenu($event, msg)">
 
                   @if (msg.isPinned) {
@@ -370,7 +370,7 @@
           <div class="profile-card-avatar-wrap">
             @if (avatarUrl(selected.user)) {
               <img class="profile-card-avatar-img" [src]="avatarUrl(selected.user)!" [alt]="selected.user.username"
-                   (error)="onAvatarError(contactId(selected))" />
+                   (error)="onAvatarError(selected.user.id)" />
             } @else {
               <span class="profile-card-avatar-init" [class]="'ca-' + roleClass(selected.user.role)">
                 {{ selected.user.username[0].toUpperCase() }}

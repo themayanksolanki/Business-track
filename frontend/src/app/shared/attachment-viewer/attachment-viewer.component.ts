@@ -49,7 +49,7 @@ export class AttachmentViewerComponent implements OnChanges, OnDestroy {
   imgTranslateX = 0;
   imgTranslateY = 0;
 
-  readonly entries = new Map<string, ViewerEntry>();
+  readonly entries = new Map<number, ViewerEntry>();
 
   private pointers = new Map<number, { x: number; y: number }>();
   private swipeStartX = 0;
@@ -98,7 +98,7 @@ export class AttachmentViewerComponent implements OnChanges, OnDestroy {
   }
 
   entryFor(a: Attachment): ViewerEntry | undefined {
-    return this.entries.get(a._id);
+    return this.entries.get(a.id);
   }
 
   isNear(index: number): boolean {
@@ -144,10 +144,10 @@ export class AttachmentViewerComponent implements OnChanges, OnDestroy {
     if (!a) return;
     if (this.kindOf(a) === 'other') return;
 
-    const existing = this.entries.get(a._id);
+    const existing = this.entries.get(a.id);
     if (existing && existing.status !== 'error') return;
 
-    this.entries.set(a._id, { status: 'loading' });
+    this.entries.set(a.id, { status: 'loading' });
     this.loadBlob(a).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
@@ -155,23 +155,23 @@ export class AttachmentViewerComponent implements OnChanges, OnDestroy {
         if (this.kindOf(a) === 'pdf') {
           entry.safeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
         }
-        this.entries.set(a._id, entry);
+        this.entries.set(a.id, entry);
       },
       error: () => {
-        this.entries.set(a._id, { status: 'error', error: 'Failed to load file' });
+        this.entries.set(a.id, { status: 'error', error: 'Failed to load file' });
       },
     });
   }
 
   retry(a: Attachment) {
-    this.entries.delete(a._id);
+    this.entries.delete(a.id);
     this.loadEntry(this.attachments.indexOf(a));
   }
 
   onMediaLoadError(a: Attachment) {
-    const entry = this.entries.get(a._id);
+    const entry = this.entries.get(a.id);
     if (entry?.url) URL.revokeObjectURL(entry.url);
-    this.entries.set(a._id, { status: 'error', error: 'This file could not be displayed.' });
+    this.entries.set(a.id, { status: 'error', error: 'This file could not be displayed.' });
   }
 
   downloadCurrent() {

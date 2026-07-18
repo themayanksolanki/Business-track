@@ -44,14 +44,14 @@
             </tr>
           </thead>
           <tbody>
-            @for (task of paginatedTasks; track task._id) {
+            @for (task of paginatedTasks; track task.id) {
               <tr class="task-row" (click)="openDetail(task)">
                 <td class="ps-4"><span class="text-muted-em">{{ task.numericId ? '#' + task.numericId : '—' }}</span></td>
                 <td>
                   <span class="fw-medium task-title">{{ task.title }}</span>
                   @if (task.tags.length > 0) {
                     <div class="task-tag-row">
-                      @for (tag of task.tags; track tag._id) {
+                      @for (tag of task.tags; track tag.id) {
                         <app-tag-pill [tag]="tag"></app-tag-pill>
                       }
                     </div>

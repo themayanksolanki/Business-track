@@ -27,7 +27,7 @@ export class ProjectRolesComponent implements OnInit {
 
   formOpen = false;
   formMode: ProjectRoleFormMode = 'create';
-  editingId: string | null = null;
+  editingId: number | null = null;
   formInitial: ProjectRoleFormPayload | null = null;
   formTitleLocked = false;
   formLoading = false;
@@ -84,7 +84,7 @@ export class ProjectRolesComponent implements OnInit {
 
   openEdit(role: ProjectRole) {
     this.formMode = 'edit';
-    this.editingId = role._id;
+    this.editingId = role.id;
     this.formInitial = { title: role.title, description: role.description };
     this.formTitleLocked = role.isDefault;
     this.formError = '';
@@ -131,7 +131,7 @@ export class ProjectRolesComponent implements OnInit {
   confirmDelete() {
     if (!this.confirmTarget) return;
     this.confirmLoading = true;
-    this.projectRoleService.deleteRole(this.confirmTarget._id).subscribe({
+    this.projectRoleService.deleteRole(this.confirmTarget.id).subscribe({
       next: () => {
         this.confirmLoading = false;
         this.closeConfirm();
@@ -148,7 +148,7 @@ export class ProjectRolesComponent implements OnInit {
   onDrop(event: CdkDragDrop<ProjectRole[]>) {
     if (event.previousIndex === event.currentIndex) return;
     moveItemInArray(this.roles, event.previousIndex, event.currentIndex);
-    const orderedIds = this.roles.map((r) => r._id);
+    const orderedIds = this.roles.map((r) => r.id);
     this.projectRoleService.reorderRoles(orderedIds).subscribe({
       error: () => this.loadRoles(),
     });

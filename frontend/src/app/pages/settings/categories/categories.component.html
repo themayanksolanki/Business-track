@@ -24,16 +24,16 @@
       </div>
     } @else {
       <div class="cat-tree">
-        @for (cat of visibleCategories; track cat._id) {
+        @for (cat of visibleCategories; track cat.id) {
           <div
             class="cat-row"
-            [class.cat-row-active]="cat._id === selectedId"
+            [class.cat-row-active]="cat.id === selectedId"
             [style.padding-left.px]="16 + cat.depth * 20"
             (click)="selectCategory(cat)"
           >
             @if (cat.childCount) {
-              <button class="cat-collapse-btn" type="button" (click)="toggleCollapse(cat._id, $event)">
-                <i class="bi" [class.bi-chevron-down]="!isCollapsed(cat._id)" [class.bi-chevron-right]="isCollapsed(cat._id)"></i>
+              <button class="cat-collapse-btn" type="button" (click)="toggleCollapse(cat.id, $event)">
+                <i class="bi" [class.bi-chevron-down]="!isCollapsed(cat.id)" [class.bi-chevron-right]="isCollapsed(cat.id)"></i>
               </button>
             } @else {
               <span class="cat-collapse-spacer"></span>
@@ -114,7 +114,7 @@
         <div class="cat-detail-section">
           <h6 class="text-muted">Sub-categories</h6>
           <div class="d-flex flex-wrap gap-2">
-            @for (child of detail.children; track child._id) {
+            @for (child of detail.children; track child.id) {
               <button type="button" class="cat-chip" [style.borderColor]="child.color" (click)="selectCategory(child)">
                 <span class="cat-color-dot" [style.background]="child.color"></span>
                 <span [style.color]="child.color">{{ child.name }}</span>
@@ -130,8 +130,8 @@
           <p class="text-muted small mb-0">No projects assigned to this category.</p>
         } @else {
           <div class="cat-project-list">
-            @for (project of detail.projects; track project._id) {
-              <a [routerLink]="['/projects', project._id]" class="cat-project-row">
+            @for (project of detail.projects; track project.id) {
+              <a [routerLink]="['/projects', project.id]" class="cat-project-row">
                 <i class="bi bi-kanban me-2"></i>{{ project.name }}
               </a>
             }

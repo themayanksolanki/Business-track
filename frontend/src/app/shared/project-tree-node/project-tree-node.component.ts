@@ -48,14 +48,14 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   @Input() isFirst = false;
   @Input() isLast = false;
   @Input() selectionMode = false;
-  @Input() selectedIds: Set<string> = new Set();
+  @Input() selectedIds: Set<number> = new Set();
   @Input() expandCommand: { expand: boolean; token: number } | null = null;
 
   @Output() refresh = new EventEmitter<void>();
   @Output() openDetail = new EventEmitter<ProjectTreeNode>();
-  @Output() toggleSelect = new EventEmitter<string>();
+  @Output() toggleSelect = new EventEmitter<number>();
   @Output() moveToGroupRequested = new EventEmitter<ProjectTreeNode>();
-  @Output() deleted = new EventEmitter<string>();
+  @Output() deleted = new EventEmitter<number>();
   @ViewChild('titleInput') titleInput!: ElementRef<HTMLTextAreaElement>;
 
   expanded = false;
@@ -79,7 +79,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   readonly statusOptions: ProjectItemStatus[] = ['todo', 'doing', 'completed'];
   readonly priorityOptions: ProjectItemPriority[] = ['low', 'medium', 'high'];
 
-  private brokenAvatarIds = new Set<string>();
+  private brokenAvatarIds = new Set<number>();
   private lastExpandToken = -1;
 
   constructor(
@@ -123,13 +123,12 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   avatarUrl(user: User): string | null {
-    const id = (user._id ?? user.id) as string;
-    if (this.brokenAvatarIds.has(id)) return null;
+    if (this.brokenAvatarIds.has(user.id)) return null;
     return this.auth.avatarUrl(user);
   }
 
   onAvatarError(user: User) {
-    this.brokenAvatarIds.add((user._id ?? user.id) as string);
+    this.brokenAvatarIds.add(user.id);
   }
 
   visibleTags(node: ProjectTreeNode) {
@@ -141,7 +140,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   get dropListId(): string {
-    return 'drop-' + this.node._id;
+    return 'drop-' + this.node.id;
   }
 
   get canAddChild(): boolean {
@@ -208,7 +207,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   setStatus(status: ProjectItemStatus) {
     if (!this.canEditStatus || this.node.status === status) return;
     this.projectService
-      .updateItem(this.projectId, this.node._id, { status })
+      .updateItem(this.projectId, this.node.id, { status })
       .subscribe({
         next: () => {
           this.node.status = status;
@@ -223,7 +222,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   setPriority(priority: ProjectItemPriority) {
     if (this.node.priority === priority) return;
     this.projectService
-      .updateItem(this.projectId, this.node._id, { priority })
+      .updateItem(this.projectId, this.node.id, { priority })
       .subscribe({
         next: () => {
           this.node.priority = priority;
@@ -250,7 +249,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   setDue(date: string | null) {
     const endDate = date ? dayjs(date, 'YYYY-MM-DD').toISOString() : null;
     this.projectService
-      .updateItem(this.projectId, this.node._id, { endDate })
+      .updateItem(this.projectId, this.node.id, { endDate })
       .subscribe({
         next: () => {
           this.node.endDate = endDate;
@@ -292,8 +291,8 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
 
   selectAssignee(user: User | null) {
     if (this.isGroup) return;
-    const assignedTo = user ? user.id ?? user._id ?? null : null;
-    this.projectService.updateItem(this.projectId, this.node._id, { assignedTo }).subscribe({
+    const assignedTo = user ? user.id ?? user.id ?? null : null;
+    this.projectService.updateItem(this.projectId, this.node.id, { assignedTo }).subscribe({
       next: (res) => {
         this.node.assignedTo = res.item.assignedTo;
         this.notifications.success(user ? `Reassigned to ${user.username}` : 'Task unassigned');
@@ -322,7 +321,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   saveDescription() {
     if (this.description === this.node.description) return;
     this.projectService
-      .updateItem(this.projectId, this.node._id, { description: this.description })
+      .updateItem(this.projectId, this.node.id, { description: this.description })
       .subscribe({
         next: () => {
           this.node.description = this.description;
@@ -381,7 +380,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
     this.addChildLoading = true;
     this.addChildError = '';
     this.projectService
-      .createItem(this.projectId, { title, parentId: this.node._id })
+      .createItem(this.projectId, { title, parentId: this.node.id })
       .subscribe({
         next: (res) => {
           this.addChildLoading = false;
@@ -398,11 +397,11 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
 
   confirmDelete() {
     this.confirmLoading = true;
-    this.projectService.deleteItem(this.projectId, this.node._id).subscribe({
+    this.projectService.deleteItem(this.projectId, this.node.id).subscribe({
       next: () => {
         this.confirmLoading = false;
         this.confirmOpen = false;
-        this.deleted.emit(this.node._id);
+        this.deleted.emit(this.node.id);
       },
       error: () => {
         this.confirmLoading = false;
@@ -412,7 +411,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private move(direction: 'up' | 'down' | 'indent' | 'outdent') {
-    this.projectService.moveItem(this.projectId, this.node._id, direction).subscribe({
+    this.projectService.moveItem(this.projectId, this.node.id, direction).subscribe({
       next: () => this.refresh.emit(),
       error: (err) => this.notifications.error(err.error?.message || 'Failed to move item'),
     });
@@ -446,9 +445,9 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
         event.previousIndex,
         event.currentIndex,
       );
-      const orderedIds = this.node.children.map((c) => c._id);
+      const orderedIds = this.node.children.map((c) => c.id);
       this.projectService
-        .reorderItems(this.projectId, this.node._id, orderedIds)
+        .reorderItems(this.projectId, this.node.id, orderedIds)
         .subscribe({
           error: () => this.refresh.emit(),
         });
@@ -463,7 +462,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
       event.currentIndex,
     );
     this.projectService
-      .moveItemToParent(this.projectId, movedItem._id, this.node._id, event.currentIndex)
+      .moveItemToParent(this.projectId, movedItem.id, this.node.id, event.currentIndex)
       .subscribe({
         next: () => this.refresh.emit(),
         error: (err) => {
@@ -486,7 +485,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
       return;
     }
     this.projectService
-      .updateItem(this.projectId, this.node._id, { title: newTitle })
+      .updateItem(this.projectId, this.node.id, { title: newTitle })
       .subscribe({
         next: () => {
           this.node.title = newTitle;

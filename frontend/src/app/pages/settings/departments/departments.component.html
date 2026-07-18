@@ -24,16 +24,16 @@
       </div>
     } @else {
       <div class="dept-tree">
-        @for (dept of visibleDepartments; track dept._id) {
+        @for (dept of visibleDepartments; track dept.id) {
           <div
             class="dept-row"
-            [class.dept-row-active]="dept._id === selectedId"
+            [class.dept-row-active]="dept.id === selectedId"
             [style.padding-left.px]="16 + dept.depth * 20"
             (click)="selectDepartment(dept)"
           >
             @if (dept.childCount) {
-              <button class="dept-collapse-btn" type="button" (click)="toggleCollapse(dept._id, $event)">
-                <i class="bi" [class.bi-chevron-down]="!isCollapsed(dept._id)" [class.bi-chevron-right]="isCollapsed(dept._id)"></i>
+              <button class="dept-collapse-btn" type="button" (click)="toggleCollapse(dept.id, $event)">
+                <i class="bi" [class.bi-chevron-down]="!isCollapsed(dept.id)" [class.bi-chevron-right]="isCollapsed(dept.id)"></i>
               </button>
             } @else {
               <span class="dept-collapse-spacer"></span>
@@ -115,7 +115,7 @@
         <div class="dept-detail-section">
           <h6 class="text-muted">Sub-departments</h6>
           <div class="d-flex flex-wrap gap-2">
-            @for (child of detail.children; track child._id) {
+            @for (child of detail.children; track child.id) {
               <button type="button" class="dept-chip" [style.borderColor]="child.color" (click)="selectDepartment(child)">
                 <span class="dept-color-dot" [style.background]="child.color"></span>
                 <span [style.color]="child.color">{{ child.name }}</span>
@@ -134,7 +134,7 @@
 
         @if (isManager) {
           <div class="dept-user-list">
-            @for (user of allUsers; track user._id) {
+            @for (user of allUsers; track user.id) {
               <label class="dept-user-row">
                 <input
                   type="checkbox"
@@ -151,7 +151,7 @@
           <p class="text-muted small mb-0">No users assigned to this department.</p>
         } @else {
           <div class="dept-user-list">
-            @for (user of detail.users; track user._id) {
+            @for (user of detail.users; track user.id) {
               <div class="dept-user-row dept-user-row-readonly">
                 <span class="dept-user-avatar">{{ user.username[0].toUpperCase() }}</span>
                 <span class="dept-user-name">{{ user.username }}</span>
@@ -168,8 +168,8 @@
           <p class="text-muted small mb-0">No projects assigned to this department.</p>
         } @else {
           <div class="dept-project-list">
-            @for (project of detail.projects; track project._id) {
-              <a [routerLink]="['/projects', project._id]" class="dept-project-row">
+            @for (project of detail.projects; track project.id) {
+              <a [routerLink]="['/projects', project.id]" class="dept-project-row">
                 <i class="bi bi-kanban me-2"></i>{{ project.name }}
               </a>
             }

@@ -23,7 +23,7 @@
     </div>
   } @else {
     <div class="roles-list" cdkDropList [cdkDropListDisabled]="!isManager" (cdkDropListDropped)="onDrop($event)">
-      @for (role of roles; track role._id) {
+      @for (role of roles; track role.id) {
         <div class="role-row" cdkDrag [cdkDragDisabled]="!isManager">
           <div class="role-row-placeholder" *cdkDragPlaceholder></div>
 

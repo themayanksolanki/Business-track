@@ -24,7 +24,7 @@ export class AttachmentPanelComponent implements OnChanges {
   attachmentsLoading = false;
   attachmentUploading = false;
   attachmentUploadError = '';
-  downloadingId = '';
+  downloadingId: number | null = null;
   progress = 0;
   viewerOpen = false;
   viewerIndex = 0;
@@ -40,7 +40,7 @@ export class AttachmentPanelComponent implements OnChanges {
   loadAttachments() {
     this.attachmentsLoading = true;
     this.projectService
-      .getAttachments(this.projectId, this.item._id)
+      .getAttachments(this.projectId, this.item.id)
       .subscribe({
         next: (list) => {
           this.attachments = list;
@@ -58,7 +58,7 @@ export class AttachmentPanelComponent implements OnChanges {
     this.attachmentUploading = true;
     this.attachmentUploadError = '';
     this.projectService
-      .uploadAttachment(this.projectId, this.item._id, file)
+      .uploadAttachment(this.projectId, this.item.id, file)
       .subscribe({
         next: (res) => {
           switch (res.type) {
@@ -84,9 +84,9 @@ export class AttachmentPanelComponent implements OnChanges {
   }
 
   download(attachment: Attachment) {
-    this.downloadingId = attachment._id;
+    this.downloadingId = attachment.id;
     this.projectService
-      .downloadAttachment(this.projectId, this.item._id, attachment._id)
+      .downloadAttachment(this.projectId, this.item.id, attachment.id)
       .subscribe({
         next: (blob) => {
           const url = window.URL.createObjectURL(blob);
@@ -95,28 +95,28 @@ export class AttachmentPanelComponent implements OnChanges {
           link.download = attachment.fileName;
           link.click();
           window.URL.revokeObjectURL(url);
-          this.downloadingId = '';
+          this.downloadingId = null;
         },
-        error: () => (this.downloadingId = ''),
+        error: () => (this.downloadingId = null),
       });
   }
 
   deleteAttachment(attachment: Attachment) {
     this.projectService
-      .deleteAttachment(this.projectId, this.item._id, attachment._id)
+      .deleteAttachment(this.projectId, this.item.id, attachment.id)
       .subscribe({
         next: () =>
           (this.attachments = this.attachments.filter(
-            (a) => a._id !== attachment._id,
+            (a) => a.id !== attachment.id,
           )),
       });
   }
 
   loadAttachmentBlob = (attachment: Attachment) =>
-    this.projectService.downloadAttachment(this.projectId, this.item._id, attachment._id);
+    this.projectService.downloadAttachment(this.projectId, this.item.id, attachment.id);
 
   openViewer(attachment: Attachment) {
-    const index = this.attachments.findIndex((a) => a._id === attachment._id);
+    const index = this.attachments.findIndex((a) => a.id === attachment.id);
     this.viewerIndex = index >= 0 ? index : 0;
     this.viewerOpen = true;
   }

@@ -11,14 +11,14 @@
   <div class="d-flex flex-wrap gap-2 mb-4">
     @for (member of members; track member.id) {
       <div class="card member-card"
-           [class.member-active]="selectedMemberId === (member._id ?? member.id)"
-           (click)="selectedMemberId = (member._id ?? member.id)">
+           [class.member-active]="selectedMemberId === member.id"
+           (click)="selectedMemberId = member.id">
         <div class="card-body py-2 px-3">
           <strong class="d-block">{{ member.username }}</strong>
           <small class="text-muted">
-            {{ todoFor(member._id ?? member.id) }} todo &middot;
-            {{ pendingFor(member._id ?? member.id) }} in progress &middot;
-            {{ completedFor(member._id ?? member.id) }} done
+            {{ todoFor(member.id) }} todo &middot;
+            {{ pendingFor(member.id) }} in progress &middot;
+            {{ completedFor(member.id) }} done
           </small>
         </div>
       </div>
@@ -44,7 +44,7 @@
           </tr>
         </thead>
         <tbody>
-          @for (task of filteredTasks; track task._id) {
+          @for (task of filteredTasks; track task.id) {
             <tr>
               <td class="align-middle">{{ task.title }}</td>
               <td class="align-middle">
@@ -57,7 +57,7 @@
               </td>
               <td class="align-middle">{{ task.assignedTo.username }}</td>
               <td class="align-middle">
-                <a [routerLink]="['/tasks', task._id, 'edit']" class="btn btn-sm btn-light">Edit</a>
+                <a [routerLink]="['/tasks', task.id, 'edit']" class="btn btn-sm btn-light">Edit</a>
               </td>
             </tr>
           }

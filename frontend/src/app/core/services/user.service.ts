@@ -29,19 +29,19 @@ export class UserService {
     return this.http.get<User[]>(`${this.api}/pending`);
   }
 
-  activateUser(id: string) {
+  activateUser(id: number) {
     return this.http.patch<{ message: string; user: User }>(`${this.api}/${id}/activate`, {});
   }
 
-  deactivateUser(id: string) {
+  deactivateUser(id: number) {
     return this.http.patch<{ message: string; user: User }>(`${this.api}/${id}/deactivate`, {});
   }
 
-  updateUserPassword(id: string, password: string) {
+  updateUserPassword(id: number, password: string) {
     return this.http.patch<{ message: string }>(`${this.api}/${id}/password`, { password });
   }
 
-  updateUserDepartments(id: string, departmentIds: string[]) {
+  updateUserDepartments(id: number, departmentIds: number[]) {
     return this.http.patch<{ message: string; user: User }>(`${this.api}/${id}/departments`, {
       departmentIds,
     });

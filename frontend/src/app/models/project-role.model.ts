@@ -1,13 +1,13 @@
 export interface ProjectRole {
-  _id: string;
+  id: number;
   numericId?: number | null;
   title: string;
   description: string;
   rank: number;
   isDefault: boolean;
-  organization?: string | null;
-  createdBy?: string;
-  updatedBy?: string | null;
+  organization?: number | null;
+  createdBy?: number;
+  updatedBy?: number | null;
   createdAt?: string;
   updatedAt?: string;
   membersUsingCount?: number;
@@ -15,7 +15,7 @@ export interface ProjectRole {
 
 // The subset of a ProjectRole populated onto a project's members — enough to
 // render a role badge, not the full management record.
-export type ProjectRoleLite = Pick<ProjectRole, '_id' | 'title' | 'description' | 'isDefault' | 'rank'>;
+export type ProjectRoleLite = Pick<ProjectRole, 'id' | 'title' | 'description' | 'isDefault' | 'rank'>;
 
 export interface CreateProjectRolePayload {
   title: string;

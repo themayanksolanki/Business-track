@@ -23,7 +23,7 @@ export class DepartmentService {
     return this.http.get<PaginatedDepartments>(this.api, { params: { page, limit } });
   }
 
-  getDepartmentById(id: string) {
+  getDepartmentById(id: number) {
     return this.http.get<DepartmentDetail>(`${this.api}/${id}`);
   }
 
@@ -31,11 +31,11 @@ export class DepartmentService {
     return this.http.post<{ message: string; department: Department }>(this.api, payload);
   }
 
-  updateDepartment(id: string, payload: UpdateDepartmentPayload) {
+  updateDepartment(id: number, payload: UpdateDepartmentPayload) {
     return this.http.put<{ message: string; department: Department }>(`${this.api}/${id}`, payload);
   }
 
-  deleteDepartment(id: string) {
+  deleteDepartment(id: number) {
     return this.http.delete<{ message: string }>(`${this.api}/${id}`);
   }
 }

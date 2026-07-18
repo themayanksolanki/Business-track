@@ -20,12 +20,12 @@
         <p class="mtg-empty text-muted">No groups available.</p>
       } @else {
         <div class="mtg-list">
-          @for (group of groups; track group._id) {
+          @for (group of groups; track group.id) {
             <button type="button" class="mtg-group-item" [disabled]="loading"
-                    (click)="groupSelected.emit(group._id)">
+                    (click)="groupSelected.emit(group.id)">
               <i class="bi bi-folder2 me-2"></i>
               <span class="mtg-group-title">{{ group.title }}</span>
-              @if (group._id === currentGroupId) {
+              @if (group.id === currentGroupId) {
                 <span class="mtg-current-badge">Current</span>
               }
             </button>

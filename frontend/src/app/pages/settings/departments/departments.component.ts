@@ -22,8 +22,8 @@ export class DepartmentsComponent implements OnInit {
 
   departments: Department[] = [];
   ordered: Department[] = [];
-  collapsedIds = new Set<string>();
-  private parentMap = new Map<string, string | null>();
+  collapsedIds = new Set<number>();
+  private parentMap = new Map<number, number | null>();
 
   loading = false;
   error = '';
@@ -33,7 +33,7 @@ export class DepartmentsComponent implements OnInit {
   totalItems = 0;
   totalPages = 1;
 
-  selectedId: string | null = null;
+  selectedId: number | null = null;
   detail: DepartmentDetail | null = null;
   detailLoading = false;
   detailError = '';
@@ -44,8 +44,8 @@ export class DepartmentsComponent implements OnInit {
 
   formOpen = false;
   formMode: FormMode = 'create';
-  editingId: string | null = null;
-  formParentId: string | null = null;
+  editingId: number | null = null;
+  formParentId: number | null = null;
   formParentName: string | null = null;
   formInitial: DepartmentFormPayload | null = null;
   formLoading = false;
@@ -118,9 +118,9 @@ export class DepartmentsComponent implements OnInit {
   }
 
   private rebuildTree() {
-    this.parentMap = new Map(this.departments.map((d) => [d._id, d.parentId]));
+    this.parentMap = new Map(this.departments.map((d) => [d.id, d.parentId]));
 
-    const byParent = new Map<string, Department[]>();
+    const byParent = new Map<number | 'root', Department[]>();
     for (const d of this.departments) {
       const key = d.parentId ?? 'root';
       if (!byParent.has(key)) byParent.set(key, []);
@@ -129,10 +129,10 @@ export class DepartmentsComponent implements OnInit {
     for (const list of byParent.values()) list.sort((a, b) => a.order - b.order);
 
     const result: Department[] = [];
-    const visit = (key: string) => {
+    const visit = (key: number | 'root') => {
       for (const child of byParent.get(key) ?? []) {
         result.push(child);
-        visit(child._id);
+        visit(child.id);
       }
     };
     visit('root');
@@ -143,7 +143,7 @@ export class DepartmentsComponent implements OnInit {
     return this.ordered.filter((d) => !this.hasCollapsedAncestor(d.parentId));
   }
 
-  private hasCollapsedAncestor(parentId: string | null): boolean {
+  private hasCollapsedAncestor(parentId: number | null): boolean {
     let current = parentId;
     while (current) {
       if (this.collapsedIds.has(current)) return true;
@@ -152,21 +152,21 @@ export class DepartmentsComponent implements OnInit {
     return false;
   }
 
-  isCollapsed(id: string): boolean {
+  isCollapsed(id: number): boolean {
     return this.collapsedIds.has(id);
   }
 
-  toggleCollapse(id: string, event: Event) {
+  toggleCollapse(id: number, event: Event) {
     event.stopPropagation();
     if (this.collapsedIds.has(id)) this.collapsedIds.delete(id);
     else this.collapsedIds.add(id);
   }
 
   selectDepartment(dept: Department) {
-    this.selectedId = dept._id;
+    this.selectedId = dept.id;
     this.detailError = '';
     this.detailLoading = true;
-    this.departmentService.getDepartmentById(dept._id).subscribe({
+    this.departmentService.getDepartmentById(dept.id).subscribe({
       next: (res) => {
         this.detail = res;
         this.detailLoading = false;
@@ -200,20 +200,19 @@ export class DepartmentsComponent implements OnInit {
 
   isUserAssigned(user: User): boolean {
     if (!this.selectedId) return false;
-    const ids = (user.departments as string[] | undefined) ?? [];
-    return ids.map(String).includes(this.selectedId);
+    const ids = (user.departments as number[] | undefined) ?? [];
+    return ids.includes(this.selectedId);
   }
 
   toggleUserAssignment(user: User, checked: boolean) {
     if (!this.selectedId) return;
-    const uid = (user._id ?? user.id) as string;
-    const current = ((user.departments as string[] | undefined) ?? []).map(String);
+    const current = (user.departments as number[] | undefined) ?? [];
     const updated = checked
       ? [...new Set([...current, this.selectedId])]
       : current.filter((id) => id !== this.selectedId);
 
     this.userToggleError = '';
-    this.userService.updateUserDepartments(uid, updated).subscribe({
+    this.userService.updateUserDepartments(user.id, updated).subscribe({
       next: () => {
         user.departments = updated;
         this.reloadDetail();
@@ -228,7 +227,7 @@ export class DepartmentsComponent implements OnInit {
   openCreate(parent: Department | null) {
     this.formMode = 'create';
     this.editingId = null;
-    this.formParentId = parent?._id ?? null;
+    this.formParentId = parent?.id ?? null;
     this.formParentName = parent?.name ?? null;
     this.formInitial = null;
     this.formError = '';
@@ -238,7 +237,7 @@ export class DepartmentsComponent implements OnInit {
   openEdit(dept: Department, event: Event) {
     event.stopPropagation();
     this.formMode = 'edit';
-    this.editingId = dept._id;
+    this.editingId = dept.id;
     this.formParentId = dept.parentId;
     this.formParentName = null;
     this.formInitial = { name: dept.name, overview: dept.overview, color: dept.color };
@@ -288,10 +287,10 @@ export class DepartmentsComponent implements OnInit {
   confirmDelete() {
     if (!this.confirmTarget) return;
     this.confirmLoading = true;
-    this.departmentService.deleteDepartment(this.confirmTarget._id).subscribe({
+    this.departmentService.deleteDepartment(this.confirmTarget.id).subscribe({
       next: () => {
         this.confirmLoading = false;
-        if (this.selectedId === this.confirmTarget!._id) {
+        if (this.selectedId === this.confirmTarget!.id) {
           this.selectedId = null;
           this.detail = null;
         }

@@ -110,7 +110,7 @@ export class TaskListComponent implements OnInit {
   confirmTitle = '';
   confirmMessage = '';
   confirmLoading = false;
-  private pendingDelete: { id: string; parentId?: string } | null = null;
+  private pendingDelete: { id: number; parentId?: number } | null = null;
 
   selectedTask: Task | null = null;
   subtasks: Task[] = [];
@@ -128,14 +128,14 @@ export class TaskListComponent implements OnInit {
 
   allTags: Tag[] = [];
 
-  attachmentTaskId = '';
+  attachmentTaskId: number | null = null;
   attachmentTask: Task | null = null;
   attachments: Attachment[] = [];
   attachmentsLoading = false;
   attachmentsError = '';
   attachmentUploading = false;
   attachmentUploadError = '';
-  downloadingId = '';
+  downloadingId: number | null = null;
   viewerOpen = false;
   viewerIndex = 0;
 
@@ -176,16 +176,16 @@ export class TaskListComponent implements OnInit {
   }
 
   delete(task: Task) {
-    this.pendingDelete = { id: task._id };
+    this.pendingDelete = { id: task.id };
     this.confirmTitle = 'Delete Task';
     this.confirmMessage = `"${task.title}" and all its subtasks will be permanently deleted.`;
     this.confirmOpen = true;
   }
 
-  deleteSubtask(subId: string) {
+  deleteSubtask(subId: number) {
     if (!this.selectedTask) return;
-    const parentId = this.selectedTask._id;
-    const sub = this.subtasks.find((s) => s._id === subId);
+    const parentId = this.selectedTask.id;
+    const sub = this.subtasks.find((s) => s.id === subId);
     this.pendingDelete = { id: subId, parentId };
     this.confirmTitle = 'Delete Subtask';
     this.confirmMessage = sub ? `"${sub.title}" will be permanently deleted.` : 'This subtask will be permanently deleted.';
@@ -205,7 +205,7 @@ export class TaskListComponent implements OnInit {
           this.loadSubtasks(parentId);
         } else {
           this.selectedTask = null;
-          this.tasks = this.tasks.filter((t) => t._id !== id);
+          this.tasks = this.tasks.filter((t) => t.id !== id);
           this.recomputeSortedTasks();
           if (this.currentPage > this.totalPages) this.currentPage = Math.max(1, this.totalPages);
         }
@@ -249,13 +249,13 @@ export class TaskListComponent implements OnInit {
 
   submitEdit(payload: UpdateTaskPayload) {
     if (!this.editTask) return;
-    const taskId = this.editTask._id;
+    const taskId = this.editTask.id;
     this.editLoading = true;
     this.editError = '';
     this.taskService.updateTask(taskId, payload).subscribe({
       next: (res) => {
         this.editLoading = false;
-        const existing = this.tasks.find((t) => t._id === taskId);
+        const existing = this.tasks.find((t) => t.id === taskId);
         if (existing) Object.assign(existing, res.task);
         this.recomputeSortedTasks();
         this.closeEdit();
@@ -269,11 +269,10 @@ export class TaskListComponent implements OnInit {
   }
 
   reassign(task: Task, user: User) {
-    const userId = (user._id ?? user.id) as string;
-    if ((task.assignedTo._id ?? task.assignedTo.id) === userId) return;
-    this.taskService.reassignTask(task._id, userId).subscribe({
+    if (task.assignedTo.id === user.id) return;
+    this.taskService.reassignTask(task.id, user.id).subscribe({
       next: (res) => {
-        const existing = this.tasks.find((t) => t._id === task._id);
+        const existing = this.tasks.find((t) => t.id === task.id);
         if (existing) Object.assign(existing, res.task);
         this.notifications.success('Task reassigned');
       },
@@ -287,7 +286,7 @@ export class TaskListComponent implements OnInit {
     this.selectedTask = task;
     this.subtasks = [];
     this.subtaskError = '';
-    this.loadSubtasks(task._id);
+    this.loadSubtasks(task.id);
   }
 
   closeDetail() {
@@ -296,7 +295,7 @@ export class TaskListComponent implements OnInit {
     this.subtaskError = '';
   }
 
-  loadSubtasks(taskId: string) {
+  loadSubtasks(taskId: number) {
     this.taskService.getSubtasks(taskId).subscribe({
       next: (subs) => (this.subtasks = subs),
     });
@@ -307,11 +306,11 @@ export class TaskListComponent implements OnInit {
     if (!parent) return;
     this.subtaskLoading = true;
     this.subtaskError = '';
-    const assignedToId = (parent.assignedTo as User)._id ?? (parent.assignedTo as User).id;
-    this.taskService.createTask({ title, parentTask: parent._id, assignedTo: assignedToId }).subscribe({
+    const assignedToId = (parent.assignedTo as User).id;
+    this.taskService.createTask({ title, parentTask: parent.id, assignedTo: assignedToId }).subscribe({
       next: () => {
         this.subtaskLoading = false;
-        this.loadSubtasks(parent._id);
+        this.loadSubtasks(parent.id);
       },
       error: (err) => {
         this.subtaskError = err.error?.message || 'Failed to add subtask';
@@ -322,10 +321,10 @@ export class TaskListComponent implements OnInit {
 
   setStatus(task: Task, status: TaskStatus) {
     if (task.status === status) return;
-    this.taskService.updateTask(task._id, { status }).subscribe({
+    this.taskService.updateTask(task.id, { status }).subscribe({
       next: () => {
         task.status = status;
-        if (this.selectedTask?._id === task._id) {
+        if (this.selectedTask?.id === task.id) {
           this.selectedTask = { ...task, status };
         }
         this.recomputeSortedTasks();
@@ -342,8 +341,8 @@ export class TaskListComponent implements OnInit {
   canDelete(task: Task): boolean {
     const user = this.auth.getUser();
     if (!user) return false;
-    const creatorId = task.createdBy?._id ?? (task.createdBy as any)?.id;
-    const isCreator = creatorId === user.id || creatorId === user._id;
+    const creatorId = task.createdBy?.id;
+    const isCreator = creatorId === user.id;
     const callerRank = this.roleRank[user.role] ?? 0;
     const creatorRank = this.roleRank[task.createdBy?.role] ?? 0;
     return isCreator || callerRank > creatorRank;
@@ -358,16 +357,15 @@ export class TaskListComponent implements OnInit {
     return role.toLowerCase().replace(' ', '-');
   }
 
-  private brokenAvatarIds = new Set<string>();
+  private brokenAvatarIds = new Set<number>();
 
   avatarUrl(user: User): string | null {
-    const id = (user._id ?? user.id) as string;
-    if (this.brokenAvatarIds.has(id)) return null;
+    if (this.brokenAvatarIds.has(user.id)) return null;
     return this.auth.avatarUrl(user);
   }
 
   onAvatarError(user: User) {
-    this.brokenAvatarIds.add((user._id ?? user.id) as string);
+    this.brokenAvatarIds.add(user.id);
   }
 
   openCreate() {
@@ -399,21 +397,21 @@ export class TaskListComponent implements OnInit {
   }
 
   openAttachments(task: Task) {
-    this.attachmentTaskId = task._id;
+    this.attachmentTaskId = task.id;
     this.attachmentTask = task;
     this.attachments = [];
     this.attachmentsError = '';
     this.attachmentUploadError = '';
-    this.loadAttachments(task._id);
+    this.loadAttachments(task.id);
   }
 
   closeAttachments() {
-    this.attachmentTaskId = '';
+    this.attachmentTaskId = null;
     this.attachmentTask = null;
     this.attachments = [];
   }
 
-  loadAttachments(taskId: string) {
+  loadAttachments(taskId: number) {
     this.attachmentsLoading = true;
     this.attachmentsError = '';
     this.attachmentService.getAttachments(taskId).subscribe({
@@ -447,8 +445,8 @@ export class TaskListComponent implements OnInit {
 
   download(attachment: Attachment) {
     if (!this.attachmentTaskId) return;
-    this.downloadingId = attachment._id;
-    this.attachmentService.downloadAttachment(this.attachmentTaskId, attachment._id).subscribe({
+    this.downloadingId = attachment.id;
+    this.attachmentService.downloadAttachment(this.attachmentTaskId, attachment.id).subscribe({
       next: (blob) => {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -456,19 +454,19 @@ export class TaskListComponent implements OnInit {
         link.download = attachment.fileName;
         link.click();
         window.URL.revokeObjectURL(url);
-        this.downloadingId = '';
+        this.downloadingId = null;
       },
       error: () => {
-        this.downloadingId = '';
+        this.downloadingId = null;
       },
     });
   }
 
   loadAttachmentBlob = (attachment: Attachment) =>
-    this.attachmentService.downloadAttachment(this.attachmentTaskId, attachment._id);
+    this.attachmentService.downloadAttachment(this.attachmentTaskId!, attachment.id);
 
   openViewer(attachment: Attachment) {
-    const index = this.attachments.findIndex((a) => a._id === attachment._id);
+    const index = this.attachments.findIndex((a) => a.id === attachment.id);
     this.viewerIndex = index >= 0 ? index : 0;
     this.viewerOpen = true;
   }

@@ -31,8 +31,8 @@
               <label class="field-label">Department</label>
               <select class="form-select field-input" formControlName="department">
                 <option value="">No department</option>
-                @for (dept of departments; track dept._id) {
-                  <option [value]="dept._id">{{ dept.name }}</option>
+                @for (dept of departments; track dept.id) {
+                  <option [value]="dept.id">{{ dept.name }}</option>
                 }
               </select>
             </div>
@@ -43,8 +43,8 @@
               <label class="field-label">Category</label>
               <select class="form-select field-input" formControlName="category">
                 <option value="">No category</option>
-                @for (cat of categories; track cat._id) {
-                  <option [value]="cat._id">{{ cat.name }}</option>
+                @for (cat of categories; track cat.id) {
+                  <option [value]="cat.id">{{ cat.name }}</option>
                 }
               </select>
             </div>

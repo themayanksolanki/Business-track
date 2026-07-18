@@ -26,8 +26,8 @@
             <label class="field-label">Role <span class="text-danger">*</span></label>
             <select class="form-select field-input" [(ngModel)]="selectedRoleId" name="roleId">
               <option value="" disabled>Select a role…</option>
-              @for (role of roles; track role._id) {
-                <option [value]="role._id">{{ role.title }}</option>
+              @for (role of roles; track role.id) {
+                <option [value]="role.id">{{ role.title }}</option>
               }
             </select>
           </div>

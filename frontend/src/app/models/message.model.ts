@@ -4,7 +4,7 @@ export type MessageType = 'text' | 'image' | 'call';
 export type CallStatus  = 'completed' | 'missed' | 'rejected';
 
 export interface Message {
-  _id: string;
+  id: number;
   sender: User;
   receiver: User;
   content: string;
@@ -21,10 +21,10 @@ export interface Message {
   editedAt?:  string | null;
   isDeleted?: boolean;
   replyTo?: {
-    _id: string;
+    id: number;
     content: string;
     type: MessageType;
-    sender: { _id?: string; username: string };
+    sender: { id?: number; username: string };
   } | null;
 }
 

@@ -28,7 +28,7 @@ export class TaskFormModalComponent implements OnChanges {
 
   form: FormGroup;
   selectedTags: TagLite[] = [];
-  private brokenAvatarIds = new Set<string>();
+  private brokenAvatarIds = new Set<number>();
 
   constructor(private fb: FormBuilder, public auth: AuthService) {
     this.form = this.fb.group({
@@ -56,7 +56,7 @@ export class TaskFormModalComponent implements OnChanges {
   get assignee(): User | null {
     const id = this.form.get('assignedTo')?.value;
     if (!id) return null;
-    return this.assignees.find((u) => (u.id ?? u._id) === id) ?? null;
+    return this.assignees.find((u) => (u.id ?? u.id) === id) ?? null;
   }
 
   get assigneeLabel(): string {
@@ -65,7 +65,7 @@ export class TaskFormModalComponent implements OnChanges {
   }
 
   selectAssignee(user: User | null) {
-    this.form.get('assignedTo')?.setValue(user ? (user.id ?? user._id ?? '') : '');
+    this.form.get('assignedTo')?.setValue(user ? user.id : '');
   }
 
   roleClass(role: string): string {
@@ -73,13 +73,12 @@ export class TaskFormModalComponent implements OnChanges {
   }
 
   avatarUrl(user: User): string | null {
-    const id = (user.id ?? user._id) as string;
-    if (this.brokenAvatarIds.has(id)) return null;
+    if (this.brokenAvatarIds.has(user.id)) return null;
     return this.auth.avatarUrl(user);
   }
 
   onAvatarError(user: User) {
-    this.brokenAvatarIds.add((user.id ?? user._id) as string);
+    this.brokenAvatarIds.add(user.id);
   }
 
   submit() {
@@ -87,7 +86,7 @@ export class TaskFormModalComponent implements OnChanges {
       this.form.markAllAsTouched();
       return;
     }
-    const payload: CreateTaskPayload = { ...this.form.value, tags: this.selectedTags.map((t) => t._id) };
+    const payload: CreateTaskPayload = { ...this.form.value, tags: this.selectedTags.map((t) => t.id) };
     if (!payload.assignedTo) delete payload.assignedTo;
     this.submitted.emit(payload);
   }

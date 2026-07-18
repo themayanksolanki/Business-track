@@ -18,7 +18,7 @@ export class TaskAttachmentsModalComponent implements OnChanges {
   @Input() error = '';
   @Input() uploading = false;
   @Input() uploadError = '';
-  @Input() downloadingId = '';
+  @Input() downloadingId: number | null = null;
 
   @Output() closed = new EventEmitter<void>();
   @Output() fileSelected = new EventEmitter<File>();

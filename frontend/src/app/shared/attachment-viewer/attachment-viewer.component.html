@@ -23,7 +23,7 @@
          (wheel)="onWheel($event)"
          (dblclick)="onDoubleClick()">
       <div class="av-track" [class.av-no-transition]="gestureMode === 'swipe'" [style.transform]="trackTransform">
-        @for (a of attachments; track a._id; let i = $index) {
+        @for (a of attachments; track a.id; let i = $index) {
           <div class="av-slide">
             @if (isNear(i)) {
               @switch (kindOf(a)) {

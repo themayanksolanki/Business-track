@@ -22,7 +22,7 @@
       <p class="text-muted small mb-2">No files uploaded yet.</p>
     } @else {
       <ul class="attachment-list mb-2">
-        @for (a of attachments; track a._id) {
+        @for (a of attachments; track a.id) {
           <li class="attachment-item">
             <i class="bi attachment-file-icon" [class]="fileIcon(a.mimeType)"></i>
             <div class="attachment-info">
@@ -32,8 +32,8 @@
             <button class="attachment-download-btn" (click)="openViewer(a)" title="Preview">
               <i class="bi bi-eye"></i>
             </button>
-            <button class="attachment-download-btn" (click)="download(a)" [disabled]="downloadingId === a._id" title="Download">
-              @if (downloadingId === a._id) {
+            <button class="attachment-download-btn" (click)="download(a)" [disabled]="downloadingId === a.id" title="Download">
+              @if (downloadingId === a.id) {
                 <span class="spinner-border spinner-border-sm"></span>
               } @else {
                 <i class="bi bi-download"></i>

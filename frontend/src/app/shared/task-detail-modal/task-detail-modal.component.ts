@@ -25,7 +25,7 @@ export class TaskDetailModalComponent implements OnChanges {
   @Output() editRequested = new EventEmitter<void>();
   @Output() deleteRequested = new EventEmitter<void>();
   @Output() subtaskAdd = new EventEmitter<string>();
-  @Output() subtaskDelete = new EventEmitter<string>();
+  @Output() subtaskDelete = new EventEmitter<number>();
 
   subtaskTitle = '';
   private wasSubtaskLoading = false;

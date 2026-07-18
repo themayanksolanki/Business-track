@@ -83,7 +83,7 @@ export class ProjectFormComponent implements OnChanges {
       effort: this.form.value.effort || undefined,
       startDate: this.combineDateTime(this.startDate, this.startTime),
       endDate: this.combineDateTime(this.endDate, this.endTime),
-      tags: this.selectedTags.map((t) => t._id),
+      tags: this.selectedTags.map((t) => t.id),
     };
     this.submitted.emit(payload);
   }

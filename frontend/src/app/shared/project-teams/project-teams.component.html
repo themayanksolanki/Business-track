@@ -15,7 +15,7 @@
     </div>
   } @else {
     <div class="teams-list">
-      @for (member of members; track member._id) {
+      @for (member of members; track member.id) {
         <div class="team-row">
           @if (auth.avatarUrl(member.user)) {
             <img class="member-avatar-img" [src]="auth.avatarUrl(member.user)!" [alt]="member.user.username" />
@@ -34,12 +34,12 @@
             @if (canManage) {
               <select
                 class="form-select form-select-sm role-select"
-                [ngModel]="member.role._id"
+                [ngModel]="member.role.id"
                 (ngModelChange)="changeRole(member, $event)"
-                [disabled]="roleSavingId === member._id"
+                [disabled]="roleSavingId === member.id"
               >
-                @for (role of roles; track role._id) {
-                  <option [value]="role._id">{{ role.title }}</option>
+                @for (role of roles; track role.id) {
+                  <option [ngValue]="role.id">{{ role.title }}</option>
                 }
               </select>
             } @else {

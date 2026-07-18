@@ -63,26 +63,25 @@ export class KanbanBoardComponent implements OnChanges, OnDestroy {
 
   readonly connectedIds: string[] = [];
 
-  coverUrls = new Map<string, string>();
-  private loadingCovers = new Set<string>();
+  coverUrls = new Map<number, string>();
+  private loadingCovers = new Set<number>();
 
   addingColumnId: string | null = null;
   newItemTitle = '';
   addLoading = false;
   addError = '';
 
-  private brokenAvatarIds = new Set<string>();
+  private brokenAvatarIds = new Set<number>();
 
   constructor(private projectService: ProjectService, public auth: AuthService) {}
 
   avatarUrl(user: User): string | null {
-    const id = (user._id ?? user.id) as string;
-    if (this.brokenAvatarIds.has(id)) return null;
+    if (this.brokenAvatarIds.has(user.id)) return null;
     return this.auth.avatarUrl(user);
   }
 
   onAvatarError(user: User) {
-    this.brokenAvatarIds.add((user._id ?? user.id) as string);
+    this.brokenAvatarIds.add(user.id);
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -101,9 +100,9 @@ export class KanbanBoardComponent implements OnChanges, OnDestroy {
     this.rebuildColumns();
   }
 
-  private userId(user: User | null | undefined): string | null {
+  private userId(user: User | null | undefined): number | null {
     if (!user) return null;
-    return user._id ?? user.id ?? null;
+    return user.id;
   }
 
   private rebuildColumns() {
@@ -156,22 +155,22 @@ export class KanbanBoardComponent implements OnChanges, OnDestroy {
 
   private syncCovers(leaves: ProjectTreeNode[]) {
     for (const node of leaves) {
-      const cover = this.itemSummary[node._id]?.cover;
-      if (!cover || this.coverUrls.has(node._id) || this.loadingCovers.has(node._id)) continue;
+      const cover = this.itemSummary[node.id]?.cover;
+      if (!cover || this.coverUrls.has(node.id) || this.loadingCovers.has(node.id)) continue;
 
-      this.loadingCovers.add(node._id);
-      this.projectService.downloadAttachment(this.projectId, node._id, cover.attachmentId).subscribe({
+      this.loadingCovers.add(node.id);
+      this.projectService.downloadAttachment(this.projectId, node.id, cover.attachmentId).subscribe({
         next: (blob) => {
-          this.coverUrls.set(node._id, URL.createObjectURL(blob));
-          this.loadingCovers.delete(node._id);
+          this.coverUrls.set(node.id, URL.createObjectURL(blob));
+          this.loadingCovers.delete(node.id);
         },
-        error: () => this.loadingCovers.delete(node._id),
+        error: () => this.loadingCovers.delete(node.id),
       });
     }
   }
 
   commentCount(node: ProjectTreeNode): number {
-    return this.itemSummary[node._id]?.commentCount ?? 0;
+    return this.itemSummary[node.id]?.commentCount ?? 0;
   }
 
   dateRangeLabel(node: ProjectTreeNode): string {
@@ -218,7 +217,7 @@ export class KanbanBoardComponent implements OnChanges, OnDestroy {
     if (this.userId(node.assignedTo) === assignedTo) return;
     node.assignedTo = user ?? null;
     if (this.groupMode === 'assignee') this.rebuildColumns();
-    this.projectService.updateItem(this.projectId, node._id, { assignedTo }).subscribe({
+    this.projectService.updateItem(this.projectId, node.id, { assignedTo }).subscribe({
       next: () => this.refresh.emit(),
       error: () => this.refresh.emit(),
     });
@@ -237,7 +236,7 @@ export class KanbanBoardComponent implements OnChanges, OnDestroy {
   }
 
   private applyColumnValue(node: ProjectTreeNode, column: KanbanColumn) {
-    let payload: { status?: ProjectItemStatus; priority?: ProjectItemPriority; assignedTo?: string | null };
+    let payload: { status?: ProjectItemStatus; priority?: ProjectItemPriority; assignedTo?: number | null };
 
     if (this.groupMode === 'status') {
       const value = column.id.replace('kb-status-', '') as ProjectItemStatus;
@@ -251,13 +250,13 @@ export class KanbanBoardComponent implements OnChanges, OnDestroy {
       node.priority = value;
     } else {
       const raw = column.id.replace('kb-assignee-', '');
-      const assignedTo = raw === 'unassigned' ? null : raw;
+      const assignedTo = raw === 'unassigned' ? null : Number(raw);
       if (this.userId(node.assignedTo) === assignedTo) return;
       payload = { assignedTo };
       node.assignedTo = assignedTo ? this.users.find((u) => this.userId(u) === assignedTo) ?? null : null;
     }
 
-    this.projectService.updateItem(this.projectId, node._id, payload).subscribe({
+    this.projectService.updateItem(this.projectId, node.id, payload).subscribe({
       next: () => this.refresh.emit(),
       error: () => this.refresh.emit(),
     });
@@ -298,12 +297,12 @@ export class KanbanBoardComponent implements OnChanges, OnDestroy {
     const title = this.newItemTitle.trim();
     if (!title || !this.hasGroups) return;
 
-    const payload: CreateProjectItemPayload = { title, parentId: this.tree[0]._id };
+    const payload: CreateProjectItemPayload = { title, parentId: this.tree[0].id };
     if (this.groupMode === 'priority') {
       payload.priority = column.id.replace('kb-priority-', '') as ProjectItemPriority;
     } else if (this.groupMode === 'assignee') {
       const raw = column.id.replace('kb-assignee-', '');
-      payload.assignedTo = raw === 'unassigned' ? null : raw;
+      payload.assignedTo = raw === 'unassigned' ? null : Number(raw);
     }
 
     this.addLoading = true;
@@ -316,7 +315,7 @@ export class KanbanBoardComponent implements OnChanges, OnDestroy {
         if (this.groupMode === 'status') {
           const status = column.id.replace('kb-status-', '') as ProjectItemStatus;
           if (status !== 'todo') {
-            this.projectService.updateItem(this.projectId, res.item._id, { status }).subscribe({
+            this.projectService.updateItem(this.projectId, res.item.id, { status }).subscribe({
               next: () => this.refresh.emit(),
               error: () => this.refresh.emit(),
             });

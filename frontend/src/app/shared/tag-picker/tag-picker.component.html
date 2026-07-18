@@ -1,6 +1,6 @@
 <div class="tag-picker">
   <div class="tag-picker-trigger-row">
-    @for (t of selectedTags; track t._id) {
+    @for (t of selectedTags; track t.id) {
       <span class="tag-picker-pill">
         <app-tag-pill [tag]="t"></app-tag-pill>
         <button type="button" class="tag-picker-remove" (click)="removeTag(t)" title="Remove tag">
@@ -27,7 +27,7 @@
       />
 
       <div class="tag-picker-list">
-        @for (tag of filteredTags; track tag._id; let i = $index) {
+        @for (tag of filteredTags; track tag.id; let i = $index) {
           <button
             type="button"
             class="tag-picker-item"

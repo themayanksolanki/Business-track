@@ -21,7 +21,7 @@ export class UserListComponent implements OnInit {
   invitedUsers: Invite[] = [];
   error = '';
   successMessage = '';
-  activating: Set<string> = new Set();
+  activating: Set<number> = new Set();
   isTeamLead = false;
 
   readonly pageSize = 12;
@@ -115,7 +115,7 @@ export class UserListComponent implements OnInit {
   }
 
   activate(user: User) {
-    const id = (user._id ?? user.id) as string;
+    const id = user.id;
     this.activating.add(id);
     this.error = '';
     this.successMessage = '';
@@ -123,7 +123,7 @@ export class UserListComponent implements OnInit {
     this.userService.activateUser(id).subscribe({
       next: (res) => {
         this.successMessage = res.message;
-        this.pendingUsers = this.pendingUsers.filter((u) => (u._id ?? u.id) !== id);
+        this.pendingUsers = this.pendingUsers.filter((u) => u.id !== id);
         this.activating.delete(id);
         if (this.isTeamLead) {
           this.activeUsers = [...this.activeUsers, { ...user, isActive: true }];
@@ -139,15 +139,13 @@ export class UserListComponent implements OnInit {
   }
 
   isActivating(user: User): boolean {
-    return this.activating.has((user._id ?? user.id) as string);
+    return this.activating.has(user.id);
   }
 
   canEditPassword(user: User): boolean {
     const me = this.auth.getUser();
     if (!me) return false;
-    const uid = user._id ?? user.id;
-    const myId = me._id ?? me.id;
-    if (uid === myId) return false;
+    if (user.id === me.id) return false;
     if (me.role === 'Admin') return true;
     if (me.role === 'Manager') return user.role === 'Team Lead' || user.role === 'User';
     if (me.role === 'Team Lead') return user.role === 'User';
@@ -172,7 +170,7 @@ export class UserListComponent implements OnInit {
       this.editPassError = 'Password must be at least 6 characters.';
       return;
     }
-    const id = (this.editPassUser._id ?? this.editPassUser.id) as string;
+    const id = this.editPassUser.id;
     this.editPassLoading = true;
     this.editPassError = '';
     this.userService.updateUserPassword(id, this.editPassword).subscribe({
@@ -217,12 +215,12 @@ export class UserListComponent implements OnInit {
     this.activateError = '';
 
     this.orgService
-      .activateInvite(invite._id, { username: this.activateUsername.trim(), password: this.activatePassword })
+      .activateInvite(invite.id, { username: this.activateUsername.trim(), password: this.activatePassword })
       .subscribe({
         next: (res) => {
           this.activateSuccess = res.message;
           this.activateLoading = false;
-          this.invitedUsers = this.invitedUsers.filter((i) => i._id !== invite._id);
+          this.invitedUsers = this.invitedUsers.filter((i) => i.id !== invite.id);
           if (this.isTeamLead) {
             this.activeUsers = [...this.activeUsers, res.user];
           } else {

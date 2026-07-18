@@ -31,8 +31,8 @@ export class TagPickerComponent {
 
   get filteredTags(): Tag[] {
     const q = this.query.trim().toLowerCase();
-    const selectedIds = new Set(this.selectedTags.map((t) => t._id));
-    return this.allTags.filter((t) => !selectedIds.has(t._id) && (!q || t.name.toLowerCase().includes(q)));
+    const selectedIds = new Set(this.selectedTags.map((t) => t.id));
+    return this.allTags.filter((t) => !selectedIds.has(t.id) && (!q || t.name.toLowerCase().includes(q)));
   }
 
   get canShowCreateRow(): boolean {
@@ -65,7 +65,7 @@ export class TagPickerComponent {
   }
 
   selectTag(tag: Tag) {
-    if (this.selectedTags.some((t) => t._id === tag._id)) return;
+    if (this.selectedTags.some((t) => t.id === tag.id)) return;
     this.tagsChange.emit([...this.selectedTags, tag]);
     this.query = '';
     this.highlightedIndex = 0;
@@ -73,7 +73,7 @@ export class TagPickerComponent {
   }
 
   removeTag(tag: TagLite) {
-    this.tagsChange.emit(this.selectedTags.filter((t) => t._id !== tag._id));
+    this.tagsChange.emit(this.selectedTags.filter((t) => t.id !== tag.id));
   }
 
   createTag() {

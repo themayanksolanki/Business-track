@@ -22,9 +22,9 @@ export class TeamLeadTaskViewComponent implements OnInit {
   tasks: Task[] = [];
   members: User[] = [];
   error = '';
-  selectedMemberId = '';
+  selectedMemberId: number | '' = '';
 
-  private memberTaskCounts = new Map<string, MemberTaskCounts>();
+  private memberTaskCounts = new Map<number, MemberTaskCounts>();
 
   constructor(private taskService: TaskService, private userService: UserService) {}
 
@@ -39,9 +39,9 @@ export class TeamLeadTaskViewComponent implements OnInit {
   }
 
   private rebuildMemberTaskCounts() {
-    const counts = new Map<string, MemberTaskCounts>();
+    const counts = new Map<number, MemberTaskCounts>();
     for (const t of this.tasks) {
-      const id = t.assignedTo?._id ?? (t.assignedTo as any)?.id;
+      const id = t.assignedTo?.id;
       if (!id) continue;
       const entry = counts.get(id) ?? { todo: 0, pending: 0, completed: 0 };
       if (t.status === 'todo') entry.todo++;
@@ -54,21 +54,18 @@ export class TeamLeadTaskViewComponent implements OnInit {
 
   get filteredTasks(): Task[] {
     if (!this.selectedMemberId) return this.tasks;
-    return this.tasks.filter((t) => {
-      const id = t.assignedTo?._id ?? (t.assignedTo as any)?.id;
-      return id === this.selectedMemberId;
-    });
+    return this.tasks.filter((t) => t.assignedTo?.id === this.selectedMemberId);
   }
 
-  todoFor(memberId: string): number {
+  todoFor(memberId: number): number {
     return this.memberTaskCounts.get(memberId)?.todo ?? 0;
   }
 
-  pendingFor(memberId: string): number {
+  pendingFor(memberId: number): number {
     return this.memberTaskCounts.get(memberId)?.pending ?? 0;
   }
 
-  completedFor(memberId: string): number {
+  completedFor(memberId: number): number {
     return this.memberTaskCounts.get(memberId)?.completed ?? 0;
   }
 }

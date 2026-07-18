@@ -144,16 +144,15 @@ export class ProjectsComponent implements OnInit, OnDestroy {
     return role.toLowerCase().replace(' ', '-');
   }
 
-  private brokenAvatarIds = new Set<string>();
+  private brokenAvatarIds = new Set<number>();
 
   avatarUrl(user: User): string | null {
-    const id = (user._id ?? user.id) as string;
-    if (this.brokenAvatarIds.has(id)) return null;
+    if (this.brokenAvatarIds.has(user.id)) return null;
     return this.auth.avatarUrl(user);
   }
 
   onAvatarError(user: User) {
-    this.brokenAvatarIds.add((user._id ?? user.id) as string);
+    this.brokenAvatarIds.add(user.id);
   }
 
   /** Reloads whichever view is currently active, from page 1. Called on init,
@@ -232,7 +231,7 @@ export class ProjectsComponent implements OnInit, OnDestroy {
   }
 
   open(project: Project) {
-    this.router.navigate(['/projects', project._id]);
+    this.router.navigate(['/projects', project.id]);
   }
 
   formatRange(startDate: string | null, endDate: string | null): string {

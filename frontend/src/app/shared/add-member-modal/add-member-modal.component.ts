@@ -7,8 +7,8 @@ import { ProjectRole } from '../../models/project-role.model';
 import { User } from '../../models/user.model';
 
 export interface AddMemberPayload {
-  userId: string;
-  roleId: string;
+  userId: number;
+  roleId: number;
 }
 
 @Component({
@@ -64,6 +64,6 @@ export class AddMemberModalComponent implements OnChanges {
       return;
     }
     this.localError = '';
-    this.submitted.emit({ userId: this.selectedUser._id ?? this.selectedUser.id, roleId: this.selectedRoleId });
+    this.submitted.emit({ userId: this.selectedUser.id, roleId: Number(this.selectedRoleId) });
   }
 }

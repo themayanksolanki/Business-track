@@ -2,11 +2,11 @@ import { User } from './user.model';
 import { Project } from './project.model';
 
 export interface Department {
-  _id: string;
+  id: number;
   name: string;
   overview: string;
   color: string;
-  parentId: string | null;
+  parentId: number | null;
   depth: number;
   order: number;
   createdBy: User;
@@ -29,7 +29,7 @@ export interface CreateDepartmentPayload {
   name: string;
   overview?: string;
   color?: string;
-  parentId?: string | null;
+  parentId?: number | null;
 }
 
 export interface UpdateDepartmentPayload {

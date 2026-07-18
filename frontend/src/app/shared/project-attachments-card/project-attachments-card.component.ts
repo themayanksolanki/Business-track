@@ -22,7 +22,7 @@ export class ProjectAttachmentsCardComponent implements OnInit {
   uploading = false;
   uploadError = '';
   progress = 0;
-  downloadingId = '';
+  downloadingId: number | null = null;
   viewerOpen = false;
   viewerIndex = 0;
 
@@ -77,8 +77,8 @@ export class ProjectAttachmentsCardComponent implements OnInit {
   }
 
   download(attachment: Attachment) {
-    this.downloadingId = attachment._id;
-    this.projectService.downloadProjectAttachment(this.projectId, attachment._id).subscribe({
+    this.downloadingId = attachment.id;
+    this.projectService.downloadProjectAttachment(this.projectId, attachment.id).subscribe({
       next: (blob) => {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -86,23 +86,23 @@ export class ProjectAttachmentsCardComponent implements OnInit {
         link.download = attachment.fileName;
         link.click();
         window.URL.revokeObjectURL(url);
-        this.downloadingId = '';
+        this.downloadingId = null;
       },
-      error: () => (this.downloadingId = ''),
+      error: () => (this.downloadingId = null),
     });
   }
 
   deleteAttachment(attachment: Attachment) {
-    this.projectService.deleteProjectAttachment(this.projectId, attachment._id).subscribe({
-      next: () => (this.attachments = this.attachments.filter((a) => a._id !== attachment._id)),
+    this.projectService.deleteProjectAttachment(this.projectId, attachment.id).subscribe({
+      next: () => (this.attachments = this.attachments.filter((a) => a.id !== attachment.id)),
     });
   }
 
   loadAttachmentBlob = (attachment: Attachment) =>
-    this.projectService.downloadProjectAttachment(this.projectId, attachment._id);
+    this.projectService.downloadProjectAttachment(this.projectId, attachment.id);
 
   openViewer(attachment: Attachment) {
-    const index = this.attachments.findIndex((a) => a._id === attachment._id);
+    const index = this.attachments.findIndex((a) => a.id === attachment.id);
     this.viewerIndex = index >= 0 ? index : 0;
     this.viewerOpen = true;
   }

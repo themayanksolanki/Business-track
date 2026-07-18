@@ -40,7 +40,7 @@ export class OrganizationComponent implements OnInit {
 
   inviteEmail = '';
   inviteRole: Role = 'User';
-  inviteDepartmentIds: string[] = [];
+  inviteDepartmentIds: number[] = [];
   inviteLoading = false;
   inviteError = '';
   inviteSuccess = '';
@@ -143,11 +143,11 @@ export class OrganizationComponent implements OnInit {
     });
   }
 
-  isInviteDepartmentSelected(id: string): boolean {
+  isInviteDepartmentSelected(id: number): boolean {
     return this.inviteDepartmentIds.includes(id);
   }
 
-  toggleInviteDepartment(id: string, checked: boolean) {
+  toggleInviteDepartment(id: number, checked: boolean) {
     this.inviteDepartmentIds = checked
       ? [...this.inviteDepartmentIds, id]
       : this.inviteDepartmentIds.filter((d) => d !== id);
@@ -181,8 +181,8 @@ export class OrganizationComponent implements OnInit {
   }
 
   revokeInvite(invite: Invite) {
-    this.invites = this.invites.filter((i) => i._id !== invite._id);
-    this.orgService.revokeInvite(invite._id).subscribe({
+    this.invites = this.invites.filter((i) => i.id !== invite.id);
+    this.orgService.revokeInvite(invite.id).subscribe({
       error: () => this.loadInvites(),
     });
   }

@@ -9,11 +9,11 @@ export class AttachmentService {
 
   constructor(private http: HttpClient) {}
 
-  getAttachments(taskId: string) {
+  getAttachments(taskId: number) {
     return this.http.get<Attachment[]>(`${this.api}/${taskId}/attachments`);
   }
 
-  uploadAttachment(taskId: string, file: File) {
+  uploadAttachment(taskId: number, file: File) {
     const formData = new FormData();
     formData.append('file', file);
     return this.http.post<{ message: string; attachment: Attachment }>(
@@ -22,7 +22,7 @@ export class AttachmentService {
     );
   }
 
-  downloadAttachment(taskId: string, attachmentId: string) {
+  downloadAttachment(taskId: number, attachmentId: number) {
     return this.http.get(`${this.api}/${taskId}/attachments/${attachmentId}/download`, {
       responseType: 'blob',
     });

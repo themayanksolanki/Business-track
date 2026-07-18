@@ -2,8 +2,8 @@
   <div class="tree-row-main" [class.tree-row-group]="node.depth === 0" (contextmenu)="openContextMenu($event)">
     <span class="tree-cell-id" (click)="$event.stopPropagation()">
       @if (selectionMode && node.depth === 1) {
-        <input type="checkbox" class="tree-select-checkbox" [checked]="selectedIds.has(node._id)"
-               (change)="toggleSelect.emit(node._id)" title="Select task" />
+        <input type="checkbox" class="tree-select-checkbox" [checked]="selectedIds.has(node.id)"
+               (change)="toggleSelect.emit(node.id)" title="Select task" />
       } @else {
         {{ node.numericId ? '#' + node.numericId : '—' }}
       }
@@ -99,7 +99,7 @@
 
       @if (node.tags.length > 0) {
         <span class="tree-tag-row">
-          @for (tag of visibleTags(node); track tag._id) {
+          @for (tag of visibleTags(node); track tag.id) {
             <app-tag-pill [tag]="tag"></app-tag-pill>
           }
           @if (hiddenTagCount(node) > 0) {
@@ -239,7 +239,7 @@
          [class.tree-children-empty]="node.children.length === 0"
          cdkDropList [id]="dropListId" [cdkDropListData]="node.children"
          [cdkDropListConnectedTo]="connectedDropLists" (cdkDropListDropped)="onDrop($event)">
-      @for (child of node.children; track child._id; let first = $first; let last = $last) {
+      @for (child of node.children; track child.id; let first = $first; let last = $last) {
         <div cdkDrag [cdkDragData]="child" class="tree-drag-item">
           <div class="tree-drag-placeholder" *cdkDragPlaceholder></div>
           <app-project-tree-node

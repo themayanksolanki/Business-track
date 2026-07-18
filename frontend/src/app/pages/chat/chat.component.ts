@@ -39,7 +39,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   // ── In-chat message search ──────────────────────────────────
   showChatSearch = false;
   chatSearchQuery = '';
-  chatSearchMatchIds: string[] = [];
+  chatSearchMatchIds: number[] = [];
   chatSearchActiveIdx = -1;
 
   onlineUsers = new Set<string>();
@@ -55,7 +55,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   menuY = 0;
   menuItems: ContextMenuItem[] = [];
   private menuTarget: 'message' | 'contact' | 'profile' | null = null;
-  private menuTargetId: string | null = null;
+  private menuTargetId: string | number | null = null;
 
   replyingTo: Message | null = null;
   editingMessage: Message | null = null;
@@ -198,7 +198,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   selectFromCallHistory(call: Message) {
     const other = this.isMine(call) ? call.receiver : call.sender;
-    const otherId = (other._id ?? (other as any).id) as string;
+    const otherId = String(other.id);
     const contact = this.contacts.find((c) => this.contactId(c) === otherId);
     if (contact) {
       this.sidebarTab = 'chat';
@@ -239,7 +239,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.chatSvc.totalUnread.update(n => Math.max(0, n - (c.unreadCount || 0)));
     c.unreadCount = 0;
     this.messagesLoading = true;
-    const uid = (c.user._id ?? c.user.id) as string;
+    const uid = String(c.user.id);
     this.socketSvc.markSeen(uid);
     this.chatSvc.getMessages(uid).subscribe({
       next: (msgs) => {
@@ -250,33 +250,35 @@ export class ChatComponent implements OnInit, OnDestroy {
     });
   }
 
-  get myId(): string {
-    return (this.me?._id ?? this.me?.id ?? '') as string;
+  get myId(): number {
+    return this.me?.id ?? 0;
   }
 
   isMine(msg: Message): boolean {
-    const sid = msg.sender?._id ?? (msg.sender as any)?.id;
-    return sid === this.myId;
+    return msg.sender?.id === this.myId;
   }
 
   isOnline(userId: string): boolean {
     return this.onlineUsers.has(userId);
   }
 
-  contactId(c: ContactData): string {
-    return (c.user._id ?? c.user.id) as string;
+  isUserOnline(user: User): boolean {
+    return this.onlineUsers.has(String(user.id));
   }
 
-  private brokenAvatarIds = new Set<string>();
+  contactId(c: ContactData): string {
+    return String(c.user.id);
+  }
 
-  onAvatarError(userId: string) {
+  private brokenAvatarIds = new Set<number>();
+
+  onAvatarError(userId: number) {
     this.brokenAvatarIds.add(userId);
     this.cdr.detectChanges();
   }
 
   avatarUrl(user: User): string | null {
-    const id = (user._id ?? user.id) as string;
-    if (this.brokenAvatarIds.has(id)) return null;
+    if (this.brokenAvatarIds.has(user.id)) return null;
     return this.auth.avatarUrl(user);
   }
 
@@ -291,10 +293,11 @@ export class ChatComponent implements OnInit, OnDestroy {
     const to = this.contactId(this.selected);
 
     if (this.editingMessage) {
-      this.socketSvc.editMessage(this.editingMessage._id, text);
+      this.socketSvc.editMessage(String(this.editingMessage.id), text);
       this.editingMessage = null;
     } else {
-      this.socketSvc.sendMessage(to, text, 'text', undefined, this.replyingTo?._id);
+      const replyTo = this.replyingTo ? String(this.replyingTo.id) : undefined;
+      this.socketSvc.sendMessage(to, text, 'text', undefined, replyTo);
       this.replyingTo = null;
     }
     this.messageText = '';
@@ -348,7 +351,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     }
 
     this.menuTarget = 'message';
-    this.menuTargetId = msg._id;
+    this.menuTargetId = msg.id;
     this.menuItems = items;
     this.positionMenu(event.clientX, event.clientY);
   }
@@ -388,7 +391,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     const targetId = this.menuTargetId;
 
     if (target === 'message') {
-      const msg = this.messages.find((m) => m._id === targetId);
+      const msg = this.messages.find((m) => m.id === targetId);
       if (!msg) return;
       this.handleMessageMenuAction(action, msg);
     } else if (target === 'contact') {
@@ -411,7 +414,7 @@ export class ChatComponent implements OnInit, OnDestroy {
         navigator.clipboard?.writeText(msg.content);
         break;
       case 'pin':
-        this.socketSvc.pinMessage(msg._id, !msg.isPinned);
+        this.socketSvc.pinMessage(String(msg.id), !msg.isPinned);
         break;
       case 'edit':
         this.editingMessage = msg;
@@ -424,7 +427,7 @@ export class ChatComponent implements OnInit, OnDestroy {
           'Delete message?',
           'This message will be deleted for you.',
           'Delete',
-          () => this.socketSvc.deleteMessage(msg._id, false)
+          () => this.socketSvc.deleteMessage(String(msg.id), false)
         );
         break;
       case 'deleteAll':
@@ -432,7 +435,7 @@ export class ChatComponent implements OnInit, OnDestroy {
           'Delete for everyone?',
           'This message will be deleted for everyone in this chat.',
           'Delete',
-          () => this.socketSvc.deleteMessage(msg._id, true)
+          () => this.socketSvc.deleteMessage(String(msg.id), true)
         );
         break;
     }
@@ -599,7 +602,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     }
     this.chatSearchMatchIds = this.messages
       .filter((m) => m.type === 'text' && !m.isDeleted && (m.content || '').toLowerCase().includes(q))
-      .map((m) => m._id);
+      .map((m) => m.id);
     this.chatSearchActiveIdx = this.chatSearchMatchIds.length ? 0 : -1;
     this.scrollToActiveMatch();
   }
@@ -631,11 +634,11 @@ export class ChatComponent implements OnInit, OnDestroy {
     });
   }
 
-  isSearchMatch(msgId: string): boolean {
+  isSearchMatch(msgId: number): boolean {
     return this.chatSearchMatchIds.includes(msgId);
   }
 
-  isActiveSearchMatch(msgId: string): boolean {
+  isActiveSearchMatch(msgId: number): boolean {
     return this.chatSearchActiveIdx >= 0 && this.chatSearchMatchIds[this.chatSearchActiveIdx] === msgId;
   }
 
@@ -643,7 +646,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   private subscribeToSocket() {
     this.subs.add(
       this.socketSvc.message$.subscribe((msg) => {
-        const senderId = msg.sender?._id ?? (msg.sender as any)?.id;
+        const senderId = String(msg.sender?.id ?? '');
         if (this.selected && senderId === this.contactId(this.selected)) {
           this.messages.push(msg);
           this.socketSvc.markSeen(senderId);
@@ -664,7 +667,7 @@ export class ChatComponent implements OnInit, OnDestroy {
       this.socketSvc.messageDelivered$.subscribe(({ by }) => {
         this.messages.forEach((m) => {
           if (this.isMine(m) && !m.delivered) {
-            const receiverId = m.receiver?._id ?? (m.receiver as any)?.id;
+            const receiverId = String(m.receiver?.id ?? '');
             if (receiverId === by) m.delivered = true;
           }
         });
@@ -676,7 +679,7 @@ export class ChatComponent implements OnInit, OnDestroy {
       this.socketSvc.messageSeen$.subscribe(({ by }) => {
         this.messages.forEach((m) => {
           if (this.isMine(m)) {
-            const receiverId = m.receiver?._id ?? (m.receiver as any)?.id;
+            const receiverId = String(m.receiver?.id ?? '');
             if (receiverId === by) { m.delivered = true; m.read = true; }
           }
         });
@@ -705,14 +708,12 @@ export class ChatComponent implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketSvc.messageEdited$.subscribe((msg) => {
-        const idx = this.messages.findIndex((m) => m._id === msg._id);
+        const idx = this.messages.findIndex((m) => m.id === msg.id);
         if (idx >= 0) this.messages[idx] = msg;
         if (this.selected) {
-          const otherId = this.isMine(msg)
-            ? ((msg.receiver?._id ?? (msg.receiver as any)?.id) as string)
-            : ((msg.sender?._id ?? (msg.sender as any)?.id) as string);
+          const otherId = this.isMine(msg) ? String(msg.receiver?.id) : String(msg.sender?.id);
           const c = this.contacts.find((c) => this.contactId(c) === otherId);
-          if (c && c.lastMessage?._id === msg._id) c.lastMessage = msg;
+          if (c && c.lastMessage?.id === msg.id) c.lastMessage = msg;
         }
         this.cdr.detectChanges();
       })
@@ -720,11 +721,12 @@ export class ChatComponent implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketSvc.messageDeleted$.subscribe(({ messageId, forAll }) => {
+        const id = Number(messageId);
         if (forAll) {
-          const msg = this.messages.find((m) => m._id === messageId);
+          const msg = this.messages.find((m) => m.id === id);
           if (msg) { msg.isDeleted = true; msg.content = ''; msg.fileUrl = null; }
         } else {
-          this.messages = this.messages.filter((m) => m._id !== messageId);
+          this.messages = this.messages.filter((m) => m.id !== id);
         }
         this.cdr.detectChanges();
       })
@@ -732,7 +734,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketSvc.messagePinned$.subscribe(({ messageId, pinned }) => {
-        const msg = this.messages.find((m) => m._id === messageId);
+        const msg = this.messages.find((m) => m.id === Number(messageId));
         if (msg) msg.isPinned = pinned;
         this.cdr.detectChanges();
       })
@@ -753,9 +755,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     // Call log — push into current conversation and call history
     this.subs.add(
       this.socketSvc.callLogged$.subscribe((msg) => {
-        const otherId = this.isMine(msg)
-          ? ((msg.receiver?._id ?? (msg.receiver as any)?.id) as string)
-          : ((msg.sender?._id  ?? (msg.sender  as any)?.id)  as string);
+        const otherId = this.isMine(msg) ? String(msg.receiver?.id) : String(msg.sender?.id);
         if (this.selected && this.contactId(this.selected) === otherId) {
           this.messages.push(msg);
           this.scrollToBottom();

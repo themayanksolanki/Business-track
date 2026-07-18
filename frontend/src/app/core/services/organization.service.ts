@@ -30,11 +30,11 @@ export class OrganizationService {
     return this.http.get<Invite[]>(`${this.api}/invites`);
   }
 
-  revokeInvite(id: string) {
+  revokeInvite(id: number) {
     return this.http.delete<{ message: string }>(`${this.api}/invites/${id}`);
   }
 
-  activateInvite(id: string, payload: ActivateInvitePayload) {
+  activateInvite(id: number, payload: ActivateInvitePayload) {
     return this.http.post<{ message: string; user: User }>(`${this.api}/invites/${id}/activate`, payload);
   }
 }

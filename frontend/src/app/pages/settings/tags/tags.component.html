@@ -27,7 +27,7 @@
     </div>
   } @else {
     <div class="tags-list">
-      @for (tag of filteredTags; track tag._id) {
+      @for (tag of filteredTags; track tag.id) {
         <div class="tag-row">
           <app-tag-pill [tag]="tag"></app-tag-pill>
 

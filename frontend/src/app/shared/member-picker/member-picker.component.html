@@ -24,7 +24,7 @@
       />
 
       <div #panel class="member-picker-list">
-        @for (user of users; track user._id || user.id) {
+        @for (user of users; track user.id || user.id) {
           <button type="button" class="member-picker-item" (click)="pick(user)">
             <span class="member-avatar">{{ user.username[0].toUpperCase() }}</span>
             <span class="member-picker-item-info">
