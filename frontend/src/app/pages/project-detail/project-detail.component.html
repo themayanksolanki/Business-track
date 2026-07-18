@@ -28,10 +28,29 @@
       </div>
 
       <div class="project-header-actions">
-        <button type="button" class="complete-btn" [class.completed]="project.status === 'completed'" (click)="toggleComplete()">
-          <i class="bi" [class.bi-check-circle-fill]="project.status === 'completed'" [class.bi-check-circle]="project.status !== 'completed'"></i>
-          {{ project.status === 'completed' ? 'Completed' : 'Mark Complete' }}
-        </button>
+        <div class="dropdown">
+          <button type="button" class="complete-btn dropdown-toggle"
+                  [class.completed]="project.status === 'completed'"
+                  [class.archived]="project.status === 'archived'"
+                  data-bs-toggle="dropdown" title="Project status">
+            <i class="bi"
+               [class.bi-play-circle-fill]="project.status === 'active'"
+               [class.bi-archive-fill]="project.status === 'archived'"
+               [class.bi-check-circle-fill]="project.status === 'completed'"></i>
+            {{ statusLabel(project.status) }}
+          </button>
+          <ul class="dropdown-menu status-dropdown shadow-sm">
+            @for (s of statusOptions; track s) {
+              <li><a class="dropdown-item status-opt" (click)="setStatus(s)">
+                <i class="bi me-2"
+                   [class.bi-play-circle-fill]="s === 'active'"
+                   [class.bi-archive-fill]="s === 'archived'"
+                   [class.bi-check-circle-fill]="s === 'completed'"></i>
+                {{ statusLabel(s) }}
+              </a></li>
+            }
+          </ul>
+        </div>
 
         <div class="dropdown">
           <button type="button" class="actions-btn dropdown-toggle" data-bs-toggle="dropdown" title="Project actions">
@@ -194,7 +213,14 @@
       <div class="meta-divider"></div>
 
       <div class="meta-cell">
-        <span class="meta-label"><i class="bi bi-graph-up me-1"></i>% Complete</span>
+        <span class="meta-label">
+          <i class="bi bi-graph-up me-1"></i>% Complete
+          <app-help-tip
+            variant="popover" trigger="click"
+            heading="% Complete"
+            text="Percentage of all tasks and subtasks across every group that are marked Completed. Groups don't count on their own — only the leaf tasks/subtasks under them do.">
+          </app-help-tip>
+        </span>
         @if (progress; as p) {
           <div class="progress-cell">
             <div class="progress-track"><div class="progress-fill" [style.width.%]="p.percent"></div></div>
@@ -211,8 +237,15 @@
       <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="d-flex align-items-center gap-2 tasks-toolbar-left">
           <h6 class="text-muted mb-0 text-uppercase small fw-bold">Groups</h6>
+          <app-help-tip text="Groups organize tasks; tasks can have subtasks nested one level deeper."></app-help-tip>
+          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="expandAll()" title="Expand all">
+            <i class="bi bi-arrows-expand"></i>
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="collapseAll()" title="Collapse all">
+            <i class="bi bi-arrows-collapse"></i>
+          </button>
           <button type="button" class="btn btn-sm btn-outline-secondary" [class.active]="selectionMode"
-                  (click)="toggleSelectionMode()" title="Select tasks">
+                  (click)="toggleSelectionMode()" ngbTooltip="Select Tasks">
             <i class="bi" [class.bi-square]="!selectionMode" [class.bi-check-square-fill]="selectionMode"></i>
           </button>
         </div>
@@ -282,11 +315,12 @@
                 <app-project-tree-node
                   [node]="node"
                   [projectId]="projectId"
-                  [users]="users"
+                  [users]="memberUsers"
                   [isFirst]="first"
                   [isLast]="last"
                   [selectionMode]="selectionMode"
                   [selectedIds]="selectedIds"
+                  [expandCommand]="expandCommand"
                   (refresh)="loadItems()"
                   (openDetail)="onOpenDetail($event)"
                   (toggleSelect)="onToggleSelect($event)"
@@ -333,7 +367,7 @@
         <app-kanban-board
           [tree]="tree"
           [projectId]="projectId"
-          [users]="users"
+          [users]="memberUsers"
           [itemSummary]="itemSummary"
           (refresh)="loadItems()"
           (openDetail)="onOpenDetail($event)">
@@ -341,127 +375,146 @@
       }
     }
 
+    @if (activeTab === 'teams') {
+      <app-project-teams
+        [projectId]="projectId"
+        [members]="project.members"
+        [canManage]="canManageMembers"
+        (membersChanged)="onMembersChanged($event)">
+      </app-project-teams>
+    }
+
     @if (activeTab === 'detail') {
-      <div class="details-grid">
-        @if (detailsEditorExpanded) {
-          <div class="details-expand-backdrop" (click)="toggleDetailsEditorExpanded()"></div>
-        }
-        <div class="card project-tasks-card shadow-sm details-card"
-             [class.details-card-expanded]="detailsEditorExpanded"
-             [class.details-card-resizable]="!detailsEditorExpanded">
-          <div class="d-flex align-items-center justify-content-between mb-3">
-            <h6 class="text-muted text-uppercase small fw-bold mb-0"><i class="bi bi-card-text me-1"></i>Project Details</h6>
-            <button type="button" class="btn btn-sm btn-link p-0 details-expand-btn" (click)="toggleDetailsEditorExpanded()"
-                    [title]="detailsEditorExpanded ? 'Collapse' : 'Expand'">
-              <i class="bi" [class.bi-arrows-angle-expand]="!detailsEditorExpanded" [class.bi-arrows-angle-contract]="detailsEditorExpanded"></i>
-            </button>
-          </div>
-          <ckeditor class="details-textarea" [editor]="DetailsEditor" [config]="detailsEditorConfig"
-                    [(ngModel)]="detailsText" (blur)="saveDetailsText()"></ckeditor>
-        </div>
+      <div class="details-grid" cdkDropList cdkDropListOrientation="mixed"
+           [cdkDropListData]="orderedDetailCardIds" (cdkDropListDropped)="onDetailsDrop($event)">
+        @for (cardId of orderedDetailCardIds; track cardId) {
+          <div cdkDrag [cdkDragData]="cardId"
+               class="details-card-shell details-card-resizable"
+               [class.card]="cardId !== 'attachments' && cardId !== 'plan'"
+               [class.project-tasks-card]="cardId !== 'attachments' && cardId !== 'plan'"
+               [class.shadow-sm]="cardId !== 'attachments' && cardId !== 'plan'"
+               [class.details-card]="cardId !== 'attachments' && cardId !== 'plan'"
+               [class.details-card-ck]="cardId === 'details'"
+               appCardResize
+               [initialWidth]="layoutSize(cardId).width"
+               [initialHeight]="layoutSize(cardId).height"
+               (cardResized)="onCardResized(cardId, $event)">
+            <div class="details-card-placeholder" *cdkDragPlaceholder></div>
 
-        <app-project-attachments-card [projectId]="projectId"></app-project-attachments-card>
-
-        <app-project-plan-card [projectId]="projectId" [plan]="project.plan" (planChanged)="onPlanChanged($event)"></app-project-plan-card>
-
-        <div class="card project-tasks-card shadow-sm details-card">
-          <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-calendar3 me-1"></i>Project Dates</h6>
-          <div class="detail-schedule-row">
-            <div class="detail-schedule-grid">
-              <div class="meta-cell">
-                <span class="meta-label">Start</span>
-                <div class="d-flex gap-2">
-                  <app-date-picker [value]="startDateStr" (valueChange)="onStartDateChange($event)"></app-date-picker>
-                  <app-time-picker [value]="startTimeStr" (valueChange)="onStartTimeChange($event)"></app-time-picker>
-                </div>
-              </div>
-              <div class="meta-cell">
-                <span class="meta-label">End</span>
-                <div class="d-flex gap-2">
-                  <app-date-picker [value]="endDateStr" [min]="startDateStr" align="right" (valueChange)="onEndDateChange($event)"></app-date-picker>
-                  <app-time-picker [value]="endTimeStr" align="right" (valueChange)="onEndTimeChange($event)"></app-time-picker>
-                </div>
-              </div>
-            </div>
-
-            <div class="meta-cell duration-cell">
-              <span class="meta-label">Duration</span>
-              <span class="duration-value">{{ durationLabel }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="card project-tasks-card shadow-sm details-card">
-          <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-flag-fill me-1"></i>Priority</h6>
-          <div class="slider-row">
-            <input type="range" class="form-range" min="0" max="2" step="1"
-                   [ngModel]="priorityIndex" (change)="onPriorityIndexChange($any($event.target).valueAsNumber)" />
-            <span class="slider-value-badge priority-badge"
-                  [class.priority-low]="project.priority === 'low'"
-                  [class.priority-medium]="project.priority === 'medium'"
-                  [class.priority-high]="project.priority === 'high'">
-              {{ project.priority }}
+            <span class="details-card-grip" cdkDragHandle title="Drag to reorder">
+              <i class="bi bi-grip-vertical"></i>
             </span>
-          </div>
-          <div class="slider-ticks">
-            <span>Low</span>
-            <span>Medium</span>
-            <span>High</span>
-          </div>
-        </div>
 
-        <div class="card project-tasks-card shadow-sm details-card">
-          <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-speedometer2 me-1"></i>Effort</h6>
-          <div class="slider-row">
-            <input type="range" class="form-range" min="0" max="2" step="1"
-                   [ngModel]="effortIndex" (change)="onEffortIndexChange($any($event.target).valueAsNumber)" />
-            <span class="slider-value-badge priority-badge"
-                  [class.priority-low]="project.effort === 'low'"
-                  [class.priority-medium]="project.effort === 'medium'"
-                  [class.priority-high]="project.effort === 'high'">
-              {{ project.effort }}
-            </span>
-          </div>
-          <div class="slider-ticks">
-            <span>Low</span>
-            <span>Medium</span>
-            <span>High</span>
-          </div>
-        </div>
-
-        <div class="card project-tasks-card shadow-sm details-card">
-          <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-link-45deg me-1"></i>Important Links</h6>
-
-          @if (links.length === 0) {
-            <p class="text-muted small mb-3">No links added yet.</p>
-          } @else {
-            <ul class="links-list mb-3">
-              @for (link of links; track $index) {
-                <li class="link-item">
-                  <i class="bi bi-link-45deg link-icon"></i>
-                  <a [href]="link.url" target="_blank" rel="noopener" class="link-title">{{ link.title }}</a>
-                  <span class="link-url">{{ link.url }}</span>
-                  <button class="subtask-del-btn" (click)="removeLink($index)" title="Remove link">
-                    <i class="bi bi-x"></i>
-                  </button>
-                </li>
+            @switch (cardId) {
+              @case ('details') {
+                <h6 class="text-muted text-uppercase small fw-bold mb-3"><i class="bi bi-card-text me-1"></i>Project Details</h6>
+                <ckeditor class="details-textarea" [editor]="DetailsEditor" [config]="detailsEditorConfig"
+                          [(ngModel)]="detailsText" (blur)="saveDetailsText()"></ckeditor>
               }
-            </ul>
-          }
+              @case ('attachments') {
+                <app-project-attachments-card [projectId]="projectId"></app-project-attachments-card>
+              }
+              @case ('plan') {
+                <app-project-plan-card [projectId]="projectId" [plan]="project.plan" (planChanged)="onPlanChanged($event)"></app-project-plan-card>
+              }
+              @case ('dates') {
+                <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-calendar3 me-1"></i>Project Dates</h6>
+                <div class="detail-schedule-row">
+                  <div class="detail-schedule-grid">
+                    <div class="meta-cell">
+                      <span class="meta-label">Start</span>
+                      <div class="d-flex gap-2">
+                        <app-date-picker [value]="startDateStr" (valueChange)="onStartDateChange($event)"></app-date-picker>
+                        <app-time-picker [value]="startTimeStr" (valueChange)="onStartTimeChange($event)"></app-time-picker>
+                      </div>
+                    </div>
+                    <div class="meta-cell">
+                      <span class="meta-label">End</span>
+                      <div class="d-flex gap-2">
+                        <app-date-picker [value]="endDateStr" [min]="startDateStr" align="right" (valueChange)="onEndDateChange($event)"></app-date-picker>
+                        <app-time-picker [value]="endTimeStr" align="right" (valueChange)="onEndTimeChange($event)"></app-time-picker>
+                      </div>
+                    </div>
+                  </div>
 
-          @if (linksError) {
-            <div class="field-error mb-2">{{ linksError }}</div>
-          }
+                  <div class="meta-cell duration-cell">
+                    <span class="meta-label">Duration</span>
+                    <span class="duration-value">{{ durationLabel }}</span>
+                  </div>
+                </div>
+              }
+              @case ('priority') {
+                <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-flag-fill me-1"></i>Priority</h6>
+                <div class="slider-row">
+                  <input type="range" class="form-range" min="0" max="2" step="1"
+                         [ngModel]="priorityIndex" (change)="onPriorityIndexChange($any($event.target).valueAsNumber)" />
+                  <span class="slider-value-badge priority-badge"
+                        [class.priority-low]="project.priority === 'low'"
+                        [class.priority-medium]="project.priority === 'medium'"
+                        [class.priority-high]="project.priority === 'high'">
+                    {{ project.priority }}
+                  </span>
+                </div>
+                <div class="slider-ticks">
+                  <span>Low</span>
+                  <span>Medium</span>
+                  <span>High</span>
+                </div>
+              }
+              @case ('effort') {
+                <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-speedometer2 me-1"></i>Effort</h6>
+                <div class="slider-row">
+                  <input type="range" class="form-range" min="0" max="2" step="1"
+                         [ngModel]="effortIndex" (change)="onEffortIndexChange($any($event.target).valueAsNumber)" />
+                  <span class="slider-value-badge priority-badge"
+                        [class.priority-low]="project.effort === 'low'"
+                        [class.priority-medium]="project.effort === 'medium'"
+                        [class.priority-high]="project.effort === 'high'">
+                    {{ project.effort }}
+                  </span>
+                </div>
+                <div class="slider-ticks">
+                  <span>Low</span>
+                  <span>Medium</span>
+                  <span>High</span>
+                </div>
+              }
+              @case ('links') {
+                <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-link-45deg me-1"></i>Important Links</h6>
 
-          <div class="add-link-row">
-            <input type="text" class="form-control field-input" [(ngModel)]="newLinkTitle" placeholder="Title" maxlength="200" />
-            <input type="url" class="form-control field-input" [(ngModel)]="newLinkUrl" placeholder="https://…" maxlength="2000"
-                   [class.is-invalid]="!isValidLinkUrl" />
-            <button class="add-subtask-btn" (click)="addLink()" [disabled]="!newLinkTitle.trim() || !newLinkUrl.trim()">
-              <i class="bi bi-plus-lg"></i>
-            </button>
+                @if (links.length === 0) {
+                  <p class="text-muted small mb-3">No links added yet.</p>
+                } @else {
+                  <ul class="links-list mb-3">
+                    @for (link of links; track $index) {
+                      <li class="link-item">
+                        <i class="bi bi-link-45deg link-icon"></i>
+                        <a [href]="link.url" target="_blank" rel="noopener" class="link-title">{{ link.title }}</a>
+                        <span class="link-url">{{ link.url }}</span>
+                        <button class="subtask-del-btn" (click)="removeLink($index)" title="Remove link">
+                          <i class="bi bi-x"></i>
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                }
+
+                @if (linksError) {
+                  <div class="field-error mb-2">{{ linksError }}</div>
+                }
+
+                <div class="add-link-row">
+                  <input type="text" class="form-control field-input" [(ngModel)]="newLinkTitle" placeholder="Title" maxlength="200" />
+                  <input type="url" class="form-control field-input" [(ngModel)]="newLinkUrl" placeholder="https://…" maxlength="2000"
+                         [class.is-invalid]="!isValidLinkUrl" />
+                  <button class="add-subtask-btn" (click)="addLink()" [disabled]="!newLinkTitle.trim() || !newLinkUrl.trim()">
+                    <i class="bi bi-plus-lg"></i>
+                  </button>
+                </div>
+              }
+            }
           </div>
-        </div>
+        }
       </div>
     }
   }
@@ -473,6 +526,7 @@
   [childCount]="selectedNode?.childCount || 0"
   [breadcrumbPath]="selectedPath"
   [allTags]="allTags"
+  [users]="memberUsers"
   (closed)="closeDetail()"
   (saved)="onItemSaved($event)"
   (breadcrumbNavigate)="onOpenDetail($event)"

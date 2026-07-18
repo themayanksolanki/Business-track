@@ -2,10 +2,29 @@
   <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <h1 class="h3 mb-0">Projects</h1>
     <div class="d-flex align-items-center gap-2">
+      <div class="btn-group view-switcher" role="group" aria-label="View mode">
+        <button type="button" class="btn view-switch-btn" [class.active]="viewMode === 'cards'" (click)="setViewMode('cards')" title="Card view">
+          <i class="bi bi-grid-3x3-gap-fill"></i>
+        </button>
+        <button type="button" class="btn view-switch-btn" [class.active]="viewMode === 'table'" (click)="setViewMode('table')" title="Table view">
+          <i class="bi bi-table"></i>
+        </button>
+        <button type="button" class="btn view-switch-btn" [class.active]="viewMode === 'list'" (click)="setViewMode('list')" title="List view">
+          <i class="bi bi-list-ul"></i>
+        </button>
+      </div>
       <button class="btn btn-success btn-sm" (click)="openCreate()">
         <i class="bi bi-plus-lg me-1"></i>New Project
       </button>
     </div>
+  </div>
+
+  <div class="btn-group status-filter-tabs mb-3" role="group" aria-label="Status filter">
+    @for (s of statusFilterOptions; track s) {
+      <button type="button" class="btn status-filter-btn" [class.active]="statusFilter === s" (click)="setStatusFilter(s)">
+        {{ statusLabel(s) }}
+      </button>
+    }
   </div>
 
   @if (error) {
@@ -35,6 +54,7 @@
               @if (project.description) {
                 <p class="project-card-desc">{{ project.description }}</p>
               }
+              <span class="status-badge-sm" [class]="'status-' + project.status">{{ project.status }}</span>
               @if (project.department) {
                 <span class="dept-badge" [style.color]="project.department.color" [style.borderColor]="project.department.color">
                   {{ project.department.name }}
@@ -104,6 +124,7 @@
               <th>Category</th>
               <th>Tags</th>
               <th>Priority</th>
+              <th>Status</th>
               <th>Dates</th>
               <th>Created By</th>
               <th class="pe-4 text-end">Created</th>
@@ -121,7 +142,12 @@
                 </td>
                 <td>
                   @if (project.owner) {
-                    <span class="assign-avatar avatar-xs me-2" [class]="'avatar-' + roleClass(project.owner.role)">{{ project.owner.username[0].toUpperCase() }}</span>
+                    @if (avatarUrl(project.owner)) {
+                      <img class="avatar-img-xs me-2" [src]="avatarUrl(project.owner)!" [alt]="project.owner.username"
+                           (error)="onAvatarError(project.owner)" />
+                    } @else {
+                      <span class="assign-avatar avatar-xs me-2" [class]="'avatar-' + roleClass(project.owner.role)">{{ project.owner.username[0].toUpperCase() }}</span>
+                    }
                     <span class="text-muted-em">{{ project.owner.username }}</span>
                   } @else {
                     <span class="text-muted-em">—</span>
@@ -161,6 +187,9 @@
                 </td>
                 <td>
                   <span class="priority-badge-sm" [class]="'priority-' + project.priority">{{ project.priority }}</span>
+                </td>
+                <td>
+                  <span class="status-badge-sm" [class]="'status-' + project.status">{{ project.status }}</span>
                 </td>
                 <td>
                   <span class="text-muted-em">{{ formatRange(project.startDate, project.endDate) || '—' }}</span>
@@ -213,6 +242,7 @@
             }
           </div>
           <span class="priority-badge-sm" [class]="'priority-' + project.priority">{{ project.priority }}</span>
+          <span class="status-badge-sm" [class]="'status-' + project.status">{{ project.status }}</span>
           @if (project.department) {
             <span class="dept-badge" [style.color]="project.department.color" [style.borderColor]="project.department.color">
               {{ project.department.name }}
@@ -234,9 +264,14 @@
             </div>
           }
           @if (project.owner) {
-            <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(project.owner.role)" [title]="project.owner.username">
-              {{ project.owner.username[0].toUpperCase() }}
-            </span>
+            @if (avatarUrl(project.owner)) {
+              <img class="avatar-img-xs" [src]="avatarUrl(project.owner)!" [alt]="project.owner.username"
+                   [title]="project.owner.username" (error)="onAvatarError(project.owner)" />
+            } @else {
+              <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(project.owner.role)" [title]="project.owner.username">
+                {{ project.owner.username[0].toUpperCase() }}
+              </span>
+            }
           }
           @if (formatRange(project.startDate, project.endDate)) {
             <span class="project-list-range">{{ formatRange(project.startDate, project.endDate) }}</span>

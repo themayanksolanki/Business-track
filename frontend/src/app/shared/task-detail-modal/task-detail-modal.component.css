@@ -74,6 +74,7 @@
   transition: opacity 0.15s;
 }
 .detail-status-pill:hover { opacity: 0.75; }
+.detail-status-pill::after { margin-left: 5px; opacity: 0.6; }
 
 .pill-todo      { background: #bae6fd; color: #075985; }
 .pill-pending   { background: #fde68a; color: #92400e; }

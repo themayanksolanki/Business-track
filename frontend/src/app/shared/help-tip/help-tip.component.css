@@ -1,0 +1,17 @@
+.help-tip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim, #94a3b8);
+  cursor: help;
+  line-height: 1;
+  vertical-align: middle;
+}
+.help-tip-btn:hover,
+.help-tip-btn:focus-visible { color: #3b82f6; }
+.help-tip-btn i { font-size: 0.85rem; }

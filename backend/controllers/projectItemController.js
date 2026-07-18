@@ -151,6 +151,9 @@ export const createItem = async (req, res, next) => {
 
     const { title, description, priority, assignedTo, parentId, startDate, endDate, tags } = req.body;
 
+    if (assignedTo && !project.members.some((m) => String(m.user) === String(assignedTo)))
+      return next(new AppError('assignedTo must be a project member', 400));
+
     let depth = 0;
     let parent = null;
 
@@ -234,6 +237,9 @@ export const updateItem = async (req, res, next) => {
 
     if (assignedTo !== undefined && item.type === 'group')
       return next(new AppError('Groups cannot be assigned', 400));
+
+    if (assignedTo && !project.members.some((m) => String(m.user) === String(assignedTo)))
+      return next(new AppError('assignedTo must be a project member', 400));
 
     if (title !== undefined) item.title = title.trim();
     if (description !== undefined) item.description = description;

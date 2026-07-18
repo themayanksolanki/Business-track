@@ -17,6 +17,7 @@ import { TaskEditModalComponent, TaskEditInitial } from '../../shared/task-edit-
 import { TaskAttachmentsModalComponent } from '../../shared/task-attachments-modal/task-attachments-modal.component';
 import { TagService } from '../../core/services/tag.service';
 import { TagPillComponent } from '../../shared/tag-pill/tag-pill.component';
+import { HelpTipComponent } from '../../shared/help-tip/help-tip.component';
 
 @Component({
   selector: 'app-task-list',
@@ -30,6 +31,7 @@ import { TagPillComponent } from '../../shared/tag-pill/tag-pill.component';
     TaskEditModalComponent,
     TaskAttachmentsModalComponent,
     TagPillComponent,
+    HelpTipComponent,
   ],
   templateUrl: './task-list.component.html',
   styleUrl: './task-list.component.css',

@@ -25,7 +25,7 @@ import { environment } from '../../../environments/environment';
 import { ProjectService } from '../../core/services/project.service';
 import { UserService } from '../../core/services/user.service';
 import { DepartmentService } from '../../core/services/department.service';
-import { Project, ProjectPriority, ProjectEffort, ProjectLink } from '../../models/project.model';
+import { Project, ProjectPriority, ProjectEffort, ProjectStatus, ProjectLink, ProjectMember, ProjectDetailsLayoutEntry } from '../../models/project.model';
 import { User } from '../../models/user.model';
 import { Department } from '../../models/department.model';
 import { Category } from '../../models/category.model';
@@ -48,6 +48,10 @@ import { TagPickerComponent } from '../../shared/tag-picker/tag-picker.component
 import { DropListRegistryService } from '../../shared/drop-list-registry.service';
 import { NotificationService } from '../../shared/notification.service';
 import { MoveToGroupDialogComponent } from '../../shared/move-to-group-dialog/move-to-group-dialog.component';
+import { HelpTipComponent } from '../../shared/help-tip/help-tip.component';
+import { NgbTooltip } from '@ng-bootstrap/ng-bootstrap';
+import { ProjectTeamsComponent } from '../../shared/project-teams/project-teams.component';
+import { CardResizeDirective, CardResizeEvent } from '../../shared/card-resize.directive';
 
 @Component({
   selector: 'app-project-detail',
@@ -69,6 +73,10 @@ import { MoveToGroupDialogComponent } from '../../shared/move-to-group-dialog/mo
     TagPickerComponent,
     CKEditorModule,
     MoveToGroupDialogComponent,
+    HelpTipComponent,
+    NgbTooltip,
+    ProjectTeamsComponent,
+    CardResizeDirective,
   ],
   providers: [DropListRegistryService],
   templateUrl: './project-detail.component.html',
@@ -84,6 +92,7 @@ export class ProjectDetailComponent implements OnInit {
     { key: 'detail', label: 'Details', icon: 'bi-info-circle' },
     { key: 'tasks', label: 'Tasks', icon: 'bi-list-task' },
     { key: 'kanban', label: 'Kanban', icon: 'bi-kanban' },
+    { key: 'teams', label: 'Teams', icon: 'bi-people' },
   ];
   activeTab = 'tasks';
 
@@ -100,6 +109,9 @@ export class ProjectDetailComponent implements OnInit {
 
   selectionMode = false;
   selectedIds = new Set<string>();
+
+  expandCommand: { expand: boolean; token: number } | null = null;
+  private expandToken = 0;
 
   moveGroupOpen = false;
   moveGroupMode: 'single' | 'bulk' = 'single';
@@ -124,6 +136,7 @@ export class ProjectDetailComponent implements OnInit {
   categories: Category[] = [];
   readonly priorityOptions: ProjectPriority[] = ['low', 'medium', 'high'];
   readonly effortOptions: ProjectEffort[] = ['low', 'medium', 'high'];
+  readonly statusOptions: ProjectStatus[] = ['active', 'archived', 'completed'];
 
   detailsText = '';
 
@@ -140,16 +153,18 @@ export class ProjectDetailComponent implements OnInit {
       'undo', 'redo',
     ],
   };
-  detailsEditorExpanded = false;
-
-  toggleDetailsEditorExpanded() {
-    this.detailsEditorExpanded = !this.detailsEditorExpanded;
-  }
 
   links: ProjectLink[] = [];
   newLinkTitle = '';
   newLinkUrl = '';
   linksError = '';
+
+  // Details-tab card layout (order + resize), shared across everyone viewing
+  // the project. `detailsLayoutEntries` is the working copy the template
+  // renders from; it's kept in sync with `project.detailsLayout` on load and
+  // mutated locally (then persisted) on drag/resize.
+  readonly DEFAULT_DETAIL_CARD_IDS = ['details', 'attachments', 'plan', 'dates', 'priority', 'effort', 'links'];
+  detailsLayoutEntries: ProjectDetailsLayoutEntry[] = [];
 
   allTags: Tag[] = [];
 
@@ -168,7 +183,7 @@ export class ProjectDetailComponent implements OnInit {
   ngOnInit() {
     this.projectId = this.route.snapshot.paramMap.get('id') || '';
     const tab = this.route.snapshot.queryParamMap.get('tab');
-    if (tab === 'detail' || tab === 'tasks' || tab === 'kanban') this.activeTab = tab;
+    if (tab === 'detail' || tab === 'tasks' || tab === 'kanban' || tab === 'teams') this.activeTab = tab;
     this.loadProject();
     this.loadItems();
     this.userService.getAllUsers().subscribe({ next: (u) => (this.users = u) });
@@ -221,6 +236,29 @@ export class ProjectDetailComponent implements OnInit {
 
   roleClass(role: string): string {
     return role.toLowerCase().replace(' ', '-');
+  }
+
+  // Mirrors the backend's canManageProjectSettings check (creator, owner, or
+  // Admin/Manager) — gates the Teams tab's Add/change-role/remove actions.
+  get canManageMembers(): boolean {
+    const user = this.auth.getUser();
+    if (!user || !this.project) return false;
+    if (user.role === 'Admin' || user.role === 'Manager') return true;
+    const createdById = this.project.createdBy?._id ?? (this.project.createdBy as any)?.id;
+    const ownerId = this.project.owner?._id ?? (this.project.owner as any)?.id;
+    const userId = user._id ?? user.id;
+    return createdById === userId || ownerId === userId;
+  }
+
+  onMembersChanged(members: ProjectMember[]) {
+    if (this.project) this.project = { ...this.project, members };
+  }
+
+  // Task/item "Assign to" pickers (tree, kanban, item detail) are scoped to
+  // project members only — unlike the Leader/Owner picker above, which stays
+  // org-wide via `users`.
+  get memberUsers(): User[] {
+    return this.project?.members.map((m) => m.user) ?? [];
   }
 
   private brokenAvatarIds = new Set<string>();
@@ -280,9 +318,12 @@ export class ProjectDetailComponent implements OnInit {
     });
   }
 
-  toggleComplete() {
-    if (!this.project) return;
-    const status = this.project.status === 'completed' ? 'active' : 'completed';
+  statusLabel(status: ProjectStatus): string {
+    return status === 'active' ? 'Active' : status === 'archived' ? 'Archived' : 'Completed';
+  }
+
+  setStatus(status: ProjectStatus) {
+    if (!this.project || this.project.status === status) return;
     this.projectService.updateProject(this.projectId, { status }).subscribe({
       next: (res) => (this.project = res.project),
     });
@@ -309,6 +350,7 @@ export class ProjectDetailComponent implements OnInit {
           : null;
         this.detailsText = project.detailsText ?? '';
         this.links = project.links ?? [];
+        this.detailsLayoutEntries = this.normalizeDetailsLayout(project.detailsLayout);
         this.loading = false;
       },
       error: (err) => {
@@ -507,6 +549,60 @@ export class ProjectDetailComponent implements OnInit {
     this.project = project;
   }
 
+  // ── Details-tab card layout (drag reorder + resize) ──
+  // Keeps only known card ids (drops anything stale/renamed), preserves the
+  // saved order, then appends any card missing from a saved layout — covers
+  // both brand-new projects (empty array) and old saved layouts predating a
+  // newly added card.
+  private normalizeDetailsLayout(saved?: ProjectDetailsLayoutEntry[] | null): ProjectDetailsLayoutEntry[] {
+    const known = new Set(this.DEFAULT_DETAIL_CARD_IDS);
+    const seen = new Set<string>();
+    const result: ProjectDetailsLayoutEntry[] = [];
+    for (const entry of saved ?? []) {
+      if (!known.has(entry.cardId) || seen.has(entry.cardId)) continue;
+      seen.add(entry.cardId);
+      result.push({ cardId: entry.cardId, width: entry.width ?? null, height: entry.height ?? null });
+    }
+    for (const cardId of this.DEFAULT_DETAIL_CARD_IDS) {
+      if (!seen.has(cardId)) result.push({ cardId, width: null, height: null });
+    }
+    return result;
+  }
+
+  get orderedDetailCardIds(): string[] {
+    return this.detailsLayoutEntries.map((e) => e.cardId);
+  }
+
+  layoutSize(cardId: string): { width: number | null; height: number | null } {
+    const entry = this.detailsLayoutEntries.find((e) => e.cardId === cardId);
+    return { width: entry?.width ?? null, height: entry?.height ?? null };
+  }
+
+  onDetailsDrop(event: CdkDragDrop<string[]>) {
+    if (event.previousIndex === event.currentIndex) return;
+    moveItemInArray(this.detailsLayoutEntries, event.previousIndex, event.currentIndex);
+    this.saveDetailsLayout();
+  }
+
+  onCardResized(cardId: string, size: CardResizeEvent) {
+    const entry = this.detailsLayoutEntries.find((e) => e.cardId === cardId);
+    if (!entry) return;
+    entry.width = size.width;
+    entry.height = size.height;
+    this.saveDetailsLayout();
+  }
+
+  private saveDetailsLayout() {
+    this.projectService.updateDetailsLayout(this.projectId, this.detailsLayoutEntries).subscribe({
+      next: (res) => {
+        if (this.project) this.project = { ...this.project, detailsLayout: res.project.detailsLayout };
+      },
+      error: (err) => {
+        this.notifications.error(err.error?.message || 'Failed to save layout');
+      },
+    });
+  }
+
   get isValidLinkUrl(): boolean {
     return (
       !this.newLinkUrl.trim() ||
@@ -666,6 +762,14 @@ export class ProjectDetailComponent implements OnInit {
   toggleSelectionMode() {
     this.selectionMode = !this.selectionMode;
     this.selectedIds.clear();
+  }
+
+  expandAll() {
+    this.expandCommand = { expand: true, token: ++this.expandToken };
+  }
+
+  collapseAll() {
+    this.expandCommand = { expand: false, token: ++this.expandToken };
   }
 
   onToggleSelect(id: string) {

@@ -2,10 +2,11 @@ import { User } from './user.model';
 import { Department } from './department.model';
 import { Category } from './category.model';
 import { TagLite } from './tag.model';
+import { ProjectRoleLite } from './project-role.model';
 
 export type ProjectPriority = 'low' | 'medium' | 'high';
 export type ProjectEffort = 'low' | 'medium' | 'high';
-export type ProjectStatus = 'active' | 'completed';
+export type ProjectStatus = 'active' | 'archived' | 'completed';
 
 export interface ProjectPlan {
   fileName: string;
@@ -19,6 +20,20 @@ export interface ProjectLink {
   _id?: string;
   title: string;
   url: string;
+}
+
+export interface ProjectMember {
+  _id: string;
+  user: User;
+  role: ProjectRoleLite;
+  addedAt: string;
+  addedBy?: User | null;
+}
+
+export interface ProjectDetailsLayoutEntry {
+  cardId: string;
+  width?: number | null;
+  height?: number | null;
 }
 
 export interface Project {
@@ -40,6 +55,8 @@ export interface Project {
   plan: ProjectPlan | null;
   links: ProjectLink[];
   tags: TagLite[];
+  members: ProjectMember[];
+  detailsLayout: ProjectDetailsLayoutEntry[];
   createdAt: string;
   updatedAt: string;
 }

@@ -19,6 +19,7 @@ import departmentRoutes from './routes/departmentRoutes.js';
 import organizationRoutes from './routes/organizationRoutes.js';
 import tagRoutes from './routes/tagRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
+import projectRoleRoutes from './routes/projectRoleRoutes.js';
 import errorMiddleware from './middleware/errorMiddleware.js';
 import { authLimiter, globalLimiter } from './utils/utils.js';
 import { setupSocket } from './socket.js';
@@ -42,6 +43,19 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+// Lightweight liveness check — kept ahead of body parsing/auth so it always
+// responds fast regardless of DB state; an external monitor pings this on an
+// interval shorter than Render free tier's 15-minute idle timeout to keep
+// the instance from spinning down.
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    uptime: process.uptime(),
+    dbConnected: mongoose.connection.readyState === 1,
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // app.use(globalLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
@@ -57,6 +71,7 @@ app.use('/api/departments', departmentRoutes);
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/project-roles', projectRoleRoutes);
 
 app.use(errorMiddleware);
 

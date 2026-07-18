@@ -1,0 +1,11 @@
+@if (variant === 'popover') {
+  <button type="button" class="help-tip-btn" tabindex="0"
+          [ngbPopover]="text" [popoverTitle]="heading || null" [triggers]="trigger" [placement]="placement">
+    <i class="bi bi-question-circle"></i>
+  </button>
+} @else {
+  <button type="button" class="help-tip-btn" tabindex="0"
+          [ngbTooltip]="text" [placement]="placement">
+    <i class="bi bi-question-circle"></i>
+  </button>
+}

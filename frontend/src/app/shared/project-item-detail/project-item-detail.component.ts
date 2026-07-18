@@ -3,7 +3,6 @@ import { DatePipe } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import dayjs from 'dayjs/esm';
 import { ProjectService } from '../../core/services/project.service';
-import { UserService } from '../../core/services/user.service';
 import { AuthService } from '../../core/services/auth.service';
 import {
   ProjectItem,
@@ -46,6 +45,9 @@ export class ProjectItemDetailComponent implements OnChanges {
   @Input() childCount = 0;
   @Input() breadcrumbPath: ProjectTreeNode[] = [];
   @Input() allTags: Tag[] = [];
+  // Scoped to project members only (passed down from the parent's
+  // project.members), not the full org user list.
+  @Input() users: User[] = [];
 
   @Output() closed = new EventEmitter<void>();
   // Emits the freshly-saved item (not just a signal) so the parent can patch
@@ -60,8 +62,6 @@ export class ProjectItemDetailComponent implements OnChanges {
   editLoading = false;
   editError = '';
   progress = 0;
-
-  users: User[] = [];
 
   comments: ProjectComment[] = [];
   commentsLoading = false;
@@ -88,7 +88,6 @@ export class ProjectItemDetailComponent implements OnChanges {
   constructor(
     private fb: FormBuilder,
     private projectService: ProjectService,
-    private userService: UserService,
     public auth: AuthService
   ) {
     this.editForm = this.fb.group({
@@ -107,9 +106,6 @@ export class ProjectItemDetailComponent implements OnChanges {
       this.endTimeStr = this.item.endDate ? dayjs(this.item.endDate).format('HH:mm') : null;
       this.loadComments();
       this.loadAttachments();
-      if (this.users.length === 0) {
-        this.userService.getAllUsers().subscribe({ next: (u) => (this.users = u) });
-      }
     }
   }
 

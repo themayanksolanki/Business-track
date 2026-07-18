@@ -409,6 +409,7 @@
   transition: background 0.15s, color 0.15s;
 }
 .actions-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.actions-btn::after { margin-left: 6px; color: #94a3b8; }
 
 .dept-dot {
   display: inline-block;
@@ -434,12 +435,19 @@
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .complete-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.complete-btn::after { margin-left: 6px; color: #94a3b8; }
 .complete-btn.completed {
   background: #dcfce7;
   border-color: #86efac;
   color: #15803d;
 }
 .complete-btn.completed:hover { background: #bbf7d0; }
+.complete-btn.archived {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+.complete-btn.archived:hover { background: #e2e8f0; }
 
 .empty-state i { color: var(--text-dim); }
 
@@ -615,67 +623,104 @@
   color: var(--text-primary);
 }
 
-.details-expand-btn {
-  font-size: 1rem;
-  color: var(--text-secondary);
-  line-height: 1;
-}
-.details-expand-btn:hover { color: var(--text-primary); }
-
-.details-expand-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 1040;
+/* ── Draggable/resizable card shell ──
+   The shell is the single element that's both the grid item and the CDK
+   drag/resize target — max-width:100% keeps a widened card capped at its own
+   grid column so it can never grow into a neighboring card. */
+.details-card-shell {
+  position: relative;
+  min-width: 280px;
+  max-width: 100%;
 }
 
-/* ── Resizable (drag bottom-right corner) ── */
+.details-card-grip {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: var(--text-dim);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  z-index: 2;
+}
+.details-card-shell:hover .details-card-grip { opacity: 1; }
+.details-card-grip:hover { background: var(--bg-muted); color: var(--text-primary); }
+.details-card-grip:active { cursor: grabbing; }
+
+.details-card-shell.cdk-drag-preview {
+  box-shadow: var(--shadow-lg);
+  border-radius: 12px;
+}
+.details-card-shell.cdk-drag-animating { transition: transform 200ms cubic-bezier(0, 0, 0.2, 1); }
+
+.details-card-placeholder {
+  border: 2px dashed var(--border-strong);
+  border-radius: 12px;
+  background: var(--bg-muted);
+}
+
+/* Attachments/Plan cards render their own inner .details-card box. Stretching
+   just the host here isn't enough to fill a resized shell — Angular's view
+   encapsulation means this stylesheet can't reach the child's own template,
+   so the matching height:100% on their inner .details-card lives in each of
+   those components' own CSS files. */
+.details-card-shell > app-project-attachments-card,
+.details-card-shell > app-project-plan-card {
+  display: block;
+  height: 100%;
+}
+
+/* ── Resizable (drag bottom-right corner) ──
+   Unresized cards keep their natural content height; min-height is just a
+   floor so an empty/short card still offers a usable resize handle. Overflow
+   is auto so shrinking a card scrolls its content instead of clipping it. */
 .details-card-resizable {
   resize: both;
+  overflow: auto;
+  min-height: 120px;
+}
+
+/* The Project Details card wraps a rich-text editor with no natural height
+   cap, so — like before this became a generic pattern — it keeps a fixed
+   default height and lets its own inner editor scroll instead of the shell. */
+.details-card-resizable.details-card-ck {
   overflow: hidden;
-  min-width: 280px;
-  min-height: 200px;
   height: 200px;
+  min-height: 200px;
 }
 
-/* ── Fullscreen expand ── */
-.details-card-expanded {
-  position: fixed;
-  inset: 5vh 5vw;
-  z-index: 1050;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
-}
-
-/* Both states stretch the editor to fill the card's available height */
-.details-card-resizable,
-.details-card-expanded {
+/* The ckeditor card stretches its editor to fill the card's available
+   height instead of the editor imposing its own natural height. */
+.details-card-resizable {
   display: flex;
   flex-direction: column;
 }
 
-.details-card-resizable .details-textarea,
-.details-card-expanded .details-textarea {
+.details-card-resizable .details-textarea {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
-.details-card-resizable .details-textarea ::ng-deep .ck-editor,
-.details-card-expanded .details-textarea ::ng-deep .ck-editor {
+.details-card-resizable .details-textarea ::ng-deep .ck-editor {
   display: flex;
   flex-direction: column;
   height: 100%;
 }
 
-.details-card-resizable .details-textarea ::ng-deep .ck.ck-editor__main,
-.details-card-expanded .details-textarea ::ng-deep .ck.ck-editor__main {
+.details-card-resizable .details-textarea ::ng-deep .ck.ck-editor__main {
   flex: 1;
   overflow: hidden;
 }
 
-.details-card-resizable .details-textarea ::ng-deep .ck.ck-editor__main > .ck-content,
-.details-card-expanded .details-textarea ::ng-deep .ck.ck-editor__main > .ck-content {
+.details-card-resizable .details-textarea ::ng-deep .ck.ck-editor__main > .ck-content {
   height: 100%;
   min-height: 0;
   overflow-y: auto;

@@ -1,0 +1,47 @@
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="closed.emit()">
+  <div class="modal-dialog modal-dialog-centered">
+  @if (open) {
+    <div class="modal-content add-member-modal-content">
+      <div class="modal-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h5 class="mb-0"><i class="bi bi-person-plus me-2"></i>Add Member</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        @if (displayError) {
+          <div class="alert alert-danger py-2">{{ displayError }}</div>
+        }
+
+        <form (ngSubmit)="submit()">
+          <div class="mb-3">
+            <label class="field-label">User <span class="text-danger">*</span></label>
+            <app-member-picker
+              [projectId]="projectId"
+              [selectedUser]="selectedUser"
+              (picked)="onUserPicked($event)"
+            ></app-member-picker>
+          </div>
+
+          <div class="mb-4">
+            <label class="field-label">Role <span class="text-danger">*</span></label>
+            <select class="form-select field-input" [(ngModel)]="selectedRoleId" name="roleId">
+              <option value="" disabled>Select a role…</option>
+              @for (role of roles; track role._id) {
+                <option [value]="role._id">{{ role.title }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-light modal-submit-btn" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary modal-submit-btn" [disabled]="loading">
+              @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+              {{ loading ? 'Adding...' : 'Add Member' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+  </div>
+</div>

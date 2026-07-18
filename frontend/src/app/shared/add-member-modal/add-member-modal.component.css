@@ -1,0 +1,29 @@
+.add-member-modal-content {
+  border-radius: 14px;
+  border: none;
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.field-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.field-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+}
+
+.field-input:focus {
+  border-color: #3b82f6;
+  box-shadow: none;
+}
+
+.modal-submit-btn {
+  min-width: 96px;
+}

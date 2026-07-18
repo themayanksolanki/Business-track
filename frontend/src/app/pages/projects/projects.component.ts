@@ -4,8 +4,8 @@ import { DatePipe } from '@angular/common';
 import dayjs from 'dayjs/esm';
 import { ProjectService } from '../../core/services/project.service';
 import { DepartmentService } from '../../core/services/department.service';
-import { ProjectsViewService } from '../../core/services/projects-view.service';
-import { Project, CreateProjectPayload } from '../../models/project.model';
+import { ProjectsViewService, ProjectsViewMode } from '../../core/services/projects-view.service';
+import { Project, ProjectStatus, CreateProjectPayload } from '../../models/project.model';
 import { Department } from '../../models/department.model';
 import { Category } from '../../models/category.model';
 import { CategoryService } from '../../core/services/category.service';
@@ -13,6 +13,7 @@ import { Tag } from '../../models/tag.model';
 import { TagService } from '../../core/services/tag.service';
 import { User } from '../../models/user.model';
 import { UserService } from '../../core/services/user.service';
+import { AuthService } from '../../core/services/auth.service';
 import { ProjectFormComponent } from '../../shared/project-form/project-form.component';
 import { TagPillComponent } from '../../shared/tag-pill/tag-pill.component';
 
@@ -32,6 +33,25 @@ export class ProjectsComponent implements OnInit, OnDestroy {
 
   get viewMode() {
     return this.viewSvc.viewMode();
+  }
+
+  setViewMode(mode: ProjectsViewMode) {
+    this.viewSvc.setViewMode(mode);
+  }
+
+  // Status filter tabs — defaults to Active so archived/completed projects
+  // don't clutter the default view; "All" opts back into seeing everything.
+  statusFilter: ProjectStatus | 'all' = 'active';
+  readonly statusFilterOptions: (ProjectStatus | 'all')[] = ['active', 'archived', 'completed', 'all'];
+
+  setStatusFilter(status: ProjectStatus | 'all') {
+    if (this.statusFilter === status) return;
+    this.statusFilter = status;
+    this.loadCurrentView();
+  }
+
+  statusLabel(status: ProjectStatus | 'all'): string {
+    return status === 'all' ? 'All' : status === 'active' ? 'Active' : status === 'archived' ? 'Archived' : 'Completed';
   }
 
   // Cards view — infinite scroll, accumulates pages
@@ -74,7 +94,8 @@ export class ProjectsComponent implements OnInit, OnDestroy {
     private tagService: TagService,
     private userService: UserService,
     private viewSvc: ProjectsViewService,
-    private router: Router
+    private router: Router,
+    public auth: AuthService
   ) {
     // Reacts to view mode changes from anywhere (e.g. the sidebar's
     // Projects submenu), including the initial value on construction.
@@ -123,6 +144,18 @@ export class ProjectsComponent implements OnInit, OnDestroy {
     return role.toLowerCase().replace(' ', '-');
   }
 
+  private brokenAvatarIds = new Set<string>();
+
+  avatarUrl(user: User): string | null {
+    const id = (user._id ?? user.id) as string;
+    if (this.brokenAvatarIds.has(id)) return null;
+    return this.auth.avatarUrl(user);
+  }
+
+  onAvatarError(user: User) {
+    this.brokenAvatarIds.add((user._id ?? user.id) as string);
+  }
+
   /** Reloads whichever view is currently active, from page 1. Called on init,
    *  on view switch, and after any mutation (create/delete) so both view modes
    *  stay correct regardless of which one the user is looking at. */
@@ -141,7 +174,7 @@ export class ProjectsComponent implements OnInit, OnDestroy {
   loadMoreCards() {
     this.cardsLoadingMore = true;
     this.loading = this.cardsItems.length === 0;
-    this.projectService.getProjects(this.cardsPage, this.CARDS_PAGE_SIZE).subscribe({
+    this.projectService.getProjects(this.cardsPage, this.CARDS_PAGE_SIZE, this.statusFilter).subscribe({
       next: (res) => {
         this.cardsItems = [...this.cardsItems, ...res.projects];
         this.cardsHasMore = this.cardsPage < res.totalPages;
@@ -160,7 +193,7 @@ export class ProjectsComponent implements OnInit, OnDestroy {
   loadPage(page: number) {
     if (page < 1 || (page > this.totalPages && this.totalItems > 0)) return;
     this.loading = true;
-    this.projectService.getProjects(page, this.pageSize).subscribe({
+    this.projectService.getProjects(page, this.pageSize, this.statusFilter).subscribe({
       next: (res) => {
         this.pagedItems = res.projects;
         this.currentPage = res.page;

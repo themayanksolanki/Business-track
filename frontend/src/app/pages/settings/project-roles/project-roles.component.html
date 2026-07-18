@@ -1,0 +1,87 @@
+<div class="roles-panel">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h6 class="mb-0 text-muted">Project Roles</h6>
+    @if (isManager) {
+      <button class="btn btn-success btn-sm" (click)="openCreate()">
+        <i class="bi bi-plus-lg me-1"></i>New Role
+      </button>
+    }
+  </div>
+
+  @if (error) {
+    <div class="alert alert-danger py-2">{{ error }}</div>
+  }
+
+  @if (loading) {
+    <div class="text-center py-4 text-muted">
+      <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+    </div>
+  } @else if (roles.length === 0) {
+    <div class="empty-state text-center py-5 text-muted">
+      <i class="bi bi-person-badge display-5 d-block mb-3"></i>
+      <p class="mb-0">No roles yet.</p>
+    </div>
+  } @else {
+    <div class="roles-list" cdkDropList [cdkDropListDisabled]="!isManager" (cdkDropListDropped)="onDrop($event)">
+      @for (role of roles; track role._id) {
+        <div class="role-row" cdkDrag [cdkDragDisabled]="!isManager">
+          <div class="role-row-placeholder" *cdkDragPlaceholder></div>
+
+          @if (isManager) {
+            <span class="role-drag-handle" cdkDragHandle title="Drag to reorder">
+              <i class="bi bi-grip-vertical"></i>
+            </span>
+          }
+
+          <div class="role-row-info">
+            <span class="role-row-title">
+              {{ role.title }}
+              @if (role.isDefault) { <span class="role-default-badge">Default</span> }
+            </span>
+            @if (role.description) {
+              <span class="role-row-desc">{{ role.description }}</span>
+            }
+          </div>
+
+          @if (role.membersUsingCount) {
+            <span class="role-usage-pill"><i class="bi bi-people-fill"></i>{{ role.membersUsingCount }}</span>
+          }
+
+          @if (isManager) {
+            <span class="role-row-actions">
+              <button class="role-action-btn" type="button" title="Edit" (click)="openEdit(role)">
+                <i class="bi bi-pencil"></i>
+              </button>
+              @if (!role.isDefault) {
+                <button class="role-action-btn role-action-danger" type="button" title="Delete" (click)="requestDelete(role)">
+                  <i class="bi bi-trash"></i>
+                </button>
+              }
+            </span>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<app-project-role-form
+  [open]="formOpen"
+  [mode]="formMode"
+  [initial]="formInitial"
+  [titleLocked]="formTitleLocked"
+  [loading]="formLoading"
+  [error]="formError"
+  (closed)="closeForm()"
+  (submitted)="submitForm($event)">
+</app-project-role-form>
+
+<app-confirm-dialog
+  [open]="confirmOpen"
+  title="Delete Role"
+  [message]="confirmMessage"
+  confirmLabel="Delete"
+  [loading]="confirmLoading"
+  (confirmed)="confirmDelete()"
+  (cancelled)="closeConfirm()">
+</app-confirm-dialog>

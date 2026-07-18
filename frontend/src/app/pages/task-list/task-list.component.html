@@ -1,6 +1,9 @@
 <div class="page">
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h3 mb-0">Individual Tasks</h1>
+    <h1 class="h3 mb-0 d-flex align-items-center gap-2">
+      Individual Tasks
+      <app-help-tip variant="popover" text="Here you can track your todos apart from project"></app-help-tip>
+    </h1>
     <button class="btn btn-success btn-sm" (click)="openCreate()">
       <i class="bi bi-plus-lg me-1"></i>New Task
     </button>

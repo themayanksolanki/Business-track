@@ -7,6 +7,7 @@ import Invite from '../models/Invite.js';
 import AppError from '../utils/AppError.js';
 import { sendOtpEmail } from '../utils/mailer.js';
 import { cloudinary } from '../middleware/upload.js';
+import { ensureDefaultProjectRoles } from './projectRoleController.js';
 
 // Extract Cloudinary public_id from a secure URL for deletion
 const getPublicId = (url) => {
@@ -215,6 +216,8 @@ export const registerOrganization = async (req, res, next) => {
 
     user.organization = organization._id;
     await user.save();
+
+    await ensureDefaultProjectRoles(organization._id, user._id);
 
     const foundingInvites = [];
     if (normalizedManagerEmail)

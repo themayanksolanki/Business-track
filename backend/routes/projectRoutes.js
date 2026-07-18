@@ -13,12 +13,17 @@ import {
   validateItemId,
   validateCommentId,
   validateAttachmentId,
+  validateAddMember,
+  validateUpdateMemberRole,
+  validateMemberId,
+  validateProjectDetailsLayout,
 } from '../middleware/validate.js';
 import {
   getProjects,
   createProject,
   getProjectById,
   updateProject,
+  updateProjectDetailsLayout,
   deleteProject,
   uploadProjectPlan,
   downloadProjectPlan,
@@ -42,6 +47,13 @@ import {
   deleteComment,
 } from '../controllers/projectCommentController.js';
 import {
+  getMembers,
+  getMemberCandidates,
+  addMember,
+  updateMemberRole,
+  removeMember,
+} from '../controllers/projectMemberController.js';
+import {
   getItemAttachments,
   uploadItemAttachment,
   downloadItemAttachment,
@@ -58,6 +70,13 @@ router.get('/', protect, getProjects);
 router.post('/', protect, validateProject, createProject);
 router.get('/:projectId', protect, validateProjectId, getProjectById);
 router.put('/:projectId', protect, validateProjectId, validateProject, updateProject);
+router.patch(
+  '/:projectId/details-layout',
+  protect,
+  validateProjectId,
+  validateProjectDetailsLayout,
+  updateProjectDetailsLayout
+);
 router.delete('/:projectId', protect, validateProjectId, deleteProject);
 
 router.get('/:projectId/attachments', protect, validateProjectId, getProjectAttachments);
@@ -86,6 +105,19 @@ router.delete(
 router.put('/:projectId/plan', protect, validateProjectId, attachmentUpload, uploadProjectPlan);
 router.get('/:projectId/plan/download', protect, validateProjectId, downloadProjectPlan);
 router.delete('/:projectId/plan', protect, validateProjectId, removeProjectPlan);
+
+router.get('/:projectId/members', protect, validateProjectId, getMembers);
+router.get('/:projectId/members/candidates', protect, validateProjectId, getMemberCandidates);
+router.post('/:projectId/members', protect, validateProjectId, validateAddMember, addMember);
+router.patch(
+  '/:projectId/members/:memberId',
+  protect,
+  validateProjectId,
+  validateMemberId,
+  validateUpdateMemberRole,
+  updateMemberRole
+);
+router.delete('/:projectId/members/:memberId', protect, validateProjectId, validateMemberId, removeMember);
 
 router.get('/:projectId/items', protect, validateProjectId, getItems);
 router.post('/:projectId/items', protect, validateProjectId, validateProjectItem, createItem);

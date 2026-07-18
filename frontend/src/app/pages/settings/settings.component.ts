@@ -3,11 +3,12 @@ import { TabStripComponent, TabDef } from '../../shared/tab-strip/tab-strip.comp
 import { DepartmentsComponent } from './departments/departments.component';
 import { TagsComponent } from './tags/tags.component';
 import { CategoriesComponent } from './categories/categories.component';
+import { ProjectRolesComponent } from './project-roles/project-roles.component';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [TabStripComponent, DepartmentsComponent, TagsComponent, CategoriesComponent],
+  imports: [TabStripComponent, DepartmentsComponent, TagsComponent, CategoriesComponent, ProjectRolesComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.css',
 })
@@ -16,6 +17,7 @@ export class SettingsComponent {
     { key: 'departments', label: 'Departments', icon: 'bi-diagram-3' },
     { key: 'tags', label: 'Tags', icon: 'bi-tags' },
     { key: 'categories', label: 'Categories', icon: 'bi-bookmark' },
+    { key: 'projectRoles', label: 'Project Roles', icon: 'bi-person-badge' },
   ];
   activeTab = 'departments';
 }

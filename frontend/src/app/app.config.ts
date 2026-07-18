@@ -2,9 +2,26 @@ import { ApplicationConfig, provideZoneChangeDetection, APP_INITIALIZER } from '
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { catchError, firstValueFrom, of, timeout } from 'rxjs';
+import { NgbTooltipConfig, NgbPopoverConfig } from '@ng-bootstrap/ng-bootstrap';
 import { routes } from './app.routes';
 import { tokenInterceptor } from './core/interceptors/token.interceptor';
 import { AuthService } from './core/services/auth.service';
+
+// App-wide defaults so tooltips/popovers escape scrollable cards and modals
+// (the app has many overflow-clipped containers) instead of getting clipped.
+function tooltipDefaults(): NgbTooltipConfig {
+  const config = new NgbTooltipConfig();
+  config.container = 'body';
+  config.placement = 'auto';
+  return config;
+}
+
+function popoverDefaults(): NgbPopoverConfig {
+  const config = new NgbPopoverConfig();
+  config.container = 'body';
+  config.placement = 'auto';
+  return config;
+}
 
 function initAuth(auth: AuthService) {
   return () => {
@@ -29,5 +46,7 @@ export const appConfig: ApplicationConfig = {
       deps: [AuthService],
       multi: true,
     },
+    { provide: NgbTooltipConfig, useFactory: tooltipDefaults },
+    { provide: NgbPopoverConfig, useFactory: popoverDefaults },
   ],
 };

@@ -58,7 +58,7 @@ const projectSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['active', 'completed'],
+      enum: ['active', 'archived', 'completed'],
       default: 'active',
     },
     startDate: {
@@ -104,6 +104,30 @@ const projectSchema = new mongoose.Schema(
     tags: {
       type: [mongoose.Schema.Types.ObjectId],
       ref: 'Tag',
+      default: [],
+    },
+    members: {
+      type: [
+        {
+          user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+          role: { type: mongoose.Schema.Types.ObjectId, ref: 'ProjectRole', required: true },
+          addedAt: { type: Date, default: Date.now },
+          addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+        },
+      ],
+      default: [],
+    },
+    // Shared, project-wide layout for the Details tab cards — array order is
+    // display order; width/height are the user's last saved resize (null
+    // until a card has been resized, meaning "use the CSS default size").
+    detailsLayout: {
+      type: [
+        {
+          cardId: { type: String, required: true },
+          width: { type: Number, default: null },
+          height: { type: Number, default: null },
+        },
+      ],
       default: [],
     },
   },

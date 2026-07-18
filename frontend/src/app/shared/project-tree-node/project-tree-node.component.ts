@@ -49,6 +49,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   @Input() isLast = false;
   @Input() selectionMode = false;
   @Input() selectedIds: Set<string> = new Set();
+  @Input() expandCommand: { expand: boolean; token: number } | null = null;
 
   @Output() refresh = new EventEmitter<void>();
   @Output() openDetail = new EventEmitter<ProjectTreeNode>();
@@ -79,6 +80,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   readonly priorityOptions: ProjectItemPriority[] = ['low', 'medium', 'high'];
 
   private brokenAvatarIds = new Set<string>();
+  private lastExpandToken = -1;
 
   constructor(
     private projectService: ProjectService,
@@ -98,11 +100,18 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges) {
     const change = changes['node'];
-    if (!change || change.firstChange) return;
-    const prevDepth = change.previousValue?.depth;
-    if (prevDepth === this.node.depth) return;
-    this.dropListRegistry.unregister(prevDepth + 1, this.dropListId);
-    if (this.canAddChild) this.dropListRegistry.register(this.node.depth + 1, this.dropListId);
+    if (change && !change.firstChange) {
+      const prevDepth = change.previousValue?.depth;
+      if (prevDepth !== this.node.depth) {
+        this.dropListRegistry.unregister(prevDepth + 1, this.dropListId);
+        if (this.canAddChild) this.dropListRegistry.register(this.node.depth + 1, this.dropListId);
+      }
+    }
+
+    if (this.expandCommand && this.expandCommand.token !== this.lastExpandToken) {
+      this.lastExpandToken = this.expandCommand.token;
+      this.expanded = this.expandCommand.expand;
+    }
   }
 
   ngOnDestroy() {

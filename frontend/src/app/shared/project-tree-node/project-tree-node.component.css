@@ -263,6 +263,7 @@
   cursor: pointer;
 }
 .tree-assignee-trigger::after { display: none; }
+.tree-icon-btn::after { display: none; }
 .tree-assignee-trigger:hover .assign-avatar,
 .tree-assignee-trigger:hover .avatar-img-xs { box-shadow: 0 0 0 2px var(--border-strong); }
 

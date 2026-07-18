@@ -1,0 +1,78 @@
+<div class="teams-panel">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h6 class="mb-0 text-muted">Project Members</h6>
+    @if (canManage) {
+      <button class="btn btn-success btn-sm" (click)="openAdd()">
+        <i class="bi bi-person-plus me-1"></i>Add Member
+      </button>
+    }
+  </div>
+
+  @if (members.length === 0) {
+    <div class="empty-state text-center py-5 text-muted">
+      <i class="bi bi-people display-5 d-block mb-3"></i>
+      <p class="mb-0">No members yet.</p>
+    </div>
+  } @else {
+    <div class="teams-list">
+      @for (member of members; track member._id) {
+        <div class="team-row">
+          @if (auth.avatarUrl(member.user)) {
+            <img class="member-avatar-img" [src]="auth.avatarUrl(member.user)!" [alt]="member.user.username" />
+          } @else {
+            <span class="member-avatar" [class]="'avatar-' + roleClass(member.user.role)">
+              {{ member.user.username[0].toUpperCase() }}
+            </span>
+          }
+
+          <div class="team-row-info">
+            <span class="team-row-name">{{ member.user.username }}</span>
+            <span class="team-row-email">{{ member.user.email }}</span>
+          </div>
+
+          <div class="team-row-role">
+            @if (canManage) {
+              <select
+                class="form-select form-select-sm role-select"
+                [ngModel]="member.role._id"
+                (ngModelChange)="changeRole(member, $event)"
+                [disabled]="roleSavingId === member._id"
+              >
+                @for (role of roles; track role._id) {
+                  <option [value]="role._id">{{ role.title }}</option>
+                }
+              </select>
+            } @else {
+              <span class="role-badge">{{ member.role.title }}</span>
+            }
+          </div>
+
+          @if (canManage) {
+            <button class="team-row-remove" type="button" title="Remove member" (click)="requestRemove(member)">
+              <i class="bi bi-trash"></i>
+            </button>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<app-add-member-modal
+  [open]="addOpen"
+  [projectId]="projectId"
+  [loading]="addLoading"
+  [error]="addError"
+  (closed)="closeAdd()"
+  (submitted)="submitAdd($event)"
+></app-add-member-modal>
+
+<app-confirm-dialog
+  [open]="removeOpen"
+  title="Remove Member"
+  [message]="'Remove ' + (removeTarget?.user?.username || 'this member') + ' from the project?'"
+  confirmLabel="Remove"
+  [loading]="removeLoading"
+  (confirmed)="confirmRemove()"
+  (cancelled)="cancelRemove()"
+></app-confirm-dialog>

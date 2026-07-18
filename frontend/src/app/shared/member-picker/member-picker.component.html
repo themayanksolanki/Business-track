@@ -1,0 +1,60 @@
+<div class="member-picker">
+  <button type="button" class="member-picker-trigger" (click)="toggleOpen()">
+    @if (selectedUser) {
+      <span class="member-picker-trigger-user">
+        <span class="member-avatar">{{ selectedUser.username[0].toUpperCase() }}</span>
+        {{ selectedUser.username }}
+      </span>
+    } @else {
+      <span class="member-picker-placeholder">Search users by name or email…</span>
+    }
+    <i class="bi bi-chevron-down"></i>
+  </button>
+
+  @if (open) {
+    <div class="member-picker-backdrop" (click)="closeDropdown()"></div>
+    <div class="member-picker-dropdown">
+      <input
+        #searchInput
+        type="text"
+        class="member-picker-search"
+        [(ngModel)]="query"
+        (ngModelChange)="onQueryChange()"
+        placeholder="Search by name or email…"
+      />
+
+      <div #panel class="member-picker-list">
+        @for (user of users; track user._id || user.id) {
+          <button type="button" class="member-picker-item" (click)="pick(user)">
+            <span class="member-avatar">{{ user.username[0].toUpperCase() }}</span>
+            <span class="member-picker-item-info">
+              <span class="member-picker-item-name">{{ user.username }}</span>
+              <span class="member-picker-item-email">{{ user.email }}</span>
+            </span>
+          </button>
+        } @empty {
+          @if (!loading) {
+            <div class="member-picker-empty">No users found</div>
+          }
+        }
+
+        @if (loading) {
+          <div class="member-picker-loading">
+            <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+          </div>
+        }
+
+        <div #sentinel class="member-picker-sentinel"></div>
+        @if (loadingMore && !loading) {
+          <div class="member-picker-loading-more">
+            <span class="spinner-border spinner-border-sm"></span>
+          </div>
+        }
+      </div>
+
+      @if (error) {
+        <div class="member-picker-error">{{ error }}</div>
+      }
+    </div>
+  }
+</div>

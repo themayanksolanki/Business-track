@@ -3,6 +3,58 @@
   margin: 0;
 }
 
+/* ── View switcher ── */
+.view-switcher .view-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 32px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-input);
+  color: var(--text-muted);
+}
+.view-switcher .view-switch-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.view-switcher .view-switch-btn.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+/* ── Status filter tabs ── */
+.status-filter-tabs .status-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-input);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.status-filter-tabs .status-filter-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.status-filter-tabs .status-filter-btn.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.status-badge-sm {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 99px;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+.status-active    { background-color: #dbeafe; color: #1d4ed8; }
+.status-archived  { background-color: #f1f5f9; color: #475569; }
+.status-completed { background-color: #dcfce7; color: #15803d; }
+
 .dept-badge {
   display: inline-flex;
   align-items: center;
@@ -256,6 +308,14 @@
   flex-shrink: 0;
 }
 .avatar-xs { width: 22px; height: 22px; font-size: 0.65rem; }
+
+.avatar-img-xs {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
 
 .avatar-admin     { background: #fef3c7; color: #92400e; }
 .avatar-manager   { background: #dbeafe; color: #1d4ed8; }

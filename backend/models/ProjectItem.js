@@ -94,6 +94,10 @@ projectItemSchema.pre('save', async function () {
   if (this.isNew && this.numericId == null) {
     this.numericId = await getNextSequence('projectItem');
   }
+  if (this.isModified('status')) {
+    if (!this.startDate) this.startDate = new Date();
+    if (this.status === 'completed' && !this.endDate) this.endDate = new Date();
+  }
 });
 
 export default mongoose.model('ProjectItem', projectItemSchema);

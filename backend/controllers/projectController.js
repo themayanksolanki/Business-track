@@ -13,6 +13,8 @@ const POPULATE_FIELDS = [
   { path: 'department', select: 'name color' },
   { path: 'category', select: 'name color' },
   { path: 'tags', select: 'name textColor backgroundColor' },
+  { path: 'members.user', select: 'username email role profileImage' },
+  { path: 'members.role', select: 'title description isDefault rank' },
 ];
 
 // Admins see every project in their organization. Everyone else sees
@@ -55,6 +57,8 @@ const getDescendantIds = async (rootIds) => {
   return result;
 };
 
+const VALID_PROJECT_STATUSES = ['active', 'archived', 'completed'];
+
 export const getProjects = async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -62,6 +66,8 @@ export const getProjects = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const filter = { organization: req.user.organization };
+
+    if (VALID_PROJECT_STATUSES.includes(req.query.status)) filter.status = req.query.status;
 
     if (req.user.role !== 'Admin') {
       const accessibleIds = await getAccessibleDepartmentIds(req.user);
@@ -187,6 +193,27 @@ export const updateProject = async (req, res, next) => {
 
     const populated = await project.populate(POPULATE_FIELDS);
     res.status(200).json({ message: 'Project updated', project: populated });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Deliberately checks view access only (not canManageProjectSettings) — the
+// Details-tab card layout is a shared cosmetic board, not a project setting,
+// so any member who can see the project can rearrange/resize it.
+export const updateProjectDetailsLayout = async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return next(new AppError('Project not found', 404));
+
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
+    project.detailsLayout = req.body.detailsLayout;
+    await project.save();
+
+    const populated = await project.populate(POPULATE_FIELDS);
+    res.status(200).json({ message: 'Layout updated', project: populated });
   } catch (err) {
     next(err);
   }

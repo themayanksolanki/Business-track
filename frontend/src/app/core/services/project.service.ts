@@ -3,6 +3,8 @@ import { HttpClient, HttpEvent } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import {
   Project,
+  ProjectStatus,
+  ProjectDetailsLayoutEntry,
   CreateProjectPayload,
   UpdateProjectPayload,
   PaginatedProjects,
@@ -15,6 +17,8 @@ import {
   ProjectItemSummary,
 } from '../../models/project-item.model';
 import { ProjectComment, CreateCommentPayload } from '../../models/comment.model';
+import { ProjectMember } from '../../models/project.model';
+import { PaginatedUsers } from '../../models/user.model';
 import { Observable } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
@@ -24,8 +28,10 @@ export class ProjectService {
   constructor(private http: HttpClient) {}
 
   // Projects
-  getProjects(page: number, limit: number) {
-    return this.http.get<PaginatedProjects>(this.api, { params: { page, limit } });
+  getProjects(page: number, limit: number, status?: ProjectStatus | 'all') {
+    const params: Record<string, string | number> = { page, limit };
+    if (status && status !== 'all') params['status'] = status;
+    return this.http.get<PaginatedProjects>(this.api, { params });
   }
 
   getProjectById(projectId: string) {
@@ -42,6 +48,16 @@ export class ProjectService {
 
   deleteProject(projectId: string) {
     return this.http.delete<{ message: string }>(`${this.api}/${projectId}`);
+  }
+
+  // Shared Details-tab card layout (order + resize) — its own endpoint since
+  // any project member may rearrange it, unlike the settings fields gated
+  // behind updateProject's manage-permission check.
+  updateDetailsLayout(projectId: string, detailsLayout: ProjectDetailsLayoutEntry[]) {
+    return this.http.patch<{ message: string; project: Project }>(
+      `${this.api}/${projectId}/details-layout`,
+      { detailsLayout }
+    );
   }
 
   // Items
@@ -184,5 +200,38 @@ export class ProjectService {
 
   removeProjectPlan(projectId: string) {
     return this.http.delete<{ message: string; project: Project }>(`${this.api}/${projectId}/plan`);
+  }
+
+  // Members (Teams tab)
+  getMembers(projectId: string) {
+    return this.http.get<ProjectMember[]>(`${this.api}/${projectId}/members`);
+  }
+
+  // Only called when the "Add Member" dropdown is opened — never on Project
+  // Details load, which already gets members+roles from getProjectById.
+  getMemberCandidates(projectId: string, page: number, limit: number, search?: string) {
+    const params: Record<string, string | number> = { page, limit };
+    if (search) params['search'] = search;
+    return this.http.get<PaginatedUsers>(`${this.api}/${projectId}/members/candidates`, { params });
+  }
+
+  addMember(projectId: string, userId: string, roleId: string) {
+    return this.http.post<{ message: string; members: ProjectMember[] }>(
+      `${this.api}/${projectId}/members`,
+      { userId, roleId }
+    );
+  }
+
+  updateMemberRole(projectId: string, memberId: string, roleId: string) {
+    return this.http.patch<{ message: string; members: ProjectMember[] }>(
+      `${this.api}/${projectId}/members/${memberId}`,
+      { roleId }
+    );
+  }
+
+  removeMember(projectId: string, memberId: string) {
+    return this.http.delete<{ message: string; members: ProjectMember[] }>(
+      `${this.api}/${projectId}/members/${memberId}`
+    );
   }
 }

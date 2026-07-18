@@ -1,0 +1,100 @@
+.teams-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.team-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card);
+}
+
+.member-avatar,
+.member-avatar-img {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.member-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.member-avatar-img {
+  object-fit: cover;
+}
+
+.avatar-admin     { background: #fef3c7; color: #92400e; }
+.avatar-manager   { background: #dbeafe; color: #1d4ed8; }
+.avatar-team-lead { background: #ede9fe; color: #6d28d9; }
+.avatar-user      { background: #dcfce7; color: #15803d; }
+
+.team-row-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.team-row-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-row-email {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-row-role {
+  flex-shrink: 0;
+}
+
+.role-select {
+  min-width: 140px;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 99px;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+}
+
+.team-row-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.team-row-remove:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}

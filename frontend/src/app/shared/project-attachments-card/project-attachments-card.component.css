@@ -1,4 +1,5 @@
-.details-card { padding: 1.25rem; }
+:host { display: block; height: 100%; }
+.details-card { padding: 1.25rem; height: 100%; box-sizing: border-box; }
 
 .attachment-list {
   list-style: none;

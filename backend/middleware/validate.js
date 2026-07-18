@@ -171,8 +171,24 @@ const validateDateRange = (startDate, endDate) => {
 };
 
 const VALID_PRIORITIES = ['low', 'medium', 'high'];
-const VALID_PROJECT_STATUSES = ['active', 'completed'];
+const VALID_PROJECT_STATUSES = ['active', 'archived', 'completed'];
+const VALID_DETAILS_CARD_IDS = ['details', 'attachments', 'plan', 'dates', 'priority', 'effort', 'links'];
 const URL_REGEX = /^https?:\/\/[^\s]+\.[^\s]+$/i;
+
+const validateDetailsLayout = (detailsLayout) => {
+  if (!Array.isArray(detailsLayout)) return 'detailsLayout must be an array';
+  const seen = new Set();
+  for (const entry of detailsLayout) {
+    if (!entry || typeof entry !== 'object') return 'detailsLayout entries must be objects';
+    if (!VALID_DETAILS_CARD_IDS.includes(entry.cardId))
+      return `detailsLayout cardId must be one of: ${VALID_DETAILS_CARD_IDS.join(', ')}`;
+    if (seen.has(entry.cardId)) return 'detailsLayout has a duplicate cardId';
+    seen.add(entry.cardId);
+    if (entry.width != null && typeof entry.width !== 'number') return 'detailsLayout width must be a number';
+    if (entry.height != null && typeof entry.height !== 'number') return 'detailsLayout height must be a number';
+  }
+  return null;
+};
 
 export const validateProject = (req, res, next) => {
   const { name, startDate, endDate, owner, priority, department, category, status, detailsText, effort, links, tags } = req.body;
@@ -217,6 +233,15 @@ export const validateProject = (req, res, next) => {
     }
   }
 
+  next();
+};
+
+// Any project member can rearrange the shared Details-tab board (it's cosmetic,
+// not a project setting), so this stays deliberately separate from
+// validateProject/canManageProjectSettings, which gate actual settings fields.
+export const validateProjectDetailsLayout = (req, res, next) => {
+  const layoutError = validateDetailsLayout(req.body.detailsLayout);
+  if (layoutError) return next(new AppError(layoutError, 400));
   next();
 };
 
@@ -376,3 +401,52 @@ export const validateCategory = (req, res, next) => {
 };
 
 export const validateCategoryId = validateParamId('id');
+
+export const validateProjectRole = (req, res, next) => {
+  const { title, description } = req.body;
+
+  if (req.method === 'POST' && (!title || !title.trim()))
+    return next(new AppError('Role title is required', 400));
+
+  if (description !== undefined && typeof description !== 'string')
+    return next(new AppError('description must be a string', 400));
+
+  next();
+};
+
+export const validateProjectRoleId = validateParamId('id');
+
+export const validateProjectRoleReorder = (req, res, next) => {
+  const { orderedIds } = req.body;
+
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0)
+    return next(new AppError('orderedIds must be a non-empty array', 400));
+
+  if (!orderedIds.every((id) => mongoose.isValidObjectId(id)))
+    return next(new AppError('orderedIds must all be valid IDs', 400));
+
+  next();
+};
+
+export const validateAddMember = (req, res, next) => {
+  const { userId, roleId } = req.body;
+
+  if (!userId || !mongoose.isValidObjectId(userId))
+    return next(new AppError('userId is not a valid ID', 400));
+
+  if (!roleId || !mongoose.isValidObjectId(roleId))
+    return next(new AppError('roleId is not a valid ID', 400));
+
+  next();
+};
+
+export const validateUpdateMemberRole = (req, res, next) => {
+  const { roleId } = req.body;
+
+  if (!roleId || !mongoose.isValidObjectId(roleId))
+    return next(new AppError('roleId is not a valid ID', 400));
+
+  next();
+};
+
+export const validateMemberId = validateParamId('memberId');
