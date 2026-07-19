@@ -1,7 +1,8 @@
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
-import { cloudinary } from '../middleware/upload.js';
 import streamRemoteFile from '../utils/streamRemoteFile.js';
+import { destroyBlob } from '../utils/blobStorage.js';
+import { streamS3Object } from '../lib/s3.js';
 import { getAccessibleDepartmentIds, canAccessDepartment } from '../utils/access.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
@@ -280,20 +281,16 @@ export const deleteProject = async (req, res, next) => {
       return next(new AppError('You do not have permission to delete this project', 403));
 
     // Attachments (project-level and on any item in the tree) live on
-    // Cloudinary and must be cleaned up explicitly — everything else
+    // Cloudinary or S3 and must be cleaned up explicitly — everything else
     // (ProjectItems, Comments, Attachment rows themselves) cascades away at
     // the DB level once the project row is deleted (see schema.prisma).
     const attachments = await prisma.attachment.findMany({
       where: { OR: [{ projectId: project.id }, { projectItem: { projectId: project.id } }] },
-      select: { publicId: true },
+      select: { publicId: true, storage: true },
     });
-    await Promise.allSettled(
-      attachments.filter((a) => a.publicId).map((a) => cloudinary.uploader.destroy(a.publicId))
-    );
+    await Promise.allSettled(attachments.map((a) => destroyBlob(a)));
 
-    if (project.planPublicId) {
-      await cloudinary.uploader.destroy(project.planPublicId).catch(() => {});
-    }
+    await destroyBlob({ storage: project.planStorage, publicId: project.planPublicId });
 
     await prisma.project.delete({ where: { id: project.id } });
     res.status(200).json({ message: 'Project deleted' });
@@ -317,9 +314,7 @@ export const uploadProjectPlan = async (req, res, next) => {
 
     if (!req.file) return next(new AppError('No file uploaded', 400));
 
-    if (project.planPublicId) {
-      await cloudinary.uploader.destroy(project.planPublicId).catch(() => {});
-    }
+    await destroyBlob({ storage: project.planStorage, publicId: project.planPublicId });
 
     const updated = await prisma.project.update({
       where: { id: project.id },
@@ -327,6 +322,7 @@ export const uploadProjectPlan = async (req, res, next) => {
         planFileName: req.file.originalname,
         planUrl: req.file.path,
         planPublicId: req.file.filename,
+        planStorage: 's3',
         planMimeType: req.file.mimetype,
         planSize: req.file.size,
         planUploadedById: req.user.id,
@@ -343,7 +339,6 @@ export const uploadProjectPlan = async (req, res, next) => {
 };
 
 // The plan file now lives on Cloudinary, so "download" is just handing back
-// the direct URL instead of piping bytes through this server.
 export const downloadProjectPlan = async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({
@@ -357,11 +352,12 @@ export const downloadProjectPlan = async (req, res, next) => {
 
     if (!project.planUrl) return next(new AppError('No plan has been uploaded', 404));
 
-    await streamRemoteFile(
-      res,
-      { url: project.planUrl, mimeType: project.planMimeType, fileName: project.planFileName },
-      next
-    );
+    const fileInfo = { mimeType: project.planMimeType, fileName: project.planFileName };
+    if (project.planStorage === 's3') {
+      await streamS3Object(res, { ...fileInfo, key: project.planPublicId }, next);
+    } else {
+      await streamRemoteFile(res, { ...fileInfo, url: project.planUrl }, next);
+    }
   } catch (err) {
     next(err);
   }
@@ -380,9 +376,7 @@ export const removeProjectPlan = async (req, res, next) => {
     if (!canManageProjectSettings(req.user, project))
       return next(new AppError('You do not have permission to update this project', 403));
 
-    if (project.planPublicId) {
-      await cloudinary.uploader.destroy(project.planPublicId).catch(() => {});
-    }
+    await destroyBlob({ storage: project.planStorage, publicId: project.planPublicId });
 
     const updated = await prisma.project.update({
       where: { id: project.id },
@@ -390,6 +384,7 @@ export const removeProjectPlan = async (req, res, next) => {
         planFileName: null,
         planUrl: null,
         planPublicId: null,
+        planStorage: 'cloudinary',
         planMimeType: null,
         planSize: null,
         planUploadedById: null,
