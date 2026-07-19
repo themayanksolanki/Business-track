@@ -1,0 +1,29 @@
+.global-loader-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  z-index: 2000;
+  overflow: hidden;
+  pointer-events: none;
+  background: transparent;
+}
+
+.global-loader-bar-fill {
+  position: absolute;
+  top: 0;
+  left: -35%;
+  height: 100%;
+  width: 35%;
+  border-radius: 0 2px 2px 0;
+  background: var(--bs-primary, #2563eb);
+  box-shadow: 0 0 8px var(--bs-primary, #2563eb);
+  animation: global-loader-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes global-loader-slide {
+  0%   { left: -35%; width: 35%; }
+  60%  { left: 100%;  width: 55%; }
+  100% { left: 100%;  width: 55%; }
+}
