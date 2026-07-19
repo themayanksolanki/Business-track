@@ -1,8 +1,9 @@
 import { Injectable, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { ContactData, Message } from '../../models/message.model';
+import { SKIP_LOADER } from '../interceptors/loading.interceptor';
 
 const BASE = environment.apiUrl.replace('/api', '');
 
@@ -16,21 +17,27 @@ export class ChatService {
 
   constructor(private http: HttpClient) {}
 
+  private readonly skipLoaderContext = new HttpContext().set(SKIP_LOADER, true);
+
   prefetch() {
     if (this._contacts().length) return;
-    this.http.get<ContactData[]>(`${this.api}/contacts`).subscribe({
-      next: (c) => this._contacts.set(c),
-    });
+    this.http
+      .get<ContactData[]>(`${this.api}/contacts`, { context: this.skipLoaderContext })
+      .subscribe({
+        next: (c) => this._contacts.set(c),
+      });
   }
 
   fetchUnread() {
-    this.http.get<ContactData[]>(`${this.api}/contacts`).subscribe({
-      next: (contacts) => {
-        this._contacts.set(contacts);
-        this.totalUnread.set(contacts.reduce((sum, c) => sum + (c.unreadCount ?? 0), 0));
-      },
-      error: () => {},
-    });
+    this.http
+      .get<ContactData[]>(`${this.api}/contacts`, { context: this.skipLoaderContext })
+      .subscribe({
+        next: (contacts) => {
+          this._contacts.set(contacts);
+          this.totalUnread.set(contacts.reduce((sum, c) => sum + (c.unreadCount ?? 0), 0));
+        },
+        error: () => {},
+      });
   }
 
   getContacts() {

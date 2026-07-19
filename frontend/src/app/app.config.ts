@@ -5,6 +5,7 @@ import { catchError, firstValueFrom, of, timeout } from 'rxjs';
 import { NgbTooltipConfig, NgbPopoverConfig } from '@ng-bootstrap/ng-bootstrap';
 import { routes } from './app.routes';
 import { tokenInterceptor } from './core/interceptors/token.interceptor';
+import { loadingInterceptor } from './core/interceptors/loading.interceptor';
 import { AuthService } from './core/services/auth.service';
 
 // App-wide defaults so tooltips/popovers escape scrollable cards and modals
@@ -45,7 +46,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([tokenInterceptor])),
+    provideHttpClient(withInterceptors([tokenInterceptor, loadingInterceptor])),
     {
       provide: APP_INITIALIZER,
       useFactory: initAuth,

@@ -7,11 +7,12 @@ import { ThemeService } from './core/services/theme.service';
 import { SidebarService } from './core/services/sidebar.service';
 import { SidebarComponent } from './shared/sidebar/sidebar.component';
 import { ToastContainerComponent } from './shared/toast-container/toast-container.component';
+import { GlobalLoaderComponent } from './shared/global-loader/global-loader.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, SidebarComponent, ToastContainerComponent],
+  imports: [RouterOutlet, SidebarComponent, ToastContainerComponent, GlobalLoaderComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
 })
