@@ -56,9 +56,9 @@
           <button type="button" class="actions-btn dropdown-toggle" data-bs-toggle="dropdown" title="Project actions">
             <i class="bi bi-gear me-1"></i>Actions
           </button>
-          <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+          <ul class="dropdown-menu status-dropdown shadow-sm">
             <li>
-              <a class="dropdown-item text-danger" (click)="openDeleteConfirm()">
+              <a class="dropdown-item status-opt text-danger" (click)="openDeleteConfirm()">
                 <i class="bi bi-trash3 me-2"></i>Delete Project
               </a>
             </li>
@@ -230,7 +230,7 @@
       </div>
 
       @if (project.plan) {
-        <div class="meta-cell plan-shortcut-cell"  [ngbTooltip]="'Project plan — ' + project.plan.fileName">
+        <div class="meta-cell plan-shortcut-cell" triggers="hover" [ngbPopover]="'Project plan — ' + project.plan.fileName">
             <button type="button" class="plan-shortcut-btn" (click)="openPlanViewer()">
             <svg viewBox="0 0 64 64" width="20" height="20" aria-hidden="true">
               <rect x="12" y="8" fill="#F9EBB2" width="40" height="48"/>

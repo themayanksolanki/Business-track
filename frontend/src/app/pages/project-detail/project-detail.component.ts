@@ -50,7 +50,7 @@ import { DropListRegistryService } from '../../shared/drop-list-registry.service
 import { NotificationService } from '../../shared/notification.service';
 import { MoveToGroupDialogComponent } from '../../shared/move-to-group-dialog/move-to-group-dialog.component';
 import { HelpTipComponent } from '../../shared/help-tip/help-tip.component';
-import { NgbTooltip } from '@ng-bootstrap/ng-bootstrap';
+import { NgbPopover, NgbTooltip } from '@ng-bootstrap/ng-bootstrap';
 import { ProjectTeamsComponent } from '../../shared/project-teams/project-teams.component';
 import { CardResizeDirective, CardResizeEvent } from '../../shared/card-resize.directive';
 
@@ -79,6 +79,7 @@ import { CardResizeDirective, CardResizeEvent } from '../../shared/card-resize.d
     NgbTooltip,
     ProjectTeamsComponent,
     CardResizeDirective,
+    NgbPopover
   ],
   providers: [DropListRegistryService],
   templateUrl: './project-detail.component.html',
