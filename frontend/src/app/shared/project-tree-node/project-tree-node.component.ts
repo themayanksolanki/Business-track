@@ -95,7 +95,13 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
     // with every group's task list expanded; deeper nodes (tasks, subtasks)
     // keep the old always-expanded default.
     this.expanded = this.node.depth !== 0 || this.isFirst;
-    if (this.canAddChild) this.dropListRegistry.register(this.node.depth + 1, this.dropListId);
+    // Deferred: sibling nodes register into the same depth bucket during
+    // their own ngOnInit as the parent's @for loop creates them one by one.
+    // Registering synchronously here mutates state that an earlier sibling's
+    // [cdkDropListConnectedTo] binding already read this same CD pass,
+    // triggering NG0100 when Angular's dev-mode re-check catches the
+    // now-stale value. Queuing it lets every sibling finish creating first.
+    if (this.canAddChild) queueMicrotask(() => this.dropListRegistry.register(this.node.depth + 1, this.dropListId));
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -104,7 +110,8 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
       const prevDepth = change.previousValue?.depth;
       if (prevDepth !== this.node.depth) {
         this.dropListRegistry.unregister(prevDepth + 1, this.dropListId);
-        if (this.canAddChild) this.dropListRegistry.register(this.node.depth + 1, this.dropListId);
+        if (this.canAddChild)
+          queueMicrotask(() => this.dropListRegistry.register(this.node.depth + 1, this.dropListId));
       }
     }
 

@@ -338,7 +338,6 @@ export const uploadProjectPlan = async (req, res, next) => {
   }
 };
 
-// The plan file now lives on Cloudinary, so "download" is just handing back
 export const downloadProjectPlan = async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({
