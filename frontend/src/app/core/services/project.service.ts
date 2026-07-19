@@ -91,6 +91,13 @@ export class ProjectService {
     return this.http.delete<{ message: string }>(`${this.api}/${projectId}/items/${itemId}`);
   }
 
+  duplicateItem(projectId: string, itemId: number) {
+    return this.http.post<{ message: string; item: ProjectItem }>(
+      `${this.api}/${projectId}/items/${itemId}/duplicate`,
+      {}
+    );
+  }
+
   reorderItems(projectId: string, parentId: number | null, orderedIds: number[]) {
     return this.http.patch<{ message: string }>(`${this.api}/${projectId}/items/reorder`, {
       parentId,

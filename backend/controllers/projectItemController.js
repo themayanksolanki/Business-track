@@ -68,6 +68,36 @@ const shiftDescendantDepths = async (rootId, delta) => {
   }
 };
 
+// Recursively copies an item and its descendants under a new parent. Only
+// structural fields (type/depth/order) and the title carry over — everything
+// else (assignee, dates, tags, description, attachments, comments) is left
+// at its schema default, since a duplicate is meant to be a clean copy of
+// just the outline, not the whole item. Only the root of the copied subtree
+// gets the " copy" suffix; nested items keep their original title verbatim.
+const duplicateSubtree = async (source, projectId, parentId, order, createdById, isRoot) => {
+  const created = await prisma.projectItem.create({
+    data: {
+      projectId,
+      parentId,
+      type: source.type,
+      title: isRoot ? `${source.title} copy` : source.title,
+      depth: source.depth,
+      order,
+      createdById,
+    },
+  });
+
+  const children = await prisma.projectItem.findMany({
+    where: { parentId: source.id },
+    orderBy: { order: 'asc' },
+  });
+  for (let i = 0; i < children.length; i++) {
+    await duplicateSubtree(children[i], projectId, created.id, i, createdById, false);
+  }
+
+  return created;
+};
+
 export const getItems = async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({
@@ -338,6 +368,50 @@ export const deleteItem = async (req, res, next) => {
     if (item.parentId) await recomputeAncestorStatuses(item.parentId);
 
     res.status(200).json({ message: 'Item deleted' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const duplicateItem = async (req, res, next) => {
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
+    const item = await prisma.projectItem.findFirst({
+      where: { id: Number(req.params.itemId), projectId: project.id },
+    });
+    if (!item) return next(new AppError('Item not found', 404));
+
+    // make room right after the original among its siblings
+    const laterSiblings = await prisma.projectItem.findMany({
+      where: { projectId: project.id, parentId: item.parentId, order: { gt: item.order } },
+    });
+    if (laterSiblings.length)
+      await prisma.$transaction(
+        laterSiblings.map((s) =>
+          prisma.projectItem.update({ where: { id: s.id }, data: { order: s.order + 1 } })
+        )
+      );
+
+    const duplicate = await duplicateSubtree(
+      item,
+      project.id,
+      item.parentId,
+      item.order + 1,
+      req.user.id,
+      true
+    );
+
+    if (item.parentId) await recomputeAncestorStatuses(item.parentId);
+
+    const full = await prisma.projectItem.findUnique({ where: { id: duplicate.id }, include: ITEM_INCLUDE });
+    res.status(201).json({ message: 'Item duplicated', item: full });
   } catch (err) {
     next(err);
   }

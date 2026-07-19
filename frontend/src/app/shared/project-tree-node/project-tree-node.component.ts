@@ -277,6 +277,11 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
         action: 'move-to-group',
       });
     items.push({
+      label: 'Duplicate',
+      icon: 'bi-copy',
+      action: 'duplicate',
+    });
+    items.push({
       label: 'Delete',
       icon: 'bi-trash3',
       action: 'delete',
@@ -352,7 +357,20 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
     if (action === 'add-child') this.openAddChild();
     else if (action === 'view') this.openDetail.emit(this.node);
     else if (action === 'move-to-group') this.moveToGroupRequested.emit(this.node);
+    else if (action === 'duplicate') this.duplicate();
     else if (action === 'delete') this.confirmOpen = true;
+  }
+
+  duplicate() {
+    this.projectService.duplicateItem(this.projectId, this.node.id).subscribe({
+      next: () => {
+        this.notifications.success(`"${this.node.title}" duplicated`);
+        this.refresh.emit();
+      },
+      error: (err) => {
+        this.notifications.error(err.error?.message || 'Failed to duplicate item');
+      },
+    });
   }
 
   openAddChild() {

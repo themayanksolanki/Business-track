@@ -36,6 +36,7 @@ import {
   getItemById,
   updateItem,
   deleteItem,
+  duplicateItem,
   reorderItems,
   moveItem,
   moveItemToParent,
@@ -156,6 +157,13 @@ router.put(
   updateItem
 );
 router.delete('/:projectId/items/:itemId', protect, validateProjectId, validateItemId, deleteItem);
+router.post(
+  '/:projectId/items/:itemId/duplicate',
+  protect,
+  validateProjectId,
+  validateItemId,
+  duplicateItem
+);
 
 router.get(
   '/:projectId/items/:itemId/comments',
