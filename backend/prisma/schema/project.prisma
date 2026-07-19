@@ -30,10 +30,11 @@ model Project {
 
   // At most one plan per project — flattened onto the row instead of a
   // separate 1:1 table since there's never more than one and nothing joins
-  // on it. Files now live on Cloudinary (see attachments) instead of GridFS.
+  // on it. Files now live on Cloudinary or S3 (see Attachment.storage).
   planFileName     String?
   planUrl          String?
   planPublicId     String?
+  planStorage      StorageProvider @default(cloudinary)
   planMimeType     String?
   planSize         Int?
   planUploadedById Int?
