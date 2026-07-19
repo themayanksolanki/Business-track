@@ -1,6 +1,6 @@
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
-import { cloudinary } from '../middleware/upload.js';
+import { destroyBlob } from '../utils/blobStorage.js';
 import { MAX_DEPTH, typeForDepth, recomputeAncestorStatuses } from '../services/statusSync.service.js';
 import { canAccessProject } from './projectController.js';
 
@@ -353,13 +353,11 @@ export const deleteItem = async (req, res, next) => {
 
     const attachments = await prisma.attachment.findMany({
       where: { projectItemId: { in: allIds } },
-      select: { publicId: true },
+      select: { publicId: true, storage: true },
     });
-    // best-effort: blob deletions are independent I/O, run concurrently and
-    // continue cleanup even if some blobs are already gone
-    await Promise.allSettled(
-      attachments.filter((a) => a.publicId).map((a) => cloudinary.uploader.destroy(a.publicId))
-    );
+    // blob deletions are independent I/O, run concurrently; destroyBlob is
+    // already best-effort internally
+    await Promise.allSettled(attachments.map((a) => destroyBlob(a)));
 
     // Comments and Attachments cascade-delete at the DB level once their
     // ProjectItem is gone (see schema.prisma).

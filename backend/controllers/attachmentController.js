@@ -1,11 +1,14 @@
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
-import { cloudinary } from '../middleware/upload.js';
 import streamRemoteFile from '../utils/streamRemoteFile.js';
+import { destroyBlob } from '../utils/blobStorage.js';
+import { streamS3Object } from '../lib/s3.js';
 import { canAccessProject } from './projectController.js';
 
 const streamAttachment = (res, attachment, next) =>
-  streamRemoteFile(res, { url: attachment.url, mimeType: attachment.mimeType, fileName: attachment.fileName }, next);
+  attachment.storage === 's3'
+    ? streamS3Object(res, { key: attachment.publicId, mimeType: attachment.mimeType, fileName: attachment.fileName }, next)
+    : streamRemoteFile(res, { url: attachment.url, mimeType: attachment.mimeType, fileName: attachment.fileName }, next);
 
 const UPLOADED_BY_SELECT = { id: true, username: true, email: true, role: true };
 const ACCESS_INCLUDE = { members: { select: { userId: true } } };
@@ -60,8 +63,9 @@ export const uploadAttachment = async (req, res, next) => {
       data: {
         taskId: task.id,
         fileName: req.file.originalname,
-        url: req.file.path, // Cloudinary secure URL
-        publicId: req.file.filename, // Cloudinary public_id
+        url: req.file.path,
+        publicId: req.file.filename, // S3 object key
+        storage: 's3',
         mimeType: req.file.mimetype,
         size: req.file.size,
         uploadedById: req.user.id,
@@ -143,6 +147,7 @@ export const uploadItemAttachment = async (req, res, next) => {
         fileName: req.file.originalname,
         url: req.file.path,
         publicId: req.file.filename,
+        storage: 's3',
         mimeType: req.file.mimetype,
         size: req.file.size,
         uploadedById: req.user.id,
@@ -192,11 +197,7 @@ export const deleteItemAttachment = async (req, res, next) => {
     });
     if (!attachment) return next(new AppError('Attachment not found', 404));
 
-    if (attachment.publicId) {
-      await cloudinary.uploader.destroy(attachment.publicId).catch(() => {
-        // best-effort: continue even if the blob is already gone
-      });
-    }
+    await destroyBlob(attachment);
     await prisma.attachment.delete({ where: { id: attachment.id } });
 
     res.status(200).json({ message: 'Attachment deleted' });
@@ -245,6 +246,7 @@ export const uploadProjectAttachment = async (req, res, next) => {
         fileName: req.file.originalname,
         url: req.file.path,
         publicId: req.file.filename,
+        storage: 's3',
         mimeType: req.file.mimetype,
         size: req.file.size,
         uploadedById: req.user.id,
@@ -294,11 +296,7 @@ export const deleteProjectAttachment = async (req, res, next) => {
     });
     if (!attachment) return next(new AppError('Attachment not found', 404));
 
-    if (attachment.publicId) {
-      await cloudinary.uploader.destroy(attachment.publicId).catch(() => {
-        // best-effort: continue even if the blob is already gone
-      });
-    }
+    await destroyBlob(attachment);
     await prisma.attachment.delete({ where: { id: attachment.id } });
 
     res.status(200).json({ message: 'Attachment deleted' });

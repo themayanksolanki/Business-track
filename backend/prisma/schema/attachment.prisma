@@ -1,19 +1,29 @@
+// Cloudinary's Free-plan 10MB image/raw cap made large attachments (PDFs,
+// docs) fail outright, so new uploads go to S3 instead; existing rows stay on
+// Cloudinary rather than being migrated. `storage` records which one a given
+// row lives in so downloads/deletes route to the right provider.
+enum StorageProvider {
+  cloudinary
+  s3
+}
+
 // Exactly one of task/projectItem/project must be set — enforced at the
 // application layer (mirrors the old Mongoose pre('validate') hook), since
 // Prisma's schema DSL has no arbitrary CHECK constraint syntax.
 model Attachment {
-  id            Int      @id @default(autoincrement())
+  id            Int             @id @default(autoincrement())
   taskId        Int?
   projectItemId Int?
   projectId     Int?
   fileName      String
   url           String
   publicId      String?
+  storage       StorageProvider @default(cloudinary)
   mimeType      String
   size          Int
   uploadedById  Int
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
   task        Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
   projectItem ProjectItem? @relation(fields: [projectItemId], references: [id], onDelete: Cascade)
