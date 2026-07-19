@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import path from 'path';
 import { S3Client, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Upload } from '@aws-sdk/lib-storage';
 import AppError from '../utils/AppError.js';
 
@@ -58,17 +59,23 @@ class S3StorageEngine {
 
 export const s3Storage = (folder) => new S3StorageEngine(folder);
 
-export const streamS3Object = async (res, { key, mimeType, fileName }, next) => {
-  try {
-    const response = await s3Client.send(new GetObjectCommand({ Bucket: S3_BUCKET, Key: key }));
-    res.setHeader('Content-Type', mimeType || response.ContentType || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`);
-    response.Body.pipe(res);
-  } catch (err) {
-    if (err.name === 'NoSuchKey') return next(new AppError('File not found', 404));
-    next(err);
-  }
-};
+// Relaying large files through this server (fetch from S3, then re-stream to
+// the client) doubles the transfer — once into this free-tier Render
+// instance, once back out — and was timing out mid-download on real-world
+// PDFs. A short-lived presigned URL lets the browser fetch the bytes
+// directly from S3 instead, so this server only ever handles the small JSON
+// response, not the file itself.
+export const getS3DownloadUrl = ({ key, mimeType, fileName }) =>
+  getSignedUrl(
+    s3Client,
+    new GetObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key,
+      ResponseContentType: mimeType,
+      ResponseContentDisposition: `inline; filename="${encodeURIComponent(fileName)}"`,
+    }),
+    { expiresIn: 300 }
+  );
 
 export const deleteS3Object = (key) =>
   s3Client.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: key }));

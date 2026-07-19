@@ -19,13 +19,29 @@ import {
 import { ProjectComment, CreateCommentPayload } from '../../models/comment.model';
 import { ProjectMember } from '../../models/project.model';
 import { PaginatedUsers } from '../../models/user.model';
-import { Observable } from 'rxjs';
+import { Observable, switchMap } from 'rxjs';
+
+interface DownloadInfo {
+  url: string;
+  mimeType: string;
+  fileName: string;
+}
 
 @Injectable({ providedIn: 'root' })
 export class ProjectService {
   private readonly api = `${environment.apiUrl}/projects`;
 
   constructor(private http: HttpClient) {}
+
+  // The /download endpoints hand back a short-lived URL (a presigned S3 URL,
+  // or Cloudinary's already-public one) rather than the file bytes — fetching
+  // large files through our own server was timing out mid-transfer, so the
+  // browser now fetches the bytes directly from the provider instead.
+  private fetchFile(downloadInfoUrl: string) {
+    return this.http
+      .get<DownloadInfo>(downloadInfoUrl)
+      .pipe(switchMap((info) => this.http.get(info.url, { responseType: 'blob' })));
+  }
 
   // Projects
   getProjects(page: number, limit: number, status?: ProjectStatus | 'all') {
@@ -159,9 +175,7 @@ export class ProjectService {
   }
 
   downloadAttachment(projectId: string, itemId: number, attachmentId: number) {
-    return this.http.get(`${this.api}/${projectId}/items/${itemId}/attachments/${attachmentId}/download`, {
-      responseType: 'blob',
-    });
+    return this.fetchFile(`${this.api}/${projectId}/items/${itemId}/attachments/${attachmentId}/download`);
   }
 
   deleteAttachment(projectId: string, itemId: number, attachmentId: number) {
@@ -185,9 +199,7 @@ export class ProjectService {
   }
 
   downloadProjectAttachment(projectId: string, attachmentId: number) {
-    return this.http.get(`${this.api}/${projectId}/attachments/${attachmentId}/download`, {
-      responseType: 'blob',
-    });
+    return this.fetchFile(`${this.api}/${projectId}/attachments/${attachmentId}/download`);
   }
 
   deleteProjectAttachment(projectId: string, attachmentId: number) {
@@ -202,7 +214,7 @@ export class ProjectService {
   }
 
   downloadProjectPlan(projectId: string) {
-    return this.http.get(`${this.api}/${projectId}/plan/download`, { responseType: 'blob' });
+    return this.fetchFile(`${this.api}/${projectId}/plan/download`);
   }
 
   removeProjectPlan(projectId: string) {

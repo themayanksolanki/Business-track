@@ -1,14 +1,26 @@
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
-import streamRemoteFile from '../utils/streamRemoteFile.js';
 import { destroyBlob } from '../utils/blobStorage.js';
-import { streamS3Object } from '../lib/s3.js';
+import { getS3DownloadUrl } from '../lib/s3.js';
 import { canAccessProject } from './projectController.js';
 
-const streamAttachment = (res, attachment, next) =>
-  attachment.storage === 's3'
-    ? streamS3Object(res, { key: attachment.publicId, mimeType: attachment.mimeType, fileName: attachment.fileName }, next)
-    : streamRemoteFile(res, { url: attachment.url, mimeType: attachment.mimeType, fileName: attachment.fileName }, next);
+// Relaying the file through this server (fetch from the provider, then
+// re-stream to the client) was timing out on real-world PDFs — a slow
+// connection or an intermediary (Cloudflare/Render) killing a long-lived
+// proxied transfer mid-stream. Handing back a URL the browser fetches
+// directly (a presigned S3 URL, or Cloudinary's already-public one) means
+// this server only ever serves a small JSON response, never the file bytes.
+const getAttachmentDownloadInfo = async (attachment) => {
+  const url =
+    attachment.storage === 's3'
+      ? await getS3DownloadUrl({
+          key: attachment.publicId,
+          mimeType: attachment.mimeType,
+          fileName: attachment.fileName,
+        })
+      : attachment.url;
+  return { url, mimeType: attachment.mimeType, fileName: attachment.fileName };
+};
 
 const UPLOADED_BY_SELECT = { id: true, username: true, email: true, role: true };
 const ACCESS_INCLUDE = { members: { select: { userId: true } } };
@@ -89,7 +101,7 @@ export const downloadAttachment = async (req, res, next) => {
 
     if (!(await canAccessTask(task, req.user))) return next(new AppError('Access denied', 403));
 
-    await streamAttachment(res, attachment, next);
+    res.status(200).json(await getAttachmentDownloadInfo(attachment));
   } catch (err) {
     next(err);
   }
@@ -176,7 +188,7 @@ export const downloadItemAttachment = async (req, res, next) => {
     });
     if (!attachment) return next(new AppError('Attachment not found', 404));
 
-    await streamAttachment(res, attachment, next);
+    res.status(200).json(await getAttachmentDownloadInfo(attachment));
   } catch (err) {
     next(err);
   }
@@ -275,7 +287,7 @@ export const downloadProjectAttachment = async (req, res, next) => {
     });
     if (!attachment) return next(new AppError('Attachment not found', 404));
 
-    await streamAttachment(res, attachment, next);
+    res.status(200).json(await getAttachmentDownloadInfo(attachment));
   } catch (err) {
     next(err);
   }

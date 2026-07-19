@@ -1,8 +1,7 @@
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
-import streamRemoteFile from '../utils/streamRemoteFile.js';
 import { destroyBlob } from '../utils/blobStorage.js';
-import { streamS3Object } from '../lib/s3.js';
+import { getS3DownloadUrl } from '../lib/s3.js';
 import { getAccessibleDepartmentIds, canAccessDepartment } from '../utils/access.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
@@ -351,12 +350,15 @@ export const downloadProjectPlan = async (req, res, next) => {
 
     if (!project.planUrl) return next(new AppError('No plan has been uploaded', 404));
 
-    const fileInfo = { mimeType: project.planMimeType, fileName: project.planFileName };
-    if (project.planStorage === 's3') {
-      await streamS3Object(res, { ...fileInfo, key: project.planPublicId }, next);
-    } else {
-      await streamRemoteFile(res, { ...fileInfo, url: project.planUrl }, next);
-    }
+    const url =
+      project.planStorage === 's3'
+        ? await getS3DownloadUrl({
+            key: project.planPublicId,
+            mimeType: project.planMimeType,
+            fileName: project.planFileName,
+          })
+        : project.planUrl;
+    res.status(200).json({ url, mimeType: project.planMimeType, fileName: project.planFileName });
   } catch (err) {
     next(err);
   }
