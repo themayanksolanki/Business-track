@@ -1,6 +1,7 @@
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
 import { cloudinary } from '../middleware/upload.js';
+import streamRemoteFile from '../utils/streamRemoteFile.js';
 import { getAccessibleDepartmentIds, canAccessDepartment } from '../utils/access.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
@@ -356,7 +357,11 @@ export const downloadProjectPlan = async (req, res, next) => {
 
     if (!project.planUrl) return next(new AppError('No plan has been uploaded', 404));
 
-    res.redirect(project.planUrl);
+    await streamRemoteFile(
+      res,
+      { url: project.planUrl, mimeType: project.planMimeType, fileName: project.planFileName },
+      next
+    );
   } catch (err) {
     next(err);
   }

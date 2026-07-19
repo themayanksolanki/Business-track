@@ -8,6 +8,9 @@
         <span class="plan-file-name">{{ plan.fileName }}</span>
         <span class="plan-file-meta">{{ formatSize(plan.size) }}</span>
       </div>
+      <button class="attachment-download-btn" (click)="openViewer()" title="View">
+        <i class="bi bi-eye"></i>
+      </button>
       <button class="attachment-download-btn" (click)="download()" [disabled]="downloading" title="Download">
         @if (downloading) {
           <span class="spinner-border spinner-border-sm"></span>
@@ -53,3 +56,11 @@
     <div class="field-error mt-2">{{ uploadError }}</div>
   }
 </div>
+
+<app-attachment-viewer
+  [open]="viewerOpen"
+  [attachments]="planAsAttachment"
+  [loadBlob]="loadPlanBlob"
+  (closed)="viewerOpen = false"
+  (download)="download()">
+</app-attachment-viewer>

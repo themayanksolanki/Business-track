@@ -1,31 +1,11 @@
-import { Readable } from 'stream';
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
 import { cloudinary } from '../middleware/upload.js';
+import streamRemoteFile from '../utils/streamRemoteFile.js';
 import { canAccessProject } from './projectController.js';
 
-// Angular fetches attachments as a credentialed (withCredentials) CORS blob
-// request. A 302 redirect straight to Cloudinary crosses origins mid-request,
-// which per the Fetch spec forces the browser to null out the Origin header
-// on the redirected request — Cloudinary's `Access-Control-Allow-Origin: *`
-// response is then invalid for a credentialed request and gets blocked
-// client-side (even though the request succeeds and Postman shows it fine).
-// Proxying the bytes keeps the response same-origin so no CORS check applies.
-const streamAttachment = async (res, attachment, next) => {
-  try {
-    const upstream = await fetch(attachment.url);
-    if (!upstream.ok || !upstream.body) {
-      return next(new AppError('Failed to fetch attachment', 502));
-    }
-
-    res.setHeader('Content-Type', attachment.mimeType || upstream.headers.get('content-type') || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(attachment.fileName)}"`);
-
-    Readable.fromWeb(upstream.body).pipe(res);
-  } catch (err) {
-    next(err);
-  }
-};
+const streamAttachment = (res, attachment, next) =>
+  streamRemoteFile(res, { url: attachment.url, mimeType: attachment.mimeType, fileName: attachment.fileName }, next);
 
 const UPLOADED_BY_SELECT = { id: true, username: true, email: true, role: true };
 const ACCESS_INCLUDE = { members: { select: { userId: true } } };

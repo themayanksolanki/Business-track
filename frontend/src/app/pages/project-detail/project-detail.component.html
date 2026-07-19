@@ -228,6 +228,19 @@
           </div>
         }
       </div>
+
+      @if (project.plan) {
+        <div class="meta-cell plan-shortcut-cell"  [ngbTooltip]="'Project plan — ' + project.plan.fileName">
+            <button type="button" class="plan-shortcut-btn" (click)="openPlanViewer()">
+            <svg viewBox="0 0 64 64" width="20" height="20" aria-hidden="true">
+              <rect x="12" y="8" fill="#F9EBB2" width="40" height="48"/>
+              <path fill="#394240" d="M56,0H8C5.789,0,4,1.789,4,4v56c0,2.211,1.789,4,4,4h48c2.211,0,4-1.789,4-4V4C60,1.789,58.211,0,56,0z M52,56H12V8h40V56z"/>
+              <path fill="#394240" d="M24,44h16c2.211,0,4-1.789,4-4s-1.789-4-4-4H24c-2.211,0-4,1.789-4,4S21.789,44,24,44z"/>
+              <path fill="#394240" d="M24,28h8c2.211,0,4-1.789,4-4s-1.789-4-4-4h-8c-2.211,0-4,1.789-4,4S21.789,28,24,28z"/>
+            </svg>
+          </button>
+        </div>
+      }
     </div>
     </div>
 
@@ -543,3 +556,11 @@
   (confirmed)="confirmDeleteProject()"
   (cancelled)="cancelDeleteConfirm()">
 </app-confirm-dialog>
+
+<app-attachment-viewer
+  [open]="planViewerOpen"
+  [attachments]="planAsAttachment"
+  [loadBlob]="loadPlanBlob"
+  (closed)="planViewerOpen = false"
+  (download)="downloadPlan()">
+</app-attachment-viewer>

@@ -1,11 +1,13 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { ProjectService } from '../../core/services/project.service';
 import { Project, ProjectPlan } from '../../models/project.model';
-import { ACCEPTED_ATTACHMENT_TYPES } from '../../models/attachment.model';
+import { Attachment, ACCEPTED_ATTACHMENT_TYPES } from '../../models/attachment.model';
+import { AttachmentViewerComponent } from '../attachment-viewer/attachment-viewer.component';
 
 @Component({
   selector: 'app-project-plan-card',
   standalone: true,
+  imports: [AttachmentViewerComponent],
   templateUrl: './project-plan-card.component.html',
   styleUrl: './project-plan-card.component.css',
 })
@@ -21,8 +23,34 @@ export class ProjectPlanCardComponent {
   uploadError = '';
   downloading = false;
   removing = false;
+  viewerOpen = false;
 
   constructor(private projectService: ProjectService) {}
+
+  // The plan isn't an Attachment row (it's flattened onto the project), so
+  // it's adapted into the shape app-attachment-viewer expects to reuse its
+  // image/PDF preview instead of building a second viewer just for this.
+  get planAsAttachment(): Attachment[] {
+    if (!this.plan) return [];
+    return [
+      {
+        id: 0,
+        fileName: this.plan.fileName,
+        url: this.plan.url,
+        mimeType: this.plan.mimeType,
+        size: this.plan.size,
+        uploadedBy: null as unknown as Attachment['uploadedBy'],
+        createdAt: this.plan.uploadedAt ?? '',
+      },
+    ];
+  }
+
+  loadPlanBlob = (_: Attachment) => this.projectService.downloadProjectPlan(this.projectId);
+
+  openViewer() {
+    if (!this.plan) return;
+    this.viewerOpen = true;
+  }
 
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;

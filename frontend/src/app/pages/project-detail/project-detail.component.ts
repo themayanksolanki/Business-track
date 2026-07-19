@@ -20,7 +20,6 @@ import {
   Indent,
   IndentBlock,
 } from 'ckeditor5';
-import 'ckeditor5/ckeditor5.css';
 import { environment } from '../../../environments/environment';
 import { ProjectService } from '../../core/services/project.service';
 import { UserService } from '../../core/services/user.service';
@@ -42,6 +41,8 @@ import { AutoGrowDirective } from '../../shared/auto-grow.directive';
 import { AuthService } from '../../core/services/auth.service';
 import { ProjectAttachmentsCardComponent } from '../../shared/project-attachments-card/project-attachments-card.component';
 import { ProjectPlanCardComponent } from '../../shared/project-plan-card/project-plan-card.component';
+import { AttachmentViewerComponent } from '../../shared/attachment-viewer/attachment-viewer.component';
+import { Attachment } from '../../models/attachment.model';
 import { TagService } from '../../core/services/tag.service';
 import { Tag, TagLite } from '../../models/tag.model';
 import { TagPickerComponent } from '../../shared/tag-picker/tag-picker.component';
@@ -70,6 +71,7 @@ import { CardResizeDirective, CardResizeEvent } from '../../shared/card-resize.d
     AutoGrowDirective,
     ProjectAttachmentsCardComponent,
     ProjectPlanCardComponent,
+    AttachmentViewerComponent,
     TagPickerComponent,
     CKEditorModule,
     MoveToGroupDialogComponent,
@@ -87,6 +89,7 @@ export class ProjectDetailComponent implements OnInit {
   project: Project | null = null;
   loading = false;
   error = '';
+  planViewerOpen = false;
 
   tabs: TabDef[] = [
     { key: 'detail', label: 'Details', icon: 'bi-info-circle' },
@@ -546,6 +549,46 @@ export class ProjectDetailComponent implements OnInit {
 
   onPlanChanged(project: Project) {
     this.project = project;
+  }
+
+  // The plan isn't an Attachment row (it's flattened onto the project), so
+  // it's adapted into the shape app-attachment-viewer expects to reuse its
+  // image/PDF preview for the header's plan shortcut.
+  get planAsAttachment(): Attachment[] {
+    const plan = this.project?.plan;
+    if (!plan) return [];
+    return [
+      {
+        id: 0,
+        fileName: plan.fileName,
+        url: plan.url,
+        mimeType: plan.mimeType,
+        size: plan.size,
+        uploadedBy: null as unknown as Attachment['uploadedBy'],
+        createdAt: plan.uploadedAt ?? '',
+      },
+    ];
+  }
+
+  loadPlanBlob = (_: Attachment) => this.projectService.downloadProjectPlan(this.projectId);
+
+  openPlanViewer() {
+    if (!this.project?.plan) return;
+    this.planViewerOpen = true;
+  }
+
+  downloadPlan() {
+    if (!this.project?.plan) return;
+    this.projectService.downloadProjectPlan(this.projectId).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = this.project!.plan!.fileName;
+        link.click();
+        window.URL.revokeObjectURL(url);
+      },
+    });
   }
 
   // ── Details-tab card layout (drag reorder + resize) ──
