@@ -14,7 +14,8 @@ export type IconName =
   | 'grip'
   | 'menu'
   | 'settings'
-  | 'building';
+  | 'building'
+  | 'draft';
 
 @Component({
   selector: 'app-icon',
@@ -113,6 +114,12 @@ export type IconName =
           <line x1="11" y1="7" x2="11" y2="7" />
           <line x1="11" y1="11" x2="11" y2="11" />
           <line x1="11" y1="15" x2="11" y2="15" />
+        }
+        @case ('draft') {
+          <path d="M6 3h8l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+          <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+          <line x1="8" y1="13" x2="16" y2="13" />
+          <line x1="8" y1="17" x2="13" y2="17" />
         }
       }
     </svg>

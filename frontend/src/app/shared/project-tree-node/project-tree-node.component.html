@@ -5,7 +5,7 @@
         <input type="checkbox" class="tree-select-checkbox" [checked]="selectedIds.has(node.id)"
                (change)="toggleSelect.emit(node.id)" title="Select task" />
       } @else {
-        {{ node.numericId ? '#' + node.numericId : '—' }}
+        {{ node.sequenceId ? '#' + node.sequenceId : '—' }}
       }
     </span>
 
@@ -175,7 +175,7 @@
       </ul>
     </div>
 
-    <button type="button" class="tree-icon-btn" [class.active]="attachmentsOpen"
+    <button type="button" class="tree-icon-btn" [class.active]="attachmentsOpen || node.attachmentCount > 0"
             [class.tree-icon-hidden]="node.type === 'group'"
             (click)="$event.stopPropagation(); toggleAttachments()" title="Attachments">
       <i class="bi bi-paperclip"></i>

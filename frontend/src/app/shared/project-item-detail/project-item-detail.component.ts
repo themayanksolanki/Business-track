@@ -1,5 +1,4 @@
 import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import dayjs from 'dayjs/esm';
 import { ProjectService } from '../../core/services/project.service';
@@ -21,12 +20,15 @@ import { AttachmentViewerComponent } from '../attachment-viewer/attachment-viewe
 import { AutoGrowDirective } from '../auto-grow.directive';
 import { TagPickerComponent } from '../tag-picker/tag-picker.component';
 import { HttpEventType } from '@angular/common/http';
+import { AppDatePipe } from '../pipes/app-date.pipe';
+import { AppTimePipe } from '../pipes/app-time.pipe';
 
 @Component({
   selector: 'app-project-item-detail',
   standalone: true,
   imports: [
-    DatePipe,
+    AppDatePipe,
+    AppTimePipe,
     ReactiveFormsModule,
     FormsModule,
     DatePickerComponent,
@@ -48,6 +50,10 @@ export class ProjectItemDetailComponent implements OnChanges {
   // Scoped to project members only (passed down from the parent's
   // project.members), not the full org user list.
   @Input() users: User[] = [];
+  // True while the parent project is a draft — locks status (stays 'todo')
+  // and dates (visible, cursor: not-allowed) until it's approved. Everything
+  // else (priority, assignee, tags, description, attachments) stays editable.
+  @Input() readOnly = false;
 
   @Output() closed = new EventEmitter<void>();
   // Emits the freshly-saved item (not just a signal) so the parent can patch
@@ -129,7 +135,7 @@ export class ProjectItemDetailComponent implements OnChanges {
   }
 
   get canEditStatus(): boolean {
-    return !this.isGroup && this.childCount === 0;
+    return !this.isGroup && this.childCount === 0 && !this.readOnly;
   }
 
   setStatus(status: ProjectItemStatus) {
@@ -332,13 +338,8 @@ export class ProjectItemDetailComponent implements OnChanges {
     if (!this.item) return;
     this.downloadingId = attachment.id;
     this.projectService.downloadAttachment(this.projectId, this.item.id, attachment.id).subscribe({
-      next: (blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = attachment.fileName;
-        link.click();
-        window.URL.revokeObjectURL(url);
+      next: (info) => {
+        window.open(info.downloadUrl, '_blank');
         this.downloadingId = null;
       },
       error: () => (this.downloadingId = null),
@@ -352,7 +353,7 @@ export class ProjectItemDetailComponent implements OnChanges {
     });
   }
 
-  loadAttachmentBlob = (attachment: Attachment) =>
+  getAttachmentFileInfo = (attachment: Attachment) =>
     this.projectService.downloadAttachment(this.projectId, this.item!.id, attachment.id);
 
   openViewer(attachment: Attachment) {

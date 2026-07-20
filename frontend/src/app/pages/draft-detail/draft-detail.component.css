@@ -1,0 +1,685 @@
+.page {
+  --col-id: 46px;
+  --col-assignee: 30px;
+  --col-status: 110px;
+  --col-due: 120px;
+  --col-priority: 96px;
+  --col-icon: 28px;
+  --tree-indent-unit: 22px;
+  max-width: none;
+}
+
+@media (max-width: 860px) {
+  .page {
+    --col-id: 38px;
+    --col-assignee: 24px;
+    --col-status: 88px;
+    --col-due: 96px;
+    --col-priority: 78px;
+    --col-icon: 26px;
+  }
+}
+
+@media (max-width: 640px) {
+  .page { --tree-indent-unit: 14px; }
+  .item-table-header { display: none; }
+}
+
+.item-table-header {
+  display: grid;
+  grid-template-columns: var(--col-id) var(--col-icon) var(--col-assignee) minmax(160px, 1fr) var(--col-status) var(--col-due) var(--col-priority) var(--col-icon) var(--col-icon) var(--col-icon);
+  column-gap: 8px;
+  align-items: center;
+  padding: 4px 4px 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg-card);
+  z-index: 5;
+}
+
+.item-table-header span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.bulk-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-strong);
+}
+
+.bulk-actions-count {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-right: 4px;
+}
+
+.page-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.page-breadcrumb .breadcrumb-item {
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: pointer;
+}
+.page-breadcrumb .breadcrumb-item:hover { color: var(--text-primary); text-decoration: underline; }
+
+.page-breadcrumb .breadcrumb-item-active {
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: default;
+}
+.page-breadcrumb .breadcrumb-item-active:hover { text-decoration: none; }
+
+.page-breadcrumb .breadcrumb-separator {
+  color: var(--text-dim);
+  font-size: 0.6rem;
+}
+
+/* ── Page containers (mirrors the Tasks tab's card-wrapped table) ── */
+.project-header-card {
+  border: none;
+  border-radius: 14px;
+  padding: 22px 24px 24px;
+}
+
+.project-tasks-card {
+  border: none;
+  border-radius: 12px;
+  padding: 16px 16px 18px;
+  overflow: visible;
+}
+
+@media (max-width: 640px) {
+  .project-header-card { padding: 16px 14px 18px; }
+  .project-tasks-card { padding: 10px 8px 12px; }
+}
+
+/* ── Header top: icon + title/description + primary actions ── */
+.project-header-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+@media (max-width: 560px) {
+  .project-header-top { flex-wrap: wrap; }
+  .project-header-actions { width: 100%; justify-content: flex-start; }
+}
+
+.project-header-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #fef3c7;
+  color: #b45309;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.project-header-titleblock {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.text-muted-em { color: var(--text-muted); font-size: 0.875rem; }
+
+.project-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding-top: 6px;
+}
+
+.project-title-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding: 4px 0;
+  outline: none;
+  border-radius: 6px;
+}
+.project-title-input:focus { background: var(--bg-hover); padding-left: 6px; box-shadow: none; }
+
+/* ── Meta strip: Leader / Department / Category / Tags / Priority · % Complete ── */
+.project-meta-strip {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.meta-divider {
+  width: 1px;
+  align-self: stretch;
+  min-height: 32px;
+  background: var(--border-strong);
+}
+
+@media (max-width: 720px) {
+  .meta-divider { display: none; }
+}
+
+.meta-cell { display: flex; flex-direction: column; gap: 5px; }
+
+.meta-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.assign-trigger {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-input);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.assign-trigger:hover, .assign-trigger.show { border-color: #94a3b8; background: var(--bg-card); }
+.assign-trigger::after { margin-left: 6px; color: #94a3b8; }
+
+.assign-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 0.65rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.avatar-admin     { background: #fef3c7; color: #92400e; }
+.avatar-manager   { background: #dbeafe; color: #1d4ed8; }
+.avatar-team-lead { background: #ede9fe; color: #6d28d9; }
+
+.assign-avatar-img {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.avatar-user      { background: #dcfce7; color: #15803d; }
+.avatar-empty     { background: var(--bg-muted); color: var(--text-dim); }
+
+.assign-trigger-name {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  max-width: 110px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.assign-dropdown {
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: var(--shadow-lg);
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--bg-card);
+  min-width: 200px;
+}
+
+.assign-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--text-secondary);
+  transition: background 0.1s;
+}
+.assign-item:hover { background: var(--bg-hover); color: var(--text-secondary); }
+
+.assign-item-name { font-size: 0.875rem; font-weight: 500; flex: 1; }
+
+.priority-badge {
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.75rem;
+  padding: 6px 12px;
+  border-radius: 99px;
+  border: none;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-transform: capitalize;
+}
+.priority-badge::after { margin-left: 5px; opacity: 0.6; }
+
+.priority-low    { background-color: #e2e8f0; color: #475569; }
+.priority-medium { background-color: #fef3c7; color: #92400e; }
+.priority-high   { background-color: #fee2e2; color: #b91c1c; }
+
+.status-dropdown {
+  min-width: 130px;
+  border-radius: 10px;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+}
+
+.status-opt {
+  display: flex;
+  align-items: center;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 7px 10px;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+.status-opt:hover { background: var(--bg-hover); }
+
+.progress-cell { display: flex; flex-direction: column; gap: 4px; min-width: 130px; }
+
+.progress-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 99px;
+  background: var(--border-strong);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: #16a34a;
+  transition: width 0.2s;
+}
+
+.progress-frac {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.actions-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.actions-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.actions-btn::after { margin-left: 6px; color: #94a3b8; }
+
+.dept-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.complete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* Static, non-interactive badge — a draft only ever has one transition (the
+   one-way Approve action, its own button), so unlike ProjectDetailComponent's
+   status dropdown-toggle, this is never clickable. */
+.draft-badge {
+  cursor: default;
+  background: #fef3c7;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.empty-state i { color: var(--text-dim); }
+
+.tree-root { padding: 2px; }
+
+.tree-children {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tree-drag-item.cdk-drag-preview {
+  box-shadow: var(--shadow-lg);
+  border-radius: 8px;
+  background: var(--bg-card);
+}
+
+.tree-drag-item.cdk-drag-animating { transition: transform 200ms cubic-bezier(0, 0, 0.2, 1); }
+
+.tree-drag-placeholder {
+  height: 40px;
+  border: 2px dashed var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-muted);
+  margin-bottom: 4px;
+}
+
+.add-subtask-input {
+  flex: 1;
+  height: 36px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 0.85rem;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.add-subtask-input:focus {
+  border-color: #3b82f6;
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+.add-subtask-input::placeholder { color: var(--text-dim); }
+
+.add-group-title-input {
+  flex: 1;
+  min-height: 36px;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.4;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.add-group-title-input:focus {
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+.add-group-title-input::placeholder { color: var(--text-dim); }
+
+.add-subtask-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  padding: 0;
+}
+.add-subtask-btn:hover:not(:disabled) { background: #2563eb; }
+.add-subtask-btn:disabled { background: #93c5fd; cursor: not-allowed; }
+
+.subtask-del-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.subtask-del-btn:hover { background: #fee2e2; color: #dc2626; }
+
+.subtask-error { font-size: 0.76rem; color: #ef4444; margin-top: 6px; }
+
+/* ── Details tab: card grid ── */
+.details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .details-grid { grid-template-columns: 1fr; }
+}
+
+.details-card { margin: 0; }
+
+.field-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 7px;
+}
+
+.field-input {
+  border-color: var(--border-strong);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field-input:focus {
+  background: var(--bg-card);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  color: var(--text-primary);
+}
+
+.field-error { font-size: 0.76rem; color: #ef4444; margin-top: 5px; }
+
+.details-textarea { display: block; }
+
+.details-textarea ::ng-deep .ck.ck-editor__main > .ck-content {
+  min-height: 140px;
+  border-color: var(--border-strong);
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+  font-size: 0.9rem;
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.details-textarea ::ng-deep .ck.ck-toolbar {
+  border-color: var(--border-strong);
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  background: var(--bg-input);
+}
+
+.details-textarea ::ng-deep .ck.ck-editor__editable_inline:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.details-textarea ::ng-deep .ck.ck-button,
+.details-textarea ::ng-deep .ck.ck-toolbar .ck.ck-icon,
+.details-textarea ::ng-deep .ck.ck-heading-dropdown .ck-button__label {
+  color: var(--text-primary);
+}
+
+/* ── Draggable/resizable card shell ──
+   The shell is the single element that's both the grid item and the CDK
+   drag/resize target — max-width:100% keeps a widened card capped at its own
+   grid column so it can never grow into a neighboring card. */
+.details-card-shell {
+  position: relative;
+  min-width: 280px;
+  max-width: 100%;
+}
+
+.details-card-grip {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: var(--text-dim);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  z-index: 2;
+}
+.details-card-shell:hover .details-card-grip { opacity: 1; }
+.details-card-grip:hover { background: var(--bg-muted); color: var(--text-primary); }
+.details-card-grip:active { cursor: grabbing; }
+
+.details-card-shell.cdk-drag-preview {
+  box-shadow: var(--shadow-lg);
+  border-radius: 12px;
+}
+.details-card-shell.cdk-drag-animating { transition: transform 200ms cubic-bezier(0, 0, 0.2, 1); }
+
+.details-card-placeholder {
+  border: 2px dashed var(--border-strong);
+  border-radius: 12px;
+  background: var(--bg-muted);
+}
+
+/* Attachments cards render their own inner .details-card box. Stretching
+   just the host here isn't enough to fill a resized shell — Angular's view
+   encapsulation means this stylesheet can't reach the child's own template,
+   so the matching height:100% on their inner .details-card lives in each of
+   those components' own CSS files. */
+.details-card-shell > app-project-attachments-card {
+  display: block;
+  height: 100%;
+}
+
+/* ── Resizable (drag bottom-right corner) ──
+   Unresized cards keep their natural content height; min-height is just a
+   floor so an empty/short card still offers a usable resize handle. Overflow
+   is auto so shrinking a card scrolls its content instead of clipping it. */
+.details-card-resizable {
+  resize: both;
+  overflow: auto;
+  min-height: 120px;
+}
+
+/* The Draft Details card wraps a rich-text editor with no natural height
+   cap, so it keeps a fixed default height and lets its own inner editor
+   scroll instead of the shell. */
+.details-card-resizable.details-card-ck {
+  overflow: hidden;
+  height: 200px;
+  min-height: 200px;
+}
+
+/* The ckeditor card stretches its editor to fill the card's available
+   height instead of the editor imposing its own natural height. */
+.details-card-resizable {
+  display: flex;
+  flex-direction: column;
+}
+
+.details-card-resizable .details-textarea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.details-card-resizable .details-textarea ::ng-deep .ck-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.details-card-resizable .details-textarea ::ng-deep .ck.ck-editor__main {
+  flex: 1;
+  overflow: hidden;
+}
+
+.details-card-resizable .details-textarea ::ng-deep .ck.ck-editor__main > .ck-content {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ── Priority / Effort sliders ── */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.slider-row .form-range { flex: 1; }
+
+.slider-value-badge {
+  min-width: 40px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.slider-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}

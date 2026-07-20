@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import protect from '../middleware/authMiddleware.js';
 import allowRoles from '../middleware/roleMiddleware.js';
-import { validateTask, validateReassign, validateObjectId } from '../middleware/validate.js';
+import { validateTask, validateReassign, validateObjectId, validateAttachmentId } from '../middleware/validate.js';
 import { attachmentUpload } from '../middleware/attachmentUpload.js';
 import {
   getTasks,
@@ -16,6 +16,8 @@ import {
   getAttachments,
   uploadAttachment,
   downloadAttachment,
+  deleteAttachment,
+  undoDeleteAttachment,
 } from '../controllers/attachmentController.js';
 
 const router = Router();
@@ -26,6 +28,20 @@ router.get('/:id/subtasks', protect, validateObjectId, getSubtasks);
 router.get('/:id/attachments', protect, validateObjectId, getAttachments);
 router.post('/:id/attachments', protect, validateObjectId, attachmentUpload, uploadAttachment);
 router.get('/:id/attachments/:attachmentId/download', protect, validateObjectId, downloadAttachment);
+router.delete(
+  '/:id/attachments/:attachmentId',
+  protect,
+  validateObjectId,
+  validateAttachmentId,
+  deleteAttachment
+);
+router.post(
+  '/:id/attachments/:attachmentId/undo',
+  protect,
+  validateObjectId,
+  validateAttachmentId,
+  undoDeleteAttachment
+);
 router.get('/:id', protect, validateObjectId, getTaskById);
 router.put('/:id', protect, validateObjectId, validateTask, updateTask);
 router.delete('/:id', protect, validateObjectId, deleteTask);

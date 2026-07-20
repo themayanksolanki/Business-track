@@ -74,6 +74,17 @@ export const routes: Routes = [
       import('./pages/project-detail/project-detail.component').then((m) => m.ProjectDetailComponent),
   },
   {
+    path: 'drafts',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/drafts/drafts.component').then((m) => m.DraftsComponent),
+  },
+  {
+    path: 'drafts/:id',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/draft-detail/draft-detail.component').then((m) => m.DraftDetailComponent),
+  },
+  {
     path: 'profile',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/profile/profile.component').then((m) => m.ProfileComponent),

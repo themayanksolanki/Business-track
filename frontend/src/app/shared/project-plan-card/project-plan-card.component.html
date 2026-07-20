@@ -60,7 +60,7 @@
 <app-attachment-viewer
   [open]="viewerOpen"
   [attachments]="planAsAttachment"
-  [loadBlob]="loadPlanBlob"
+  [getFileInfo]="getPlanFileInfo"
   (closed)="viewerOpen = false"
   (download)="download()">
 </app-attachment-viewer>

@@ -3,6 +3,7 @@ import AppError from '../utils/AppError.js';
 import { destroyBlob } from '../utils/blobStorage.js';
 import { MAX_DEPTH, typeForDepth, recomputeAncestorStatuses } from '../services/statusSync.service.js';
 import { canAccessProject } from './projectController.js';
+import { nextSequenceId } from '../utils/sequence.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
 const ACCESS_INCLUDE = { members: { select: { userId: true } } };
@@ -74,10 +75,13 @@ const shiftDescendantDepths = async (rootId, delta) => {
 // at its schema default, since a duplicate is meant to be a clean copy of
 // just the outline, not the whole item. Only the root of the copied subtree
 // gets the " copy" suffix; nested items keep their original title verbatim.
-const duplicateSubtree = async (source, projectId, parentId, order, createdById, isRoot) => {
-  const created = await prisma.projectItem.create({
+const duplicateSubtree = async (tx, source, projectId, organizationId, parentId, order, createdById, isRoot) => {
+  const sequenceId = await nextSequenceId(tx, organizationId, 'projectItem');
+  const created = await tx.projectItem.create({
     data: {
       projectId,
+      organizationId,
+      sequenceId,
       parentId,
       type: source.type,
       title: isRoot ? `${source.title} copy` : source.title,
@@ -87,12 +91,12 @@ const duplicateSubtree = async (source, projectId, parentId, order, createdById,
     },
   });
 
-  const children = await prisma.projectItem.findMany({
+  const children = await tx.projectItem.findMany({
     where: { parentId: source.id },
     orderBy: { order: 'asc' },
   });
   for (let i = 0; i < children.length; i++) {
-    await duplicateSubtree(children[i], projectId, created.id, i, createdById, false);
+    await duplicateSubtree(tx, children[i], projectId, organizationId, created.id, i, createdById, false);
   }
 
   return created;
@@ -229,23 +233,28 @@ export const createItem = async (req, res, next) => {
 
     const order = await prisma.projectItem.count({ where: { projectId: project.id, parentId: parentIdNum } });
 
-    const item = await prisma.projectItem.create({
-      data: {
-        projectId: project.id,
-        parentId: parentIdNum,
-        type: typeForDepth(depth),
-        title: title.trim(),
-        description: description ?? '',
-        priority: priority ?? 'medium',
-        assignedToId: depth === 0 ? null : assignedToNum,
-        createdById: req.user.id,
-        depth,
-        order,
-        startDate: startDate ?? null,
-        endDate: endDate ?? null,
-        tags: { connect: (tags ?? []).map((id) => ({ id: Number(id) })) },
-      },
-      include: ITEM_INCLUDE,
+    const item = await prisma.$transaction(async (tx) => {
+      const sequenceId = await nextSequenceId(tx, project.organizationId, 'projectItem');
+      return tx.projectItem.create({
+        data: {
+          projectId: project.id,
+          organizationId: project.organizationId,
+          sequenceId,
+          parentId: parentIdNum,
+          type: typeForDepth(depth),
+          title: title.trim(),
+          description: description ?? '',
+          priority: priority ?? 'medium',
+          assignedToId: depth === 0 ? null : assignedToNum,
+          createdById: req.user.id,
+          depth,
+          order,
+          startDate: startDate ?? null,
+          endDate: endDate ?? null,
+          tags: { connect: (tags ?? []).map((id) => ({ id: Number(id) })) },
+        },
+        include: ITEM_INCLUDE,
+      });
     });
 
     if (parent) await recomputeAncestorStatuses(parent.id);
@@ -296,8 +305,13 @@ export const updateItem = async (req, res, next) => {
     const { title, description, priority, assignedTo, status, startDate, endDate, tags } = req.body;
     const data = { updatedById: req.user.id };
 
+    if (project.status === 'draft' && (startDate !== undefined || endDate !== undefined))
+      return next(new AppError('Item dates are locked until the draft is approved', 400));
+
     if (status !== undefined) {
       if (item.type === 'group') return next(new AppError('Groups do not have a status', 400));
+      if (project.status === 'draft' && status !== 'todo')
+        return next(new AppError("Items in a draft can only be 'todo' until the draft is approved", 400));
       const childCount = await prisma.projectItem.count({ where: { parentId: item.id } });
       if (childCount > 0)
         return next(new AppError('Status is derived from children and cannot be set directly', 400));
@@ -390,21 +404,25 @@ export const duplicateItem = async (req, res, next) => {
     const laterSiblings = await prisma.projectItem.findMany({
       where: { projectId: project.id, parentId: item.parentId, order: { gt: item.order } },
     });
-    if (laterSiblings.length)
-      await prisma.$transaction(
-        laterSiblings.map((s) =>
-          prisma.projectItem.update({ where: { id: s.id }, data: { order: s.order + 1 } })
-        )
-      );
 
-    const duplicate = await duplicateSubtree(
-      item,
-      project.id,
-      item.parentId,
-      item.order + 1,
-      req.user.id,
-      true
-    );
+    const duplicate = await prisma.$transaction(async (tx) => {
+      if (laterSiblings.length) {
+        await Promise.all(
+          laterSiblings.map((s) => tx.projectItem.update({ where: { id: s.id }, data: { order: s.order + 1 } }))
+        );
+      }
+
+      return duplicateSubtree(
+        tx,
+        item,
+        project.id,
+        project.organizationId,
+        item.parentId,
+        item.order + 1,
+        req.user.id,
+        true
+      );
+    });
 
     if (item.parentId) await recomputeAncestorStatuses(item.parentId);
 

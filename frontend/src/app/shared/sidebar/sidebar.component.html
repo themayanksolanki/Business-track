@@ -106,6 +106,18 @@
         </button>
       </div>
     </div>
+    <a
+      routerLink="/drafts"
+      class="nav-item"
+      routerLinkActive="active"
+      [title]="labelsVisible() ? '' : 'Drafts'"
+      (click)="closeMobile()"
+    >
+      <span class="nav-icon"><app-icon name="draft" [size]="18" /></span>
+      @if (labelsVisible()) {
+        <span class="nav-label">Drafts</span>
+      }
+    </a>
     @if (auth.getUser()?.role === 'Admin' || auth.getUser()?.role === 'Manager') {
       <a
         routerLink="/users"

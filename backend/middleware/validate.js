@@ -110,6 +110,37 @@ export const validateLogin = (req, res, next) => {
   next();
 };
 
+const ISO2_REGEX = /^[A-Z]{2}$/;
+const PHONE_NUMBER_REGEX = /^\d{4,14}$/;
+const VALID_DATE_FORMATS = ['DD_MM_YYYY', 'MM_DD_YYYY', 'YYYY_MM_DD', 'DD_MMM_YY'];
+const VALID_TIME_FORMATS = ['HOUR_12', 'HOUR_24'];
+
+// Fields are all independently optional — this endpoint is shared by the
+// Profile page's phone editor and Settings > General's date/time-format
+// picker, and a request from one shouldn't need to (or accidentally) touch
+// the other's fields.
+export const validateUpdateProfile = (req, res, next) => {
+  const { phoneCountry, phoneNumber, dateFormat, timeFormat } = req.body;
+
+  // Both null/empty clears the phone number; otherwise both must be present
+  // and valid — a country code with no number (or vice versa) isn't useful.
+  if (phoneCountry || phoneNumber) {
+    if (!phoneCountry || !ISO2_REGEX.test(phoneCountry))
+      return next(new AppError('phoneCountry must be a 2-letter country code', 400));
+
+    if (!phoneNumber || !PHONE_NUMBER_REGEX.test(phoneNumber))
+      return next(new AppError('phoneNumber must be 4-14 digits', 400));
+  }
+
+  if (dateFormat !== undefined && !VALID_DATE_FORMATS.includes(dateFormat))
+    return next(new AppError(`dateFormat must be one of: ${VALID_DATE_FORMATS.join(', ')}`, 400));
+
+  if (timeFormat !== undefined && !VALID_TIME_FORMATS.includes(timeFormat))
+    return next(new AppError(`timeFormat must be one of: ${VALID_TIME_FORMATS.join(', ')}`, 400));
+
+  next();
+};
+
 export const validateTask = (req, res, next) => {
   const { title, status, assignedTo, parentTask, tags } = req.body;
 
@@ -178,7 +209,7 @@ const validateDateRange = (startDate, endDate) => {
 };
 
 const VALID_PRIORITIES = ['low', 'medium', 'high'];
-const VALID_PROJECT_STATUSES = ['active', 'archived', 'completed'];
+const VALID_PROJECT_STATUSES = ['active', 'archived', 'completed', 'draft'];
 const VALID_DETAILS_CARD_IDS = ['details', 'attachments', 'plan', 'dates', 'priority', 'effort', 'links'];
 const URL_REGEX = /^https?:\/\/[^\s]+\.[^\s]+$/i;
 
@@ -220,6 +251,9 @@ export const validateProject = (req, res, next) => {
 
   if (status !== undefined && !VALID_PROJECT_STATUSES.includes(status))
     return next(new AppError(`Status must be one of: ${VALID_PROJECT_STATUSES.join(', ')}`, 400));
+
+  if (status === 'draft' && (startDate || endDate))
+    return next(new AppError('Draft projects cannot have a start or end date', 400));
 
   const dateError = validateDateRange(startDate, endDate);
   if (dateError) return next(new AppError(dateError, 400));

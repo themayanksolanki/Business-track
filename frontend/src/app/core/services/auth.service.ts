@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { AuthResponse, User } from '../../models/user.model';
+import { AuthResponse, User, DateFormat, TimeFormat } from '../../models/user.model';
 
 const BASE_URL = environment.apiUrl.replace('/api', '');
 
@@ -89,6 +89,20 @@ export class AuthService {
     form.append('avatar', file);
     return this.http
       .patch<{ message: string; user: User }>(`${this.api}/me/avatar`, form)
+      .pipe(tap((res) => this.refreshUser(res.user)));
+  }
+
+  // All fields optional/independent — the Profile page's phone editor and
+  // Settings > General's date/time-format picker each send only the fields
+  // they own, so one never clobbers the other's saved value.
+  updateProfile(payload: {
+    phoneCountry?: string | null;
+    phoneNumber?: string | null;
+    dateFormat?: DateFormat;
+    timeFormat?: TimeFormat;
+  }) {
+    return this.http
+      .patch<{ message: string; user: User }>(`${this.api}/me`, payload)
       .pipe(tap((res) => this.refreshUser(res.user)));
   }
 

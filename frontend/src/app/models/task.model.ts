@@ -5,7 +5,7 @@ export type TaskStatus = 'todo' | 'pending' | 'completed';
 
 export interface Task {
   id: number;
-  numericId?: number | null;
+  sequenceId?: number | null;
   title: string;
   description: string;
   status: TaskStatus;
@@ -14,6 +14,7 @@ export interface Task {
   assignedTo: User;
   parentTask?: number | null;
   tags: TagLite[];
+  attachmentCount: number;
   createdAt: string;
   updatedAt: string;
 }

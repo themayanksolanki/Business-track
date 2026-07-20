@@ -88,13 +88,8 @@ export class AttachmentPanelComponent implements OnChanges {
     this.projectService
       .downloadAttachment(this.projectId, this.item.id, attachment.id)
       .subscribe({
-        next: (blob) => {
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = attachment.fileName;
-          link.click();
-          window.URL.revokeObjectURL(url);
+        next: (info) => {
+          window.open(info.downloadUrl, '_blank');
           this.downloadingId = null;
         },
         error: () => (this.downloadingId = null),
@@ -112,7 +107,7 @@ export class AttachmentPanelComponent implements OnChanges {
       });
   }
 
-  loadAttachmentBlob = (attachment: Attachment) =>
+  getAttachmentFileInfo = (attachment: Attachment) =>
     this.projectService.downloadAttachment(this.projectId, this.item.id, attachment.id);
 
   openViewer(attachment: Attachment) {

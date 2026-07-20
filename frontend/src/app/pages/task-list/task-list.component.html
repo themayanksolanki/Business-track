@@ -46,7 +46,7 @@
           <tbody>
             @for (task of paginatedTasks; track task.id) {
               <tr class="task-row" (click)="openDetail(task)">
-                <td class="ps-4"><span class="text-muted-em">{{ task.numericId ? '#' + task.numericId : '—' }}</span></td>
+                <td class="ps-4"><span class="text-muted-em">{{ task.sequenceId ? '#' + task.sequenceId : '—' }}</span></td>
                 <td>
                   <span class="fw-medium task-title">{{ task.title }}</span>
                   @if (task.tags.length > 0) {
@@ -145,6 +145,9 @@
                   <div class="d-flex gap-1 justify-content-end">
                     <button class="icon-btn icon-btn-attach" (click)="openAttachments(task)" title="Attachments">
                       <i class="bi bi-paperclip"></i>
+                      @if (task.attachmentCount > 0) {
+                        <span class="icon-btn-count">{{ task.attachmentCount }}</span>
+                      }
                     </button>
                     <button class="icon-btn icon-btn-edit" (click)="openEdit(task)" title="Edit task">
                       <i class="bi bi-pencil-square"></i>
@@ -247,7 +250,9 @@
   (closed)="closeAttachments()"
   (fileSelected)="onFileSelected($event)"
   (download)="download($event)"
-  (viewRequested)="openViewer($event)">
+  (viewRequested)="openViewer($event)"
+  (deleteRequested)="deleteAttachment($event)"
+  (undoRequested)="undoDeleteAttachment($event)">
 </app-task-attachments-modal>
 
 <!-- Delete confirmation dialog -->
@@ -264,7 +269,7 @@
   [open]="viewerOpen"
   [attachments]="attachments"
   [startIndex]="viewerIndex"
-  [loadBlob]="loadAttachmentBlob"
+  [getFileInfo]="getAttachmentFileInfo"
   (closed)="viewerOpen = false"
   (download)="download($event)">
 </app-attachment-viewer>

@@ -41,6 +41,18 @@
   color: #fff;
 }
 
+.include-drafts-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.include-drafts-check input { cursor: pointer; }
+
 .status-badge-sm {
   display: inline-flex;
   align-items: center;
@@ -54,6 +66,7 @@
 .status-active    { background-color: #dbeafe; color: #1d4ed8; }
 .status-archived  { background-color: #f1f5f9; color: #475569; }
 .status-completed { background-color: #dcfce7; color: #15803d; }
+.status-draft     { background-color: #fef3c7; color: #92400e; }
 
 .dept-badge {
   display: inline-flex;

@@ -125,6 +125,7 @@ export class UserListComponent implements OnInit {
         this.successMessage = res.message;
         this.pendingUsers = this.pendingUsers.filter((u) => u.id !== id);
         this.activating.delete(id);
+        this.userService.refreshUsers().subscribe();
         if (this.isTeamLead) {
           this.activeUsers = [...this.activeUsers, { ...user, isActive: true }];
         } else {
@@ -221,6 +222,7 @@ export class UserListComponent implements OnInit {
           this.activateSuccess = res.message;
           this.activateLoading = false;
           this.invitedUsers = this.invitedUsers.filter((i) => i.id !== invite.id);
+          this.userService.refreshUsers().subscribe();
           if (this.isTeamLead) {
             this.activeUsers = [...this.activeUsers, res.user];
           } else {

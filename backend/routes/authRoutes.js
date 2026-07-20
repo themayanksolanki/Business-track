@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { register, registerOrganization, login, getMe, refresh, logout, updateAvatar, removeAvatar, forgotPassword, resetPassword } from '../controllers/authController.js';
+import { register, registerOrganization, login, getMe, refresh, logout, updateAvatar, removeAvatar, updateProfile, forgotPassword, resetPassword } from '../controllers/authController.js';
 import protect from '../middleware/authMiddleware.js';
 import { avatarUpload } from '../middleware/upload.js';
-import { validateRegister, validateOrgRegister, validateLogin } from '../middleware/validate.js';
+import { validateRegister, validateOrgRegister, validateLogin, validateUpdateProfile } from '../middleware/validate.js';
 
 const router = Router();
 
@@ -12,6 +12,7 @@ router.post('/login', validateLogin, login);
 router.post('/refresh', refresh);
 router.post('/logout', logout);
 router.get('/me', protect, getMe);
+router.patch('/me', protect, validateUpdateProfile, updateProfile);
 router.patch('/me/avatar', protect, avatarUpload, updateAvatar);
 router.delete('/me/avatar', protect, removeAvatar);
 router.post('/forgot-password', forgotPassword);

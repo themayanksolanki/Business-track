@@ -135,7 +135,6 @@ export class ProjectDetailComponent implements OnInit {
   deleteConfirmOpen = false;
   deleteLoading = false;
 
-  users: User[] = [];
   departments: Department[] = [];
   categories: Category[] = [];
   readonly priorityOptions: ProjectPriority[] = ['low', 'medium', 'high'];
@@ -190,7 +189,7 @@ export class ProjectDetailComponent implements OnInit {
     if (tab === 'detail' || tab === 'tasks' || tab === 'kanban' || tab === 'teams') this.activeTab = tab;
     this.loadProject();
     this.loadItems();
-    this.userService.getAllUsers().subscribe({ next: (u) => (this.users = u) });
+    this.userService.ensureUsersLoaded();
     this.departmentService
       .getDepartments()
       .subscribe({ next: (d) => (this.departments = d) });
@@ -259,6 +258,14 @@ export class ProjectDetailComponent implements OnInit {
   }
 
   // Task/item "Assign to" pickers (tree, kanban, item detail) are scoped to
+  // Org-wide, shared across every page that needs a user picker — see
+  // UserService.ensureUsersLoaded(). Used directly by the Leader/Owner
+  // picker below, unlike `memberUsers`, which is scoped to just this
+  // project's members only.
+  get users(): User[] {
+    return this.userService.users();
+  }
+
   // project members only — unlike the Leader/Owner picker above, which stays
   // org-wide via `users`.
   get memberUsers(): User[] {
@@ -571,7 +578,7 @@ export class ProjectDetailComponent implements OnInit {
     ];
   }
 
-  loadPlanBlob = (_: Attachment) => this.projectService.downloadProjectPlan(this.projectId);
+  getPlanFileInfo = (_: Attachment) => this.projectService.downloadProjectPlan(this.projectId);
 
   openPlanViewer() {
     if (!this.project?.plan) return;
@@ -581,13 +588,8 @@ export class ProjectDetailComponent implements OnInit {
   downloadPlan() {
     if (!this.project?.plan) return;
     this.projectService.downloadProjectPlan(this.projectId).subscribe({
-      next: (blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = this.project!.plan!.fileName;
-        link.click();
-        window.URL.revokeObjectURL(url);
+      next: (info) => {
+        window.open(info.downloadUrl, '_blank');
       },
     });
   }

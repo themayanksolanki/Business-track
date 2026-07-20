@@ -65,16 +65,16 @@ export const s3Storage = (folder) => new S3StorageEngine(folder);
 // PDFs. A short-lived presigned URL lets the browser fetch the bytes
 // directly from S3 instead, so this server only ever handles the small JSON
 // response, not the file itself.
-export const getS3DownloadUrl = ({ key, mimeType, fileName }) =>
+export const getS3DownloadUrl = ({ key, mimeType, fileName, disposition = 'inline', expiresIn = 300 }) =>
   getSignedUrl(
     s3Client,
     new GetObjectCommand({
       Bucket: S3_BUCKET,
       Key: key,
       ResponseContentType: mimeType,
-      ResponseContentDisposition: `inline; filename="${encodeURIComponent(fileName)}"`,
+      ResponseContentDisposition: `${disposition}; filename="${encodeURIComponent(fileName)}"`,
     }),
-    { expiresIn: 300 }
+    { expiresIn }
   );
 
 export const deleteS3Object = (key) =>

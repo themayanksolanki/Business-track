@@ -67,7 +67,7 @@
   [open]="viewerOpen"
   [attachments]="attachments"
   [startIndex]="viewerIndex"
-  [loadBlob]="loadAttachmentBlob"
+  [getFileInfo]="getAttachmentFileInfo"
   (closed)="viewerOpen = false"
   (download)="download($event)">
 </app-attachment-viewer>

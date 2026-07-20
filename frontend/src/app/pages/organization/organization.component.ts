@@ -24,8 +24,15 @@ export class OrganizationComponent implements OnInit {
   isManager = false;
   isTeamLead = false;
 
-  members: User[] = [];
   membersLoading = false;
+
+  // This page is the authoritative "current membership" view, so it force-
+  // refreshes the shared user cache on load (rather than the passive
+  // ensureUsersLoaded() other pickers use) — every other page reading
+  // UserService.users() then sees the same up-to-date roster.
+  get members(): User[] {
+    return this.userService.users();
+  }
 
   invites: Invite[] = [];
   invitesLoading = false;
@@ -84,14 +91,9 @@ export class OrganizationComponent implements OnInit {
 
   loadMembers() {
     this.membersLoading = true;
-    this.userService.getAllUsers().subscribe({
-      next: (users) => {
-        this.members = users;
-        this.membersLoading = false;
-      },
-      error: () => {
-        this.membersLoading = false;
-      },
+    this.userService.refreshUsers().subscribe({
+      next: () => (this.membersLoading = false),
+      error: () => (this.membersLoading = false),
     });
   }
 

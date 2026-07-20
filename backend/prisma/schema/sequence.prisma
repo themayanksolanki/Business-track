@@ -1,0 +1,24 @@
+// Atomic per-(organization, entity) counter backing the sequenceId fields on
+// User/Project/Task/ProjectItem/ProjectRole. `value` is bumped via an
+// upsert-with-increment inside the same transaction as the row create, so
+// Postgres's INSERT ... ON CONFLICT DO UPDATE serializes concurrent creates
+// in the same org onto distinct consecutive numbers.
+enum SequenceEntity {
+  user
+  project
+  task
+  projectItem
+  projectRole
+}
+
+model OrgSequence {
+  id             Int            @id @default(autoincrement())
+  organizationId Int
+  entity         SequenceEntity
+  value          Int            @default(0)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, entity])
+  @@map("org_sequences")
+}

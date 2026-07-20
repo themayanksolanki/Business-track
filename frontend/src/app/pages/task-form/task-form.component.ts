@@ -17,7 +17,7 @@ export class TaskFormComponent implements OnInit {
   form: FormGroup;
   error = '';
   loading = false;
-  assignableUsers: User[] = [];
+  private teamAssignableUsers: User[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -37,13 +37,20 @@ export class TaskFormComponent implements OnInit {
     const role = this.auth.getUser()?.role;
 
     if (role === 'Admin' || role === 'Manager') {
-      this.userService.getAllUsers().subscribe({ next: (u) => (this.assignableUsers = u) });
+      this.userService.ensureUsersLoaded();
     } else if (role === 'Team Lead') {
-      this.userService.getTeamMembers().subscribe({ next: (u) => (this.assignableUsers = u) });
+      this.userService.getTeamMembers().subscribe({ next: (u) => (this.teamAssignableUsers = u) });
     }
   }
 
   get isUser() { return this.auth.getUser()?.role === 'User'; }
+
+  get assignableUsers(): User[] {
+    const role = this.auth.getUser()?.role;
+    if (role === 'Admin' || role === 'Manager') return this.userService.users();
+    if (role === 'Team Lead') return this.teamAssignableUsers;
+    return [];
+  }
 
   get selectedAssigneeLabel() {
     const id = this.form.get('assignedTo')?.value;

@@ -6,6 +6,10 @@
 
   <app-tab-strip [tabs]="tabs" [activeKey]="activeTab" (tabChange)="activeTab = $event"></app-tab-strip>
 
+  @if (activeTab === 'general') {
+    <app-general-settings></app-general-settings>
+  }
+
   @if (activeTab === 'departments') {
     <app-departments></app-departments>
   }

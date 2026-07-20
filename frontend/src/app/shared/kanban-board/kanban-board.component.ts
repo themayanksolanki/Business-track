@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -49,7 +49,7 @@ const PRIORITY_DEFS: { value: ProjectItemPriority; label: string; icon: string; 
   templateUrl: './kanban-board.component.html',
   styleUrl: './kanban-board.component.css',
 })
-export class KanbanBoardComponent implements OnChanges, OnDestroy {
+export class KanbanBoardComponent implements OnChanges {
   @Input() tree: ProjectTreeNode[] = [];
   @Input({ required: true }) projectId!: string;
   @Input() users: User[] = [];
@@ -87,10 +87,6 @@ export class KanbanBoardComponent implements OnChanges, OnDestroy {
   ngOnChanges(changes: SimpleChanges) {
     if (changes['tree'] || changes['users']) this.rebuildColumns();
     if (changes['itemSummary']) this.syncCovers(flattenLeaves(this.tree));
-  }
-
-  ngOnDestroy() {
-    for (const url of this.coverUrls.values()) URL.revokeObjectURL(url);
   }
 
   setGroupMode(mode: KanbanGroupMode) {
@@ -160,8 +156,8 @@ export class KanbanBoardComponent implements OnChanges, OnDestroy {
 
       this.loadingCovers.add(node.id);
       this.projectService.downloadAttachment(this.projectId, node.id, cover.attachmentId).subscribe({
-        next: (blob) => {
-          this.coverUrls.set(node.id, URL.createObjectURL(blob));
+        next: (info) => {
+          this.coverUrls.set(node.id, info.viewUrl);
           this.loadingCovers.delete(node.id);
         },
         error: () => this.loadingCovers.delete(node.id),

@@ -1,0 +1,468 @@
+<div class="page">
+  <nav class="page-breadcrumb mb-3">
+    <a routerLink="/drafts" class="breadcrumb-item">Drafts</a>
+    <span class="breadcrumb-separator"><i class="bi bi-chevron-right"></i></span>
+    <span class="breadcrumb-item breadcrumb-item-active">{{ project?.name || '…' }}</span>
+  </nav>
+
+  @if (error) {
+    <div class="alert alert-danger py-2">{{ error }}</div>
+  }
+
+  @if (loading) {
+    <div class="text-center py-5 text-muted">
+      <span class="spinner-border spinner-border-sm me-2"></span>Loading draft…
+    </div>
+  } @else if (project) {
+    <div class="card project-header-card shadow-sm mb-4">
+    <div class="project-header-top">
+      <div class="project-header-icon"><i class="bi bi-file-earmark-text"></i></div>
+
+      <div class="project-header-titleblock">
+        @if (project.sequenceId) {
+          <span class="text-muted-em">#{{ project.sequenceId }}</span>
+        }
+        <input type="text" class="project-title-input" [(ngModel)]="editName"
+               (blur)="saveNameDescription()" (keydown.enter)="$event.preventDefault(); $any($event.target).blur()"
+               placeholder="Draft name" maxlength="200" />
+      </div>
+
+      <div class="project-header-actions">
+        <span class="complete-btn draft-badge" title="This is a draft — approve it to convert it into a live project">
+          <i class="bi bi-file-earmark-text"></i>
+          Draft
+        </span>
+
+        @if (canApproveDraft) {
+          <button type="button" class="btn btn-success btn-sm" [disabled]="approving" (click)="approveDraft()">
+            @if (approving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            Approve &amp; Convert to Project
+          </button>
+        }
+
+        <div class="dropdown">
+          <button type="button" class="actions-btn dropdown-toggle" data-bs-toggle="dropdown" title="Draft actions">
+            <i class="bi bi-gear me-1"></i>Actions
+          </button>
+          <ul class="dropdown-menu status-dropdown shadow-sm">
+            <li>
+              <a class="dropdown-item status-opt text-danger" (click)="openDeleteConfirm()">
+                <i class="bi bi-trash3 me-2"></i>Delete Draft
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    @if (approveError) {
+      <div class="alert alert-danger py-2 mx-3">{{ approveError }}</div>
+    }
+
+    <div class="project-meta-strip">
+      <div class="meta-cell">
+        <span class="meta-label"><i class="bi bi-person-badge me-1"></i>Leader</span>
+        <div class="dropdown">
+          <button type="button" class="assign-trigger dropdown-toggle" data-bs-toggle="dropdown">
+            @if (project.owner) {
+              @if (avatarUrl(project.owner)) {
+                <img class="assign-avatar-img" [src]="avatarUrl(project.owner)!" [alt]="project.owner.username"
+                     (error)="onAvatarError(project.owner)" />
+              } @else {
+                <span class="assign-avatar" [class]="'avatar-' + roleClass(project.owner.role)">
+                  {{ project.owner.username[0].toUpperCase() }}
+                </span>
+              }
+              <span class="assign-trigger-name">{{ project.owner.username }}</span>
+            } @else {
+              <span class="assign-avatar avatar-empty"><i class="bi bi-person"></i></span>
+              <span class="assign-trigger-name text-muted">Unassigned</span>
+            }
+          </button>
+          <ul class="dropdown-menu assign-dropdown">
+            <li>
+              <a class="assign-item" (click)="selectOwner(null)">
+                <span class="assign-avatar avatar-empty"><i class="bi bi-person"></i></span>
+                <span class="assign-item-name text-muted">Unassigned</span>
+              </a>
+            </li>
+            <li><hr class="dropdown-divider my-1" /></li>
+            @for (u of users; track u.id) {
+              <li>
+                <a class="assign-item" (click)="selectOwner(u)">
+                  @if (avatarUrl(u)) {
+                    <img class="assign-avatar-img" [src]="avatarUrl(u)!" [alt]="u.username" (error)="onAvatarError(u)" />
+                  } @else {
+                    <span class="assign-avatar" [class]="'avatar-' + roleClass(u.role)">{{ u.username[0].toUpperCase() }}</span>
+                  }
+                  <span class="assign-item-name">{{ u.username }}</span>
+                </a>
+              </li>
+            }
+          </ul>
+        </div>
+      </div>
+
+      <div class="meta-cell">
+        <span class="meta-label"><i class="bi bi-diagram-3 me-1"></i>Department</span>
+        <div class="dropdown">
+          <button type="button" class="assign-trigger dropdown-toggle" data-bs-toggle="dropdown">
+            @if (project.department) {
+              <span class="dept-dot" [style.background]="project.department.color"></span>
+              <span class="assign-trigger-name">{{ project.department.name }}</span>
+            } @else {
+              <span class="assign-avatar avatar-empty"><i class="bi bi-diagram-3"></i></span>
+              <span class="assign-trigger-name text-muted">Unassigned</span>
+            }
+          </button>
+          <ul class="dropdown-menu assign-dropdown">
+            <li>
+              <a class="assign-item" (click)="selectDepartment(null)">
+                <span class="assign-avatar avatar-empty"><i class="bi bi-diagram-3"></i></span>
+                <span class="assign-item-name text-muted">Unassigned</span>
+              </a>
+            </li>
+            <li><hr class="dropdown-divider my-1" /></li>
+            @for (d of departments; track d.id) {
+              <li>
+                <a class="assign-item" (click)="selectDepartment(d)">
+                  <span class="dept-dot" [style.background]="d.color"></span>
+                  <span class="assign-item-name">{{ d.name }}</span>
+                </a>
+              </li>
+            }
+          </ul>
+        </div>
+      </div>
+
+      <div class="meta-cell">
+        <span class="meta-label"><i class="bi bi-bookmark me-1"></i>Category</span>
+        <div class="dropdown">
+          <button type="button" class="assign-trigger dropdown-toggle" data-bs-toggle="dropdown">
+            @if (project.category) {
+              <span class="dept-dot" [style.background]="project.category.color"></span>
+              <span class="assign-trigger-name">{{ project.category.name }}</span>
+            } @else {
+              <span class="assign-avatar avatar-empty"><i class="bi bi-bookmark"></i></span>
+              <span class="assign-trigger-name text-muted">Unassigned</span>
+            }
+          </button>
+          <ul class="dropdown-menu assign-dropdown">
+            <li>
+              <a class="assign-item" (click)="selectCategory(null)">
+                <span class="assign-avatar avatar-empty"><i class="bi bi-bookmark"></i></span>
+                <span class="assign-item-name text-muted">Unassigned</span>
+              </a>
+            </li>
+            <li><hr class="dropdown-divider my-1" /></li>
+            @for (c of categories; track c.id) {
+              <li>
+                <a class="assign-item" (click)="selectCategory(c)">
+                  <span class="dept-dot" [style.background]="c.color"></span>
+                  <span class="assign-item-name">{{ c.name }}</span>
+                </a>
+              </li>
+            }
+          </ul>
+        </div>
+      </div>
+
+      <div class="meta-cell">
+        <span class="meta-label"><i class="bi bi-tags me-1"></i>Tags</span>
+        <app-tag-picker
+          [allTags]="allTags"
+          [selectedTags]="project.tags"
+          (tagsChange)="selectTags($event)"
+          (tagCreated)="onTagCreated($event)">
+        </app-tag-picker>
+      </div>
+
+      <div class="meta-cell">
+        <span class="meta-label"><i class="bi bi-flag-fill me-1"></i>Priority</span>
+        <div class="dropdown">
+          <button type="button" class="priority-badge dropdown-toggle"
+                  [class.priority-low]="project.priority === 'low'"
+                  [class.priority-medium]="project.priority === 'medium'"
+                  [class.priority-high]="project.priority === 'high'"
+                  data-bs-toggle="dropdown" title="Change priority">
+            {{ project.priority }}
+          </button>
+          <ul class="dropdown-menu status-dropdown shadow-sm">
+            @for (p of priorityOptions; track p) {
+              <li><a class="dropdown-item status-opt" (click)="setPriority(p)">{{ p }}</a></li>
+            }
+          </ul>
+        </div>
+      </div>
+
+      <div class="meta-divider"></div>
+
+      <div class="meta-cell">
+        <span class="meta-label">
+          <i class="bi bi-graph-up me-1"></i>% Complete
+          <app-help-tip
+            variant="popover" trigger="click"
+            heading="% Complete"
+            text="Percentage of all tasks and subtasks across every group that are marked Completed. Tasks in a draft stay at Todo until it's approved.">
+          </app-help-tip>
+        </span>
+        @if (progress; as p) {
+          <div class="progress-cell">
+            <div class="progress-track"><div class="progress-fill" [style.width.%]="p.percent"></div></div>
+            <span class="progress-frac">{{ p.percent }}% · {{ p.completed }}/{{ p.doing }}/{{ p.total }}</span>
+          </div>
+        }
+      </div>
+    </div>
+    </div>
+
+    <app-tab-strip [tabs]="tabs" [activeKey]="activeTab" (tabChange)="setActiveTab($event)"></app-tab-strip>
+
+    @if (activeTab === 'tasks') {
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex align-items-center gap-2 tasks-toolbar-left">
+          <h6 class="text-muted mb-0 text-uppercase small fw-bold">Groups</h6>
+          <app-help-tip text="Groups organize tasks; tasks can have subtasks nested one level deeper. Tasks stay at Todo until this draft is approved."></app-help-tip>
+          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="expandAll()" title="Expand all">
+            <i class="bi bi-arrows-expand"></i>
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="collapseAll()" title="Collapse all">
+            <i class="bi bi-arrows-collapse"></i>
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" [class.active]="selectionMode"
+                  (click)="toggleSelectionMode()" ngbTooltip="Select Tasks">
+            <i class="bi" [class.bi-square]="!selectionMode" [class.bi-check-square-fill]="selectionMode"></i>
+          </button>
+        </div>
+        <button class="btn btn-success btn-sm" (click)="openAddGroup()">
+          <i class="bi bi-plus-lg me-1"></i>New Group
+        </button>
+      </div>
+
+      @if (selectionMode && selectedIds.size > 0) {
+        <div class="bulk-actions-bar mb-3">
+          <span class="bulk-actions-count">{{ selectedIds.size }} selected</span>
+          <button type="button" class="btn btn-sm btn-outline-primary" (click)="openBulkMoveToGroup()">
+            <i class="bi bi-folder-symlink me-1"></i>Move to Group
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-danger" (click)="openBulkDeleteConfirm()">
+            <i class="bi bi-trash3 me-1"></i>Delete
+          </button>
+        </div>
+      }
+
+      @if (addGroupOpen) {
+        <div class="card mb-3 p-3">
+          <div class="d-flex gap-2 align-items-center">
+            <textarea class="add-group-title-input flex-grow-1" rows="1" [(ngModel)]="addGroupTitle"
+                      [appAutoGrow]="addGroupTitle" placeholder="Group title (e.g. Mobile App)…"
+                      (keydown)="onAddGroupKeydown($event)" maxlength="200"></textarea>
+            <button class="add-subtask-btn" (click)="submitAddGroup()" [disabled]="addGroupLoading || !addGroupTitle.trim()">
+              @if (addGroupLoading) { <span class="spinner-border spinner-border-sm"></span> } @else { <i class="bi bi-plus-lg"></i> }
+            </button>
+            <button class="subtask-del-btn" (click)="cancelAddGroup()" title="Cancel">
+              <i class="bi bi-x"></i>
+            </button>
+          </div>
+          @if (addGroupError) {
+            <div class="subtask-error">{{ addGroupError }}</div>
+          }
+        </div>
+      }
+
+      @if (itemsLoading) {
+        <div class="text-center py-4 text-muted">
+          <span class="spinner-border spinner-border-sm me-2"></span>Loading tasks…
+        </div>
+      } @else if (tree.length === 0) {
+        <div class="empty-state text-center py-5 text-muted">
+          <i class="bi bi-diagram-3 display-4 d-block mb-3"></i>
+          <p class="fs-5 mb-0">No groups yet. Create one to get started.</p>
+        </div>
+      } @else {
+        <div class="card project-tasks-card shadow-sm">
+          <div class="item-table-header">
+            <span>ID</span>
+            <span></span>
+            <span></span>
+            <span>Task</span>
+            <span>Status</span>
+            <span>Due</span>
+            <span>Priority</span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="tree-children tree-root" cdkDropList id="drop-root" [cdkDropListData]="tree" (cdkDropListDropped)="onDropRoot($event)">
+            @for (node of tree; track node.id; let first = $first; let last = $last) {
+              <div cdkDrag [cdkDragData]="node" class="tree-drag-item">
+                <div class="tree-drag-placeholder" *cdkDragPlaceholder></div>
+                <app-project-tree-node
+                  [node]="node"
+                  [projectId]="projectId"
+                  [users]="memberUsers"
+                  [isFirst]="first"
+                  [isLast]="last"
+                  [selectionMode]="selectionMode"
+                  [selectedIds]="selectedIds"
+                  [expandCommand]="expandCommand"
+                  (refresh)="loadItems()"
+                  (openDetail)="onOpenDetail($event)"
+                  (toggleSelect)="onToggleSelect($event)"
+                  (moveToGroupRequested)="openMoveToGroupForTask($event)"
+                  (deleted)="onNodeDeleted($event)">
+                </app-project-tree-node>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <app-move-to-group-dialog
+        [open]="moveGroupOpen"
+        [groups]="groups"
+        [loading]="moveGroupLoading"
+        [currentGroupId]="moveGroupMode === 'single' ? (moveGroupTargetNode?.parentId ?? null) : null"
+        (groupSelected)="onGroupSelectedForMove($event)"
+        (cancelled)="cancelMoveToGroup()">
+      </app-move-to-group-dialog>
+
+      <app-confirm-dialog
+        [open]="bulkDeleteConfirmOpen"
+        title="Delete Tasks"
+        [message]="selectedIds.size + ' selected task(s) will be permanently deleted.'"
+        confirmLabel="Delete"
+        [loading]="bulkDeleteLoading"
+        (confirmed)="confirmBulkDelete()"
+        (cancelled)="cancelBulkDelete()">
+      </app-confirm-dialog>
+    }
+
+    @if (activeTab === 'kanban') {
+      @if (itemsLoading) {
+        <div class="text-center py-4 text-muted">
+          <span class="spinner-border spinner-border-sm me-2"></span>Loading tasks…
+        </div>
+      } @else if (tree.length === 0) {
+        <div class="empty-state text-center py-5 text-muted">
+          <i class="bi bi-kanban display-4 d-block mb-3"></i>
+          <p class="fs-5 mb-0">No tasks yet. Add a group from the Tasks tab to get started.</p>
+        </div>
+      } @else {
+        <app-kanban-board
+          [tree]="tree"
+          [projectId]="projectId"
+          [users]="memberUsers"
+          [itemSummary]="itemSummary"
+          (refresh)="loadItems()"
+          (openDetail)="onOpenDetail($event)">
+        </app-kanban-board>
+      }
+    }
+
+    @if (activeTab === 'teams') {
+      <app-project-teams
+        [projectId]="projectId"
+        [members]="project.members"
+        [canManage]="canManageMembers"
+        (membersChanged)="onMembersChanged($event)">
+      </app-project-teams>
+    }
+
+    @if (activeTab === 'detail') {
+      <div class="details-grid" cdkDropList cdkDropListOrientation="mixed"
+           [cdkDropListData]="orderedDetailCardIds" (cdkDropListDropped)="onDetailsDrop($event)">
+        @for (cardId of orderedDetailCardIds; track cardId) {
+          <div cdkDrag [cdkDragData]="cardId"
+               class="details-card-shell details-card-resizable"
+               [class.card]="cardId !== 'attachments'"
+               [class.project-tasks-card]="cardId !== 'attachments'"
+               [class.shadow-sm]="cardId !== 'attachments'"
+               [class.details-card]="cardId !== 'attachments'"
+               [class.details-card-ck]="cardId === 'details'"
+               appCardResize
+               [initialWidth]="layoutSize(cardId).width"
+               [initialHeight]="layoutSize(cardId).height"
+               (cardResized)="onCardResized(cardId, $event)">
+            <div class="details-card-placeholder" *cdkDragPlaceholder></div>
+
+            <span class="details-card-grip" cdkDragHandle title="Drag to reorder">
+              <i class="bi bi-grip-vertical"></i>
+            </span>
+
+            @switch (cardId) {
+              @case ('details') {
+                <h6 class="text-muted text-uppercase small fw-bold mb-3"><i class="bi bi-card-text me-1"></i>Draft Details</h6>
+                <ckeditor class="details-textarea" [editor]="DetailsEditor" [config]="detailsEditorConfig"
+                          [(ngModel)]="detailsText" (blur)="saveDetailsText()"></ckeditor>
+              }
+              @case ('attachments') {
+                <app-project-attachments-card [projectId]="projectId"></app-project-attachments-card>
+              }
+              @case ('priority') {
+                <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-flag-fill me-1"></i>Priority</h6>
+                <div class="slider-row">
+                  <input type="range" class="form-range" min="0" max="2" step="1"
+                         [ngModel]="priorityIndex" (change)="onPriorityIndexChange($any($event.target).valueAsNumber)" />
+                  <span class="slider-value-badge priority-badge"
+                        [class.priority-low]="project.priority === 'low'"
+                        [class.priority-medium]="project.priority === 'medium'"
+                        [class.priority-high]="project.priority === 'high'">
+                    {{ project.priority }}
+                  </span>
+                </div>
+                <div class="slider-ticks">
+                  <span>Low</span>
+                  <span>Medium</span>
+                  <span>High</span>
+                </div>
+              }
+              @case ('effort') {
+                <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-speedometer2 me-1"></i>Effort</h6>
+                <div class="slider-row">
+                  <input type="range" class="form-range" min="0" max="2" step="1"
+                         [ngModel]="effortIndex" (change)="onEffortIndexChange($any($event.target).valueAsNumber)" />
+                  <span class="slider-value-badge priority-badge"
+                        [class.priority-low]="project.effort === 'low'"
+                        [class.priority-medium]="project.effort === 'medium'"
+                        [class.priority-high]="project.effort === 'high'">
+                    {{ project.effort }}
+                  </span>
+                </div>
+                <div class="slider-ticks">
+                  <span>Low</span>
+                  <span>Medium</span>
+                  <span>High</span>
+                </div>
+              }
+            }
+          </div>
+        }
+      </div>
+    }
+  }
+</div>
+
+<app-project-item-detail
+  [projectId]="projectId"
+  [item]="selectedNode"
+  [childCount]="selectedNode?.childCount || 0"
+  [breadcrumbPath]="selectedPath"
+  [allTags]="allTags"
+  [users]="memberUsers"
+  [readOnly]="true"
+  (closed)="closeDetail()"
+  (saved)="onItemSaved($event)"
+  (breadcrumbNavigate)="onOpenDetail($event)"
+  (tagCreated)="onTagCreated($event)">
+</app-project-item-detail>
+
+<app-confirm-dialog
+  [open]="deleteConfirmOpen"
+  title="Delete Draft"
+  message="This draft and everything inside it — all groups, tasks, subtasks, comments, and attachments — will be permanently deleted."
+  confirmLabel="Delete Draft"
+  [loading]="deleteLoading"
+  (confirmed)="confirmDeleteProject()"
+  (cancelled)="cancelDeleteConfirm()">
+</app-confirm-dialog>

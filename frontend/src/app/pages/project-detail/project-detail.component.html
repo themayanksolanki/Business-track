@@ -19,8 +19,8 @@
       <div class="project-header-icon"><i class="bi bi-kanban"></i></div>
 
       <div class="project-header-titleblock">
-        @if (project.numericId) {
-          <span class="text-muted-em">#{{ project.numericId }}</span>
+        @if (project.sequenceId) {
+          <span class="text-muted-em">#{{ project.sequenceId }}</span>
         }
         <input type="text" class="project-title-input" [(ngModel)]="editName"
                (blur)="saveNameDescription()" (keydown.enter)="$event.preventDefault(); $any($event.target).blur()"
@@ -560,7 +560,7 @@
 <app-attachment-viewer
   [open]="planViewerOpen"
   [attachments]="planAsAttachment"
-  [loadBlob]="loadPlanBlob"
+  [getFileInfo]="getPlanFileInfo"
   (closed)="planViewerOpen = false"
   (download)="downloadPlan()">
 </app-attachment-viewer>

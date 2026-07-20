@@ -1,17 +1,20 @@
 import { Component, OnInit, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { TaskService } from '../../core/services/task.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { User } from '../../models/user.model';
 import { Task } from '../../models/task.model';
+import { COUNTRIES, DEFAULT_COUNTRY_ISO2, flagEmoji } from '../../models/country.model';
+import { DateFormatService } from '../../core/services/date-format.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, RouterLink, ConfirmDialogComponent],
+  imports: [CommonModule, FormsModule, RouterLink, ConfirmDialogComponent],
   templateUrl: './profile.component.html',
   styleUrl: './profile.component.css',
 })
@@ -29,10 +32,19 @@ export class ProfileComponent implements OnInit {
   avatarError = '';
   removeDialogOpen = false;
 
+  readonly countries = COUNTRIES;
+  readonly flagEmoji = flagEmoji;
+  phoneEditing = false;
+  phoneSaving = false;
+  phoneError = '';
+  phoneCountryForm = DEFAULT_COUNTRY_ISO2;
+  phoneNumberForm = '';
+
   constructor(
     public auth: AuthService,
     private taskService: TaskService,
     public themeSvc: ThemeService,
+    private dateFormat: DateFormatService,
   ) {}
 
   ngOnInit() {
@@ -106,6 +118,51 @@ export class ProfileComponent implements OnInit {
     });
   }
 
+  dialCodeFor(iso2: string | null | undefined): string {
+    return this.countries.find((c) => c.iso2 === iso2)?.dialCode ?? '';
+  }
+
+  get displayPhone(): string | null {
+    if (!this.profile?.phoneCountry || !this.profile?.phoneNumber) return null;
+    return `${flagEmoji(this.profile.phoneCountry)} ${this.dialCodeFor(this.profile.phoneCountry)} ${this.profile.phoneNumber}`;
+  }
+
+  startEditPhone() {
+    this.phoneError = '';
+    this.phoneCountryForm = this.profile?.phoneCountry || DEFAULT_COUNTRY_ISO2;
+    this.phoneNumberForm = this.profile?.phoneNumber || '';
+    this.phoneEditing = true;
+  }
+
+  cancelEditPhone() {
+    this.phoneEditing = false;
+    this.phoneError = '';
+  }
+
+  savePhone() {
+    const digits = this.phoneNumberForm.replace(/\D/g, '');
+    if (digits.length < 4 || digits.length > 14) {
+      this.phoneError = 'Enter a valid phone number.';
+      return;
+    }
+
+    this.phoneError = '';
+    this.phoneSaving = true;
+    this.auth.updateProfile({ phoneCountry: this.phoneCountryForm, phoneNumber: digits }).subscribe({
+      next: (res) => {
+        this.profile = this.profile
+          ? { ...this.profile, phoneCountry: res.user.phoneCountry, phoneNumber: res.user.phoneNumber }
+          : res.user;
+        this.phoneSaving = false;
+        this.phoneEditing = false;
+      },
+      error: (err) => {
+        this.phoneError = err.error?.message || 'Failed to update phone number.';
+        this.phoneSaving = false;
+      },
+    });
+  }
+
   get todo(): number { return this.tasks.filter((t) => t.status === 'todo').length; }
   get pending(): number { return this.tasks.filter((t) => t.status === 'pending').length; }
   get completed(): number { return this.tasks.filter((t) => t.status === 'completed').length; }
@@ -117,9 +174,7 @@ export class ProfileComponent implements OnInit {
 
   get memberSince(): string {
     if (!this.profile?.createdAt) return '—';
-    return new Date(this.profile.createdAt).toLocaleDateString('en-US', {
-      year: 'numeric', month: 'long', day: 'numeric',
-    });
+    return this.dateFormat.formatDate(this.profile.createdAt);
   }
 
   get roleIcon(): string {

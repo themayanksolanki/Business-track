@@ -1,0 +1,293 @@
+<div class="page">
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h1 class="h3 mb-0">Drafts</h1>
+    <div class="d-flex align-items-center gap-2">
+      <div class="btn-group view-switcher" role="group" aria-label="View mode">
+        <button type="button" class="btn view-switch-btn" [class.active]="viewMode === 'cards'" (click)="setViewMode('cards')" title="Card view">
+          <i class="bi bi-grid-3x3-gap-fill"></i>
+        </button>
+        <button type="button" class="btn view-switch-btn" [class.active]="viewMode === 'table'" (click)="setViewMode('table')" title="Table view">
+          <i class="bi bi-table"></i>
+        </button>
+        <button type="button" class="btn view-switch-btn" [class.active]="viewMode === 'list'" (click)="setViewMode('list')" title="List view">
+          <i class="bi bi-list-ul"></i>
+        </button>
+      </div>
+      <button class="btn btn-success btn-sm" (click)="openCreate()">
+        <i class="bi bi-plus-lg me-1"></i>New Draft
+      </button>
+    </div>
+  </div>
+
+  @if (error) {
+    <div class="alert alert-danger py-2">{{ error }}</div>
+  }
+
+  @if (loading) {
+    <div class="text-center py-5 text-muted">
+      <span class="spinner-border spinner-border-sm me-2"></span>Loading drafts…
+    </div>
+  } @else if (viewMode === 'cards') {
+    @if (cardsItems.length === 0) {
+      <div class="empty-state text-center py-5 text-muted">
+        <i class="bi bi-file-earmark-text display-4 d-block mb-3"></i>
+        <p class="fs-5 mb-0">No drafts yet.</p>
+      </div>
+    } @else {
+      <div class="project-grid">
+        @for (draft of cardsItems; track draft.id) {
+          <div class="project-card" (click)="open(draft)">
+            <div class="project-card-icon"><i class="bi bi-file-earmark-text"></i></div>
+            <div class="project-card-body">
+              <h5 class="project-card-title">
+                @if (draft.sequenceId) { <span class="text-muted-em">#{{ draft.sequenceId }}</span> }
+                {{ draft.name }}
+              </h5>
+              @if (draft.description) {
+                <p class="project-card-desc">{{ draft.description }}</p>
+              }
+              <span class="status-badge-sm status-draft">draft</span>
+              @if (draft.department) {
+                <span class="dept-badge" [style.color]="draft.department.color" [style.borderColor]="draft.department.color">
+                  {{ draft.department.name }}
+                </span>
+              }
+              @if (draft.category) {
+                <span class="dept-badge" [style.color]="draft.category.color" [style.borderColor]="draft.category.color">
+                  {{ draft.category.name }}
+                </span>
+              }
+              @if (draft.tags.length > 0) {
+                <div class="project-tag-row">
+                  @for (tag of visibleTags(draft); track tag.id) {
+                    <app-tag-pill [tag]="tag"></app-tag-pill>
+                  }
+                  @if (hiddenTagCount(draft) > 0) {
+                    <span class="tag-overflow">+{{ hiddenTagCount(draft) }}</span>
+                  }
+                </div>
+              }
+              <div class="project-card-meta">
+                <i class="bi bi-person-fill me-1"></i>{{ draft.createdBy.username }}
+                <span class="mx-2">·</span>
+                <i class="bi bi-calendar3 me-1"></i>{{ draft.createdAt | appDate }}
+              </div>
+            </div>
+            <i class="bi bi-chevron-right project-card-arrow"></i>
+          </div>
+        }
+      </div>
+
+      <div #sentinel class="cards-sentinel"></div>
+      @if (cardsLoadingMore) {
+        <div class="text-center py-3 text-muted">
+          <span class="spinner-border spinner-border-sm me-2"></span>Loading more…
+        </div>
+      } @else if (!cardsHasMore) {
+        <div class="text-center py-3 cards-end-marker">— End of list —</div>
+      }
+    }
+  } @else if (pagedItems.length === 0) {
+    <div class="empty-state text-center py-5 text-muted">
+      <i class="bi bi-file-earmark-text display-4 d-block mb-3"></i>
+      <p class="fs-5 mb-0">No drafts yet.</p>
+    </div>
+  } @else if (viewMode === 'table') {
+    <div class="card project-table-card shadow-sm">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr class="table-dark-header">
+              <th class="ps-4">ID</th>
+              <th>Name</th>
+              <th>Owner</th>
+              <th>Department</th>
+              <th>Category</th>
+              <th>Tags</th>
+              <th>Priority</th>
+              <th>Created By</th>
+              <th class="pe-4 text-end">Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (draft of pagedItems; track draft.id) {
+              <tr class="project-row" (click)="open(draft)">
+                <td class="ps-4"><span class="text-muted-em">{{ draft.sequenceId ? '#' + draft.sequenceId : '—' }}</span></td>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="project-row-icon"><i class="bi bi-file-earmark-text"></i></span>
+                    <span class="fw-medium project-row-title">{{ draft.name }}</span>
+                  </div>
+                </td>
+                <td>
+                  @if (draft.owner) {
+                    @if (avatarUrl(draft.owner)) {
+                      <img class="avatar-img-xs me-2" [src]="avatarUrl(draft.owner)!" [alt]="draft.owner.username"
+                           (error)="onAvatarError(draft.owner)" />
+                    } @else {
+                      <span class="assign-avatar avatar-xs me-2" [class]="'avatar-' + roleClass(draft.owner.role)">{{ draft.owner.username[0].toUpperCase() }}</span>
+                    }
+                    <span class="text-muted-em">{{ draft.owner.username }}</span>
+                  } @else {
+                    <span class="text-muted-em">—</span>
+                  }
+                </td>
+                <td>
+                  @if (draft.department) {
+                    <span class="dept-badge" [style.color]="draft.department.color" [style.borderColor]="draft.department.color">
+                      {{ draft.department.name }}
+                    </span>
+                  } @else {
+                    <span class="text-muted-em">—</span>
+                  }
+                </td>
+                <td>
+                  @if (draft.category) {
+                    <span class="dept-badge" [style.color]="draft.category.color" [style.borderColor]="draft.category.color">
+                      {{ draft.category.name }}
+                    </span>
+                  } @else {
+                    <span class="text-muted-em">—</span>
+                  }
+                </td>
+                <td>
+                  @if (draft.tags.length > 0) {
+                    <div class="project-tag-row">
+                      @for (tag of visibleTags(draft); track tag.id) {
+                        <app-tag-pill [tag]="tag"></app-tag-pill>
+                      }
+                      @if (hiddenTagCount(draft) > 0) {
+                        <span class="tag-overflow">+{{ hiddenTagCount(draft) }}</span>
+                      }
+                    </div>
+                  } @else {
+                    <span class="text-muted-em">—</span>
+                  }
+                </td>
+                <td>
+                  <span class="priority-badge-sm" [class]="'priority-' + draft.priority">{{ draft.priority }}</span>
+                </td>
+                <td><span class="text-muted-em">{{ draft.createdBy.username }}</span></td>
+                <td class="pe-4 text-end"><span class="text-muted-em">{{ draft.createdAt | appDate }}</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (totalPages > 1) {
+        <div class="pagination-bar d-flex align-items-center justify-content-between px-4 py-3">
+          <span class="page-info">{{ pageStart }}–{{ pageEnd }} of {{ totalItems }} drafts</span>
+          <nav>
+            <ul class="pagination pagination-sm mb-0">
+              <li class="page-item" [class.disabled]="currentPage === 1">
+                <button class="page-link" (click)="loadPage(currentPage - 1)"><i class="bi bi-chevron-left"></i></button>
+              </li>
+              @for (p of pageNumbers; track $index) {
+                @if (p === -1) {
+                  <li class="page-item disabled"><span class="page-link ellipsis">…</span></li>
+                } @else {
+                  <li class="page-item" [class.active]="p === currentPage">
+                    <button class="page-link" (click)="loadPage(p)">{{ p }}</button>
+                  </li>
+                }
+              }
+              <li class="page-item" [class.disabled]="currentPage === totalPages">
+                <button class="page-link" (click)="loadPage(currentPage + 1)"><i class="bi bi-chevron-right"></i></button>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      }
+    </div>
+  } @else {
+    <div class="project-list">
+      @for (draft of pagedItems; track draft.id) {
+        <div class="project-list-row" (click)="open(draft)">
+          <span class="project-list-icon"><i class="bi bi-file-earmark-text"></i></span>
+          <div class="project-list-main">
+            <span class="project-list-title">
+              @if (draft.sequenceId) { <span class="text-muted-em">#{{ draft.sequenceId }}</span> }
+              {{ draft.name }}
+            </span>
+            @if (draft.description) {
+              <span class="project-list-desc">{{ draft.description }}</span>
+            }
+          </div>
+          <span class="priority-badge-sm" [class]="'priority-' + draft.priority">{{ draft.priority }}</span>
+          <span class="status-badge-sm status-draft">draft</span>
+          @if (draft.department) {
+            <span class="dept-badge" [style.color]="draft.department.color" [style.borderColor]="draft.department.color">
+              {{ draft.department.name }}
+            </span>
+          }
+          @if (draft.category) {
+            <span class="dept-badge" [style.color]="draft.category.color" [style.borderColor]="draft.category.color">
+              {{ draft.category.name }}
+            </span>
+          }
+          @if (draft.tags.length > 0) {
+            <div class="project-tag-row">
+              @for (tag of visibleTags(draft); track tag.id) {
+                <app-tag-pill [tag]="tag"></app-tag-pill>
+              }
+              @if (hiddenTagCount(draft) > 0) {
+                <span class="tag-overflow">+{{ hiddenTagCount(draft) }}</span>
+              }
+            </div>
+          }
+          @if (draft.owner) {
+            @if (avatarUrl(draft.owner)) {
+              <img class="avatar-img-xs" [src]="avatarUrl(draft.owner)!" [alt]="draft.owner.username"
+                   [title]="draft.owner.username" (error)="onAvatarError(draft.owner)" />
+            } @else {
+              <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(draft.owner.role)" [title]="draft.owner.username">
+                {{ draft.owner.username[0].toUpperCase() }}
+              </span>
+            }
+          }
+          <i class="bi bi-chevron-right project-list-arrow"></i>
+        </div>
+      }
+    </div>
+
+    @if (totalPages > 1) {
+      <div class="pagination-bar list-pagination-bar d-flex align-items-center justify-content-between px-3 py-3 mt-2">
+        <span class="page-info">{{ pageStart }}–{{ pageEnd }} of {{ totalItems }} drafts</span>
+        <nav>
+          <ul class="pagination pagination-sm mb-0">
+            <li class="page-item" [class.disabled]="currentPage === 1">
+              <button class="page-link" (click)="loadPage(currentPage - 1)"><i class="bi bi-chevron-left"></i></button>
+            </li>
+            @for (p of pageNumbers; track $index) {
+              @if (p === -1) {
+                <li class="page-item disabled"><span class="page-link ellipsis">…</span></li>
+              } @else {
+                <li class="page-item" [class.active]="p === currentPage">
+                  <button class="page-link" (click)="loadPage(p)">{{ p }}</button>
+                </li>
+              }
+            }
+            <li class="page-item" [class.disabled]="currentPage === totalPages">
+              <button class="page-link" (click)="loadPage(currentPage + 1)"><i class="bi bi-chevron-right"></i></button>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    }
+  }
+</div>
+
+<app-project-form
+  [open]="createOpen"
+  [departments]="departments"
+  [categories]="categories"
+  [allTags]="allTags"
+  [users]="users"
+  [allowDates]="false"
+  [loading]="createLoading"
+  [error]="createError"
+  (closed)="closeCreate()"
+  (submitted)="submitCreate($event)"
+  (tagCreated)="onTagCreated($event)">
+</app-project-form>

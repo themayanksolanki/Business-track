@@ -1,5 +1,7 @@
 <div class="picker">
-  <button #trigger type="button" class="picker-trigger" [class.picker-trigger-filled]="value" [class.picker-trigger-compact]="compact" (click)="toggle()">
+  <button #trigger type="button" class="picker-trigger"
+          [class.picker-trigger-filled]="value" [class.picker-trigger-compact]="compact"
+          [class.picker-trigger-disabled]="disabled" [disabled]="disabled" (click)="toggle()">
     <svg class="picker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <rect x="3.5" y="5" width="17" height="16" rx="2.5"></rect>
       <path d="M3.5 9.5h17"></path>
@@ -7,7 +9,7 @@
       <path d="M16 3v3.2"></path>
     </svg>
     <span class="picker-label" [class.picker-label-placeholder]="!value">{{ displayLabel }}</span>
-    @if (value) {
+    @if (value && !disabled) {
       <span class="picker-clear" (click)="$event.stopPropagation(); clear()" title="Clear date">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
       </span>

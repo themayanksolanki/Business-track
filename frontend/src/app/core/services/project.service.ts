@@ -9,7 +9,7 @@ import {
   UpdateProjectPayload,
   PaginatedProjects,
 } from '../../models/project.model';
-import { Attachment } from '../../models/attachment.model';
+import { Attachment, DownloadInfo } from '../../models/attachment.model';
 import {
   ProjectItem,
   CreateProjectItemPayload,
@@ -19,13 +19,7 @@ import {
 import { ProjectComment, CreateCommentPayload } from '../../models/comment.model';
 import { ProjectMember } from '../../models/project.model';
 import { PaginatedUsers } from '../../models/user.model';
-import { Observable, switchMap } from 'rxjs';
-
-interface DownloadInfo {
-  url: string;
-  mimeType: string;
-  fileName: string;
-}
+import { Observable } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class ProjectService {
@@ -33,20 +27,19 @@ export class ProjectService {
 
   constructor(private http: HttpClient) {}
 
-  // The /download endpoints hand back a short-lived URL (a presigned S3 URL,
-  // or Cloudinary's already-public one) rather than the file bytes — fetching
-  // large files through our own server was timing out mid-transfer, so the
-  // browser now fetches the bytes directly from the provider instead.
-  private fetchFile(downloadInfoUrl: string) {
-    return this.http
-      .get<DownloadInfo>(downloadInfoUrl)
-      .pipe(switchMap((info) => this.http.get(info.url, { responseType: 'blob' })));
+  // The /download endpoints hand back a viewUrl (inline disposition, for
+  // direct <img>/<video>/<iframe> src) and a downloadUrl (attachment
+  // disposition, for a forced Save As) — a presigned S3 URL or Cloudinary's
+  // already-public one, never the file bytes.
+  private getFileInfo(downloadInfoUrl: string) {
+    return this.http.get<DownloadInfo>(downloadInfoUrl);
   }
 
   // Projects
-  getProjects(page: number, limit: number, status?: ProjectStatus | 'all') {
+  getProjects(page: number, limit: number, status?: ProjectStatus | 'all', includeDrafts = false) {
     const params: Record<string, string | number> = { page, limit };
     if (status && status !== 'all') params['status'] = status;
+    if (includeDrafts) params['includeDrafts'] = 'true';
     return this.http.get<PaginatedProjects>(this.api, { params });
   }
 
@@ -175,7 +168,7 @@ export class ProjectService {
   }
 
   downloadAttachment(projectId: string, itemId: number, attachmentId: number) {
-    return this.fetchFile(`${this.api}/${projectId}/items/${itemId}/attachments/${attachmentId}/download`);
+    return this.getFileInfo(`${this.api}/${projectId}/items/${itemId}/attachments/${attachmentId}/download`);
   }
 
   deleteAttachment(projectId: string, itemId: number, attachmentId: number) {
@@ -199,7 +192,7 @@ export class ProjectService {
   }
 
   downloadProjectAttachment(projectId: string, attachmentId: number) {
-    return this.fetchFile(`${this.api}/${projectId}/attachments/${attachmentId}/download`);
+    return this.getFileInfo(`${this.api}/${projectId}/attachments/${attachmentId}/download`);
   }
 
   deleteProjectAttachment(projectId: string, attachmentId: number) {
@@ -214,7 +207,7 @@ export class ProjectService {
   }
 
   downloadProjectPlan(projectId: string) {
-    return this.fetchFile(`${this.api}/${projectId}/plan/download`);
+    return this.getFileInfo(`${this.api}/${projectId}/plan/download`);
   }
 
   removeProjectPlan(projectId: string) {

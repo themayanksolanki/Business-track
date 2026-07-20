@@ -1,11 +1,12 @@
 <div class="picker">
-  <button type="button" class="picker-trigger" [class.picker-trigger-filled]="value" (click)="toggle()">
+  <button type="button" class="picker-trigger" [class.picker-trigger-filled]="value"
+          [class.picker-trigger-disabled]="disabled" [disabled]="disabled" (click)="toggle()">
     <svg class="picker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="8.5"></circle>
       <path d="M12 7.5V12l3 2"></path>
     </svg>
     <span class="picker-label" [class.picker-label-placeholder]="!value">{{ displayLabel }}</span>
-    @if (value) {
+    @if (value && !disabled) {
       <span class="picker-clear" (click)="$event.stopPropagation(); clear()" title="Clear time">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
       </span>

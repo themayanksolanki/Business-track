@@ -8,11 +8,12 @@ enum ProjectStatus {
   active
   archived
   completed
+  draft
 }
 
 model Project {
   id             Int             @id @default(autoincrement())
-  numericId      Int?            @unique
+  sequenceId     Int?
   name           String
   description    String          @default("")
   createdById    Int
@@ -62,6 +63,7 @@ model Project {
   attachments Attachment[]
 
   @@index([organizationId])
+  @@unique([organizationId, sequenceId])
   @@map("projects")
 }
 

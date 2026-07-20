@@ -1,5 +1,6 @@
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
+import { nextSequenceId } from '../utils/sequence.js';
 
 const DEFAULT_ROLE_TITLES = ['Owner', 'Editor', 'Viewer'];
 
@@ -13,14 +14,20 @@ export const ensureDefaultProjectRoles = async (organizationId, actorId) => {
 
   for (let i = 0; i < DEFAULT_ROLE_TITLES.length; i++) {
     try {
-      await prisma.projectRole.create({
-        data: {
-          title: DEFAULT_ROLE_TITLES[i],
-          rank: i,
-          isDefault: true,
-          organizationId,
-          createdById: actorId,
-        },
+      // Each default role gets its own transaction (not one shared across the
+      // loop) so a P2002 on one title doesn't abort the others still pending.
+      await prisma.$transaction(async (tx) => {
+        const sequenceId = await nextSequenceId(tx, organizationId, 'projectRole');
+        await tx.projectRole.create({
+          data: {
+            title: DEFAULT_ROLE_TITLES[i],
+            rank: i,
+            isDefault: true,
+            organizationId,
+            sequenceId,
+            createdById: actorId,
+          },
+        });
       });
     } catch (err) {
       if (err.code !== 'P2002') throw err;
@@ -54,15 +61,19 @@ export const createProjectRole = async (req, res, next) => {
     const { title, description } = req.body;
     const rank = await prisma.projectRole.count({ where: { organizationId: req.user.organizationId } });
 
-    const role = await prisma.projectRole.create({
-      data: {
-        title: title.trim(),
-        description: description ?? '',
-        rank,
-        isDefault: false,
-        organizationId: req.user.organizationId,
-        createdById: req.user.id,
-      },
+    const role = await prisma.$transaction(async (tx) => {
+      const sequenceId = await nextSequenceId(tx, req.user.organizationId, 'projectRole');
+      return tx.projectRole.create({
+        data: {
+          title: title.trim(),
+          description: description ?? '',
+          rank,
+          isDefault: false,
+          organizationId: req.user.organizationId,
+          sequenceId,
+          createdById: req.user.id,
+        },
+      });
     });
 
     res.status(201).json({ message: 'Role created', role });

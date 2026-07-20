@@ -1,6 +1,7 @@
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
 import { ROLE_RANK } from '../utils/access.js';
+import { nextSequenceId } from '../utils/sequence.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
 const TAG_SELECT = { id: true, name: true, textColor: true, backgroundColor: true };
@@ -86,17 +87,21 @@ export const createTask = async (req, res, next) => {
       }
     }
 
-    const task = await prisma.task.create({
-      data: {
-        title: title.trim(),
-        description,
-        createdById: req.user.id,
-        assignedToId: resolvedAssignee,
-        parentTaskId: parentTaskNum,
-        organizationId: req.user.organizationId,
-        tags: { connect: (tags ?? []).map((id) => ({ id: Number(id) })) },
-      },
-      include: TASK_INCLUDE,
+    const task = await prisma.$transaction(async (tx) => {
+      const sequenceId = await nextSequenceId(tx, req.user.organizationId, 'task');
+      return tx.task.create({
+        data: {
+          title: title.trim(),
+          description,
+          createdById: req.user.id,
+          assignedToId: resolvedAssignee,
+          parentTaskId: parentTaskNum,
+          organizationId: req.user.organizationId,
+          sequenceId,
+          tags: { connect: (tags ?? []).map((id) => ({ id: Number(id) })) },
+        },
+        include: TASK_INCLUDE,
+      });
     });
 
     res.status(201).json({ message: 'Task created', task });

@@ -26,6 +26,10 @@ export class ProjectFormComponent implements OnChanges {
   @Input() users: User[] = [];
   @Input() loading = false;
   @Input() error = '';
+  // Drafts can't have a start/end date at all — set false to hide the
+  // date/time pickers entirely and keep startDate/endDate out of the
+  // submitted payload.
+  @Input() allowDates = true;
 
   readonly priorityOptions: ProjectPriority[] = ['low', 'medium', 'high'];
   readonly effortOptions: ProjectEffort[] = ['low', 'medium', 'high'];
@@ -81,8 +85,8 @@ export class ProjectFormComponent implements OnChanges {
       owner: this.form.value.owner || null,
       priority: this.form.value.priority || undefined,
       effort: this.form.value.effort || undefined,
-      startDate: this.combineDateTime(this.startDate, this.startTime),
-      endDate: this.combineDateTime(this.endDate, this.endTime),
+      startDate: this.allowDates ? this.combineDateTime(this.startDate, this.startTime) : null,
+      endDate: this.allowDates ? this.combineDateTime(this.endDate, this.endTime) : null,
       tags: this.selectedTags.map((t) => t.id),
     };
     this.submitted.emit(payload);

@@ -24,6 +24,7 @@ import projectRoleRoutes from './routes/projectRoleRoutes.js';
 import errorMiddleware from './middleware/errorMiddleware.js';
 import { authLimiter, globalLimiter } from './utils/utils.js';
 import { setupSocket } from './socket.js';
+import { startAttachmentSweeper } from './jobs/attachmentSweeper.js';
 
 const app = express();
 const server = createServer(app);
@@ -98,6 +99,8 @@ async function start() {
     .connect(process.env.MONGO_URI)
     .then(() => console.log('MongoDB connected'))
     .catch((err) => console.error('MongoDB connection error (non-fatal):', err.message));
+
+  startAttachmentSweeper();
 
   server.listen(process.env.PORT, () => {
     console.log(`Server running on port ${process.env.PORT}`);

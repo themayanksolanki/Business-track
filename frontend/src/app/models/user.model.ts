@@ -2,6 +2,9 @@ import { Department } from './department.model';
 
 export type Role = 'Admin' | 'Manager' | 'Team Lead' | 'User';
 
+export type DateFormat = 'DD_MM_YYYY' | 'MM_DD_YYYY' | 'YYYY_MM_DD' | 'DD_MMM_YY';
+export type TimeFormat = 'HOUR_12' | 'HOUR_24';
+
 export interface Organization {
   id?: number;
   name: string;
@@ -21,12 +24,16 @@ export interface UserLite {
 
 export interface User {
   id: number;
-  numericId?: number | null;
+  sequenceId?: number | null;
   username: string;
   email: string;
   role: Role;
   isActive?: boolean;
   profileImage?: string | null;
+  phoneCountry?: string | null;
+  phoneNumber?: string | null;
+  dateFormat?: DateFormat;
+  timeFormat?: TimeFormat;
   managerId?: number | null;
   teamLeadId?: number | null;
   manager?: UserLite | null;

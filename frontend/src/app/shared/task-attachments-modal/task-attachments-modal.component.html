@@ -26,22 +26,34 @@
         } @else {
           <ul class="attachment-list mb-4">
             @for (a of attachments; track a.id) {
-              <li class="attachment-item">
+              <li class="attachment-item" [class.attachment-item-pending]="isPending(a)">
                 <i class="bi attachment-file-icon" [class]="fileIcon(a.mimeType)"></i>
                 <div class="attachment-info">
-                  <span class="attachment-name">{{ a.fileName }}</span>
-                  <span class="attachment-meta">{{ formatSize(a.size) }} · {{ a.uploadedBy.username }}</span>
+                  <span class="attachment-name" [class.attachment-name-pending]="isPending(a)">{{ a.fileName }}</span>
+                  <span class="attachment-meta">
+                    {{ formatSize(a.size) }} · {{ a.uploadedBy.username }} · {{ formatUploadedAt(a.createdAt) }}
+                  </span>
                 </div>
-                <button class="attachment-download-btn" (click)="viewRequested.emit(a)" title="Preview">
-                  <i class="bi bi-eye"></i>
-                </button>
-                <button class="attachment-download-btn" (click)="download.emit(a)" [disabled]="downloadingId === a.id" title="Download">
-                  @if (downloadingId === a.id) {
-                    <span class="spinner-border spinner-border-sm"></span>
-                  } @else {
-                    <i class="bi bi-download"></i>
-                  }
-                </button>
+                @if (isPending(a)) {
+                  <span class="attachment-countdown">Deleting in {{ remainingSeconds(a) }}s</span>
+                  <button class="attachment-download-btn attachment-undo-btn" (click)="undoRequested.emit(a)" title="Undo">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                  </button>
+                } @else {
+                  <button class="attachment-download-btn" (click)="viewRequested.emit(a)" title="Preview">
+                    <i class="bi bi-eye"></i>
+                  </button>
+                  <button class="attachment-download-btn" (click)="download.emit(a)" [disabled]="downloadingId === a.id" title="Download">
+                    @if (downloadingId === a.id) {
+                      <span class="spinner-border spinner-border-sm"></span>
+                    } @else {
+                      <i class="bi bi-download"></i>
+                    }
+                  </button>
+                  <button class="attachment-download-btn attachment-delete-btn" (click)="deleteRequested.emit(a)" title="Delete">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                }
               </li>
             }
           </ul>

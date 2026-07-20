@@ -1,5 +1,6 @@
 import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges, ElementRef, ViewChild } from '@angular/core';
 import dayjs from 'dayjs/esm';
+import { DateFormatService } from '../../core/services/date-format.service';
 
 interface CalendarDay {
   iso: string;
@@ -21,6 +22,7 @@ export class DatePickerComponent implements OnChanges, OnDestroy {
   @Input() min: string | null = null; // 'YYYY-MM-DD' — days before this are disabled
   @Input() align: 'left' | 'right' = 'left'; // panel anchor side, use 'right' near a container's right edge
   @Input() compact = false; // shorter, borderless trigger for use inline in dense rows/tables
+  @Input() disabled = false; // read-only trigger (e.g. locked until a draft is approved) — cursor: not-allowed, no panel
 
   @Output() valueChange = new EventEmitter<string | null>();
 
@@ -41,7 +43,7 @@ export class DatePickerComponent implements OnChanges, OnDestroy {
 
   private readonly reposition = () => this.updatePanelPosition();
 
-  constructor() {
+  constructor(private dateFormat: DateFormatService) {
     this.buildCalendar();
   }
 
@@ -57,7 +59,7 @@ export class DatePickerComponent implements OnChanges, OnDestroy {
   }
 
   get displayLabel(): string {
-    return this.value ? dayjs(this.value, 'YYYY-MM-DD').format('MMM D, YYYY') : this.placeholder;
+    return this.value ? this.dateFormat.formatDate(this.value) : this.placeholder;
   }
 
   get monthLabel(): string {
@@ -65,6 +67,7 @@ export class DatePickerComponent implements OnChanges, OnDestroy {
   }
 
   toggle() {
+    if (this.disabled) return;
     this.open = !this.open;
     if (this.open) {
       this.viewMonth = (this.value ? dayjs(this.value, 'YYYY-MM-DD') : dayjs()).startOf('month');

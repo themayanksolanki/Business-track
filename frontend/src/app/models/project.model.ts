@@ -6,7 +6,7 @@ import { ProjectRoleLite } from './project-role.model';
 
 export type ProjectPriority = 'low' | 'medium' | 'high';
 export type ProjectEffort = 'low' | 'medium' | 'high';
-export type ProjectStatus = 'active' | 'archived' | 'completed';
+export type ProjectStatus = 'active' | 'archived' | 'completed' | 'draft';
 
 export interface ProjectPlan {
   fileName: string;
@@ -40,7 +40,7 @@ export interface ProjectDetailsLayoutEntry {
 
 export interface Project {
   id: number;
-  numericId?: number | null;
+  sequenceId?: number | null;
   name: string;
   description: string;
   createdBy: User;

@@ -4,13 +4,12 @@ import {
   Output,
   EventEmitter,
   OnChanges,
-  OnDestroy,
   SimpleChanges,
   HostListener,
 } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Observable } from 'rxjs';
-import { Attachment } from '../../models/attachment.model';
+import { Attachment, DownloadInfo } from '../../models/attachment.model';
 
 type AttachmentKind = 'image' | 'video' | 'pdf' | 'other';
 type GestureMode = 'none' | 'swipe' | 'pan' | 'pinch';
@@ -32,11 +31,11 @@ const MAX_SCALE = 4;
   templateUrl: './attachment-viewer.component.html',
   styleUrl: './attachment-viewer.component.css',
 })
-export class AttachmentViewerComponent implements OnChanges, OnDestroy {
+export class AttachmentViewerComponent implements OnChanges {
   @Input() open = false;
   @Input() attachments: Attachment[] = [];
   @Input() startIndex = 0;
-  @Input({ required: true }) loadBlob!: (attachment: Attachment) => Observable<Blob>;
+  @Input({ required: true }) getFileInfo!: (attachment: Attachment) => Observable<DownloadInfo>;
 
   @Output() closed = new EventEmitter<void>();
   @Output() download = new EventEmitter<Attachment>();
@@ -69,12 +68,6 @@ export class AttachmentViewerComponent implements OnChanges, OnDestroy {
         return;
       }
       this.setActive(Math.min(this.activeIndex, this.attachments.length - 1));
-    }
-  }
-
-  ngOnDestroy() {
-    for (const entry of this.entries.values()) {
-      if (entry.url) URL.revokeObjectURL(entry.url);
     }
   }
 
@@ -148,12 +141,11 @@ export class AttachmentViewerComponent implements OnChanges, OnDestroy {
     if (existing && existing.status !== 'error') return;
 
     this.entries.set(a.id, { status: 'loading' });
-    this.loadBlob(a).subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const entry: ViewerEntry = { status: 'loaded', url };
+    this.getFileInfo(a).subscribe({
+      next: (info) => {
+        const entry: ViewerEntry = { status: 'loaded', url: info.viewUrl };
         if (this.kindOf(a) === 'pdf') {
-          entry.safeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+          entry.safeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(info.viewUrl);
         }
         this.entries.set(a.id, entry);
       },
@@ -169,8 +161,6 @@ export class AttachmentViewerComponent implements OnChanges, OnDestroy {
   }
 
   onMediaLoadError(a: Attachment) {
-    const entry = this.entries.get(a.id);
-    if (entry?.url) URL.revokeObjectURL(entry.url);
     this.entries.set(a.id, { status: 'error', error: 'This file could not be displayed.' });
   }
 

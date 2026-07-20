@@ -203,6 +203,45 @@
             <span class="detail-value">{{ profile?.email }}</span>
           </div>
           <div class="detail-divider"></div>
+
+          <!-- Phone number: display + edit toggle -->
+          @if (!phoneEditing) {
+            <div class="detail-row">
+              <span class="detail-label"><i class="bi bi-telephone me-2 text-muted"></i>Phone Number</span>
+              <span class="detail-value d-flex align-items-center gap-2">
+                {{ displayPhone || 'Not set' }}
+                <button type="button" class="btn btn-sm btn-link p-0" (click)="startEditPhone()" title="Edit phone number">
+                  <i class="bi bi-pencil"></i>
+                </button>
+              </span>
+            </div>
+          } @else {
+            <div class="detail-row flex-column align-items-stretch gap-2">
+              <span class="detail-label"><i class="bi bi-telephone me-2 text-muted"></i>Phone Number</span>
+              <div class="d-flex gap-2 flex-wrap">
+                <select class="form-select form-select-sm" style="max-width: 220px" [(ngModel)]="phoneCountryForm">
+                  @for (c of countries; track c.iso2) {
+                    <option [value]="c.iso2">{{ c.name }} {{ flagEmoji(c.iso2) }} ({{ c.dialCode }})</option>
+                  }
+                </select>
+                <input type="tel" class="form-control form-control-sm" style="max-width: 180px"
+                       placeholder="Phone number" [(ngModel)]="phoneNumberForm" />
+              </div>
+              @if (phoneError) {
+                <div class="text-danger small">{{ phoneError }}</div>
+              }
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-primary" [disabled]="phoneSaving" (click)="savePhone()">
+                  @if (phoneSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                  Save
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="phoneSaving" (click)="cancelEditPhone()">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          }
+          <div class="detail-divider"></div>
           <div class="detail-row">
             <span class="detail-label"><i class="bi me-2 text-muted" [ngClass]="roleIcon"></i>Role</span>
             <span class="detail-value">{{ profile?.role }}</span>

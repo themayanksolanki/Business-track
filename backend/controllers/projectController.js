@@ -1,8 +1,9 @@
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
-import { destroyBlob } from '../utils/blobStorage.js';
+import { destroyBlob, cloudinaryDownloadUrl } from '../utils/blobStorage.js';
 import { getS3DownloadUrl } from '../lib/s3.js';
 import { getAccessibleDepartmentIds, canAccessDepartment } from '../utils/access.js';
+import { nextSequenceId } from '../utils/sequence.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
 
@@ -76,7 +77,13 @@ export const canManageProjectSettings = (user, project) =>
   project.createdById === user.id ||
   project.ownerId === user.id;
 
-const VALID_PROJECT_STATUSES = ['active', 'archived', 'completed'];
+// Narrower than canManageProjectSettings (which also lets Managers and
+// non-creator owners through) — approving a draft into a real project is
+// reserved for Admins or the person who drafted it.
+export const canApproveDraft = (user, project) =>
+  user.role === 'Admin' || project.createdById === user.id;
+
+const VALID_PROJECT_STATUSES = ['active', 'archived', 'completed', 'draft'];
 
 export const getProjects = async (req, res, next) => {
   try {
@@ -86,7 +93,14 @@ export const getProjects = async (req, res, next) => {
 
     const where = { organizationId: req.user.organizationId };
 
-    if (VALID_PROJECT_STATUSES.includes(req.query.status)) where.status = req.query.status;
+    // No explicit status filter means "All" from the frontend's perspective
+    // — drafts are excluded from that by default (they're managed from their
+    // own Drafts screen) unless the caller opts in.
+    if (VALID_PROJECT_STATUSES.includes(req.query.status)) {
+      where.status = req.query.status;
+    } else if (req.query.includeDrafts !== 'true') {
+      where.status = { not: 'draft' };
+    }
 
     if (req.user.role !== 'Admin') {
       const accessibleIds = await getAccessibleDepartmentIds(req.user);
@@ -134,23 +148,27 @@ export const createProject = async (req, res, next) => {
         return next(new AppError('You do not have access to this department', 403));
     }
 
-    const project = await prisma.project.create({
-      data: {
-        name: name.trim(),
-        description: description ?? '',
-        createdById: req.user.id,
-        ownerId: owner ? Number(owner) : req.user.id,
-        priority: priority ?? 'medium',
-        effort: effort ?? 'medium',
-        status: status ?? 'active',
-        departmentId,
-        categoryId: category ? Number(category) : null,
-        organizationId: req.user.organizationId,
-        startDate: startDate ?? null,
-        endDate: endDate ?? null,
-        tags: { connect: (tags ?? []).map((id) => ({ id: Number(id) })) },
-      },
-      include: PROJECT_INCLUDE,
+    const project = await prisma.$transaction(async (tx) => {
+      const sequenceId = await nextSequenceId(tx, req.user.organizationId, 'project');
+      return tx.project.create({
+        data: {
+          name: name.trim(),
+          description: description ?? '',
+          createdById: req.user.id,
+          ownerId: owner ? Number(owner) : req.user.id,
+          priority: priority ?? 'medium',
+          effort: effort ?? 'medium',
+          status: status ?? 'active',
+          departmentId,
+          categoryId: category ? Number(category) : null,
+          organizationId: req.user.organizationId,
+          sequenceId,
+          startDate: startDate ?? null,
+          endDate: endDate ?? null,
+          tags: { connect: (tags ?? []).map((id) => ({ id: Number(id) })) },
+        },
+        include: PROJECT_INCLUDE,
+      });
     });
 
     res.status(201).json({ message: 'Project created', project: shapeProject(project) });
@@ -213,6 +231,17 @@ export const updateProject = async (req, res, next) => {
         return next(new AppError('You do not have access to this department', 403));
     }
 
+    if (project.status === 'draft') {
+      if (status === 'completed')
+        return next(new AppError('A draft must be approved before it can be completed', 400));
+
+      if ((startDate !== undefined && startDate) || (endDate !== undefined && endDate))
+        return next(new AppError('Draft projects cannot have a start or end date', 400));
+
+      if (status === 'active' && !canApproveDraft(req.user, project))
+        return next(new AppError("Only an Admin or this draft's creator can approve it", 403));
+    }
+
     const data = { updatedById: req.user.id };
     if (name !== undefined) data.name = name.trim();
     if (description !== undefined) data.description = description;
@@ -227,6 +256,13 @@ export const updateProject = async (req, res, next) => {
     if (effort !== undefined) data.effort = effort;
     if (links !== undefined) data.links = links.map((l) => ({ title: l.title.trim(), url: l.url.trim() }));
     if (tags !== undefined) data.tags = { set: tags.map((id) => ({ id: Number(id) })) };
+
+    // Approving a draft starts its clock automatically — it never had a
+    // start date to set while still a draft (rejected above), so approval
+    // is what begins it.
+    if (project.status === 'draft' && status === 'active' && !project.startDate) {
+      data.startDate = new Date();
+    }
 
     const updated = await prisma.project.update({
       where: { id: project.id },
@@ -350,15 +386,31 @@ export const downloadProjectPlan = async (req, res, next) => {
 
     if (!project.planUrl) return next(new AppError('No plan has been uploaded', 404));
 
-    const url =
-      project.planStorage === 's3'
-        ? await getS3DownloadUrl({
-            key: project.planPublicId,
-            mimeType: project.planMimeType,
-            fileName: project.planFileName,
-          })
-        : project.planUrl;
-    res.status(200).json({ url, mimeType: project.planMimeType, fileName: project.planFileName });
+    let viewUrl;
+    let downloadUrl;
+    if (project.planStorage === 's3') {
+      [viewUrl, downloadUrl] = await Promise.all([
+        getS3DownloadUrl({
+          key: project.planPublicId,
+          mimeType: project.planMimeType,
+          fileName: project.planFileName,
+          disposition: 'inline',
+          expiresIn: 3600,
+        }),
+        getS3DownloadUrl({
+          key: project.planPublicId,
+          mimeType: project.planMimeType,
+          fileName: project.planFileName,
+          disposition: 'attachment',
+          expiresIn: 300,
+        }),
+      ]);
+    } else {
+      viewUrl = project.planUrl;
+      downloadUrl = cloudinaryDownloadUrl(project.planUrl);
+    }
+
+    res.status(200).json({ viewUrl, downloadUrl, mimeType: project.planMimeType, fileName: project.planFileName });
   } catch (err) {
     next(err);
   }

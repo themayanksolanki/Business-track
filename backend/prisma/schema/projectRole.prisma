@@ -1,6 +1,6 @@
 model ProjectRole {
   id             Int      @id @default(autoincrement())
-  numericId      Int?     @unique
+  sequenceId     Int?
   title          String
   description    String   @default("")
   rank           Int      @default(0)
@@ -18,5 +18,6 @@ model ProjectRole {
   members ProjectMember[]
 
   @@unique([organizationId, title])
+  @@unique([organizationId, sequenceId])
   @@map("project_roles")
 }

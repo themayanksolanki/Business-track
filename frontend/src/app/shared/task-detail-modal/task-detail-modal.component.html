@@ -40,7 +40,7 @@
           </button>
         </div>
         <h4 class="detail-title">
-          @if (task.numericId) { <span class="detail-id">#{{ task.numericId }}</span> }
+          @if (task.sequenceId) { <span class="detail-id">#{{ task.sequenceId }}</span> }
           {{ task.title }}
         </h4>
       </div>
@@ -92,11 +92,11 @@
           </div>
           <div class="detail-meta-cell">
             <span class="detail-meta-label"><i class="bi bi-calendar3 me-1"></i>Created</span>
-            <span class="detail-meta-val">{{ task.createdAt | date:'MMM d, yyyy' }}</span>
+            <span class="detail-meta-val">{{ task.createdAt | appDate }}</span>
           </div>
           <div class="detail-meta-cell">
             <span class="detail-meta-label"><i class="bi bi-clock-history me-1"></i>Updated</span>
-            <span class="detail-meta-val">{{ task.updatedAt | date:'MMM d, yyyy' }}</span>
+            <span class="detail-meta-val">{{ task.updatedAt | appDate }}</span>
           </div>
         </div>
 

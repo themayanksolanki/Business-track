@@ -1,15 +1,37 @@
+enum DateFormat {
+  DD_MM_YYYY
+  MM_DD_YYYY
+  YYYY_MM_DD
+  DD_MMM_YY
+}
+
+enum TimeFormat {
+  HOUR_12
+  HOUR_24
+}
+
 model User {
-  id             Int       @id @default(autoincrement())
-  numericId      Int?      @unique
+  id             Int        @id @default(autoincrement())
+  sequenceId     Int?
   username       String
-  email          String    @unique
+  email          String     @unique
   password       String
   role           String
   organizationId Int?
-  isActive       Boolean   @default(false)
+  isActive       Boolean    @default(false)
   managerId      Int?
   teamLeadId     Int?
   profileImage   String?
+  // ISO 3166-1 alpha-2 (e.g. "US", "IN") — kept separate from phoneNumber
+  // rather than storing one E.164 string, since several countries share a
+  // dial code (+1 alone covers the US, Canada, and various Caribbean
+  // nations) and the edit UI needs to reconstruct which one was selected.
+  phoneCountry   String?
+  phoneNumber    String?
+  // Personal display preferences (Settings > General) — unlike theme, which
+  // is device-local, these follow the user across devices/sessions.
+  dateFormat     DateFormat @default(MM_DD_YYYY)
+  timeFormat     TimeFormat @default(HOUR_12)
   resetOtp       String?
   resetOtpExpiry DateTime?
   createdAt      DateTime  @default(now())
@@ -63,5 +85,6 @@ model User {
   receivedMessages     Message[]       @relation("MessageReceiver")
   deletedMessagesFor   Message[]       @relation("MessageDeletedFor")
 
+  @@unique([organizationId, sequenceId])
   @@map("users")
 }

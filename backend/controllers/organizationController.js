@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
 import { getAccessibleDepartmentIds, canAccessDepartment } from '../utils/access.js';
+import { nextSequenceId } from '../utils/sequence.js';
 
 const CREATABLE_ROLES = {
   Admin: ['Admin', 'Manager', 'Team Lead', 'User'],
@@ -162,22 +163,28 @@ export const activateInvite = async (req, res, next) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await prisma.user.create({
-      data: {
-        username: username.trim(),
-        email: invite.email,
-        password: hashedPassword,
-        role: invite.role,
-        organizationId: invite.organizationId,
-        isActive: true,
-        managerId: invite.managerId,
-        teamLeadId: invite.teamLeadId,
-        departments: { connect: invite.departments.map((d) => ({ id: d.id })) },
-      },
-      omit: { password: true },
-    });
+    const user = await prisma.$transaction(async (tx) => {
+      const sequenceId = await nextSequenceId(tx, invite.organizationId, 'user');
+      const created = await tx.user.create({
+        data: {
+          username: username.trim(),
+          email: invite.email,
+          password: hashedPassword,
+          role: invite.role,
+          organizationId: invite.organizationId,
+          sequenceId,
+          isActive: true,
+          managerId: invite.managerId,
+          teamLeadId: invite.teamLeadId,
+          departments: { connect: invite.departments.map((d) => ({ id: d.id })) },
+        },
+        omit: { password: true },
+      });
 
-    await prisma.invite.update({ where: { id: invite.id }, data: { status: 'accepted' } });
+      await tx.invite.update({ where: { id: invite.id }, data: { status: 'accepted' } });
+
+      return created;
+    });
 
     res.status(201).json({ message: `${user.username} has been activated`, user });
   } catch (err) {

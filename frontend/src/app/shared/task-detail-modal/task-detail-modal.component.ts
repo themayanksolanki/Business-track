@@ -1,15 +1,15 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Task, TaskStatus } from '../../models/task.model';
 import { ModalDirective } from '../modal.directive';
 import { AuthService } from '../../core/services/auth.service';
 import { TagPillComponent } from '../tag-pill/tag-pill.component';
+import { AppDatePipe } from '../pipes/app-date.pipe';
 
 @Component({
   selector: 'app-task-detail-modal',
   standalone: true,
-  imports: [DatePipe, FormsModule, ModalDirective, TagPillComponent],
+  imports: [AppDatePipe, FormsModule, ModalDirective, TagPillComponent],
   templateUrl: './task-detail-modal.component.html',
   styleUrl: './task-detail-modal.component.css',
 })

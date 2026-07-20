@@ -6,6 +6,7 @@ import AppError from '../utils/AppError.js';
 import { sendOtpEmail } from '../utils/mailer.js';
 import { cloudinary } from '../middleware/upload.js';
 import { ensureDefaultProjectRoles } from './projectRoleController.js';
+import { nextSequenceId } from '../utils/sequence.js';
 
 const ORG_SELECT = { id: true, name: true, emailDomain: true };
 
@@ -42,6 +43,10 @@ const toUserShape = (user) => ({
   role: user.role,
   isActive: user.isActive,
   profileImage: user.profileImage ?? null,
+  phoneCountry: user.phoneCountry ?? null,
+  phoneNumber: user.phoneNumber ?? null,
+  dateFormat: user.dateFormat,
+  timeFormat: user.timeFormat,
   organization: user.organization
     ? { id: user.organization.id, name: user.organization.name, emailDomain: user.organization.emailDomain }
     : null,
@@ -67,22 +72,28 @@ export const register = async (req, res, next) => {
     });
 
     if (invite) {
-      const user = await prisma.user.create({
-        data: {
-          username: username.trim(),
-          email: normalizedEmail,
-          password: hashedPassword,
-          role: invite.role,
-          organizationId: invite.organizationId,
-          isActive: true,
-          managerId: invite.managerId ?? null,
-          teamLeadId: invite.teamLeadId ?? null,
-          departments: { connect: invite.departments.map((d) => ({ id: d.id })) },
-        },
-        include: { organization: { select: ORG_SELECT } },
-      });
+      const user = await prisma.$transaction(async (tx) => {
+        const sequenceId = await nextSequenceId(tx, invite.organizationId, 'user');
+        const created = await tx.user.create({
+          data: {
+            username: username.trim(),
+            email: normalizedEmail,
+            password: hashedPassword,
+            role: invite.role,
+            organizationId: invite.organizationId,
+            sequenceId,
+            isActive: true,
+            managerId: invite.managerId ?? null,
+            teamLeadId: invite.teamLeadId ?? null,
+            departments: { connect: invite.departments.map((d) => ({ id: d.id })) },
+          },
+          include: { organization: { select: ORG_SELECT } },
+        });
 
-      await prisma.invite.update({ where: { id: invite.id }, data: { status: 'accepted' } });
+        await tx.invite.update({ where: { id: invite.id }, data: { status: 'accepted' } });
+
+        return created;
+      });
 
       const accessToken = generateAccessToken(user.id);
       const refreshToken = generateRefreshToken(user.id);
@@ -202,34 +213,39 @@ export const registerOrganization = async (req, res, next) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await prisma.user.create({
-      data: {
-        username: username.trim(),
-        email: normalizedEmail,
-        password: hashedPassword,
-        role: 'Admin',
-        isActive: true,
-      },
-    });
+    // User and organization are chicken-and-egg (the user needs an org id,
+    // the org needs a createdById) — a single transaction replaces the old
+    // manual "delete the user if org creation fails" compensation with a
+    // real rollback, and lets the founding user's sequenceId (always 1,
+    // since it's a brand-new org) come from the same atomic counter path
+    // every other user creation uses.
+    const { user, organization, updatedUser } = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          username: username.trim(),
+          email: normalizedEmail,
+          password: hashedPassword,
+          role: 'Admin',
+          isActive: true,
+        },
+      });
 
-    let organization;
-    try {
-      organization = await prisma.organization.create({
+      const organization = await tx.organization.create({
         data: {
           name: organizationName.trim(),
           emailDomain: normalizedDomain,
           createdById: user.id,
         },
       });
-    } catch (err) {
-      await prisma.user.delete({ where: { id: user.id } });
-      throw err;
-    }
 
-    const updatedUser = await prisma.user.update({
-      where: { id: user.id },
-      data: { organizationId: organization.id },
-      include: { organization: { select: ORG_SELECT } },
+      const sequenceId = await nextSequenceId(tx, organization.id, 'user');
+      const updatedUser = await tx.user.update({
+        where: { id: user.id },
+        data: { organizationId: organization.id, sequenceId },
+        include: { organization: { select: ORG_SELECT } },
+      });
+
+      return { user, organization, updatedUser };
     });
 
     await ensureDefaultProjectRoles(organization.id, user.id);
@@ -372,6 +388,32 @@ export const updateAvatar = async (req, res, next) => {
     });
 
     res.status(200).json({ message: 'Avatar updated', user: toUserShape(user) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateProfile = async (req, res, next) => {
+  try {
+    const { phoneCountry, phoneNumber, dateFormat, timeFormat } = req.body;
+
+    // Partial update — this endpoint is shared by the Profile page's phone
+    // editor and Settings > General's date/time-format picker, so a request
+    // from one must not clobber fields the other owns (e.g. saving just
+    // dateFormat shouldn't null out an already-saved phone number).
+    const data = {};
+    if (phoneCountry !== undefined) data.phoneCountry = phoneCountry || null;
+    if (phoneNumber !== undefined) data.phoneNumber = phoneNumber || null;
+    if (dateFormat !== undefined) data.dateFormat = dateFormat;
+    if (timeFormat !== undefined) data.timeFormat = timeFormat;
+
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data,
+      include: { organization: { select: ORG_SELECT } },
+    });
+
+    res.status(200).json({ message: 'Profile updated', user: toUserShape(user) });
   } catch (err) {
     next(err);
   }

@@ -93,22 +93,24 @@
             </app-tag-picker>
           </div>
 
-          <div class="row g-3 mb-4">
-            <div class="col-12">
-              <label class="field-label mb-2">Start</label>
-              <div class="d-flex gap-2">
-                <app-date-picker [value]="startDate" (valueChange)="startDate = $event"></app-date-picker>
-                <app-time-picker [value]="startTime" (valueChange)="startTime = $event"></app-time-picker>
+          @if (allowDates) {
+            <div class="row g-3 mb-4">
+              <div class="col-12">
+                <label class="field-label mb-2">Start</label>
+                <div class="d-flex gap-2">
+                  <app-date-picker [value]="startDate" (valueChange)="startDate = $event"></app-date-picker>
+                  <app-time-picker [value]="startTime" (valueChange)="startTime = $event"></app-time-picker>
+                </div>
+              </div>
+              <div class="col-12">
+                <label class="field-label mb-2">End</label>
+                <div class="d-flex gap-2">
+                  <app-date-picker [value]="endDate" [min]="startDate" (valueChange)="endDate = $event"></app-date-picker>
+                  <app-time-picker [value]="endTime" (valueChange)="endTime = $event"></app-time-picker>
+                </div>
               </div>
             </div>
-            <div class="col-12">
-              <label class="field-label mb-2">End</label>
-              <div class="d-flex gap-2">
-                <app-date-picker [value]="endDate" [min]="startDate" (valueChange)="endDate = $event"></app-date-picker>
-                <app-time-picker [value]="endTime" (valueChange)="endTime = $event"></app-time-picker>
-              </div>
-            </div>
-          </div>
+          }
 
           <div class="d-flex justify-content-end gap-2">
             <button type="button" class="btn btn-light modal-submit-btn" data-bs-dismiss="modal">Cancel</button>

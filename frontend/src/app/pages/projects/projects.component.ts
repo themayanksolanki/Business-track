@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, effect } from '@angular/core';
 import { Router } from '@angular/router';
-import { DatePipe } from '@angular/common';
 import dayjs from 'dayjs/esm';
+import { AppDatePipe } from '../../shared/pipes/app-date.pipe';
 import { ProjectService } from '../../core/services/project.service';
 import { DepartmentService } from '../../core/services/department.service';
 import { ProjectsViewService, ProjectsViewMode } from '../../core/services/projects-view.service';
@@ -20,7 +20,7 @@ import { TagPillComponent } from '../../shared/tag-pill/tag-pill.component';
 @Component({
   selector: 'app-projects',
   standalone: true,
-  imports: [DatePipe, ProjectFormComponent, TagPillComponent],
+  imports: [AppDatePipe, ProjectFormComponent, TagPillComponent],
   templateUrl: './projects.component.html',
   styleUrl: './projects.component.css',
 })
@@ -47,6 +47,15 @@ export class ProjectsComponent implements OnInit, OnDestroy {
   setStatusFilter(status: ProjectStatus | 'all') {
     if (this.statusFilter === status) return;
     this.statusFilter = status;
+    this.loadCurrentView();
+  }
+
+  // Only meaningful for "All" — drafts belong to their own Drafts screen and
+  // are excluded here by default; this opts back into seeing them mixed in.
+  includeDrafts = false;
+
+  toggleIncludeDrafts() {
+    this.includeDrafts = !this.includeDrafts;
     this.loadCurrentView();
   }
 
@@ -85,7 +94,10 @@ export class ProjectsComponent implements OnInit, OnDestroy {
   departments: Department[] = [];
   categories: Category[] = [];
   allTags: Tag[] = [];
-  users: User[] = [];
+
+  get users(): User[] {
+    return this.userService.users();
+  }
 
   constructor(
     private projectService: ProjectService,
@@ -118,10 +130,7 @@ export class ProjectsComponent implements OnInit, OnDestroy {
       next: (res) => (this.allTags = res),
       error: () => {},
     });
-    this.userService.getAllUsers().subscribe({
-      next: (res) => (this.users = res),
-      error: () => {},
-    });
+    this.userService.ensureUsersLoaded();
   }
 
   onTagCreated(tag: Tag) {
@@ -173,7 +182,7 @@ export class ProjectsComponent implements OnInit, OnDestroy {
   loadMoreCards() {
     this.cardsLoadingMore = true;
     this.loading = this.cardsItems.length === 0;
-    this.projectService.getProjects(this.cardsPage, this.CARDS_PAGE_SIZE, this.statusFilter).subscribe({
+    this.projectService.getProjects(this.cardsPage, this.CARDS_PAGE_SIZE, this.statusFilter, this.includeDrafts).subscribe({
       next: (res) => {
         this.cardsItems = [...this.cardsItems, ...res.projects];
         this.cardsHasMore = this.cardsPage < res.totalPages;
@@ -192,7 +201,7 @@ export class ProjectsComponent implements OnInit, OnDestroy {
   loadPage(page: number) {
     if (page < 1 || (page > this.totalPages && this.totalItems > 0)) return;
     this.loading = true;
-    this.projectService.getProjects(page, this.pageSize, this.statusFilter).subscribe({
+    this.projectService.getProjects(page, this.pageSize, this.statusFilter, this.includeDrafts).subscribe({
       next: (res) => {
         this.pagedItems = res.projects;
         this.currentPage = res.page;
@@ -231,7 +240,10 @@ export class ProjectsComponent implements OnInit, OnDestroy {
   }
 
   open(project: Project) {
-    this.router.navigate(['/projects', project.id]);
+    // A draft can surface here via "Include drafts" — route it to the
+    // draft-aware detail screen instead of the regular one, which has no
+    // status-gating for it (no draft badge, item status/dates aren't locked).
+    this.router.navigate([project.status === 'draft' ? '/drafts' : '/projects', project.id]);
   }
 
   formatRange(startDate: string | null, endDate: string | null): string {

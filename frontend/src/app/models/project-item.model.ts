@@ -9,7 +9,7 @@ export const MAX_PROJECT_ITEM_DEPTH = 4; // depths 0-4 => 5 levels total
 
 export interface ProjectItem {
   id: number;
-  numericId?: number | null;
+  sequenceId?: number | null;
   project: number;
   parentId: number | null;
   type: ProjectItemType;
@@ -24,6 +24,7 @@ export interface ProjectItem {
   order: number;
   startDate: string | null;
   endDate: string | null;
+  attachmentCount: number;
   tags: TagLite[];
   createdAt: string;
   updatedAt: string;

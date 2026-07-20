@@ -18,6 +18,8 @@ model Organization {
   projectRoles ProjectRole[]
   projects     Project[]
   tasks        Task[]
+  projectItems ProjectItem[]
+  sequences    OrgSequence[]
 
   @@map("organizations")
 }

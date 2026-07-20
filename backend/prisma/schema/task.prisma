@@ -6,7 +6,7 @@ enum TaskStatus {
 
 model Task {
   id             Int        @id @default(autoincrement())
-  numericId      Int?       @unique
+  sequenceId     Int?
   title          String
   description    String     @default("")
   status         TaskStatus @default(todo)
@@ -19,6 +19,11 @@ model Task {
   organizationId Int?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
+  // Denormalized so task list/detail responses don't need a join or a
+  // per-render count query; kept in sync transactionally on upload/permanent
+  // delete. Still counts attachments pending deletion — they only stop
+  // counting once actually removed (see attachment.prisma pendingDeleteAt).
+  attachmentCount Int      @default(0)
 
   createdBy    User          @relation("TaskCreatedBy", fields: [createdById], references: [id])
   updatedBy    User?         @relation("TaskUpdatedBy", fields: [updatedById], references: [id])
@@ -31,5 +36,6 @@ model Task {
   attachments Attachment[]
 
   @@index([organizationId])
+  @@unique([organizationId, sequenceId])
   @@map("tasks")
 }

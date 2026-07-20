@@ -15,4 +15,18 @@ export interface Attachment {
   size: number;
   uploadedBy: User;
   createdAt: string;
+  // Set while a delete countdown is running; null/undefined once it's undone
+  // or hasn't been requested. Source of truth is the server clock, not a
+  // client-started timer, so it survives refresh/other tabs.
+  pendingDeleteAt?: string | null;
+}
+
+// Returned by the various /download endpoints — viewUrl carries an inline
+// Content-Disposition (for direct <img>/<video>/<iframe> src), downloadUrl
+// carries attachment (for a forced Save As via window.open).
+export interface DownloadInfo {
+  viewUrl: string;
+  downloadUrl: string;
+  mimeType: string;
+  fileName: string;
 }

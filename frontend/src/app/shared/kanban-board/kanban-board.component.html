@@ -42,7 +42,7 @@
                        [class.bi-check2-square]="node.type === 'task'"
                        [class.bi-arrow-return-right]="node.type === 'subtask'"></i>
                   </span>
-                  @if (node.numericId) { <span class="kanban-card-id">#{{ node.numericId }}</span> }
+                  @if (node.sequenceId) { <span class="kanban-card-id">#{{ node.sequenceId }}</span> }
                   <span class="kanban-card-title">{{ node.title }}</span>
                 </div>
 

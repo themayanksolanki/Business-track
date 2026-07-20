@@ -19,11 +19,19 @@
     </div>
   </div>
 
-  <div class="btn-group status-filter-tabs mb-3" role="group" aria-label="Status filter">
-    @for (s of statusFilterOptions; track s) {
-      <button type="button" class="btn status-filter-btn" [class.active]="statusFilter === s" (click)="setStatusFilter(s)">
-        {{ statusLabel(s) }}
-      </button>
+  <div class="d-flex align-items-center flex-wrap gap-3 mb-3">
+    <div class="btn-group status-filter-tabs" role="group" aria-label="Status filter">
+      @for (s of statusFilterOptions; track s) {
+        <button type="button" class="btn status-filter-btn" [class.active]="statusFilter === s" (click)="setStatusFilter(s)">
+          {{ statusLabel(s) }}
+        </button>
+      }
+    </div>
+    @if (statusFilter === 'all') {
+      <label class="include-drafts-check">
+        <input type="checkbox" [checked]="includeDrafts" (change)="toggleIncludeDrafts()" />
+        Include drafts
+      </label>
     }
   </div>
 
@@ -48,7 +56,7 @@
             <div class="project-card-icon"><i class="bi bi-kanban"></i></div>
             <div class="project-card-body">
               <h5 class="project-card-title">
-                @if (project.numericId) { <span class="text-muted-em">#{{ project.numericId }}</span> }
+                @if (project.sequenceId) { <span class="text-muted-em">#{{ project.sequenceId }}</span> }
                 {{ project.name }}
               </h5>
               @if (project.description) {
@@ -78,7 +86,7 @@
               <div class="project-card-meta">
                 <i class="bi bi-person-fill me-1"></i>{{ project.createdBy.username }}
                 <span class="mx-2">·</span>
-                <i class="bi bi-calendar3 me-1"></i>{{ project.createdAt | date:'MMM d, yyyy' }}
+                <i class="bi bi-calendar3 me-1"></i>{{ project.createdAt | appDate }}
               </div>
               @if (project.startDate || project.endDate) {
                 <div class="project-card-range">
@@ -133,7 +141,7 @@
           <tbody>
             @for (project of pagedItems; track project.id) {
               <tr class="project-row" (click)="open(project)">
-                <td class="ps-4"><span class="text-muted-em">{{ project.numericId ? '#' + project.numericId : '—' }}</span></td>
+                <td class="ps-4"><span class="text-muted-em">{{ project.sequenceId ? '#' + project.sequenceId : '—' }}</span></td>
                 <td>
                   <div class="d-flex align-items-center gap-2">
                     <span class="project-row-icon"><i class="bi bi-kanban"></i></span>
@@ -195,7 +203,7 @@
                   <span class="text-muted-em">{{ formatRange(project.startDate, project.endDate) || '—' }}</span>
                 </td>
                 <td><span class="text-muted-em">{{ project.createdBy.username }}</span></td>
-                <td class="pe-4 text-end"><span class="text-muted-em">{{ project.createdAt | date:'MMM d, yyyy' }}</span></td>
+                <td class="pe-4 text-end"><span class="text-muted-em">{{ project.createdAt | appDate }}</span></td>
               </tr>
             }
           </tbody>
@@ -234,7 +242,7 @@
           <span class="project-list-icon"><i class="bi bi-kanban"></i></span>
           <div class="project-list-main">
             <span class="project-list-title">
-              @if (project.numericId) { <span class="text-muted-em">#{{ project.numericId }}</span> }
+              @if (project.sequenceId) { <span class="text-muted-em">#{{ project.sequenceId }}</span> }
               {{ project.name }}
             </span>
             @if (project.description) {

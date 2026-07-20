@@ -1,0 +1,70 @@
+.general-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  min-height: 320px;
+}
+
+.general-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+.format-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.format-opt {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-card-alt);
+  border-radius: 10px;
+  padding: 12px 14px;
+  text-align: left;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.format-opt:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.format-opt:disabled {
+  opacity: 0.7;
+}
+
+.format-opt-active {
+  border-color: #3b82f6;
+  background: var(--bg-muted);
+}
+
+.format-opt-label {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+.format-opt-example {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.format-opt-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: #3b82f6;
+}
+
+.format-opt-spinner {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}

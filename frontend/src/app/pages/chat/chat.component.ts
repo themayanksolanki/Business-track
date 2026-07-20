@@ -7,6 +7,7 @@ import { Subscription } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ChatService } from '../../core/services/chat.service';
 import { SocketService, IncomingCall } from '../../core/services/socket.service';
+import { DateFormatService } from '../../core/services/date-format.service';
 import { ContactData, Message } from '../../models/message.model';
 import { User } from '../../models/user.model';
 import { ContextMenuComponent, ContextMenuItem } from '../../shared/context-menu/context-menu.component';
@@ -140,6 +141,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     private chatSvc: ChatService,
     public  socketSvc: SocketService,
     private cdr: ChangeDetectorRef,
+    private dateFormat: DateFormatService,
   ) {}
 
   ngOnInit() {
@@ -1054,7 +1056,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   // ── Utilities ─────────────────────────────────────────────────
   formatTime(date: string): string {
-    return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return this.dateFormat.formatTime(date);
   }
 
   formatDate(date: string): string {

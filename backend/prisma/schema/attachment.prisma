@@ -24,6 +24,10 @@ model Attachment {
   uploadedById  Int
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
+  // Set on task-attachment delete to now()+10s; the row (and the count) stays
+  // live until this passes, so an undo just clears it back to null. Null means
+  // "not pending" — used by both the delete-initiate check and the sweeper.
+  pendingDeleteAt DateTime?
 
   task        Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
   projectItem ProjectItem? @relation(fields: [projectItemId], references: [id], onDelete: Cascade)
@@ -33,5 +37,6 @@ model Attachment {
   @@index([taskId])
   @@index([projectItemId])
   @@index([projectId])
+  @@index([pendingDeleteAt])
   @@map("attachments")
 }

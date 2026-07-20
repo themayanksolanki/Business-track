@@ -1,6 +1,6 @@
 export interface ProjectRole {
   id: number;
-  numericId?: number | null;
+  sequenceId?: number | null;
   title: string;
   description: string;
   rank: number;

@@ -101,6 +101,25 @@
 .attachment-download-btn:hover:not(:disabled) { background: #dbeafe; color: #1d4ed8; }
 .attachment-download-btn:disabled { opacity: 0.6; }
 
+.attachment-delete-btn { background: #fef2f2; color: #ef4444; }
+.attachment-delete-btn:hover:not(:disabled) { background: #fee2e2; color: #dc2626; }
+
+.attachment-undo-btn { background: #f0fdf4; color: #16a34a; }
+.attachment-undo-btn:hover:not(:disabled) { background: #dcfce7; color: #15803d; }
+
+.attachment-item-pending { opacity: 0.75; pointer-events: none; }
+.attachment-item-pending .attachment-undo-btn { pointer-events: auto; }
+
+.attachment-name-pending { text-decoration: line-through; color: var(--text-muted); }
+
+.attachment-countdown {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ef4444;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .attachment-upload-row { display: flex; }
 
 .attachment-upload-btn {

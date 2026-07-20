@@ -45,7 +45,7 @@ export class ProjectPlanCardComponent {
     ];
   }
 
-  loadPlanBlob = (_: Attachment) => this.projectService.downloadProjectPlan(this.projectId);
+  getPlanFileInfo = (_: Attachment) => this.projectService.downloadProjectPlan(this.projectId);
 
   openViewer() {
     if (!this.plan) return;
@@ -77,13 +77,8 @@ export class ProjectPlanCardComponent {
     if (!this.plan) return;
     this.downloading = true;
     this.projectService.downloadProjectPlan(this.projectId).subscribe({
-      next: (blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = this.plan!.fileName;
-        link.click();
-        window.URL.revokeObjectURL(url);
+      next: (info) => {
+        window.open(info.downloadUrl, '_blank');
         this.downloading = false;
       },
       error: () => (this.downloading = false),

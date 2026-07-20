@@ -29,7 +29,13 @@
 .role-row-placeholder {
   display: none;
 }
-.cdk-drag-placeholder .role-row-placeholder {
+/* CDK applies `cdk-drag-placeholder` directly to the element marked with
+   *cdkDragPlaceholder (this one) — not to a wrapping ancestor — so this must
+   be a compound selector, not a descendant one. A descendant selector here
+   never matches, leaving the placeholder `display: none` while dragging, so
+   the flex list never reserves its spot and every row below collapses
+   upward until the drag ends. */
+.role-row-placeholder.cdk-drag-placeholder {
   display: block;
   height: 40px;
   border: 1px dashed var(--border-strong);

@@ -71,7 +71,7 @@
             }
             @for (user of pendingUsers; track user.id) {
               <tr class="user-row pending-row">
-                <td><span class="text-muted">{{ user.numericId ? '#' + user.numericId : '—' }}</span></td>
+                <td><span class="text-muted">{{ user.sequenceId ? '#' + user.sequenceId : '—' }}</span></td>
                 <td class="ps-4">
                   <div class="d-flex align-items-center gap-3">
                     <span class="user-avatar" [class]="'avatar-' + roleClass(user.role)">
@@ -104,7 +104,7 @@
             }
             @for (user of activeUsers; track user.id) {
               <tr class="user-row">
-                <td><span class="text-muted">{{ user.numericId ? '#' + user.numericId : '—' }}</span></td>
+                <td><span class="text-muted">{{ user.sequenceId ? '#' + user.sequenceId : '—' }}</span></td>
                 <td class="ps-4">
                   <div class="d-flex align-items-center gap-3">
                     <span class="user-avatar" [class]="'avatar-' + roleClass(user.role)">

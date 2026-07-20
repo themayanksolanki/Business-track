@@ -38,8 +38,9 @@ export class DepartmentsComponent implements OnInit {
   detailLoading = false;
   detailError = '';
 
-  allUsers: User[] = [];
-  usersLoaded = false;
+  get allUsers(): User[] {
+    return this.userService.users();
+  }
   userToggleError = '';
 
   formOpen = false;
@@ -170,7 +171,7 @@ export class DepartmentsComponent implements OnInit {
       next: (res) => {
         this.detail = res;
         this.detailLoading = false;
-        if (this.isManager) this.ensureUsersLoaded();
+        if (this.isManager) this.userService.ensureUsersLoaded();
       },
       error: (err) => {
         this.detailError = err.error?.message || 'Failed to load department';
@@ -187,16 +188,6 @@ export class DepartmentsComponent implements OnInit {
     });
   }
 
-  private ensureUsersLoaded() {
-    if (this.usersLoaded) return;
-    this.userService.getAllUsers().subscribe({
-      next: (res) => {
-        this.allUsers = res;
-        this.usersLoaded = true;
-      },
-      error: () => {},
-    });
-  }
 
   isUserAssigned(user: User): boolean {
     if (!this.selectedId) return false;

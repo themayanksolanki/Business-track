@@ -12,3 +12,9 @@ export const destroyBlob = async ({ storage, publicId }) => {
     await cloudinary.uploader.destroy(publicId).catch(() => {});
   }
 };
+
+// Cloudinary's `fl_attachment` flag forces Content-Disposition: attachment
+// from Cloudinary's side — legacy (pre-S3) rows have no presigned-URL
+// mechanism to control disposition with, so this is inserted directly into
+// the already-public URL instead.
+export const cloudinaryDownloadUrl = (url) => url.replace('/upload/', '/upload/fl_attachment/');

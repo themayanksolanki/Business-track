@@ -28,7 +28,7 @@
                       [class.pill-completed]="item.status === 'completed'"
                       [class.pill-disabled]="!canEditStatus"
                       [attr.data-bs-toggle]="canEditStatus ? 'dropdown' : null"
-                      [title]="canEditStatus ? 'Change status' : 'Status is derived from children'">
+                      [title]="canEditStatus ? 'Change status' : readOnly ? 'Locked until the draft is approved' : 'Status is derived from children'">
                   <i class="bi me-1"
                      [class.bi-circle]="item.status === 'todo'"
                      [class.bi-arrow-repeat]="item.status === 'doing'"
@@ -177,7 +177,7 @@
                     <li class="attachment-item comment-item">
                       <div class="attachment-info">
                         <span class="attachment-name">{{ c.author.username }}
-                          <span class="attachment-meta ms-1">{{ c.createdAt | date:'MMM d, h:mm a' }}</span>
+                          <span class="attachment-meta ms-1">{{ c.createdAt | appDate }} {{ c.createdAt | appTime }}</span>
                         </span>
                         <span class="comment-body">{{ c.body }}</span>
                       </div>
@@ -289,12 +289,12 @@
 
             <div class="sidebar-field">
               <span class="detail-meta-label"><i class="bi bi-calendar3 me-1"></i>Created</span>
-              <span class="detail-meta-val">{{ item.createdAt | date:'MMM d, yyyy, h:mm a' }}</span>
+              <span class="detail-meta-val">{{ item.createdAt | appDate }} {{ item.createdAt | appTime }}</span>
             </div>
 
             <div class="sidebar-field">
               <span class="detail-meta-label"><i class="bi bi-clock-history me-1"></i>Last Updated</span>
-              <span class="detail-meta-val">{{ item.updatedAt | date:'MMM d, yyyy, h:mm a' }}</span>
+              <span class="detail-meta-val">{{ item.updatedAt | appDate }} {{ item.updatedAt | appTime }}</span>
             </div>
 
             <div class="sidebar-field">
@@ -309,13 +309,13 @@
               </span>
               <span class="sidebar-subtle-label">Start</span>
               <div class="d-flex gap-2 mb-3">
-                <app-date-picker [value]="startDateStr" (valueChange)="onStartDateChange($event)"></app-date-picker>
-                <app-time-picker [value]="startTimeStr" (valueChange)="onStartTimeChange($event)"></app-time-picker>
+                <app-date-picker [value]="startDateStr" [disabled]="readOnly" (valueChange)="onStartDateChange($event)"></app-date-picker>
+                <app-time-picker [value]="startTimeStr" [disabled]="readOnly" (valueChange)="onStartTimeChange($event)"></app-time-picker>
               </div>
               <span class="sidebar-subtle-label">End</span>
               <div class="d-flex gap-2">
-                <app-date-picker [value]="endDateStr" [min]="startDateStr" align="right" (valueChange)="onEndDateChange($event)"></app-date-picker>
-                <app-time-picker [value]="endTimeStr" align="right" (valueChange)="onEndTimeChange($event)"></app-time-picker>
+                <app-date-picker [value]="endDateStr" [min]="startDateStr" align="right" [disabled]="readOnly" (valueChange)="onEndDateChange($event)"></app-date-picker>
+                <app-time-picker [value]="endTimeStr" align="right" [disabled]="readOnly" (valueChange)="onEndTimeChange($event)"></app-time-picker>
               </div>
             </div>
           </div>
@@ -334,7 +334,7 @@
   [open]="viewerOpen"
   [attachments]="attachments"
   [startIndex]="viewerIndex"
-  [loadBlob]="loadAttachmentBlob"
+  [getFileInfo]="getAttachmentFileInfo"
   (closed)="viewerOpen = false"
   (download)="download($event)">
 </app-attachment-viewer>

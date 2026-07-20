@@ -17,11 +17,11 @@ export const tokenInterceptor: HttpInterceptorFn = (req, next) => {
 
   if (req.url.includes('/uploads/')) return next(req);
 
-  // Presigned S3 URLs / direct Cloudinary URLs (see project.service.ts's
-  // fetchFile) are external — they must never get our cookies or
-  // Authorization header, both because it's unnecessary and because neither
-  // provider supports Access-Control-Allow-Credentials for our origin, so a
-  // credentialed cross-origin request to them would just fail CORS outright.
+  // Presigned S3 URLs / direct Cloudinary URLs are external — they must never
+  // get our cookies or Authorization header, both because it's unnecessary
+  // and because neither provider supports Access-Control-Allow-Credentials
+  // for our origin, so a credentialed cross-origin request to them would
+  // just fail CORS outright.
   if (!req.url.startsWith(environment.apiUrl)) return next(req);
 
   return next(addToken(req, auth.getToken())).pipe(
