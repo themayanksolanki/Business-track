@@ -927,6 +927,18 @@ export class ProjectDetailComponent implements OnInit {
 
   closeDetail() {
     this.selectedNode = null;
+    // Clean up deep-link query params (?item=, ?comment=, ?taskSeq=) once the
+    // modal they opened is dismissed, so closing/reopening or sharing the URL
+    // afterwards doesn't reopen or re-highlight the same task.
+    const params = this.route.snapshot.queryParamMap;
+    if (params.has('item') || params.has('comment') || params.has('taskSeq')) {
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { item: null, comment: null, taskSeq: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }
   }
 
   // Removes a node from wherever it lives in the tree (any depth) in place,

@@ -513,6 +513,29 @@ export class DraftDetailComponent implements OnInit {
     });
   }
 
+  // Same shared-link mechanism as ProjectDetailComponent.copyProjectLink() —
+  // getSharedProject isn't gated on draft status, so this works identically
+  // before and after approval.
+  copyProjectLink() {
+    if (!this.project?.sequenceId) return;
+    const url = `${window.location.origin}/projects/shared/${this.project.organizationId}/${this.project.sequenceId}`;
+    navigator.clipboard.writeText(url).then(
+      () => this.notifications.success('Project link copied'),
+      () => this.notifications.error('Failed to copy link'),
+    );
+  }
+
+  copyTaskLink(node: ProjectTreeNode) {
+    if (!this.project?.sequenceId || !node.sequenceId) return;
+    const url =
+      `${window.location.origin}/projects/shared/${this.project.organizationId}/${this.project.sequenceId}` +
+      `?taskSeq=${node.sequenceId}`;
+    navigator.clipboard.writeText(url).then(
+      () => this.notifications.success('Task link copied'),
+      () => this.notifications.error('Failed to copy link'),
+    );
+  }
+
   openDeleteConfirm() {
     this.deleteConfirmOpen = true;
   }
