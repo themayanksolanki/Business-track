@@ -21,6 +21,7 @@ import organizationRoutes from './routes/organizationRoutes.js';
 import tagRoutes from './routes/tagRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import projectRoleRoutes from './routes/projectRoleRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 import errorMiddleware from './middleware/errorMiddleware.js';
 import { authLimiter, globalLimiter } from './utils/utils.js';
 import { setupSocket } from './socket.js';
@@ -80,6 +81,7 @@ app.use('/api/organizations', organizationRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/project-roles', projectRoleRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.use(errorMiddleware);
 

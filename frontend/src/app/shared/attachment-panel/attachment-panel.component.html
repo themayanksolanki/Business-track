@@ -5,15 +5,16 @@
       <i class="bi bi-x-lg"></i>
     </button>
   </div>
-  <div *ngIf="attachmentUploading"
-      class="progress-bar progress-bar-striped progress-bar-animated"
-      role="progressbar"
-      [style.width.%]="progress"
-      [attr.aria-valuenow]="progress"
-      aria-valuemin="0"
-      aria-valuemax="100">
-      {{ progress }}%
-    </div>
+  <div *ngIf="attachmentUploading" class="progress" style="height:1rem;">
+    <div class="progress-bar progress-bar-striped progress-bar-animated"
+        role="progressbar"
+        [style.width.%]="progress"
+        [attr.aria-valuenow]="progress"
+        aria-valuemin="0"
+        aria-valuemax="100">
+        {{ progress }}%
+      </div>
+  </div>
 
   <div class="attachment-panel-body">
     @if (attachmentsLoading) {
@@ -23,42 +24,80 @@
     } @else {
       <ul class="attachment-list mb-2">
         @for (a of attachments; track a.id) {
-          <li class="attachment-item">
-            <i class="bi attachment-file-icon" [class]="fileIcon(a.mimeType)"></i>
+          <li class="attachment-item" [class.attachment-item-pending]="isPending(a)">
+            <i class="bi attachment-file-icon" [class]="a.kind === 'link' ? 'bi-link-45deg' : fileIcon(a.mimeType)"></i>
             <div class="attachment-info">
-              <span class="attachment-name">{{ a.fileName }}</span>
-              <span class="attachment-meta">{{ formatSize(a.size) }} · {{ a.uploadedBy.username }}</span>
+              <span class="attachment-name" [class.attachment-name-pending]="isPending(a)">{{ a.fileName }}</span>
+              <span class="attachment-meta">
+                @if (a.kind === 'link') { Link } @else { {{ formatSize(a.size) }} }
+                 · {{ a.uploadedBy.username }}
+              </span>
             </div>
-            <button class="attachment-download-btn" (click)="openViewer(a)" title="Preview">
-              <i class="bi bi-eye"></i>
-            </button>
-            <button class="attachment-download-btn" (click)="download(a)" [disabled]="downloadingId === a.id" title="Download">
-              @if (downloadingId === a.id) {
-                <span class="spinner-border spinner-border-sm"></span>
-              } @else {
-                <i class="bi bi-download"></i>
+            @if (isPending(a)) {
+              <span class="attachment-countdown">Deleting in {{ remainingSeconds(a) }}s</span>
+              @if (canEdit) {
+                <button class="attachment-download-btn attachment-undo-btn" (click)="undoDeleteAttachment(a)" title="Undo">
+                  <i class="bi bi-arrow-counterclockwise"></i>
+                </button>
               }
-            </button>
-            <button class="subtask-del-btn" (click)="deleteAttachment(a)" title="Delete">
-              <i class="bi bi-x"></i>
-            </button>
+            } @else {
+              <button class="attachment-download-btn" (click)="openViewer(a)" title="Preview">
+                <i class="bi bi-eye"></i>
+              </button>
+              <button class="attachment-download-btn" (click)="download(a)" [disabled]="downloadingId === a.id" [title]="a.kind === 'link' ? 'Open' : 'Download'">
+                @if (downloadingId === a.id) {
+                  <span class="spinner-border spinner-border-sm"></span>
+                } @else {
+                  <i class="bi" [class.bi-download]="a.kind !== 'link'" [class.bi-box-arrow-up-right]="a.kind === 'link'"></i>
+                }
+              </button>
+              @if (canEdit) {
+                <button class="subtask-del-btn" (click)="deleteAttachment(a)" title="Delete">
+                  <i class="bi bi-trash3"></i>
+                </button>
+              }
+            }
           </li>
         }
       </ul>
     }
 
-    <div class="attachment-upload-row">
-      <label class="attachment-upload-btn" [class.disabled]="attachmentUploading">
-        @if (attachmentUploading) {
-          <span class="spinner-border spinner-border-sm me-2"></span>Uploading…
-        } @else {
-          <i class="bi bi-cloud-arrow-up me-2"></i>Upload File
+    @if (canEdit) {
+      <div class="attachment-upload-row">
+        <label class="attachment-upload-btn" [class.disabled]="attachmentUploading">
+          @if (attachmentUploading) {
+            <span class="spinner-border spinner-border-sm me-2"></span>Uploading…
+          } @else {
+            <i class="bi bi-cloud-arrow-up me-2"></i>Upload File
+          }
+          <input type="file" hidden (change)="onFileSelected($event)" [disabled]="attachmentUploading" />
+        </label>
+        <button type="button" class="attachment-upload-btn" (click)="toggleAddLink()">
+          <i class="bi bi-link-45deg me-2"></i>Add Link
+        </button>
+      </div>
+      @if (attachmentUploadError) {
+        <div class="field-error mt-2">{{ attachmentUploadError }}</div>
+      }
+
+      @if (addLinkOpen) {
+        <div class="add-link-row">
+          <input type="url" class="add-link-input" placeholder="https://…" [(ngModel)]="linkUrlInput"
+                 [ngModelOptions]="{standalone: true}" (keydown.enter)="submitLink()" />
+          <input type="text" class="add-link-input" placeholder="Label (optional)" [(ngModel)]="linkLabelInput"
+                 [ngModelOptions]="{standalone: true}" (keydown.enter)="submitLink()" />
+          <button type="button" class="attachment-download-btn" (click)="submitLink()" [disabled]="addLinkLoading || !linkUrlInput.trim()" title="Add">
+            @if (addLinkLoading) {
+              <span class="spinner-border spinner-border-sm"></span>
+            } @else {
+              <i class="bi bi-check-lg"></i>
+            }
+          </button>
+        </div>
+        @if (addLinkError) {
+          <div class="field-error mt-2">{{ addLinkError }}</div>
         }
-        <input type="file" hidden (change)="onFileSelected($event)" [disabled]="attachmentUploading" />
-      </label>
-    </div>
-    @if (attachmentUploadError) {
-      <div class="field-error mt-2">{{ attachmentUploadError }}</div>
+      }
     }
   </div>
 </div>

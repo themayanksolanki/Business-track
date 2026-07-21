@@ -1,7 +1,8 @@
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
-import { ROLE_RANK } from '../utils/access.js';
+import { ROLE_RANK, getTeamMemberIds, getTaskAccessLevel } from '../utils/access.js';
 import { nextSequenceId } from '../utils/sequence.js';
+import { notifyUser } from '../utils/notifications.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
 const TAG_SELECT = { id: true, name: true, textColor: true, backgroundColor: true };
@@ -10,11 +11,6 @@ const TASK_INCLUDE = {
   updatedBy: { select: USER_SELECT },
   assignedTo: { select: USER_SELECT },
   tags: { select: TAG_SELECT },
-};
-
-const getTeamMemberIds = async (teamLeadId) => {
-  const members = await prisma.user.findMany({ where: { teamLeadId, role: 'User' }, select: { id: true } });
-  return members.map((m) => m.id);
 };
 
 export const getTasks = async (req, res, next) => {
@@ -46,14 +42,8 @@ export const getTaskById = async (req, res, next) => {
     if (!task || task.organizationId !== req.user.organizationId)
       return next(new AppError('Task not found', 404));
 
-    if (req.user.role === 'User') {
-      const isOwn = task.assignedToId === req.user.id || task.createdById === req.user.id;
-      if (!isOwn) return next(new AppError('Access denied', 403));
-    } else if (req.user.role === 'Team Lead') {
-      const memberIds = await getTeamMemberIds(req.user.id);
-      const allowed = [req.user.id, ...memberIds];
-      if (!allowed.includes(task.assignedToId)) return next(new AppError('Access denied', 403));
-    }
+    if ((await getTaskAccessLevel(task, req.user)) !== 'edit')
+      return next(new AppError('Access denied', 403));
 
     res.status(200).json(task);
   } catch (err) {
@@ -104,6 +94,13 @@ export const createTask = async (req, res, next) => {
       });
     });
 
+    await notifyUser(task.assignedToId, req.user.id, {
+      type: 'taskAssigned',
+      title: 'Assigned to a task',
+      message: `${req.user.username} assigned you to "${task.title}"`,
+      taskId: task.id,
+    });
+
     res.status(201).json({ message: 'Task created', task });
   } catch (err) {
     next(err);
@@ -118,15 +115,8 @@ export const updateTask = async (req, res, next) => {
 
     const { title, description, status, tags } = req.body;
 
-    if (req.user.role === 'User') {
-      const isOwn = task.assignedToId === req.user.id || task.createdById === req.user.id;
-      if (!isOwn) return next(new AppError('You can only update your own tasks', 403));
-    } else if (req.user.role === 'Team Lead') {
-      const memberIds = await getTeamMemberIds(req.user.id);
-      const allowed = [req.user.id, ...memberIds];
-      if (!allowed.includes(task.assignedToId))
-        return next(new AppError('You can only update tasks of your team', 403));
-    }
+    if ((await getTaskAccessLevel(task, req.user)) !== 'edit')
+      return next(new AppError('You do not have permission to update this task', 403));
 
     const data = { updatedById: req.user.id };
     if (title !== undefined) data.title = title.trim();
@@ -135,6 +125,13 @@ export const updateTask = async (req, res, next) => {
     if (tags !== undefined) data.tags = { set: tags.map((id) => ({ id: Number(id) })) };
 
     const updated = await prisma.task.update({ where: { id: task.id }, data, include: TASK_INCLUDE });
+
+    await notifyUser(updated.assignedToId, req.user.id, {
+      type: 'taskUpdated',
+      title: 'Task updated',
+      message: `${req.user.username} updated "${updated.title}"`,
+      taskId: updated.id,
+    });
 
     res.status(200).json({ message: 'Task updated', task: updated });
   } catch (err) {
@@ -202,6 +199,15 @@ export const reassignTask = async (req, res, next) => {
       data: { assignedToId, updatedById: req.user.id },
       include: TASK_INCLUDE,
     });
+
+    if (assignedToId !== existingTask.assignedToId) {
+      await notifyUser(assignedToId, req.user.id, {
+        type: 'taskAssigned',
+        title: 'Assigned to a task',
+        message: `${req.user.username} assigned you to "${task.title}"`,
+        taskId: task.id,
+      });
+    }
 
     res.status(200).json({ message: 'Task reassigned', task });
   } catch (err) {

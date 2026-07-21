@@ -9,69 +9,89 @@
       }
     </span>
 
-    <div class="dropdown tree-cell-reorder" (click)="$event.stopPropagation()">
-      <button type="button" class="tree-icon-btn dropdown-toggle" data-bs-toggle="dropdown" title="Reorder">
-        <i class="bi bi-three-dots-vertical"></i>
-      </button>
-      <ul class="dropdown-menu reorder-dropdown shadow-sm">
-        <li><a class="dropdown-item reorder-opt" [class.disabled]="!canMoveUp" (click)="moveUp()">
-          <i class="bi bi-arrow-up me-2"></i>Move Up
-        </a></li>
-        <li><a class="dropdown-item reorder-opt" [class.disabled]="!canMoveDown" (click)="moveDown()">
-          <i class="bi bi-arrow-down me-2"></i>Move Down
-        </a></li>
-        <li><hr class="dropdown-divider my-1"></li>
-        <li><a class="dropdown-item reorder-opt" [class.disabled]="!canIndent" (click)="indent()">
-          <i class="bi bi-arrow-bar-right me-2"></i>Indent
-        </a></li>
-        <li><a class="dropdown-item reorder-opt" [class.disabled]="!canOutdent" (click)="outdent()">
-          <i class="bi bi-arrow-bar-left me-2"></i>Outdent
-        </a></li>
-      </ul>
-    </div>
+    @if (canEdit) {
+      <div class="dropdown tree-cell-reorder" (click)="$event.stopPropagation()">
+        <button type="button" class="tree-icon-btn dropdown-toggle" data-bs-toggle="dropdown" title="Reorder">
+          <i class="bi bi-three-dots-vertical"></i>
+        </button>
+        <ul class="dropdown-menu reorder-dropdown shadow-sm">
+          <li><a class="dropdown-item reorder-opt" [class.disabled]="!canMoveUp" (click)="moveUp()">
+            <i class="bi bi-arrow-up me-2"></i>Move Up
+          </a></li>
+          <li><a class="dropdown-item reorder-opt" [class.disabled]="!canMoveDown" (click)="moveDown()">
+            <i class="bi bi-arrow-down me-2"></i>Move Down
+          </a></li>
+          <li><hr class="dropdown-divider my-1"></li>
+          <li><a class="dropdown-item reorder-opt" [class.disabled]="!canIndent" (click)="indent()">
+            <i class="bi bi-arrow-bar-right me-2"></i>Indent
+          </a></li>
+          <li><a class="dropdown-item reorder-opt" [class.disabled]="!canOutdent" (click)="outdent()">
+            <i class="bi bi-arrow-bar-left me-2"></i>Outdent
+          </a></li>
+        </ul>
+      </div>
+    } @else {
+      <div class="tree-cell-reorder"></div>
+    }
 
     <div class="dropdown tree-cell-assignee" (click)="$event.stopPropagation()">
       @if (node.type !== 'group') {
-        <button type="button" class="tree-assignee-trigger dropdown-toggle" data-bs-toggle="dropdown"
-                title="Click to reassign">
-          @if (node.assignedTo) {
-            @if (avatarUrl(node.assignedTo)) {
-              <img class="avatar-img-xs" [src]="avatarUrl(node.assignedTo)!" [alt]="node.assignedTo.username"
-                   (error)="onAvatarError(node.assignedTo)" />
+        @if (canEdit) {
+          <button type="button" class="tree-assignee-trigger dropdown-toggle" data-bs-toggle="dropdown"
+                  title="Click to reassign">
+            @if (node.assignedTo) {
+              @if (avatarUrl(node.assignedTo)) {
+                <img class="avatar-img-xs" [src]="avatarUrl(node.assignedTo)!" [alt]="node.assignedTo.username"
+                     (error)="onAvatarError(node.assignedTo)" />
+              } @else {
+                <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(node.assignedTo.role)">
+                  {{ node.assignedTo.username[0].toUpperCase() }}
+                </span>
+              }
             } @else {
-              <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(node.assignedTo.role)">
-                {{ node.assignedTo.username[0].toUpperCase() }}
+              <span class="assign-avatar avatar-xs avatar-empty">
+                <i class="bi bi-person"></i>
               </span>
             }
-          } @else {
-            <span class="assign-avatar avatar-xs avatar-empty">
-              <i class="bi bi-person"></i>
-            </span>
-          }
-        </button>
-        <ul class="dropdown-menu assign-dropdown">
-          <li>
-            <a class="assign-item" (click)="selectAssignee(null)">
-              <span class="assign-avatar avatar-xs avatar-empty"><i class="bi bi-person"></i></span>
-              <span class="assign-item-name text-muted">Unassigned</span>
-            </a>
-          </li>
-          <li><hr class="dropdown-divider my-1"></li>
-          @for (u of users; track u.id) {
+          </button>
+          <ul class="dropdown-menu assign-dropdown">
             <li>
-              <a class="assign-item" (click)="selectAssignee(u)">
-                @if (avatarUrl(u)) {
-                  <img class="avatar-img-xs" [src]="avatarUrl(u)!" [alt]="u.username" (error)="onAvatarError(u)" />
-                } @else {
-                  <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(u.role)">
-                    {{ u.username[0].toUpperCase() }}
-                  </span>
-                }
-                <span class="assign-item-name">{{ u.username }}</span>
+              <a class="assign-item" (click)="selectAssignee(null)">
+                <span class="assign-avatar avatar-xs avatar-empty"><i class="bi bi-person"></i></span>
+                <span class="assign-item-name text-muted">Unassigned</span>
               </a>
             </li>
-          }
-        </ul>
+            <li><hr class="dropdown-divider my-1"></li>
+            @for (u of users; track u.id) {
+              <li>
+                <a class="assign-item" (click)="selectAssignee(u)">
+                  @if (avatarUrl(u)) {
+                    <img class="avatar-img-xs" [src]="avatarUrl(u)!" [alt]="u.username" (error)="onAvatarError(u)" />
+                  } @else {
+                    <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(u.role)">
+                      {{ u.username[0].toUpperCase() }}
+                    </span>
+                  }
+                  <span class="assign-item-name">{{ u.username }}</span>
+                </a>
+              </li>
+            }
+          </ul>
+        } @else {
+          <span class="tree-assignee-trigger" title="{{ node.assignedTo ? node.assignedTo.username : 'Unassigned' }}">
+            @if (node.assignedTo) {
+              @if (avatarUrl(node.assignedTo)) {
+                <img class="avatar-img-xs" [src]="avatarUrl(node.assignedTo)!" [alt]="node.assignedTo.username" />
+              } @else {
+                <span class="assign-avatar avatar-xs" [class]="'avatar-' + roleClass(node.assignedTo.role)">
+                  {{ node.assignedTo.username[0].toUpperCase() }}
+                </span>
+              }
+            } @else {
+              <span class="assign-avatar avatar-xs avatar-empty"><i class="bi bi-person"></i></span>
+            }
+          </span>
+        }
       }
     </div>
 
@@ -84,18 +104,24 @@
         }
       </button>
 
-      <span class="tree-drag-handle" cdkDragHandle title="Drag to reorder">
-        <i class="bi bi-grip-vertical"></i>
-      </span>
+      @if (canEdit) {
+        <span class="tree-drag-handle" cdkDragHandle title="Drag to reorder">
+          <i class="bi bi-grip-vertical"></i>
+        </span>
+      }
 
       <span class="tree-type-icon" [class]="'tree-type-' + node.type">
         <i class="bi" [class]="typeIcon"></i>
       </span>
 
-      <span class="tree-title" *ngIf="!editTitle" (click)="onTitleClick()">{{ node.title }}</span>
-      <textarea *ngIf="editTitle" #titleInput class="tree-title-edit" rows="1" [value]="node.title"
-                [appAutoGrow]="node.title" placeholder="New item title…" maxlength="200"
-                (keydown)="onTitleKeydown($event)" (blur)="saveTitle()"></textarea>
+      @if (canEdit) {
+        <span class="tree-title" *ngIf="!editTitle" (click)="onTitleClick()">{{ node.title }}</span>
+        <textarea *ngIf="editTitle" #titleInput class="tree-title-edit" rows="1" [value]="node.title"
+                  [appAutoGrow]="node.title" placeholder="New item title…" maxlength="200"
+                  (keydown)="onTitleKeydown($event)" (blur)="saveTitle()"></textarea>
+      } @else {
+        <span class="tree-title">{{ node.title }}</span>
+      }
 
       @if (node.tags.length > 0) {
         <span class="tree-tag-row">
@@ -151,17 +177,19 @@
     </div>
 
     <div class="tree-cell-due" (click)="$event.stopPropagation()">
-      <app-date-picker [value]="dueValue" [compact]="true" placeholder="None" (valueChange)="setDue($event)"></app-date-picker>
+      <app-date-picker [value]="dueValue" [compact]="true" placeholder="None" [disabled]="!canEdit" (valueChange)="setDue($event)"></app-date-picker>
     </div>
 
     <div class="dropdown tree-cell-priority" (click)="$event.stopPropagation()">
-      <button type="button" class="priority-badge dropdown-toggle"
+      <button type="button" class="priority-badge"
+              [class.dropdown-toggle]="canEdit"
               [class.priority-low]="node.priority === 'low'"
               [class.priority-medium]="node.priority === 'medium'"
               [class.priority-high]="node.priority === 'high'"
-              data-bs-toggle="dropdown" title="Change priority">
+              [attr.data-bs-toggle]="canEdit ? 'dropdown' : null" title="Change priority">
         <i class="bi bi-flag-fill me-1"></i>{{ node.priority }}
       </button>
+      @if (canEdit) {
       <ul class="dropdown-menu status-dropdown shadow-sm">
         @for (p of priorityOptions; track p) {
           <li><a class="dropdown-item status-opt" (click)="setPriority(p)">
@@ -173,12 +201,16 @@
           </a></li>
         }
       </ul>
+      }
     </div>
 
     <button type="button" class="tree-icon-btn" [class.active]="attachmentsOpen || node.attachmentCount > 0"
             [class.tree-icon-hidden]="node.type === 'group'"
             (click)="$event.stopPropagation(); toggleAttachments()" title="Attachments">
       <i class="bi bi-paperclip"></i>
+      @if (node.attachmentCount > 0) {
+        <span class="tree-icon-count">{{ node.attachmentCount }}</span>
+      }
     </button>
 
     <button type="button" class="tree-icon-btn" [class.active]="descriptionOpen"
@@ -197,6 +229,7 @@
       <app-attachment-panel
         [projectId]="projectId"
         [item]="node"
+        [canEdit]="canEdit"
         (closed)="attachmentsOpen = false">
       </app-attachment-panel>
     </div>
@@ -212,12 +245,12 @@
           </button>
         </div>
         <textarea class="form-control description-panel-textarea" rows="4" [(ngModel)]="description"
-                  (blur)="saveDescription()" placeholder="Add a description…"></textarea>
+                  [readOnly]="!canEdit" (blur)="saveDescription()" placeholder="Add a description…"></textarea>
       </div>
     </div>
   }
 
-  @if (addChildOpen) {
+  @if (addChildOpen && canEdit) {
     <div class="tree-add-child-row form" [style.padding-left]="'calc(' + (node.depth + 1) + ' * var(--tree-indent-unit, 22px) + 40px)'">
       <textarea class="tree-title-edit tree-title-edit-inline" rows="1" [(ngModel)]="addChildTitle"
                 [appAutoGrow]="addChildTitle" placeholder="New item title…" maxlength="200"
@@ -238,14 +271,16 @@
     <div class="tree-children"
          [class.tree-children-empty]="node.children.length === 0"
          cdkDropList [id]="dropListId" [cdkDropListData]="node.children"
+         [cdkDropListDisabled]="!canEdit"
          [cdkDropListConnectedTo]="connectedDropLists" (cdkDropListDropped)="onDrop($event)">
       @for (child of node.children; track child.id; let first = $first; let last = $last) {
-        <div cdkDrag [cdkDragData]="child" class="tree-drag-item">
+        <div cdkDrag [cdkDragData]="child" [cdkDragDisabled]="!canEdit" class="tree-drag-item">
           <div class="tree-drag-placeholder" *cdkDragPlaceholder></div>
           <app-project-tree-node
             [node]="child"
             [projectId]="projectId"
             [users]="users"
+            [canEdit]="canEdit"
             [isFirst]="first"
             [isLast]="last"
             [selectionMode]="selectionMode"
@@ -255,6 +290,7 @@
             (openDetail)="openDetail.emit($event)"
             (toggleSelect)="toggleSelect.emit($event)"
             (moveToGroupRequested)="moveToGroupRequested.emit($event)"
+            (copyTaskLinkRequested)="copyTaskLinkRequested.emit($event)"
             (deleted)="deleted.emit($event)">
           </app-project-tree-node>
         </div>

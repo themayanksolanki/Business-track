@@ -131,8 +131,14 @@ export class DraftDetailComponent implements OnInit {
   deleteConfirmOpen = false;
   deleteLoading = false;
 
-  departments: Department[] = [];
-  categories: Category[] = [];
+  get departments(): Department[] {
+    return this.departmentService.departments();
+  }
+
+  get categories(): Category[] {
+    return this.categoryService.categories();
+  }
+
   readonly priorityOptions: ProjectPriority[] = ['low', 'medium', 'high'];
   readonly effortOptions: ProjectEffort[] = ['low', 'medium', 'high'];
 
@@ -157,7 +163,9 @@ export class DraftDetailComponent implements OnInit {
   readonly DEFAULT_DETAIL_CARD_IDS = ['details', 'attachments', 'priority', 'effort'];
   detailsLayoutEntries: ProjectDetailsLayoutEntry[] = [];
 
-  allTags: Tag[] = [];
+  get allTags(): Tag[] {
+    return this.tagService.tags();
+  }
 
   constructor(
     private route: ActivatedRoute,
@@ -178,13 +186,9 @@ export class DraftDetailComponent implements OnInit {
     this.loadProject();
     this.loadItems();
     this.userService.ensureUsersLoaded();
-    this.departmentService
-      .getDepartments()
-      .subscribe({ next: (d) => (this.departments = d) });
-    this.categoryService
-      .getCategories()
-      .subscribe({ next: (c) => (this.categories = c) });
-    this.tagService.getTags().subscribe({ next: (t) => (this.allTags = t) });
+    this.departmentService.ensureDepartmentsLoaded();
+    this.categoryService.ensureCategoriesLoaded();
+    this.tagService.ensureTagsLoaded();
   }
 
   selectTags(tags: TagLite[]) {
@@ -194,10 +198,6 @@ export class DraftDetailComponent implements OnInit {
       .subscribe({
         next: (res) => (this.project = res.project),
       });
-  }
-
-  onTagCreated(tag: Tag) {
-    this.allTags = [...this.allTags, tag];
   }
 
   get progress(): CompletionRollup {

@@ -294,6 +294,7 @@
 .assign-item-name { font-size: 0.875rem; font-weight: 500; flex: 1; }
 
 .tree-icon-btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -310,6 +311,22 @@
 .tree-icon-btn:hover { background: var(--bg-muted); color: var(--text-primary); }
 .tree-icon-btn.active { background: #eff6ff; color: #3b82f6; }
 .tree-icon-hidden { visibility: hidden; pointer-events: none; }
+
+.tree-icon-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: #7c3aed;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+}
 
 .attachment-panel-wrap { padding-right: 10px; }
 

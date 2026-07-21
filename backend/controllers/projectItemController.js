@@ -2,11 +2,18 @@ import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
 import { destroyBlob } from '../utils/blobStorage.js';
 import { MAX_DEPTH, typeForDepth, recomputeAncestorStatuses } from '../services/statusSync.service.js';
-import { canAccessProject } from './projectController.js';
+import { canAccessProject, canEditProject } from './projectController.js';
 import { nextSequenceId } from '../utils/sequence.js';
+import { notifyUsers } from '../utils/notifications.js';
+import { filterValidMentions } from '../utils/mentions.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
 const ACCESS_INCLUDE = { members: { select: { userId: true } } };
+// Same as ACCESS_INCLUDE but also pulls role.canEdit — used only by the
+// mutating endpoints below, which need canEditProject's edit-vs-view split.
+const ACCESS_INCLUDE_WITH_ROLE = {
+  members: { select: { userId: true, role: { select: { canEdit: true } } } },
+};
 const ITEM_INCLUDE = {
   assignedTo: { select: USER_SELECT },
   createdBy: { select: USER_SELECT },
@@ -151,6 +158,29 @@ export const getItems = async (req, res, next) => {
   }
 };
 
+// Read-only counterpart to getItems for the shared-link view (see
+// getSharedProject in projectController.js) — same query, resolved by
+// org+sequenceId instead of numeric id, no access check beyond "project
+// exists." No write route uses this resolution path.
+export const getSharedProjectItems = async (req, res, next) => {
+  try {
+    const organizationId = Number(req.params.organizationId);
+    const sequenceId = Number(req.params.sequenceId);
+    const project = await prisma.project.findFirst({ where: { organizationId, sequenceId } });
+    if (!project) return next(new AppError('Project not found', 404));
+
+    const items = await prisma.projectItem.findMany({
+      where: { projectId: project.id },
+      include: ITEM_INCLUDE,
+      orderBy: [{ parentId: { sort: 'asc', nulls: 'first' } }, { order: 'asc' }],
+    });
+
+    res.status(200).json(items);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // Lightweight per-item meta for card views (Kanban): first image attachment
 // (as a cover) and comment count, batched in two queries instead of N+1
 // round trips per card.
@@ -204,11 +234,13 @@ export const createItem = async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: Number(req.params.projectId) },
-      include: { members: { select: { userId: true } } },
+      include: ACCESS_INCLUDE_WITH_ROLE,
     });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
+    if (!canEditProject(req.user, project))
+      return next(new AppError('You have view-only access to this project', 403));
 
     const { title, description, priority, assignedTo, parentId, startDate, endDate, tags } = req.body;
     const assignedToNum = assignedTo ? Number(assignedTo) : null;
@@ -291,18 +323,20 @@ export const updateItem = async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: Number(req.params.projectId) },
-      include: { members: { select: { userId: true } } },
+      include: ACCESS_INCLUDE_WITH_ROLE,
     });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
+    if (!canEditProject(req.user, project))
+      return next(new AppError('You have view-only access to this project', 403));
 
     const item = await prisma.projectItem.findFirst({
       where: { id: Number(req.params.itemId), projectId: project.id },
     });
     if (!item) return next(new AppError('Item not found', 404));
 
-    const { title, description, priority, assignedTo, status, startDate, endDate, tags } = req.body;
+    const { title, description, priority, assignedTo, status, startDate, endDate, tags, mentions } = req.body;
     const data = { updatedById: req.user.id };
 
     if (project.status === 'draft' && (startDate !== undefined || endDate !== undefined))
@@ -333,6 +367,10 @@ export const updateItem = async (req, res, next) => {
     if (endDate !== undefined) data.endDate = endDate || null;
     if (tags !== undefined) data.tags = { set: tags.map((id) => ({ id: Number(id) })) };
 
+    const memberIds = new Set(project.members.map((m) => m.userId));
+    const validMentions = mentions !== undefined ? filterValidMentions(mentions, memberIds) : undefined;
+    if (validMentions !== undefined) data.mentions = validMentions;
+
     const updated = await prisma.projectItem.update({
       where: { id: item.id },
       data,
@@ -340,6 +378,18 @@ export const updateItem = async (req, res, next) => {
     });
 
     if (status !== undefined) await recomputeAncestorStatuses(item.parentId);
+
+    if (validMentions !== undefined) {
+      const oldMentionIds = new Set(Array.isArray(item.mentions) ? item.mentions.map((m) => m.userId) : []);
+      const newlyMentioned = validMentions.filter((m) => !oldMentionIds.has(m.userId));
+      await notifyUsers(newlyMentioned.map((m) => m.userId), req.user.id, {
+        type: 'mentioned',
+        title: 'You were mentioned',
+        message: `${req.user.username} mentioned you in "${updated.title}"`,
+        projectId: project.id,
+        projectItemId: item.id,
+      });
+    }
 
     res.status(200).json({ message: 'Item updated', item: updated });
   } catch (err) {
@@ -351,11 +401,13 @@ export const deleteItem = async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: Number(req.params.projectId) },
-      include: ACCESS_INCLUDE,
+      include: ACCESS_INCLUDE_WITH_ROLE,
     });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
+    if (!canEditProject(req.user, project))
+      return next(new AppError('You have view-only access to this project', 403));
 
     const item = await prisma.projectItem.findFirst({
       where: { id: Number(req.params.itemId), projectId: project.id },
@@ -389,11 +441,13 @@ export const duplicateItem = async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: Number(req.params.projectId) },
-      include: ACCESS_INCLUDE,
+      include: ACCESS_INCLUDE_WITH_ROLE,
     });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
+    if (!canEditProject(req.user, project))
+      return next(new AppError('You have view-only access to this project', 403));
 
     const item = await prisma.projectItem.findFirst({
       where: { id: Number(req.params.itemId), projectId: project.id },
@@ -437,11 +491,13 @@ export const moveItem = async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: Number(req.params.projectId) },
-      include: ACCESS_INCLUDE,
+      include: ACCESS_INCLUDE_WITH_ROLE,
     });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
+    if (!canEditProject(req.user, project))
+      return next(new AppError('You have view-only access to this project', 403));
 
     const item = await prisma.projectItem.findFirst({
       where: { id: Number(req.params.itemId), projectId: project.id },
@@ -579,11 +635,13 @@ export const moveItemToParent = async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: Number(req.params.projectId) },
-      include: ACCESS_INCLUDE,
+      include: ACCESS_INCLUDE_WITH_ROLE,
     });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
+    if (!canEditProject(req.user, project))
+      return next(new AppError('You have view-only access to this project', 403));
 
     const item = await prisma.projectItem.findFirst({
       where: { id: Number(req.params.itemId), projectId: project.id },
@@ -671,11 +729,13 @@ export const bulkMoveItemsToParent = async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: Number(req.params.projectId) },
-      include: ACCESS_INCLUDE,
+      include: ACCESS_INCLUDE_WITH_ROLE,
     });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
+    if (!canEditProject(req.user, project))
+      return next(new AppError('You have view-only access to this project', 403));
 
     const { itemIds, parentId } = req.body;
     const parentIdNum = Number(parentId);
@@ -758,11 +818,13 @@ export const reorderItems = async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: Number(req.params.projectId) },
-      include: ACCESS_INCLUDE,
+      include: ACCESS_INCLUDE_WITH_ROLE,
     });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
+    if (!canEditProject(req.user, project))
+      return next(new AppError('You have view-only access to this project', 403));
 
     const { parentId, orderedIds } = req.body;
     const parentIdNum = parentId ? Number(parentId) : null;

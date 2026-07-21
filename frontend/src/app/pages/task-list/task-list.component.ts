@@ -136,7 +136,9 @@ export class TaskListComponent implements OnInit, OnDestroy {
     return this.isTeamLead ? this.teamCreateAssignees : this.users;
   }
 
-  allTags: Tag[] = [];
+  get allTags(): Tag[] {
+    return this.tagService.tags();
+  }
 
   attachmentTaskId: number | null = null;
   attachmentTask: Task | null = null;
@@ -165,15 +167,11 @@ export class TaskListComponent implements OnInit, OnDestroy {
     } else if (this.isTeamLead) {
       this.userService.getTeamMembers().subscribe({ next: (u) => (this.teamCreateAssignees = u) });
     }
-    this.tagService.getTags().subscribe({ next: (t) => (this.allTags = t) });
+    this.tagService.ensureTagsLoaded();
   }
 
   ngOnDestroy() {
     this.stopAttachmentsPolling();
-  }
-
-  onTagCreated(tag: Tag) {
-    this.allTags = [...this.allTags, tag];
   }
 
   load() {

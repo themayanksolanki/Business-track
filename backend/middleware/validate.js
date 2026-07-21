@@ -378,6 +378,20 @@ export const validateComment = (req, res, next) => {
   next();
 };
 
+export const validateAttachmentLink = (req, res, next) => {
+  const { url } = req.body;
+  if (!url || !url.trim()) return next(new AppError('A URL is required', 400));
+
+  try {
+    const parsed = new URL(url.trim());
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('bad protocol');
+  } catch {
+    return next(new AppError('A valid http(s) URL is required', 400));
+  }
+
+  next();
+};
+
 const HEX_COLOR_REGEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 export const validateDepartment = (req, res, next) => {

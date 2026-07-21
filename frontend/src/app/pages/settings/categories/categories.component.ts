@@ -219,6 +219,11 @@ export class CategoriesComponent implements OnInit {
         this.formLoading = false;
         this.closeForm();
         this.loadPage(this.currentPage);
+        // This page lists via its own paginated fetch, not the shared
+        // ensureCategoriesLoaded() cache other pages' pickers read from —
+        // refresh that cache too so a create/rename here shows up elsewhere
+        // without those pages needing a full reload.
+        this.categoryService.refreshCategories().subscribe();
         if (this.formMode === 'edit' && this.selectedId === this.editingId) this.reloadDetail();
       },
       error: (err) => {
@@ -251,6 +256,7 @@ export class CategoriesComponent implements OnInit {
         }
         this.closeConfirm();
         this.loadPage(this.currentPage);
+        this.categoryService.refreshCategories().subscribe();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to delete category';

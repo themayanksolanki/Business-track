@@ -50,12 +50,20 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   @Input() selectionMode = false;
   @Input() selectedIds: Set<number> = new Set();
   @Input() expandCommand: { expand: boolean; token: number } | null = null;
+  // Role-based permission (Admin/creator/owner/editor-role member = true,
+  // a member with a view-only role = false) — distinct from the draft-lock
+  // `readOnly` concept elsewhere; this hides every edit affordance on the
+  // row entirely rather than disabling it.
+  @Input() canEdit = true;
 
   @Output() refresh = new EventEmitter<void>();
   @Output() openDetail = new EventEmitter<ProjectTreeNode>();
   @Output() toggleSelect = new EventEmitter<number>();
   @Output() moveToGroupRequested = new EventEmitter<ProjectTreeNode>();
   @Output() deleted = new EventEmitter<number>();
+  // Bubbles to project-detail.component.ts, which has the parent project's
+  // organizationId/sequenceId already in scope to build the shareable link.
+  @Output() copyTaskLinkRequested = new EventEmitter<ProjectTreeNode>();
   @ViewChild('titleInput') titleInput!: ElementRef<HTMLTextAreaElement>;
 
   expanded = false;
@@ -208,7 +216,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   get canEditStatus(): boolean {
-    return !this.isGroup && this.node.childCount === 0;
+    return !this.isGroup && this.node.childCount === 0 && this.canEdit;
   }
 
   setStatus(status: ProjectItemStatus) {
@@ -268,8 +276,23 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
       });
   }
 
+  // Copying a link is read-adjacent (like "View Details"), not a mutation —
+  // available regardless of canEdit. Groups aren't "tasks", and a legacy
+  // item with no sequenceId has nothing stable to build a link from.
+  private get copyTaskLinkMenuItem(): ContextMenuItem[] {
+    return this.node.type !== 'group' && this.node.sequenceId
+      ? [{ label: 'Copy Task Link', icon: 'bi-link-45deg', action: 'copy-task-link' }]
+      : [];
+  }
+
   get menuItems(): ContextMenuItem[] {
     const items: ContextMenuItem[] = [];
+    // View-only users only ever get "View Details" (+ copy link) —
+    // everything else here is a mutation (add/move/duplicate/delete).
+    if (!this.canEdit) {
+      items.push({ label: 'View Details', icon: 'bi-eye', action: 'view' }, ...this.copyTaskLinkMenuItem);
+      return items;
+    }
     if (this.canAddChild)
       items.push({
         label: 'Add Child',
@@ -277,6 +300,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
         action: 'add-child',
       });
     items.push({ label: 'View Details', icon: 'bi-eye', action: 'view' });
+    items.push(...this.copyTaskLinkMenuItem);
     if (this.node.type === 'task')
       items.push({
         label: 'Move to Group',
@@ -363,6 +387,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   onMenuAction(action: string) {
     if (action === 'add-child') this.openAddChild();
     else if (action === 'view') this.openDetail.emit(this.node);
+    else if (action === 'copy-task-link') this.copyTaskLinkRequested.emit(this.node);
     else if (action === 'move-to-group') this.moveToGroupRequested.emit(this.node);
     else if (action === 'duplicate') this.duplicate();
     else if (action === 'delete') this.confirmOpen = true;

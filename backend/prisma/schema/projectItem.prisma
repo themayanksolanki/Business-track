@@ -32,6 +32,12 @@ model ProjectItem {
   startDate      DateTime?
   endDate        DateTime?
   attachmentCount Int              @default(0)
+  // Snapshot of {userId, username} for whoever is currently @mentioned in the
+  // description — never rendered (description has no separate read-only
+  // view), used purely so updateItem can diff old vs new and only notify
+  // newly-added mentions. Same "small, never independently queried list"
+  // pattern as Project.links/detailsLayout.
+  mentions       Json              @default("[]")
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
@@ -44,9 +50,10 @@ model ProjectItem {
   createdBy  User  @relation("ProjectItemCreatedBy", fields: [createdById], references: [id])
   updatedBy  User? @relation("ProjectItemUpdatedBy", fields: [updatedById], references: [id])
 
-  tags        Tag[]
-  comments    Comment[]
-  attachments Attachment[]
+  tags          Tag[]
+  comments      Comment[]
+  attachments   Attachment[]
+  notifications Notification[]
 
   @@index([projectId, parentId, order])
   @@unique([organizationId, sequenceId])
@@ -58,11 +65,19 @@ model Comment {
   projectItemId Int
   authorId      Int
   body          String   @db.VarChar(2000)
+  // Snapshot of {userId, username} for whoever is @mentioned in this comment,
+  // frozen at post/edit time — the frozen username is what the read-only
+  // highlight-rendering regex matches against `body`, so a later rename of
+  // the mentioned user doesn't break the highlight. Same JSON-list pattern
+  // as Project.links.
+  mentions      Json     @default("[]")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   projectItem ProjectItem @relation(fields: [projectItemId], references: [id], onDelete: Cascade)
   author      User        @relation("CommentAuthor", fields: [authorId], references: [id])
+
+  notifications Notification[]
 
   @@index([projectItemId])
   @@map("comments")

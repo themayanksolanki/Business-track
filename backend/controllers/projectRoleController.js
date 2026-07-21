@@ -23,6 +23,7 @@ export const ensureDefaultProjectRoles = async (organizationId, actorId) => {
             title: DEFAULT_ROLE_TITLES[i],
             rank: i,
             isDefault: true,
+            canEdit: DEFAULT_ROLE_TITLES[i] !== 'Viewer',
             organizationId,
             sequenceId,
             createdById: actorId,
@@ -58,7 +59,7 @@ export const getProjectRoles = async (req, res, next) => {
 
 export const createProjectRole = async (req, res, next) => {
   try {
-    const { title, description } = req.body;
+    const { title, description, canEdit } = req.body;
     const rank = await prisma.projectRole.count({ where: { organizationId: req.user.organizationId } });
 
     const role = await prisma.$transaction(async (tx) => {
@@ -69,6 +70,7 @@ export const createProjectRole = async (req, res, next) => {
           description: description ?? '',
           rank,
           isDefault: false,
+          canEdit: canEdit ?? true,
           organizationId: req.user.organizationId,
           sequenceId,
           createdById: req.user.id,
@@ -89,7 +91,7 @@ export const updateProjectRole = async (req, res, next) => {
     if (!role || role.organizationId !== req.user.organizationId)
       return next(new AppError('Role not found', 404));
 
-    const { title, description } = req.body;
+    const { title, description, canEdit } = req.body;
 
     if (role.isDefault && title !== undefined && title.trim() !== role.title)
       return next(new AppError('Default roles cannot be renamed', 403));
@@ -97,6 +99,7 @@ export const updateProjectRole = async (req, res, next) => {
     const data = { updatedById: req.user.id };
     if (title !== undefined) data.title = title.trim();
     if (description !== undefined) data.description = description;
+    if (canEdit !== undefined) data.canEdit = !!canEdit;
 
     const updated = await prisma.projectRole.update({ where: { id: role.id }, data });
     res.status(200).json({ message: 'Role updated', role: updated });

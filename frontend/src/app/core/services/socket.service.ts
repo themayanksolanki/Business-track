@@ -3,6 +3,7 @@ import { Subject } from 'rxjs';
 import { io, Socket } from 'socket.io-client';
 import { environment } from '../../../environments/environment';
 import { Message } from '../../models/message.model';
+import { AppNotification } from '../../models/notification.model';
 
 export interface IncomingCall {
   from: string;
@@ -36,6 +37,15 @@ export class SocketService {
   readonly remoteMuted$   = new Subject<boolean>();
   readonly callLogged$    = new Subject<Message>();
 
+  readonly notification$ = new Subject<AppNotification>();
+  // Fires on every reconnect (not the first connect) so listeners can re-sync
+  // state that may have changed while the socket was down — mirrors the
+  // "deliver missed messages/notifications" pattern the server already does
+  // on a fresh connection, but reconnects don't re-run that server-side path
+  // for anything already delivered before the drop, so this exists to let the
+  // client re-fetch from its own REST endpoints instead.
+  readonly reconnected$ = new Subject<void>();
+
   connect(token: string) {
     if (this.socket?.connected) return;
     this.socket = io(environment.socketUrl, {
@@ -43,6 +53,9 @@ export class SocketService {
       transports: ['websocket'],
     });
 
+    this.socket.io.on('reconnect', () => this.reconnected$.next());
+
+    this.socket.on('notification:new',  (n: AppNotification)  => this.notification$.next(n));
     this.socket.on('message:receive',   (m: Message)          => this.message$.next(m));
     this.socket.on('message:sent',      (m: Message)          => this.messageSent$.next(m));
     this.socket.on('message:delivered', (d: { by: string })   => this.messageDelivered$.next(d));

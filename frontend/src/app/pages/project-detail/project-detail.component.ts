@@ -104,6 +104,16 @@ export class ProjectDetailComponent implements OnInit {
   itemsLoading = false;
   itemSummary: Record<string, ProjectItemSummary> = {};
 
+  // Deep-link support (e.g. from a notification): ?item=<id> auto-opens that
+  // item's detail modal once the tree first loads; ?comment=<id> is then
+  // passed down so the modal can scroll to and highlight that comment.
+  private pendingOpenItemId: number | null = null;
+  // Same idea as pendingOpenItemId, but for a "Copy Task Link" (?taskSeq=)
+  // deep-link — resolved by matching sequenceId instead of id once the tree
+  // loads, since the link deliberately doesn't expose the raw numeric id.
+  private pendingOpenItemSequenceId: number | null = null;
+  highlightCommentId: number | null = null;
+
   addGroupOpen = false;
   addGroupTitle = '';
   addGroupLoading = false;
@@ -135,8 +145,23 @@ export class ProjectDetailComponent implements OnInit {
   deleteConfirmOpen = false;
   deleteLoading = false;
 
-  departments: Department[] = [];
-  categories: Category[] = [];
+  // True only for a genuine outsider (different org, or same-org non-member)
+  // who arrived via "Copy Project Link" — forces canEditProject to false and
+  // suppresses comments/attachments (no shared-link equivalents for those
+  // exist yet). A visitor with real access is redirected to the normal
+  // /projects/:id route instead of ever setting this — see loadSharedProject.
+  sharedViewOnly = false;
+  private sharedOrgId: number | null = null;
+  private sharedSequenceId: number | null = null;
+
+  get departments(): Department[] {
+    return this.departmentService.departments();
+  }
+
+  get categories(): Category[] {
+    return this.categoryService.categories();
+  }
+
   readonly priorityOptions: ProjectPriority[] = ['low', 'medium', 'high'];
   readonly effortOptions: ProjectEffort[] = ['low', 'medium', 'high'];
   readonly statusOptions: ProjectStatus[] = ['active', 'archived', 'completed'];
@@ -169,7 +194,9 @@ export class ProjectDetailComponent implements OnInit {
   readonly DEFAULT_DETAIL_CARD_IDS = ['details', 'attachments', 'plan', 'dates', 'priority', 'effort', 'links'];
   detailsLayoutEntries: ProjectDetailsLayoutEntry[] = [];
 
-  allTags: Tag[] = [];
+  get allTags(): Tag[] {
+    return this.tagService.tags();
+  }
 
   constructor(
     private route: ActivatedRoute,
@@ -184,19 +211,77 @@ export class ProjectDetailComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.projectId = this.route.snapshot.paramMap.get('id') || '';
     const tab = this.route.snapshot.queryParamMap.get('tab');
     if (tab === 'detail' || tab === 'tasks' || tab === 'kanban' || tab === 'teams') this.activeTab = tab;
+    const itemParam = this.route.snapshot.queryParamMap.get('item');
+    this.pendingOpenItemId = itemParam ? Number(itemParam) : null;
+    const commentParam = this.route.snapshot.queryParamMap.get('comment');
+    this.highlightCommentId = commentParam ? Number(commentParam) : null;
+    // "Copy Task Link" (see copyTaskLink()) references a task by its
+    // sequenceId, not the raw numeric id — resolved client-side against
+    // whichever item list ends up loading (normal or shared), same as
+    // pendingOpenItemId but keyed differently.
+    const taskSeqParam = this.route.snapshot.queryParamMap.get('taskSeq');
+    this.pendingOpenItemSequenceId = taskSeqParam ? Number(taskSeqParam) : null;
+
+    const orgIdParam = this.route.snapshot.paramMap.get('organizationId');
+    const seqIdParam = this.route.snapshot.paramMap.get('sequenceId');
+    if (orgIdParam && seqIdParam) {
+      this.loadSharedProject(Number(orgIdParam), Number(seqIdParam));
+      return;
+    }
+
+    this.projectId = this.route.snapshot.paramMap.get('id') || '';
     this.loadProject();
     this.loadItems();
     this.userService.ensureUsersLoaded();
-    this.departmentService
-      .getDepartments()
-      .subscribe({ next: (d) => (this.departments = d) });
-    this.categoryService
-      .getCategories()
-      .subscribe({ next: (c) => (this.categories = c) });
-    this.tagService.getTags().subscribe({ next: (t) => (this.allTags = t) });
+    this.departmentService.ensureDepartmentsLoaded();
+    this.categoryService.ensureCategoriesLoaded();
+    this.tagService.ensureTagsLoaded();
+  }
+
+  // Entry point for "Copy Project Link" (see copyProjectLink()) — resolves
+  // by org+sequenceId instead of the normal numeric id. A visitor who turns
+  // out to have real access (same org, member/department/creator/owner) is
+  // redirected straight to the normal, fully-featured /projects/:id route;
+  // only a genuine outsider stays here in the reduced read-only render.
+  private loadSharedProject(organizationId: number, sequenceId: number) {
+    this.loading = true;
+    this.sharedOrgId = organizationId;
+    this.sharedSequenceId = sequenceId;
+    this.projectService.resolveSharedProject(organizationId, sequenceId).subscribe({
+      next: ({ project, hasNormalAccess }) => {
+        if (hasNormalAccess) {
+          const queryParams = this.pendingOpenItemSequenceId != null
+            ? { taskSeq: this.pendingOpenItemSequenceId }
+            : undefined;
+          this.router.navigate(['/projects', project.id], { queryParams, replaceUrl: true });
+          return;
+        }
+        this.sharedViewOnly = true;
+        this.projectId = project.id.toString();
+        this.applyProjectData(project);
+        this.loading = false;
+        this.loadSharedItems();
+      },
+      error: (err) => {
+        this.error = err.error?.message || 'Failed to load project';
+        this.loading = false;
+      },
+    });
+  }
+
+  private loadSharedItems() {
+    if (this.sharedOrgId == null || this.sharedSequenceId == null) return;
+    this.itemsLoading = true;
+    this.projectService.getSharedItems(this.sharedOrgId, this.sharedSequenceId).subscribe({
+      next: (items) => {
+        this.tree = buildProjectTree(items);
+        this.itemsLoading = false;
+        this.resolvePendingOpenItem();
+      },
+      error: () => (this.itemsLoading = false),
+    });
   }
 
   selectTags(tags: TagLite[]) {
@@ -206,10 +291,6 @@ export class ProjectDetailComponent implements OnInit {
       .subscribe({
         next: (res) => (this.project = res.project),
       });
-  }
-
-  onTagCreated(tag: Tag) {
-    this.allTags = [...this.allTags, tag];
   }
 
   get progress(): CompletionRollup {
@@ -255,6 +336,24 @@ export class ProjectDetailComponent implements OnInit {
 
   onMembersChanged(members: ProjectMember[]) {
     if (this.project) this.project = { ...this.project, members };
+  }
+
+  // Mirrors the backend's canEditProject: Admin always edits; an explicit
+  // ProjectMember is downgraded to view-only if their assigned role has
+  // canEdit:false (e.g. the default "Viewer" role); everyone else who can
+  // reach this page at all (creator/owner/department-based access) keeps
+  // full edit, unchanged from before this permission tier existed.
+  get canEditProject(): boolean {
+    const user = this.auth.getUser();
+    if (!user || !this.project) return false;
+    // A "Copy Project Link" visitor without real access (see
+    // loadSharedProject) never has an entry in project.members to begin
+    // with, but force it explicitly rather than relying on that fallthrough.
+    if (this.sharedViewOnly) return false;
+    if (user.role === 'Admin') return true;
+    const membership = this.project.members.find((m) => m.user.id === user.id);
+    if (membership) return membership.role?.canEdit !== false;
+    return true;
   }
 
   // Task/item "Assign to" pickers (tree, kanban, item detail) are scoped to
@@ -343,24 +442,7 @@ export class ProjectDetailComponent implements OnInit {
     this.loading = true;
     this.projectService.getProjectById(this.projectId).subscribe({
       next: (project) => {
-        this.project = project;
-        this.editName = project.name;
-        this.editDescription = project.description;
-        this.startDateStr = project.startDate
-          ? dayjs(project.startDate).format('YYYY-MM-DD')
-          : null;
-        this.startTimeStr = project.startDate
-          ? dayjs(project.startDate).format('HH:mm')
-          : null;
-        this.endDateStr = project.endDate
-          ? dayjs(project.endDate).format('YYYY-MM-DD')
-          : null;
-        this.endTimeStr = project.endDate
-          ? dayjs(project.endDate).format('HH:mm')
-          : null;
-        this.detailsText = project.detailsText ?? '';
-        this.links = project.links ?? [];
-        this.detailsLayoutEntries = this.normalizeDetailsLayout(project.detailsLayout);
+        this.applyProjectData(project);
         this.loading = false;
       },
       error: (err) => {
@@ -368,6 +450,30 @@ export class ProjectDetailComponent implements OnInit {
         this.loading = false;
       },
     });
+  }
+
+  // Shared by loadProject() and loadSharedProject() — populates every field
+  // derived from the project payload itself (as opposed to the item tree,
+  // loaded separately by loadItems()/loadSharedItems()).
+  private applyProjectData(project: Project) {
+    this.project = project;
+    this.editName = project.name;
+    this.editDescription = project.description;
+    this.startDateStr = project.startDate
+      ? dayjs(project.startDate).format('YYYY-MM-DD')
+      : null;
+    this.startTimeStr = project.startDate
+      ? dayjs(project.startDate).format('HH:mm')
+      : null;
+    this.endDateStr = project.endDate
+      ? dayjs(project.endDate).format('YYYY-MM-DD')
+      : null;
+    this.endTimeStr = project.endDate
+      ? dayjs(project.endDate).format('HH:mm')
+      : null;
+    this.detailsText = project.detailsText ?? '';
+    this.links = project.links ?? [];
+    this.detailsLayoutEntries = this.normalizeDetailsLayout(project.detailsLayout);
   }
 
   // Only shows the loading spinner on the very first fetch — once the tree
@@ -383,6 +489,7 @@ export class ProjectDetailComponent implements OnInit {
           const updated = this.findNode(this.tree, this.selectedNode.id);
           this.selectedNode = updated ?? null;
         }
+        this.resolvePendingOpenItem();
       },
       error: () => (this.itemsLoading = false),
     });
@@ -420,6 +527,35 @@ export class ProjectDetailComponent implements OnInit {
       if (found) return found;
     }
     return null;
+  }
+
+  private findNodeBySequenceId(
+    nodes: ProjectTreeNode[],
+    sequenceId: number,
+  ): ProjectTreeNode | null {
+    for (const node of nodes) {
+      if (node.sequenceId === sequenceId) return node;
+      const found = this.findNodeBySequenceId(node.children, sequenceId);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  // Shared by loadItems() and loadSharedItems() — opens whichever pending
+  // deep-linked item is waiting (by numeric id for the notification-based
+  // ?item= link, by sequenceId for the "Copy Task Link" ?taskSeq= link),
+  // then clears it so a later reload doesn't reopen it.
+  private resolvePendingOpenItem() {
+    if (this.pendingOpenItemId != null) {
+      const node = this.findNode(this.tree, this.pendingOpenItemId);
+      if (node) this.onOpenDetail(node);
+      this.pendingOpenItemId = null;
+    }
+    if (this.pendingOpenItemSequenceId != null) {
+      const node = this.findNodeBySequenceId(this.tree, this.pendingOpenItemSequenceId);
+      if (node) this.onOpenDetail(node);
+      this.pendingOpenItemSequenceId = null;
+    }
   }
 
   private findPath(
@@ -695,6 +831,34 @@ export class ProjectDetailComponent implements OnInit {
           this.linksError = err.error?.message || 'Failed to save links';
         },
       });
+  }
+
+  // Encodes org + per-org sequence number rather than the raw numeric id —
+  // see ProjectService.resolveSharedProject / loadSharedProject above for
+  // why: anyone with this link can view the project read-only, even across
+  // organizations or without being a project member.
+  copyProjectLink() {
+    if (!this.project?.sequenceId) return;
+    const url = `${window.location.origin}/projects/shared/${this.project.organizationId}/${this.project.sequenceId}`;
+    navigator.clipboard.writeText(url).then(
+      () => this.notifications.success('Project link copied'),
+      () => this.notifications.error('Failed to copy link'),
+    );
+  }
+
+  // Same shareable-link mechanism as copyProjectLink(), plus a ?taskSeq=
+  // query param — see resolvePendingOpenItem() for how that's resolved back
+  // into the right node once the tree loads (either here directly in a
+  // shared read-only view, or after being redirected to /projects/:id).
+  copyTaskLink(node: ProjectTreeNode) {
+    if (!this.project?.sequenceId || !node.sequenceId) return;
+    const url =
+      `${window.location.origin}/projects/shared/${this.project.organizationId}/${this.project.sequenceId}` +
+      `?taskSeq=${node.sequenceId}`;
+    navigator.clipboard.writeText(url).then(
+      () => this.notifications.success('Task link copied'),
+      () => this.notifications.error('Failed to copy link'),
+    );
   }
 
   openDeleteConfirm() {

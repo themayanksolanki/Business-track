@@ -57,24 +57,27 @@
             }
 
             <div class="dropdown">
-              <span class="priority-pill dropdown-toggle"
+              <span class="priority-pill"
+                    [class.dropdown-toggle]="canEdit"
                     [class.priority-low]="item.priority === 'low'"
                     [class.priority-medium]="item.priority === 'medium'"
                     [class.priority-high]="item.priority === 'high'"
-                    data-bs-toggle="dropdown" title="Change priority">
+                    [attr.data-bs-toggle]="canEdit ? 'dropdown' : null" title="Change priority">
                 <i class="bi bi-flag-fill me-1"></i>{{ item.priority }}
               </span>
-              <ul class="dropdown-menu status-dropdown shadow-sm">
-                @for (p of priorityOptions; track p) {
-                  <li><a class="dropdown-item status-opt" (click)="setPriority(p)">
-                    <i class="bi bi-flag-fill me-2"
-                       [class.priority-icon-low]="p === 'low'"
-                       [class.priority-icon-medium]="p === 'medium'"
-                       [class.priority-icon-high]="p === 'high'"></i>
-                    {{ p }}
-                  </a></li>
-                }
-              </ul>
+              @if (canEdit) {
+                <ul class="dropdown-menu status-dropdown shadow-sm">
+                  @for (p of priorityOptions; track p) {
+                    <li><a class="dropdown-item status-opt" (click)="setPriority(p)">
+                      <i class="bi bi-flag-fill me-2"
+                         [class.priority-icon-low]="p === 'low'"
+                         [class.priority-icon-medium]="p === 'medium'"
+                         [class.priority-icon-high]="p === 'high'"></i>
+                      {{ p }}
+                    </a></li>
+                  }
+                </ul>
+              }
             </div>
 
             <span class="type-pill">{{ item.type }}</span>
@@ -83,11 +86,15 @@
           <button type="button" class="detail-x" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
         </div>
 
-        <form [formGroup]="editForm" (ngSubmit)="submitEdit()">
-          <textarea class="detail-title-input" rows="1" formControlName="title" placeholder="Title"
-                    [appAutoGrow]="editForm.get('title')?.value" (keydown)="onTitleKeydown($event)"
-                    (blur)="submitEdit()"></textarea>
-        </form>
+        @if (canEdit) {
+          <form [formGroup]="editForm" (ngSubmit)="submitEdit()">
+            <textarea class="detail-title-input" rows="1" formControlName="title" placeholder="Title"
+                      [appAutoGrow]="editForm.get('title')?.value" (keydown)="onTitleKeydown($event)"
+                      (blur)="submitEdit()"></textarea>
+          </form>
+        } @else {
+          <div class="detail-title-input">{{ item.title }}</div>
+        }
       </div>
 
       <div class="modal-body detail-body item-detail-body">
@@ -102,13 +109,22 @@
               <div class="subtask-header">Description</div>
               <form [formGroup]="editForm">
                 <textarea class="form-control field-input" style="height:auto" rows="5"
-                          formControlName="description" placeholder="Add a description..."
+                          formControlName="description" placeholder="Add a description... (@ to mention someone)"
+                          [readOnly]="!canEdit"
+                          [mention]="canEdit ? users : []" [mentionConfig]="mentionConfig" [mentionListTemplate]="mentionItemTpl"
+                          (itemSelected)="onDescriptionMentionSelected($event)"
                           (blur)="submitEdit()"></textarea>
               </form>
             </div>
 
             <!-- Attachments -->
             @if (!isGroup) {
+              @if (sharedViewOnly) {
+                <div class="detail-section">
+                  <div class="subtask-header"><i class="bi bi-paperclip me-1"></i>Attachments</div>
+                  <p class="text-muted small mb-0">Not available in a shared view.</p>
+                </div>
+              } @else {
               <div class="detail-section">
                 <div class="subtask-header">
                   <i class="bi bi-paperclip me-1"></i>Attachments
@@ -122,47 +138,92 @@
                 } @else {
                   <ul class="attachment-list mb-2">
                     @for (a of attachments; track a.id) {
-                      <li class="attachment-item">
-                        <i class="bi attachment-file-icon" [class]="fileIcon(a.mimeType)"></i>
+                      <li class="attachment-item" [class.attachment-item-pending]="isPending(a)">
+                        <i class="bi attachment-file-icon" [class]="a.kind === 'link' ? 'bi-link-45deg' : fileIcon(a.mimeType)"></i>
                         <div class="attachment-info">
-                          <span class="attachment-name">{{ a.fileName }}</span>
-                          <span class="attachment-meta">{{ formatSize(a.size) }} · {{ a.uploadedBy.username }}</span>
+                          <span class="attachment-name" [class.attachment-name-pending]="isPending(a)">{{ a.fileName }}</span>
+                          <span class="attachment-meta">
+                            @if (a.kind === 'link') { Link } @else { {{ formatSize(a.size) }} }
+                             · {{ a.uploadedBy.username }}
+                          </span>
                         </div>
-                        <button class="attachment-download-btn" (click)="openViewer(a)" title="Preview">
-                          <i class="bi bi-eye"></i>
-                        </button>
-                        <button class="attachment-download-btn" (click)="download(a)" [disabled]="downloadingId === a.id" title="Download">
-                          @if (downloadingId === a.id) {
-                            <span class="spinner-border spinner-border-sm"></span>
-                          } @else {
-                            <i class="bi bi-download"></i>
+                        @if (isPending(a)) {
+                          <span class="attachment-countdown">Deleting in {{ remainingSeconds(a) }}s</span>
+                          @if (canEdit) {
+                            <button class="attachment-download-btn attachment-undo-btn" (click)="undoDeleteAttachment(a)" title="Undo">
+                              <i class="bi bi-arrow-counterclockwise"></i>
+                            </button>
                           }
-                        </button>
-                        <button class="subtask-del-btn" (click)="deleteAttachment(a)" title="Delete">
-                          <i class="bi bi-x"></i>
-                        </button>
+                        } @else {
+                          <button class="attachment-download-btn" (click)="openViewer(a)" title="Preview">
+                            <i class="bi bi-eye"></i>
+                          </button>
+                          <button class="attachment-download-btn" (click)="download(a)" [disabled]="downloadingId === a.id" [title]="a.kind === 'link' ? 'Open' : 'Download'">
+                            @if (downloadingId === a.id) {
+                              <span class="spinner-border spinner-border-sm"></span>
+                            } @else {
+                              <i class="bi" [class.bi-download]="a.kind !== 'link'" [class.bi-box-arrow-up-right]="a.kind === 'link'"></i>
+                            }
+                          </button>
+                          @if (canEdit) {
+                            <button class="subtask-del-btn" (click)="deleteAttachment(a)" title="Delete">
+                              <i class="bi bi-trash3"></i>
+                            </button>
+                          }
+                        }
                       </li>
                     }
                   </ul>
                 }
 
-                <div class="attachment-upload-row">
-                  <label class="attachment-upload-btn" [class.disabled]="attachmentUploading">
-                    @if (attachmentUploading) {
-                      <span class="spinner-border spinner-border-sm me-2"></span>Uploading…
-                    } @else {
-                      <i class="bi bi-cloud-arrow-up me-2"></i>Upload File
+                @if (canEdit) {
+                  <div class="attachment-upload-row">
+                    <label class="attachment-upload-btn" [class.disabled]="attachmentUploading">
+                      @if (attachmentUploading) {
+                        <span class="spinner-border spinner-border-sm me-2"></span>Uploading…
+                      } @else {
+                        <i class="bi bi-cloud-arrow-up me-2"></i>Upload File
+                      }
+                      <input type="file" hidden [accept]="acceptedFileTypes" (change)="onFileSelected($event)" [disabled]="attachmentUploading" />
+                    </label>
+                    <button type="button" class="attachment-upload-btn" (click)="toggleAddLink()">
+                      <i class="bi bi-link-45deg me-2"></i>Add Link
+                    </button>
+                  </div>
+                  @if (attachmentUploadError) {
+                    <div class="field-error mt-2">{{ attachmentUploadError }}</div>
+                  }
+
+                  @if (addLinkOpen) {
+                    <div class="add-link-row">
+                      <input type="url" class="add-link-input" placeholder="https://…" [(ngModel)]="linkUrlInput"
+                             [ngModelOptions]="{standalone: true}" (keydown.enter)="submitLink()" />
+                      <input type="text" class="add-link-input" placeholder="Label (optional)" [(ngModel)]="linkLabelInput"
+                             [ngModelOptions]="{standalone: true}" (keydown.enter)="submitLink()" />
+                      <button type="button" class="attachment-download-btn" (click)="submitLink()" [disabled]="addLinkLoading || !linkUrlInput.trim()" title="Add">
+                        @if (addLinkLoading) {
+                          <span class="spinner-border spinner-border-sm"></span>
+                        } @else {
+                          <i class="bi bi-check-lg"></i>
+                        }
+                      </button>
+                    </div>
+                    @if (addLinkError) {
+                      <div class="field-error mt-2">{{ addLinkError }}</div>
                     }
-                    <input type="file" hidden [accept]="acceptedFileTypes" (change)="onFileSelected($event)" [disabled]="attachmentUploading" />
-                  </label>
-                </div>
-                @if (attachmentUploadError) {
-                  <div class="field-error mt-2">{{ attachmentUploadError }}</div>
+                  }
                 }
               </div>
+              }
             }
 
             <!-- Comments -->
+            @if (sharedViewOnly) {
+              <div class="detail-section">
+                <div class="subtask-header"><i class="bi bi-chat-left-text me-1"></i>Comments</div>
+                <p class="text-muted small mb-0">Not available in a shared view.</p>
+              </div>
+            } @else {
             <div class="detail-section">
               <div class="subtask-header">
                 <i class="bi bi-chat-left-text me-1"></i>Comments
@@ -174,36 +235,68 @@
               } @else if (comments.length > 0) {
                 <ul class="attachment-list mb-2">
                   @for (c of comments; track c.id) {
-                    <li class="attachment-item comment-item">
-                      <div class="attachment-info">
-                        <span class="attachment-name">{{ c.author.username }}
-                          <span class="attachment-meta ms-1">{{ c.createdAt | appDate }} {{ c.createdAt | appTime }}</span>
-                        </span>
-                        <span class="comment-body">{{ c.body }}</span>
-                      </div>
-                      @if (isOwnComment(c)) {
-                        <button class="subtask-del-btn" (click)="deleteComment(c)" title="Delete comment">
-                          <i class="bi bi-x"></i>
-                        </button>
+                    <li [id]="'comment-' + c.id" class="attachment-item comment-item"
+                        [class.comment-highlight]="c.id === highlightCommentId">
+                      @if (editingCommentId === c.id) {
+                        <div class="attachment-info">
+                          <div class="edit-comment-row">
+                            <input class="add-subtask-input" type="text" [(ngModel)]="editCommentBody"
+                                   [ngModelOptions]="{standalone: true}"
+                                   [mention]="users" [mentionConfig]="mentionConfig" [mentionListTemplate]="mentionItemTpl"
+                                   (itemSelected)="onEditCommentMentionSelected($event)"
+                                   (keydown.enter)="submitEditComment()" (keydown.escape)="cancelEditComment()"
+                                   maxlength="2000" />
+                            <button class="add-subtask-btn" (click)="submitEditComment()" [disabled]="editCommentSubmitting || !editCommentBody.trim()" title="Save">
+                              @if (editCommentSubmitting) {
+                                <span class="spinner-border spinner-border-sm"></span>
+                              } @else {
+                                <i class="bi bi-check-lg"></i>
+                              }
+                            </button>
+                            <button class="subtask-del-btn" (click)="cancelEditComment()" title="Cancel">
+                              <i class="bi bi-x"></i>
+                            </button>
+                          </div>
+                        </div>
+                      } @else {
+                        <div class="attachment-info">
+                          <span class="attachment-name">{{ c.author.username }}
+                            <span class="attachment-meta ms-1">{{ c.createdAt | appDate }} {{ c.createdAt | appTime }}</span>
+                          </span>
+                          <span class="comment-body" [innerHTML]="renderBody(c)"></span>
+                        </div>
+                        @if (isOwnComment(c) && canEdit) {
+                          <button class="subtask-del-btn" (click)="startEditComment(c)" title="Edit comment">
+                            <i class="bi bi-pencil"></i>
+                          </button>
+                          <button class="subtask-del-btn" (click)="deleteComment(c)" title="Delete comment">
+                            <i class="bi bi-x"></i>
+                          </button>
+                        }
                       }
                     </li>
                   }
                 </ul>
               }
 
-              <div class="add-subtask-row">
-                <input class="add-subtask-input" type="text" [(ngModel)]="commentBody"
-                       [ngModelOptions]="{standalone: true}"
-                       placeholder="Add a comment…" (keydown.enter)="addComment()" maxlength="2000" />
-                <button class="add-subtask-btn" (click)="addComment()" [disabled]="commentSubmitting || !commentBody.trim()">
-                  @if (commentSubmitting) {
-                    <span class="spinner-border spinner-border-sm"></span>
-                  } @else {
-                    <i class="bi bi-send"></i>
-                  }
-                </button>
-              </div>
+              @if (canEdit) {
+                <div class="add-subtask-row">
+                  <input class="add-subtask-input" type="text" [(ngModel)]="commentBody"
+                         [ngModelOptions]="{standalone: true}"
+                         [mention]="users" [mentionConfig]="mentionConfig" [mentionListTemplate]="mentionItemTpl"
+                         (itemSelected)="onCommentMentionSelected($event)"
+                         placeholder="Add a comment… (@ to mention someone)" (keydown.enter)="addComment()" maxlength="2000" />
+                  <button class="add-subtask-btn" (click)="addComment()" [disabled]="commentSubmitting || !commentBody.trim()">
+                    @if (commentSubmitting) {
+                      <span class="spinner-border spinner-border-sm"></span>
+                    } @else {
+                      <i class="bi bi-send"></i>
+                    }
+                  </button>
+                </div>
+              }
             </div>
+            }
           </div>
 
           <!-- Sidebar column: assignee, created by, counts, dates, schedule -->
@@ -211,60 +304,87 @@
             @if (!isGroup) {
               <div class="sidebar-field">
                 <span class="detail-meta-label"><i class="bi bi-person-fill me-1"></i>Assignee</span>
-                <div class="dropdown">
-                  <button type="button" class="assign-trigger assign-trigger-sm dropdown-toggle"
-                          data-bs-toggle="dropdown">
+                @if (canEdit) {
+                  <div class="dropdown">
+                    <button type="button" class="assign-trigger assign-trigger-sm dropdown-toggle"
+                            data-bs-toggle="dropdown">
+                      @if (item.assignedTo) {
+                        @if (avatarUrl(item.assignedTo)) {
+                          <img class="assign-avatar-img" [src]="avatarUrl(item.assignedTo)!" [alt]="item.assignedTo.username"
+                               (error)="onAvatarError(item.assignedTo)" />
+                        } @else {
+                          <span class="assign-avatar" [class]="'avatar-' + roleClass(item.assignedTo.role)">
+                            {{ item.assignedTo.username[0].toUpperCase() }}
+                          </span>
+                        }
+                        <span class="assign-trigger-name">{{ item.assignedTo.username }}</span>
+                      } @else {
+                        <span class="assign-avatar avatar-self"><i class="bi bi-person"></i></span>
+                        <span class="assign-trigger-name text-muted">Unassigned</span>
+                      }
+                    </button>
+                    <ul class="dropdown-menu assign-dropdown w-100">
+                      <li>
+                        <a class="assign-item" (click)="selectAssignee(null)">
+                          <span class="assign-avatar avatar-self"><i class="bi bi-person"></i></span>
+                          <span class="assign-item-name text-muted">Unassigned</span>
+                        </a>
+                      </li>
+                      <li><hr class="dropdown-divider my-1"></li>
+                      @for (u of users; track u.id) {
+                        <li>
+                          <a class="assign-item" (click)="selectAssignee(u)">
+                            @if (avatarUrl(u)) {
+                              <img class="assign-avatar-img" [src]="avatarUrl(u)!" [alt]="u.username"
+                                   (error)="onAvatarError(u)" />
+                            } @else {
+                              <span class="assign-avatar" [class]="'avatar-' + roleClass(u.role)">
+                                {{ u.username[0].toUpperCase() }}
+                              </span>
+                            }
+                            <span class="assign-item-name">{{ u.username }}</span>
+                          </a>
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                } @else {
+                  <div class="detail-meta-val">
                     @if (item.assignedTo) {
                       @if (avatarUrl(item.assignedTo)) {
-                        <img class="assign-avatar-img" [src]="avatarUrl(item.assignedTo)!" [alt]="item.assignedTo.username"
-                             (error)="onAvatarError(item.assignedTo)" />
+                        <img class="assign-avatar-img" [src]="avatarUrl(item.assignedTo)!" [alt]="item.assignedTo.username" />
                       } @else {
                         <span class="assign-avatar" [class]="'avatar-' + roleClass(item.assignedTo.role)">
                           {{ item.assignedTo.username[0].toUpperCase() }}
                         </span>
                       }
-                      <span class="assign-trigger-name">{{ item.assignedTo.username }}</span>
+                      {{ item.assignedTo.username }}
                     } @else {
-                      <span class="assign-avatar avatar-self"><i class="bi bi-person"></i></span>
-                      <span class="assign-trigger-name text-muted">Unassigned</span>
+                      <span class="text-muted">Unassigned</span>
                     }
-                  </button>
-                  <ul class="dropdown-menu assign-dropdown w-100">
-                    <li>
-                      <a class="assign-item" (click)="selectAssignee(null)">
-                        <span class="assign-avatar avatar-self"><i class="bi bi-person"></i></span>
-                        <span class="assign-item-name text-muted">Unassigned</span>
-                      </a>
-                    </li>
-                    <li><hr class="dropdown-divider my-1"></li>
-                    @for (u of users; track u.id) {
-                      <li>
-                        <a class="assign-item" (click)="selectAssignee(u)">
-                          @if (avatarUrl(u)) {
-                            <img class="assign-avatar-img" [src]="avatarUrl(u)!" [alt]="u.username"
-                                 (error)="onAvatarError(u)" />
-                          } @else {
-                            <span class="assign-avatar" [class]="'avatar-' + roleClass(u.role)">
-                              {{ u.username[0].toUpperCase() }}
-                            </span>
-                          }
-                          <span class="assign-item-name">{{ u.username }}</span>
-                        </a>
-                      </li>
-                    }
-                  </ul>
-                </div>
+                  </div>
+                }
               </div>
             }
 
             <div class="sidebar-field">
               <span class="detail-meta-label"><i class="bi bi-tags me-1"></i>Tags</span>
-              <app-tag-picker
-                [allTags]="allTags"
-                [selectedTags]="item.tags"
-                (tagsChange)="selectTags($event)"
-                (tagCreated)="onTagCreated($event)">
-              </app-tag-picker>
+              @if (canEdit) {
+                <app-tag-picker
+                  [allTags]="allTags"
+                  [selectedTags]="item.tags"
+                  (tagsChange)="selectTags($event)"
+                  (tagCreated)="onTagCreated($event)">
+                </app-tag-picker>
+              } @else if (item.tags.length > 0) {
+                <div class="d-flex flex-wrap gap-1">
+                  @for (tag of item.tags; track tag.id) {
+                    <app-tag-pill [tag]="tag"></app-tag-pill>
+                  }
+                </div>
+              } @else {
+                <span class="text-muted small">No tags</span>
+              }
             </div>
 
             <div class="sidebar-field">
@@ -309,13 +429,13 @@
               </span>
               <span class="sidebar-subtle-label">Start</span>
               <div class="d-flex gap-2 mb-3">
-                <app-date-picker [value]="startDateStr" [disabled]="readOnly" (valueChange)="onStartDateChange($event)"></app-date-picker>
-                <app-time-picker [value]="startTimeStr" [disabled]="readOnly" (valueChange)="onStartTimeChange($event)"></app-time-picker>
+                <app-date-picker [value]="startDateStr" [disabled]="readOnly || !canEdit" (valueChange)="onStartDateChange($event)"></app-date-picker>
+                <app-time-picker [value]="startTimeStr" [disabled]="readOnly || !canEdit" (valueChange)="onStartTimeChange($event)"></app-time-picker>
               </div>
               <span class="sidebar-subtle-label">End</span>
               <div class="d-flex gap-2">
-                <app-date-picker [value]="endDateStr" [min]="startDateStr" align="right" [disabled]="readOnly" (valueChange)="onEndDateChange($event)"></app-date-picker>
-                <app-time-picker [value]="endTimeStr" align="right" [disabled]="readOnly" (valueChange)="onEndTimeChange($event)"></app-time-picker>
+                <app-date-picker [value]="endDateStr" [min]="startDateStr" align="right" [disabled]="readOnly || !canEdit" (valueChange)="onEndDateChange($event)"></app-date-picker>
+                <app-time-picker [value]="endTimeStr" align="right" [disabled]="readOnly || !canEdit" (valueChange)="onEndTimeChange($event)"></app-time-picker>
               </div>
             </div>
           </div>
@@ -338,3 +458,18 @@
   (closed)="viewerOpen = false"
   (download)="download($event)">
 </app-attachment-viewer>
+
+<!-- Shared @mention suggestion row (avatar + username), reused by the
+     description textarea, the new-comment input, and the edit-comment input. -->
+<ng-template #mentionItemTpl let-mentionUser="item">
+  <div class="mention-suggestion">
+    @if (avatarUrl(mentionUser)) {
+      <img class="assign-avatar-img" [src]="avatarUrl(mentionUser)!" [alt]="mentionUser.username" />
+    } @else {
+      <span class="assign-avatar" [class]="'avatar-' + roleClass(mentionUser.role)">
+        {{ mentionUser.username[0].toUpperCase() }}
+      </span>
+    }
+    <span class="mention-suggestion-name">{{ mentionUser.username }}</span>
+  </div>
+</ng-template>

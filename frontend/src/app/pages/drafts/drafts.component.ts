@@ -71,9 +71,17 @@ export class DraftsComponent implements OnInit, OnDestroy {
   createLoading = false;
   createError = '';
 
-  departments: Department[] = [];
-  categories: Category[] = [];
-  allTags: Tag[] = [];
+  get departments(): Department[] {
+    return this.departmentService.departments();
+  }
+
+  get categories(): Category[] {
+    return this.categoryService.categories();
+  }
+
+  get allTags(): Tag[] {
+    return this.tagService.tags();
+  }
 
   get users(): User[] {
     return this.userService.users();
@@ -96,23 +104,10 @@ export class DraftsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.departmentService.getDepartments().subscribe({
-      next: (res) => (this.departments = res),
-      error: () => {},
-    });
-    this.categoryService.getCategories().subscribe({
-      next: (res) => (this.categories = res),
-      error: () => {},
-    });
-    this.tagService.getTags().subscribe({
-      next: (res) => (this.allTags = res),
-      error: () => {},
-    });
+    this.departmentService.ensureDepartmentsLoaded();
+    this.categoryService.ensureCategoriesLoaded();
+    this.tagService.ensureTagsLoaded();
     this.userService.ensureUsersLoaded();
-  }
-
-  onTagCreated(tag: Tag) {
-    this.allTags = [...this.allTags, tag];
   }
 
   visibleTags(project: Project) {

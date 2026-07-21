@@ -15,7 +15,8 @@ export type IconName =
   | 'menu'
   | 'settings'
   | 'building'
-  | 'draft';
+  | 'draft'
+  | 'bell';
 
 @Component({
   selector: 'app-icon',
@@ -120,6 +121,10 @@ export type IconName =
           <path d="M14 3v4a1 1 0 0 0 1 1h4" />
           <line x1="8" y1="13" x2="16" y2="13" />
           <line x1="8" y1="17" x2="13" y2="17" />
+        }
+        @case ('bell') {
+          <path d="M6 9a6 6 0 1 1 12 0c0 3.6 1 5.4 1.8 6.4a1 1 0 0 1-.8 1.6H5a1 1 0 0 1-.8-1.6C5 14.4 6 12.6 6 9z" />
+          <path d="M9.5 19a2.5 2.5 0 0 0 5 0" />
         }
       }
     </svg>

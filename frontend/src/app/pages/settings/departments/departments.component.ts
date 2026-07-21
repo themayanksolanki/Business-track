@@ -255,6 +255,11 @@ export class DepartmentsComponent implements OnInit {
         this.formLoading = false;
         this.closeForm();
         this.loadPage(this.currentPage);
+        // This page lists via its own paginated fetch, not the shared
+        // ensureDepartmentsLoaded() cache other pages' pickers read from —
+        // refresh that cache too so a create/rename here shows up elsewhere
+        // without those pages needing a full reload.
+        this.departmentService.refreshDepartments().subscribe();
         if (this.formMode === 'edit' && this.selectedId === this.editingId) this.reloadDetail();
       },
       error: (err) => {
@@ -287,6 +292,7 @@ export class DepartmentsComponent implements OnInit {
         }
         this.closeConfirm();
         this.loadPage(this.currentPage);
+        this.departmentService.refreshDepartments().subscribe();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to delete department';

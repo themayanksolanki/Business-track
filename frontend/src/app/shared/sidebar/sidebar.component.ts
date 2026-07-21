@@ -10,11 +10,12 @@ import {
   SidebarService,
 } from '../../core/services/sidebar.service';
 import { IconComponent } from '../icon/icon.component';
+import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, IconComponent],
+  imports: [RouterLink, RouterLinkActive, IconComponent, NotificationBellComponent],
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.css',
 })

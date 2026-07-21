@@ -4,6 +4,8 @@ import { User } from './user.model';
 export const ACCEPTED_ATTACHMENT_TYPES =
   'image/*,video/mp4,video/webm,video/quicktime,video/x-matroska,application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,.zip';
 
+export type AttachmentKind = 'file' | 'link';
+
 export interface Attachment {
   id: number;
   task?: number | null;
@@ -15,6 +17,9 @@ export interface Attachment {
   size: number;
   uploadedBy: User;
   createdAt: string;
+  // 'link' rows have no blob — url is a pasted external link, size is 0, and
+  // mimeType is guessed from the URL's extension (falls back to text/html).
+  kind?: AttachmentKind;
   // Set while a delete countdown is running; null/undefined once it's undone
   // or hasn't been requested. Source of truth is the server clock, not a
   // client-started timer, so it survives refresh/other tabs.

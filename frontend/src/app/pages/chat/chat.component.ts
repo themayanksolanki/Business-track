@@ -146,8 +146,6 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.me = this.auth.getUser();
-    const token = this.auth.getToken();
-    if (token) this.socketSvc.connect(token);
 
     this.chatSvc.getIceServers().subscribe({
       next: ({ iceServers }) => { this.iceServers = iceServers; },
@@ -159,7 +157,6 @@ export class ChatComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.subs.unsubscribe();
     this.cleanupCall();
-    this.socketSvc.disconnect();
   }
 
   @HostListener('document:click')

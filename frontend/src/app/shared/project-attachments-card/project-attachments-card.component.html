@@ -29,7 +29,7 @@
             }
           </button>
           <button class="subtask-del-btn" (click)="deleteAttachment(a)" title="Delete">
-            <i class="bi bi-x"></i>
+            <i class="bi bi-trash3"></i>
           </button>
         </li>
       }
@@ -37,10 +37,12 @@
   }
 
   @if (uploading) {
-    <div class="progress-bar progress-bar-striped progress-bar-animated mb-2"
-         role="progressbar" [style.width.%]="progress"
-         [attr.aria-valuenow]="progress" aria-valuemin="0" aria-valuemax="100">
-      {{ progress }}%
+    <div class="progress mb-2" style="height:1rem;">
+      <div class="progress-bar progress-bar-striped progress-bar-animated"
+           role="progressbar" [style.width.%]="progress"
+           [attr.aria-valuenow]="progress" aria-valuemin="0" aria-valuemax="100">
+        {{ progress }}%
+      </div>
     </div>
   }
 

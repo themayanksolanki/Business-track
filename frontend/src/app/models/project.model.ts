@@ -41,6 +41,10 @@ export interface ProjectDetailsLayoutEntry {
 export interface Project {
   id: number;
   sequenceId?: number | null;
+  // Already present on every API response (never stripped server-side) —
+  // typed here for the shareable-link feature, which needs org + sequenceId
+  // rather than the raw numeric id. See ProjectService.resolveSharedProject.
+  organizationId?: number | null;
   name: string;
   description: string;
   createdBy: User;
