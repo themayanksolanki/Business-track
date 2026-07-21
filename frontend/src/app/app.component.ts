@@ -28,9 +28,9 @@ export class AppComponent implements OnInit, OnDestroy {
     _theme: ThemeService,
   ) {
     effect(() => {
-      if (auth.currentUser()) {
-        chatSvc.fetchUnread();
-      }
+      // if (auth.currentUser()) {
+      //   chatSvc.fetchUnread();
+      // }
     });
   }
 
@@ -38,9 +38,9 @@ export class AppComponent implements OnInit, OnDestroy {
     this.routeSub = this.router.events
       .pipe(filter((e) => e instanceof NavigationEnd))
       .subscribe(() => {
-        if (this.auth.isLoggedIn()) {
-          this.chatSvc.fetchUnread();
-        }
+        // if (this.auth.isLoggedIn()) {
+        //   this.chatSvc.fetchUnread();
+        // }
       });
   }
 
