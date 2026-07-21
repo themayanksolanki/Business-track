@@ -41,7 +41,7 @@ export class AppComponent implements OnInit, OnDestroy {
       const user = auth.currentUser();
       const token = auth.getToken();
       if (user && token) {
-        chatSvc.fetchUnread();
+//         chatSvc.fetchUnread();
         notificationsFeedSvc.fetchRecent();
         socketSvc.connect(token);
       } else {
@@ -67,7 +67,7 @@ export class AppComponent implements OnInit, OnDestroy {
       .pipe(filter((e) => e instanceof NavigationEnd))
       .subscribe(() => {
         if (this.auth.isLoggedIn()) {
-          this.chatSvc.fetchUnread();
+//           this.chatSvc.fetchUnread();
           this.notificationsFeedSvc.fetchRecent();
         }
       });
