@@ -45,6 +45,13 @@
             <i class="bi bi-gear me-1"></i>Actions
           </button>
           <ul class="dropdown-menu status-dropdown shadow-sm">
+            @if (project.sequenceId) {
+              <li>
+                <a class="dropdown-item status-opt" (click)="copyProjectLink()">
+                  <i class="bi bi-link-45deg me-2"></i>Copy Project Link
+                </a>
+              </li>
+            }
             <li>
               <a class="dropdown-item status-opt text-danger" (click)="openDeleteConfirm()">
                 <i class="bi bi-trash3 me-2"></i>Delete Draft
@@ -309,7 +316,8 @@
                   (openDetail)="onOpenDetail($event)"
                   (toggleSelect)="onToggleSelect($event)"
                   (moveToGroupRequested)="openMoveToGroupForTask($event)"
-                  (deleted)="onNodeDeleted($event)">
+                  (deleted)="onNodeDeleted($event)"
+                  (copyTaskLinkRequested)="copyTaskLink($event)">
                 </app-project-tree-node>
               </div>
             }
