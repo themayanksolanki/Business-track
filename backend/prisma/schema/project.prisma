@@ -57,10 +57,11 @@ model Project {
   category       Category?     @relation(fields: [categoryId], references: [id])
   organization   Organization? @relation(fields: [organizationId], references: [id])
 
-  tags        Tag[]
-  members     ProjectMember[]
-  items       ProjectItem[]
-  attachments Attachment[]
+  tags          Tag[]
+  members       ProjectMember[]
+  items         ProjectItem[]
+  attachments   Attachment[]
+  notifications Notification[]
 
   @@index([organizationId])
   @@unique([organizationId, sequenceId])

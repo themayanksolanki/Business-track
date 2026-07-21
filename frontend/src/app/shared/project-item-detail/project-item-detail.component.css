@@ -438,7 +438,37 @@
 .attachment-download-btn:hover:not(:disabled) { background: #dbeafe; color: #1d4ed8; }
 .attachment-download-btn:disabled { opacity: 0.6; }
 
-.attachment-upload-row { display: flex; }
+.attachment-undo-btn { background: #f0fdf4; color: #16a34a; }
+.attachment-undo-btn:hover:not(:disabled) { background: #dcfce7; color: #15803d; }
+
+.attachment-item-pending { opacity: 0.75; }
+
+.attachment-name-pending { text-decoration: line-through; color: var(--text-muted); }
+
+.attachment-countdown {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ef4444;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.attachment-upload-row { display: flex; gap: 8px; }
+
+.add-link-row { display: flex; gap: 8px; margin-top: 8px; }
+
+.add-link-input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+.add-link-input:focus { outline: none; border-color: #7c3aed; }
 
 .attachment-upload-btn {
   display: inline-flex;
@@ -475,6 +505,31 @@
   padding: 0;
 }
 .subtask-del-btn:hover { background: #fee2e2; color: #dc2626; }
+
+/* ── @mention highlighting + suggestion dropdown ── */
+.mention-pill {
+  display: inline;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(124, 58, 237, 0.14);
+  color: #7c3aed;
+  font-weight: 600;
+}
+
+.mention-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+}
+
+.mention-suggestion-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.edit-comment-row { display: flex; gap: 6px; align-items: center; width: 100%; }
 
 /* ── Comment add row ── */
 .add-subtask-row { display: flex; gap: 6px; align-items: center; }
@@ -532,4 +587,12 @@
   margin-top: 3px;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.comment-highlight {
+  animation: comment-highlight-pulse 2s ease-out 1;
+}
+@keyframes comment-highlight-pulse {
+  0%, 40% { background: rgba(124, 58, 237, 0.18); border-color: #7c3aed; }
+  100% { background: var(--bg-card-alt); border-color: var(--border); }
 }

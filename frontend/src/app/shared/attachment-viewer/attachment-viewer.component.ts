@@ -11,7 +11,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Observable } from 'rxjs';
 import { Attachment, DownloadInfo } from '../../models/attachment.model';
 
-type AttachmentKind = 'image' | 'video' | 'pdf' | 'other';
+type AttachmentKind = 'image' | 'video' | 'pdf' | 'link' | 'other';
 type GestureMode = 'none' | 'swipe' | 'pan' | 'pinch';
 
 interface ViewerEntry {
@@ -87,6 +87,11 @@ export class AttachmentViewerComponent implements OnChanges {
     if (a.mimeType.startsWith('image/')) return 'image';
     if (a.mimeType.startsWith('video/')) return 'video';
     if (a.mimeType === 'application/pdf') return 'pdf';
+    // A pasted link whose extension isn't a recognized image/video/pdf (a
+    // plain page link) still gets a best-effort iframe embed — the template
+    // always pairs it with an "open in new tab" fallback since a site
+    // blocking framing (X-Frame-Options/CSP) can't be detected from here.
+    if (a.kind === 'link') return 'link';
     return 'other';
   }
 
@@ -144,7 +149,7 @@ export class AttachmentViewerComponent implements OnChanges {
     this.getFileInfo(a).subscribe({
       next: (info) => {
         const entry: ViewerEntry = { status: 'loaded', url: info.viewUrl };
-        if (this.kindOf(a) === 'pdf') {
+        if (this.kindOf(a) === 'pdf' || this.kindOf(a) === 'link') {
           entry.safeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(info.viewUrl);
         }
         this.entries.set(a.id, entry);

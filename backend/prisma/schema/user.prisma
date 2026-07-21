@@ -84,6 +84,8 @@ model User {
   sentMessages         Message[]       @relation("MessageSender")
   receivedMessages     Message[]       @relation("MessageReceiver")
   deletedMessagesFor   Message[]       @relation("MessageDeletedFor")
+  notifications        Notification[] @relation("NotificationRecipient")
+  triggeredNotifications Notification[] @relation("NotificationActor")
 
   @@unique([organizationId, sequenceId])
   @@map("users")

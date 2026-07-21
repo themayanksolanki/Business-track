@@ -2,7 +2,8 @@ import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
 import { destroyBlob, cloudinaryDownloadUrl } from '../utils/blobStorage.js';
 import { getS3DownloadUrl } from '../lib/s3.js';
-import { canAccessProject } from './projectController.js';
+import { canAccessProject, canEditProject } from './projectController.js';
+import { getTaskAccessLevel } from '../utils/access.js';
 
 // Relaying the file through this server (fetch from the provider, then
 // re-stream to the client) was timing out on real-world PDFs — a slow
@@ -19,6 +20,18 @@ import { canAccessProject } from './projectController.js';
 // (video seeking, a long-open PDF); the download URL is consumed immediately
 // via a single navigation, so it stays short-lived.
 const getAttachmentDownloadInfo = async (attachment) => {
+  // A pasted link has nothing to sign or proxy — it already points at
+  // wherever the user's browser can reach it, so view/download are the
+  // same URL untouched.
+  if (attachment.kind === 'link') {
+    return {
+      viewUrl: attachment.url,
+      downloadUrl: attachment.url,
+      mimeType: attachment.mimeType,
+      fileName: attachment.fileName,
+    };
+  }
+
   if (attachment.storage === 's3') {
     const [viewUrl, downloadUrl] = await Promise.all([
       getS3DownloadUrl({
@@ -49,6 +62,38 @@ const getAttachmentDownloadInfo = async (attachment) => {
 
 const UPLOADED_BY_SELECT = { id: true, username: true, email: true, role: true };
 const ACCESS_INCLUDE = { members: { select: { userId: true } } };
+const ACCESS_INCLUDE_WITH_ROLE = {
+  members: { select: { userId: true, role: { select: { canEdit: true } } } },
+};
+
+const LINK_EXTENSION_MIME_TYPES = {
+  pdf: 'application/pdf',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+  mp4: 'video/mp4',
+  webm: 'video/webm',
+  mov: 'video/quicktime',
+  mkv: 'video/x-matroska',
+};
+
+// Guessing from the extension lets a pasted PDF/image/video link reuse the
+// exact same preview branch (image/video/pdf) that an uploaded file gets in
+// the attachment viewer, instead of a link needing its own bespoke UI. A
+// generic page link (no recognized extension) falls back to 'text/html',
+// which the viewer treats as a best-effort iframe embed.
+const guessMimeTypeFromUrl = (url) => {
+  try {
+    const pathname = new URL(url).pathname;
+    const ext = pathname.split('.').pop()?.toLowerCase();
+    return (ext && LINK_EXTENSION_MIME_TYPES[ext]) || 'text/html';
+  } catch {
+    return 'text/html';
+  }
+};
 
 export const PENDING_DELETE_MS = 10_000;
 
@@ -71,6 +116,10 @@ export const permanentlyDeleteAttachment = async (attachment) => {
     await prisma.task
       .update({ where: { id: attachment.taskId }, data: { attachmentCount: { decrement: 1 } } })
       .catch(() => {});
+  } else if (attachment.projectItemId) {
+    await prisma.projectItem
+      .update({ where: { id: attachment.projectItemId }, data: { attachmentCount: { decrement: 1 } } })
+      .catch(() => {});
   }
 };
 
@@ -90,23 +139,16 @@ const purgeExpiredForTask = async (taskId) => {
   }
 };
 
-const getTeamMemberIds = async (teamLeadId) => {
-  const members = await prisma.user.findMany({ where: { teamLeadId, role: 'User' }, select: { id: true } });
-  return members.map((m) => m.id);
-};
-
-const canAccessTask = async (task, user) => {
-  if (task.organizationId !== user.organizationId) return false;
-  if (user.role === 'Admin' || user.role === 'Manager') return true;
-
-  if (user.role === 'Team Lead') {
-    const memberIds = await getTeamMemberIds(user.id);
-    const allowed = [user.id, ...memberIds];
-    return allowed.includes(task.assignedToId);
+const purgeExpiredForItem = async (projectItemId) => {
+  const expired = await prisma.attachment.findMany({
+    where: { projectItemId, pendingDeleteAt: { lte: new Date() } },
+  });
+  for (const attachment of expired) {
+    await permanentlyDeleteAttachment(attachment);
   }
-
-  return task.assignedToId === user.id || task.createdById === user.id;
 };
+
+const canAccessTask = async (task, user) => (await getTaskAccessLevel(task, user)) === 'edit';
 
 export const getAttachments = async (req, res, next) => {
   try {
@@ -253,6 +295,10 @@ export const getItemAttachments = async (req, res, next) => {
     if (!item) return next(new AppError('Item not found', 404));
     if (item.type === 'group') return next(new AppError('Groups do not support attachments', 400));
 
+    // Catch up any attachment whose countdown expired while nobody was
+    // looking (page closed, sweep hasn't ticked yet) before returning the list.
+    await purgeExpiredForItem(item.id);
+
     const attachments = await prisma.attachment.findMany({
       where: { projectItemId: item.id },
       include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
@@ -269,11 +315,13 @@ export const uploadItemAttachment = async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: Number(req.params.projectId) },
-      include: ACCESS_INCLUDE,
+      include: ACCESS_INCLUDE_WITH_ROLE,
     });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
+    if (!canEditProject(req.user, project))
+      return next(new AppError('You have view-only access to this project', 403));
 
     const item = await prisma.projectItem.findFirst({
       where: { id: Number(req.params.itemId), projectId: project.id },
@@ -307,6 +355,52 @@ export const uploadItemAttachment = async (req, res, next) => {
   }
 };
 
+export const addItemAttachmentLink = async (req, res, next) => {
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE_WITH_ROLE,
+    });
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+    if (!canEditProject(req.user, project))
+      return next(new AppError('You have view-only access to this project', 403));
+
+    const item = await prisma.projectItem.findFirst({
+      where: { id: Number(req.params.itemId), projectId: project.id },
+    });
+    if (!item) return next(new AppError('Item not found', 404));
+    if (item.type === 'group') return next(new AppError('Groups do not support attachments', 400));
+
+    const url = req.body.url.trim();
+    const fileName = (req.body.fileName || '').trim() || url;
+
+    const attachment = await prisma.$transaction(async (tx) => {
+      const created = await tx.attachment.create({
+        data: {
+          projectItemId: item.id,
+          fileName,
+          url,
+          publicId: null,
+          storage: 's3',
+          kind: 'link',
+          mimeType: guessMimeTypeFromUrl(url),
+          size: 0,
+          uploadedById: req.user.id,
+        },
+        include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
+      });
+      await tx.projectItem.update({ where: { id: item.id }, data: { attachmentCount: { increment: 1 } } });
+      return created;
+    });
+
+    res.status(201).json({ message: 'Link added', attachment });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const downloadItemAttachment = async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({
@@ -332,27 +426,64 @@ export const deleteItemAttachment = async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: Number(req.params.projectId) },
-      include: ACCESS_INCLUDE,
+      include: ACCESS_INCLUDE_WITH_ROLE,
     });
     if (!project) return next(new AppError('Project not found', 404));
     if (!(await canAccessProject(req.user, project)))
       return next(new AppError('You do not have access to this project', 403));
+    if (!canEditProject(req.user, project))
+      return next(new AppError('You have view-only access to this project', 403));
 
     const attachment = await prisma.attachment.findFirst({
       where: { id: Number(req.params.attachmentId), projectItemId: Number(req.params.itemId) },
     });
     if (!attachment) return next(new AppError('Attachment not found', 404));
 
-    await destroyBlob(attachment);
-    await prisma.$transaction([
-      prisma.attachment.delete({ where: { id: attachment.id } }),
-      prisma.projectItem.update({
-        where: { id: attachment.projectItemId },
-        data: { attachmentCount: { decrement: 1 } },
-      }),
-    ]);
+    // Already counting down — return its current state rather than resetting
+    // the clock, so a double-click doesn't grant extra time.
+    if (attachment.pendingDeleteAt && attachment.pendingDeleteAt > new Date()) {
+      return res.status(200).json({ message: 'Attachment already pending deletion', attachment });
+    }
 
-    res.status(200).json({ message: 'Attachment deleted' });
+    const updated = await prisma.attachment.update({
+      where: { id: attachment.id },
+      data: { pendingDeleteAt: new Date(Date.now() + PENDING_DELETE_MS) },
+      include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
+    });
+
+    res.status(200).json({ message: 'Attachment scheduled for deletion', attachment: updated });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const undoItemAttachment = async (req, res, next) => {
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE_WITH_ROLE,
+    });
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user, project)))
+      return next(new AppError('You do not have access to this project', 403));
+    if (!canEditProject(req.user, project))
+      return next(new AppError('You have view-only access to this project', 403));
+
+    const attachment = await prisma.attachment.findFirst({
+      where: { id: Number(req.params.attachmentId), projectItemId: Number(req.params.itemId) },
+    });
+    if (!attachment) return next(new AppError('Attachment not found', 404));
+
+    if (!attachment.pendingDeleteAt || attachment.pendingDeleteAt <= new Date())
+      return next(new AppError('Attachment is not pending deletion', 400));
+
+    const updated = await prisma.attachment.update({
+      where: { id: attachment.id },
+      data: { pendingDeleteAt: null },
+      include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
+    });
+
+    res.status(200).json({ message: 'Deletion undone', attachment: updated });
   } catch (err) {
     next(err);
   }

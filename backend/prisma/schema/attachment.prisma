@@ -7,6 +7,14 @@ enum StorageProvider {
   s3
 }
 
+// `file` rows have a blob in cloudinary/s3 (publicId set); `link` rows just
+// point at an external URL the user pasted in — no blob to store, download,
+// or destroy, so publicId stays null and destroyBlob() is naturally a no-op.
+enum AttachmentKind {
+  file
+  link
+}
+
 // Exactly one of task/projectItem/project must be set — enforced at the
 // application layer (mirrors the old Mongoose pre('validate') hook), since
 // Prisma's schema DSL has no arbitrary CHECK constraint syntax.
@@ -19,6 +27,7 @@ model Attachment {
   url           String
   publicId      String?
   storage       StorageProvider @default(cloudinary)
+  kind          AttachmentKind  @default(file)
   mimeType      String
   size          Int
   uploadedById  Int

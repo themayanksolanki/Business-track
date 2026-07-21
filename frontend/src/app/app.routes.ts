@@ -68,6 +68,15 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/projects/projects.component').then((m) => m.ProjectsComponent),
   },
   {
+    // Shareable "Copy Project Link" entry point — org + per-org sequence
+    // number, resolved by ProjectDetailComponent itself (redirects to the
+    // normal route below if the visitor turns out to have real access).
+    path: 'projects/shared/:organizationId/:sequenceId',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/project-detail/project-detail.component').then((m) => m.ProjectDetailComponent),
+  },
+  {
     path: 'projects/:id',
     canActivate: [authGuard],
     loadComponent: () =>

@@ -16,7 +16,7 @@ import {
   UpdateProjectItemPayload,
   ProjectItemSummary,
 } from '../../models/project-item.model';
-import { ProjectComment, CreateCommentPayload } from '../../models/comment.model';
+import { ProjectComment, CreateCommentPayload, UpdateCommentPayload } from '../../models/comment.model';
 import { ProjectMember } from '../../models/project.model';
 import { PaginatedUsers } from '../../models/user.model';
 import { Observable } from 'rxjs';
@@ -57,6 +57,21 @@ export class ProjectService {
 
   deleteProject(projectId: string) {
     return this.http.delete<{ message: string }>(`${this.api}/${projectId}`);
+  }
+
+  // Resolves the "Copy Project Link" reference (org + per-org sequence
+  // number, not the raw numeric id) — deliberately not gated the same way
+  // as getProjectById; see getSharedProject's comment in the backend
+  // controller. hasNormalAccess tells the caller whether to redirect to the
+  // fully-featured /projects/:id route instead of rendering read-only.
+  resolveSharedProject(organizationId: number, sequenceId: number) {
+    return this.http.get<{ project: Project; hasNormalAccess: boolean }>(
+      `${this.api}/shared/${organizationId}/${sequenceId}`
+    );
+  }
+
+  getSharedItems(organizationId: number, sequenceId: number) {
+    return this.http.get<ProjectItem[]>(`${this.api}/shared/${organizationId}/${sequenceId}/items`);
   }
 
   // Shared Details-tab card layout (order + resize) — its own endpoint since
@@ -147,6 +162,13 @@ export class ProjectService {
     );
   }
 
+  updateComment(projectId: string, itemId: number, commentId: number, payload: UpdateCommentPayload) {
+    return this.http.patch<{ message: string; comment: ProjectComment }>(
+      `${this.api}/${projectId}/items/${itemId}/comments/${commentId}`,
+      payload
+    );
+  }
+
   deleteComment(projectId: string, itemId: number, commentId: number) {
     return this.http.delete<{ message: string }>(
       `${this.api}/${projectId}/items/${itemId}/comments/${commentId}`
@@ -167,13 +189,28 @@ export class ProjectService {
     });
   }
 
+  addLinkAttachment(projectId: string, itemId: number, payload: { url: string; fileName?: string }) {
+    return this.http.post<{ message: string; attachment: Attachment }>(
+      `${this.api}/${projectId}/items/${itemId}/attachments/link`,
+      payload
+    );
+  }
+
   downloadAttachment(projectId: string, itemId: number, attachmentId: number) {
     return this.getFileInfo(`${this.api}/${projectId}/items/${itemId}/attachments/${attachmentId}/download`);
   }
 
+  // Starts the 10s server-side countdown; doesn't delete anything itself.
   deleteAttachment(projectId: string, itemId: number, attachmentId: number) {
-    return this.http.delete<{ message: string }>(
+    return this.http.delete<{ message: string; attachment: Attachment }>(
       `${this.api}/${projectId}/items/${itemId}/attachments/${attachmentId}`
+    );
+  }
+
+  undoDeleteAttachment(projectId: string, itemId: number, attachmentId: number) {
+    return this.http.post<{ message: string; attachment: Attachment }>(
+      `${this.api}/${projectId}/items/${itemId}/attachments/${attachmentId}/undo`,
+      {}
     );
   }
 

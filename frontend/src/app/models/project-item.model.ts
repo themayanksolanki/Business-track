@@ -50,6 +50,10 @@ export interface UpdateProjectItemPayload {
   startDate?: string | null;
   endDate?: string | null;
   tags?: number[];
+  // {userId, username} pairs currently @mentioned in `description` — the
+  // backend diffs this against the item's previously-stored list and only
+  // notifies newly-added mentions.
+  mentions?: { userId: number; username: string }[];
 }
 
 // Frontend-only: recursive tree built client-side from the flat ProjectItem[] response.

@@ -23,13 +23,25 @@ const onlineUsers  = new Map(); // userId  → Set<socketId>
 const activeCalls  = new Map(); // callId  → { caller, callee, callType, state }
 const callStartTimes = new Map(); // callId → Date.now() when state became 'active'
 
+// Set once setupSocket() runs; other modules (notification triggers in
+// controllers) import emitToUser rather than reaching into this directly.
+let io;
+
+// Fans an event out to every socket a user currently has open (multiple
+// tabs/devices all get it) — a no-op if the user isn't connected, since the
+// caller (e.g. a notification trigger) always persists first regardless.
+export const emitToUser = (userId, event, data) => {
+  const sockets = onlineUsers.get(String(userId));
+  if (sockets) sockets.forEach((sid) => io.to(sid).emit(event, data));
+};
+
 export function setupSocket(server) {
   const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:4200')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  const io = new Server(server, {
+  io = new Server(server, {
     cors: {
       origin: (origin, cb) => {
         if (!origin || allowedOrigins.includes(origin)) {
@@ -53,11 +65,6 @@ export function setupSocket(server) {
       next(new Error('Unauthorized'));
     }
   });
-
-  const emitToUser = (userId, event, data) => {
-    const sockets = onlineUsers.get(String(userId));
-    if (sockets) sockets.forEach((sid) => io.to(sid).emit(event, data));
-  };
 
   // Save a call record and push it to both parties via socket
   const saveCallRecord = async (session, callId, status) => {

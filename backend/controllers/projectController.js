@@ -4,6 +4,7 @@ import { destroyBlob, cloudinaryDownloadUrl } from '../utils/blobStorage.js';
 import { getS3DownloadUrl } from '../lib/s3.js';
 import { getAccessibleDepartmentIds, canAccessDepartment } from '../utils/access.js';
 import { nextSequenceId } from '../utils/sequence.js';
+import { notifyUser, notifyUsers } from '../utils/notifications.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
 
@@ -17,7 +18,7 @@ const PROJECT_INCLUDE = {
   members: {
     include: {
       user: { select: USER_SELECT },
-      role: { select: { id: true, title: true, description: true, isDefault: true, rank: true } },
+      role: { select: { id: true, title: true, description: true, isDefault: true, rank: true, canEdit: true } },
     },
   },
 };
@@ -27,6 +28,14 @@ const PROJECT_INCLUDE = {
 // scalar FK columns, so there's no reason to join user/role/tags/etc. just
 // to check permissions.
 const ACCESS_INCLUDE = { members: { select: { userId: true } } };
+
+// Like ACCESS_INCLUDE, but also pulls each member's role.canEdit — needed by
+// canEditProject (below) to tell an edit-capable member from a view-only one.
+// Kept separate from ACCESS_INCLUDE so read-only endpoints that never call
+// canEditProject don't pay for the extra join.
+const ACCESS_INCLUDE_WITH_ROLE = {
+  members: { select: { userId: true, role: { select: { canEdit: true } } } },
+};
 
 // The plan is flattened onto the Project row (see schema.prisma) since files
 // now live on Cloudinary instead of GridFS — reassemble it into the nested
@@ -76,6 +85,27 @@ export const canManageProjectSettings = (user, project) =>
   user.role === 'Manager' ||
   project.createdById === user.id ||
   project.ownerId === user.id;
+
+// Refines "can this user touch this project" (canAccessProject having
+// already passed) into edit-vs-view. Admin/creator/owner/department-based
+// access stay full-edit, unchanged; only an explicit ProjectMember whose
+// assigned role has canEdit:false (e.g. the default "Viewer" role) is
+// downgraded to view-only. Requires project.members to include
+// role.canEdit (see ACCESS_INCLUDE_WITH_ROLE) — a future share-link grant
+// (a non-member, external viewer) is meant to be added here as one more
+// branch returning false, so every call site stays untouched when that lands.
+export const canEditProject = (user, project) => {
+  // A cross-org visitor only ever reaches this via the shared-link view
+  // (see getSharedProject) — that surface is deliberately read-only, so
+  // force it regardless of role/membership. Every real mutating endpoint
+  // already rejects cross-org callers earlier via canAccessProject, so this
+  // is defense-in-depth rather than the only thing standing in the way.
+  if (user.organizationId !== project.organizationId) return false;
+  if (user.role === 'Admin') return true;
+  const membership = project.members.find((m) => m.userId === user.id);
+  if (membership) return membership.role?.canEdit !== false;
+  return true;
+};
 
 // Narrower than canManageProjectSettings (which also lets Managers and
 // non-creator owners through) — approving a draft into a real project is
@@ -171,6 +201,15 @@ export const createProject = async (req, res, next) => {
       });
     });
 
+    if (project.ownerId) {
+      await notifyUser(project.ownerId, req.user.id, {
+        type: 'projectAssigned',
+        title: 'Assigned to a project',
+        message: `${req.user.username} assigned you to "${project.name}"`,
+        projectId: project.id,
+      });
+    }
+
     res.status(201).json({ message: 'Project created', project: shapeProject(project) });
   } catch (err) {
     next(err);
@@ -189,6 +228,32 @@ export const getProjectById = async (req, res, next) => {
       return next(new AppError('You do not have access to this project', 403));
 
     res.status(200).json(shapeProject(project));
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Resolves a project by its shareable reference (org + per-org sequence
+// number, never the raw numeric id) for the "Copy Project Link" feature.
+// Deliberately does NOT gate on canAccessProject — anyone logged into the
+// app (any organization, member or not) can view a project they have the
+// link to. This has no write counterpart, so there's no privilege-
+// escalation surface to worry about; `hasNormalAccess` just tells the
+// frontend whether to redirect to the fully-featured /projects/:id route
+// (real member/org access) instead of rendering the reduced read-only view.
+export const getSharedProject = async (req, res, next) => {
+  try {
+    const organizationId = Number(req.params.organizationId);
+    const sequenceId = Number(req.params.sequenceId);
+    const project = await prisma.project.findFirst({
+      where: { organizationId, sequenceId },
+      include: PROJECT_INCLUDE,
+    });
+    if (!project) return next(new AppError('Project not found', 404));
+
+    const hasNormalAccess = await canAccessProject(req.user, project);
+
+    res.status(200).json({ project: shapeProject(project), hasNormalAccess });
   } catch (err) {
     next(err);
   }
@@ -264,11 +329,46 @@ export const updateProject = async (req, res, next) => {
       data.startDate = new Date();
     }
 
+    const isDraftConversion = project.status === 'draft' && status === 'active';
+    const ownerChanged = owner !== undefined && data.ownerId !== project.ownerId;
+
     const updated = await prisma.project.update({
       where: { id: project.id },
       data,
       include: PROJECT_INCLUDE,
     });
+
+    if (ownerChanged && data.ownerId) {
+      await notifyUser(data.ownerId, req.user.id, {
+        type: 'projectAssigned',
+        title: 'Assigned to a project',
+        message: `${req.user.username} assigned you to "${updated.name}"`,
+        projectId: updated.id,
+      });
+    }
+
+    if (isDraftConversion) {
+      const admins = await prisma.user.findMany({
+        where: { organizationId: req.user.organizationId, role: 'Admin' },
+        select: { id: true },
+      });
+      await notifyUsers([updated.createdById, ...admins.map((a) => a.id)], req.user.id, {
+        type: 'draftConverted',
+        title: 'Draft approved',
+        message: `${req.user.username} approved "${updated.name}" — it's now an active project`,
+        projectId: updated.id,
+      });
+    } else {
+      // A more specific notification (projectAssigned/draftConverted) already
+      // covers the ownership/approval cases above — this is the general
+      // "something about this project changed" ping for everyone else.
+      await notifyUsers(updated.members.map((m) => m.userId), req.user.id, {
+        type: 'projectUpdated',
+        title: 'Project updated',
+        message: `${req.user.username} updated "${updated.name}"`,
+        projectId: updated.id,
+      });
+    }
 
     res.status(200).json({ message: 'Project updated', project: shapeProject(updated) });
   } catch (err) {

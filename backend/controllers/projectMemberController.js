@@ -1,9 +1,10 @@
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
 import { canAccessProject, canManageProjectSettings } from './projectController.js';
+import { notifyUser } from '../utils/notifications.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
-const ROLE_SELECT = { id: true, title: true, description: true, isDefault: true, rank: true };
+const ROLE_SELECT = { id: true, title: true, description: true, isDefault: true, rank: true, canEdit: true };
 const MEMBER_INCLUDE = { user: { select: USER_SELECT }, role: { select: ROLE_SELECT } };
 
 // Backs the "Add Member" dropdown: paginated, searchable, org-scoped, and
@@ -113,6 +114,13 @@ export const addMember = async (req, res, next) => {
       where: { projectId: project.id },
       include: MEMBER_INCLUDE,
       orderBy: { addedAt: 'asc' },
+    });
+
+    await notifyUser(userId, req.user.id, {
+      type: 'projectMemberAdded',
+      title: 'Added to a project',
+      message: `${req.user.username} added you to "${project.name}"`,
+      projectId: project.id,
     });
 
     res.status(201).json({ message: 'Member added', members });

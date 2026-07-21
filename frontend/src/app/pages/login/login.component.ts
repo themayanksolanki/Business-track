@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
@@ -16,7 +16,12 @@ export class LoginComponent {
   loading = false;
   showPassword = false;
 
-  constructor(private fb: FormBuilder, private auth: AuthService, private router: Router) {
+  constructor(
+    private fb: FormBuilder,
+    private auth: AuthService,
+    private router: Router,
+    private route: ActivatedRoute,
+  ) {
     this.form = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', Validators.required],
@@ -29,8 +34,11 @@ export class LoginComponent {
     this.error = '';
 
     const { email, password } = this.form.value;
+    // e.g. a shared project link (authGuard attaches this before bouncing an
+    // unauthenticated visitor here) — land them back where they meant to go.
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
     this.auth.login(email, password).subscribe({
-      next: () => this.router.navigate(['/dashboard']),
+      next: () => this.router.navigateByUrl(returnUrl || '/dashboard'),
       error: (err) => {
         this.error = err.error?.message || 'Login failed';
         this.loading = false;

@@ -69,7 +69,7 @@ export class TagsComponent implements OnInit {
   loadTags() {
     this.loading = true;
     this.error = '';
-    this.tagService.getTags().subscribe({
+    this.tagService.refreshTags().subscribe({
       next: (res) => {
         this.tags = res;
         this.loading = false;

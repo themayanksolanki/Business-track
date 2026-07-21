@@ -37,7 +37,9 @@ export class OrganizationComponent implements OnInit {
   invites: Invite[] = [];
   invitesLoading = false;
 
-  departments: Department[] = [];
+  get departments(): Department[] {
+    return this.departmentService.departments();
+  }
 
   editingOrg = false;
   orgName = '';
@@ -69,7 +71,7 @@ export class OrganizationComponent implements OnInit {
     this.loadOrganization();
     this.loadMembers();
     this.loadInvites();
-    this.departmentService.getDepartments().subscribe({ next: (d) => (this.departments = d) });
+    this.departmentService.ensureDepartmentsLoaded();
   }
 
   loadOrganization() {

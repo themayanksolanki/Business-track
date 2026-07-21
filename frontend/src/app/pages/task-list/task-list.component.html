@@ -209,8 +209,7 @@
   [loading]="createLoading"
   [error]="createError"
   (closed)="closeCreate()"
-  (submitted)="submitCreate($event)"
-  (tagCreated)="onTagCreated($event)">
+  (submitted)="submitCreate($event)">
 </app-task-form-modal>
 
 <app-task-detail-modal
@@ -234,8 +233,7 @@
   [loading]="editLoading"
   [error]="editError"
   (closed)="closeEdit()"
-  (submitted)="submitEdit($event)"
-  (tagCreated)="onTagCreated($event)">
+  (submitted)="submitEdit($event)">
 </app-task-edit-modal>
 
 <app-task-attachments-modal

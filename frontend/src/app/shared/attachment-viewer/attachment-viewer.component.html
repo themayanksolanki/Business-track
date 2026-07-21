@@ -6,8 +6,8 @@
         <span class="av-position">{{ activeIndex + 1 }} of {{ attachments.length }}</span>
       </div>
       <div class="av-actions">
-        <button type="button" class="av-icon-btn" (click)="downloadCurrent()" title="Download">
-          <i class="bi bi-download"></i>
+        <button type="button" class="av-icon-btn" (click)="downloadCurrent()" [title]="current.kind === 'link' ? 'Open' : 'Download'">
+          <i class="bi" [class.bi-download]="current.kind !== 'link'" [class.bi-box-arrow-up-right]="current.kind === 'link'"></i>
         </button>
         <button type="button" class="av-icon-btn" (click)="close()" title="Close">
           <i class="bi bi-x-lg"></i>
@@ -73,6 +73,27 @@
                       <div class="av-error-actions">
                         <button type="button" class="btn btn-sm btn-light" (click)="retry(a)">Retry</button>
                         <button type="button" class="btn btn-sm btn-primary" (click)="download.emit(a)">Download</button>
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="av-loading"><span class="spinner-border text-light"></span></div>
+                  }
+                }
+                @case ('link') {
+                  @if (entryFor(a)?.status === 'loaded') {
+                    <div class="av-link-wrap">
+                      <iframe [src]="entryFor(a)!.safeUrl" class="av-pdf" title="{{ a.fileName }}"></iframe>
+                      <a class="av-link-fallback" [href]="a.url" target="_blank" rel="noopener noreferrer">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>Site not showing? Open in a new tab
+                      </a>
+                    </div>
+                  } @else if (entryFor(a)?.status === 'error') {
+                    <div class="av-error">
+                      <i class="bi bi-exclamation-triangle"></i>
+                      <p>{{ entryFor(a)?.error }}</p>
+                      <div class="av-error-actions">
+                        <button type="button" class="btn btn-sm btn-light" (click)="retry(a)">Retry</button>
+                        <button type="button" class="btn btn-sm btn-primary" (click)="download.emit(a)">Open Link</button>
                       </div>
                     </div>
                   } @else {

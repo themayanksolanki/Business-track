@@ -47,3 +47,30 @@ export const getAccessibleDepartmentIds = async (user) => {
 
 export const canAccessDepartment = (accessibleIds, departmentId) =>
   accessibleIds === null || accessibleIds.includes(Number(departmentId));
+
+// A Team Lead's direct reports — used both to scope which existing tasks
+// they can reach (getTaskAccessLevel below) and to validate who they're
+// allowed to assign a new/reassigned task to (taskController.js).
+export const getTeamMemberIds = async (teamLeadId) => {
+  const members = await prisma.user.findMany({ where: { teamLeadId, role: 'User' }, select: { id: true } });
+  return members.map((m) => m.id);
+};
+
+// Centralizes Task's access predicate (previously duplicated identically
+// across taskController.js's getTaskById/updateTask and attachmentController
+// .js's canAccessTask) so a future share-link/task-sharing feature only
+// needs one more branch here (returning 'view') instead of touching every
+// call site again. Currently only ever returns 'edit' or null — there's no
+// task-level view-only grant yet, since Task has no membership/role concept.
+export const getTaskAccessLevel = async (task, user) => {
+  if (task.organizationId !== user.organizationId) return null;
+  if (user.role === 'Admin' || user.role === 'Manager') return 'edit';
+
+  if (user.role === 'Team Lead') {
+    const memberIds = await getTeamMemberIds(user.id);
+    const allowed = [user.id, ...memberIds];
+    return allowed.includes(task.assignedToId) ? 'edit' : null;
+  }
+
+  return task.assignedToId === user.id || task.createdById === user.id ? 'edit' : null;
+};

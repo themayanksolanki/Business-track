@@ -5,6 +5,11 @@ model ProjectRole {
   description    String   @default("")
   rank           Int      @default(0)
   isDefault      Boolean  @default(false)
+  // Whether a member holding this role can edit (vs. only view) the
+  // projects they're on — see canEditProject in projectController.js.
+  // Defaults true so existing/custom roles aren't silently downgraded;
+  // only the seeded "Viewer" default role is created with this false.
+  canEdit        Boolean  @default(true)
   organizationId Int?
   createdById    Int
   updatedById    Int?

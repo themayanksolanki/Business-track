@@ -32,8 +32,9 @@ model Task {
   subtasks     Task[]        @relation("TaskHierarchy")
   organization Organization? @relation(fields: [organizationId], references: [id])
 
-  tags        Tag[]
-  attachments Attachment[]
+  tags          Tag[]
+  attachments   Attachment[]
+  notifications Notification[]
 
   @@index([organizationId])
   @@unique([organizationId, sequenceId])

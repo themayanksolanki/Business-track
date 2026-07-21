@@ -13,6 +13,7 @@ import {
   validateItemId,
   validateCommentId,
   validateAttachmentId,
+  validateAttachmentLink,
   validateAddMember,
   validateUpdateMemberRole,
   validateMemberId,
@@ -22,6 +23,7 @@ import {
   getProjects,
   createProject,
   getProjectById,
+  getSharedProject,
   updateProject,
   updateProjectDetailsLayout,
   deleteProject,
@@ -32,6 +34,7 @@ import {
 import {
   getItems,
   getItemsSummary,
+  getSharedProjectItems,
   createItem,
   getItemById,
   updateItem,
@@ -45,6 +48,7 @@ import {
 import {
   getComments,
   createComment,
+  updateComment,
   deleteComment,
 } from '../controllers/projectCommentController.js';
 import {
@@ -57,8 +61,10 @@ import {
 import {
   getItemAttachments,
   uploadItemAttachment,
+  addItemAttachmentLink,
   downloadItemAttachment,
   deleteItemAttachment,
+  undoItemAttachment,
   getProjectAttachments,
   uploadProjectAttachment,
   downloadProjectAttachment,
@@ -70,6 +76,15 @@ const router = Router();
 router.get('/', protect, getProjects);
 router.post('/', protect, validateProject, createProject);
 router.get('/:projectId', protect, validateProjectId, getProjectById);
+
+// Shareable "Copy Project Link" surface — resolved by org + per-org sequence
+// number (never the raw numeric id), deliberately read-only (no write routes
+// live under /shared) so any logged-in user, regardless of organization or
+// membership, can view a project they were given the link to. See
+// getSharedProject's own comment in projectController.js for why this is
+// kept separate from the normal /:projectId surface instead of relaxing it.
+router.get('/shared/:organizationId/:sequenceId', protect, getSharedProject);
+router.get('/shared/:organizationId/:sequenceId/items', protect, getSharedProjectItems);
 router.put('/:projectId', protect, validateProjectId, validateProject, updateProject);
 router.patch(
   '/:projectId/details-layout',
@@ -180,6 +195,15 @@ router.post(
   validateComment,
   createComment
 );
+router.patch(
+  '/:projectId/items/:itemId/comments/:commentId',
+  protect,
+  validateProjectId,
+  validateItemId,
+  validateCommentId,
+  validateComment,
+  updateComment
+);
 router.delete(
   '/:projectId/items/:itemId/comments/:commentId',
   protect,
@@ -204,6 +228,14 @@ router.post(
   attachmentUpload,
   uploadItemAttachment
 );
+router.post(
+  '/:projectId/items/:itemId/attachments/link',
+  protect,
+  validateProjectId,
+  validateItemId,
+  validateAttachmentLink,
+  addItemAttachmentLink
+);
 router.get(
   '/:projectId/items/:itemId/attachments/:attachmentId/download',
   protect,
@@ -219,6 +251,14 @@ router.delete(
   validateItemId,
   validateAttachmentId,
   deleteItemAttachment
+);
+router.post(
+  '/:projectId/items/:itemId/attachments/:attachmentId/undo',
+  protect,
+  validateProjectId,
+  validateItemId,
+  validateAttachmentId,
+  undoItemAttachment
 );
 
 export default router;

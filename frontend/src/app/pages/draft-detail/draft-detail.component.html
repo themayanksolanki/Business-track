@@ -172,8 +172,7 @@
         <app-tag-picker
           [allTags]="allTags"
           [selectedTags]="project.tags"
-          (tagsChange)="selectTags($event)"
-          (tagCreated)="onTagCreated($event)">
+          (tagsChange)="selectTags($event)">
         </app-tag-picker>
       </div>
 
@@ -453,8 +452,7 @@
   [readOnly]="true"
   (closed)="closeDetail()"
   (saved)="onItemSaved($event)"
-  (breadcrumbNavigate)="onOpenDetail($event)"
-  (tagCreated)="onTagCreated($event)">
+  (breadcrumbNavigate)="onOpenDetail($event)">
 </app-project-item-detail>
 
 <app-confirm-dialog

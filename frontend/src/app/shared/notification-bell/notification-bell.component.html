@@ -1,0 +1,44 @@
+<div class="nav-item-group dropdown">
+  <a
+    href="javascript:void(0)"
+    class="nav-item"
+    data-bs-toggle="dropdown"
+    [title]="showLabel ? '' : 'Notifications'"
+  >
+    <span class="nav-icon">
+      <app-icon name="bell" [size]="18" />
+      @if (svc.unreadCount() > 0) {
+        <span class="nav-badge">{{ svc.unreadCount() > 99 ? '99+' : svc.unreadCount() }}</span>
+      }
+    </span>
+    @if (showLabel) {
+      <span class="nav-label">Notifications</span>
+    }
+  </a>
+
+  <div class="dropdown-menu notification-panel shadow-sm">
+    <div class="notification-panel-header">
+      <span class="notification-panel-title">Notifications</span>
+      @if (svc.unreadCount() > 0) {
+        <button type="button" class="notification-mark-all" (click)="markAllAsRead()">Mark all as read</button>
+      }
+    </div>
+
+    <div class="notification-panel-body">
+      @if (svc.notifications().length === 0) {
+        <p class="notification-empty">No notifications yet.</p>
+      } @else {
+        @for (n of svc.notifications(); track n.id) {
+          <button type="button" class="dropdown-item notification-item" [class.unread]="!n.isRead" (click)="open(n)">
+            <span class="notification-dot" [class.visible]="!n.isRead"></span>
+            <span class="notification-item-body">
+              <span class="notification-item-title">{{ n.title }}</span>
+              <span class="notification-item-message">{{ n.message }}</span>
+              <span class="notification-item-time">{{ timeAgo(n.createdAt) }}</span>
+            </span>
+          </button>
+        }
+      }
+    </div>
+  </div>
+</div>
