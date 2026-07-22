@@ -6,12 +6,12 @@
       <div class="brand-logo mb-4">
         <i class="bi bi-check2-square"></i>
       </div>
-      <h1 class="brand-name">TaskFlow</h1>
-      <p class="brand-tagline">Join your team and start managing tasks together.</p>
+      <h1 class="brand-name">Business Tracker</h1>
+      <p class="brand-tagline">Set up your organization and start managing work as a team.</p>
       <ul class="feature-list mt-5">
-        <li><i class="bi bi-person-check-fill"></i> Role-based access for every member</li>
-        <li><i class="bi bi-shield-check-fill"></i> Accounts activated by your manager</li>
-        <li><i class="bi bi-bell-fill"></i> Stay on top of your assignments</li>
+        <li><i class="bi bi-building"></i> Organize projects across departments</li>
+        <li><i class="bi bi-person-check-fill"></i> Invite your team once you're set up</li>
+        <li><i class="bi bi-shield-check-fill"></i> Role-based access for every member</li>
       </ul>
     </div>
   </div>
@@ -23,223 +23,88 @@
       <!-- Mobile logo -->
       <div class="d-flex d-lg-none align-items-center gap-2 mb-4">
         <span class="mobile-logo"><i class="bi bi-check2-square"></i></span>
-        <span class="mobile-brand">TaskFlow</span>
+        <span class="mobile-brand">Business Tracker</span>
       </div>
 
-      @if (successMessage) {
-        <div class="success-state text-center">
-          <div class="success-icon mb-3">
-            <i class="bi bi-envelope-check-fill"></i>
-          </div>
-          <h3 class="fw-bold mb-2" style="color:#0f172a">You're almost in!</h3>
-          <p class="text-muted mb-4">{{ successMessage }}</p>
-          <a routerLink="/login" class="btn btn-primary submit-btn px-5">Go to Login</a>
-        </div>
-      } @else {
+      <h2 class="form-title">Create your organization</h2>
+      <p class="form-subtitle">Set up your workspace to get started</p>
 
-        <h2 class="form-title">Create account</h2>
-        <p class="form-subtitle">Fill in your details to get started</p>
-
-        <div class="mode-switcher mb-4">
-          <button type="button" class="mode-btn" [class.mode-btn-active]="mode === 'individual'"
-                  (click)="setMode('individual')">
-            <i class="bi bi-person-fill me-1"></i>Individual
-          </button>
-          <button type="button" class="mode-btn" [class.mode-btn-active]="mode === 'business'"
-                  (click)="setMode('business')">
-            <i class="bi bi-building me-1"></i>Business Owner
-          </button>
-        </div>
-
-        @if (error) {
-          <div class="alert alert-danger py-2 mb-4 small">{{ error }}</div>
-        }
-
-        @if (mode === 'individual') {
-        <form [formGroup]="form" (ngSubmit)="submit()">
-
-          <div class="mb-4">
-            <label class="field-label">Username</label>
-            <div class="input-icon-wrap">
-              <i class="bi bi-person"></i>
-              <input type="text" class="form-control field-input"
-                     formControlName="username" placeholder="Your display name" />
-            </div>
-            @if (form.get('username')?.touched && form.get('username')?.invalid) {
-              <div class="field-error">Username is required</div>
-            }
-          </div>
-
-          <div class="mb-4">
-            <label class="field-label">Email address</label>
-            <div class="input-icon-wrap">
-              <i class="bi bi-envelope"></i>
-              <input type="email" class="form-control field-input"
-                     formControlName="email" placeholder="you@example.com" />
-            </div>
-            @if (form.get('email')?.touched && form.get('email')?.invalid) {
-              <div class="field-error">Valid email is required</div>
-            }
-          </div>
-
-          <div class="mb-4">
-            <label class="field-label">Password</label>
-            <div class="input-icon-wrap">
-              <i class="bi bi-lock"></i>
-              <input type="password" class="form-control field-input"
-                     formControlName="password" placeholder="Min 6 characters" />
-            </div>
-            @if (form.get('password')?.touched && form.get('password')?.invalid) {
-              <div class="field-error">Password must be at least 6 characters</div>
-            }
-          </div>
-
-          <div class="mb-4">
-            <label class="field-label">Role</label>
-            <div class="role-grid">
-              <div class="role-card" [class.role-card-active]="selectedRole === 'Manager'"
-                   (click)="selectRole('Manager')">
-                <i class="bi bi-briefcase-fill role-icon role-icon-manager"></i>
-                <span class="role-card-label">Manager</span>
-              </div>
-              <div class="role-card" [class.role-card-active]="selectedRole === 'Team Lead'"
-                   (click)="selectRole('Team Lead')">
-                <i class="bi bi-diagram-3-fill role-icon role-icon-lead"></i>
-                <span class="role-card-label">Team Lead</span>
-              </div>
-              <div class="role-card" [class.role-card-active]="selectedRole === 'User'"
-                   (click)="selectRole('User')">
-                <i class="bi bi-person-fill role-icon role-icon-employee"></i>
-                <span class="role-card-label">User</span>
-              </div>
-            </div>
-          </div>
-
-          @if (showReferenceEmail) {
-            <div class="mb-4">
-              <label class="field-label">{{ referenceLabel }}</label>
-              <div class="input-icon-wrap">
-                <i class="bi bi-person-badge"></i>
-                <input type="email" class="form-control field-input"
-                       formControlName="referenceEmail"
-                       [placeholder]="'Enter ' + referenceLabel.toLowerCase()" />
-              </div>
-              @if (form.get('referenceEmail')?.touched && form.get('referenceEmail')?.invalid) {
-                <div class="field-error">Enter a valid email address</div>
-              }
-              <div class="field-hint">Your account will be inactive until activated by this person.</div>
-            </div>
-          }
-
-          <button type="submit" class="btn btn-primary submit-btn w-100" [disabled]="loading">
-            @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
-            {{ loading ? 'Creating account...' : 'Create Account' }}
-          </button>
-        </form>
-        } @else {
-        <form [formGroup]="businessForm" (ngSubmit)="submit()">
-
-          <div class="mb-4">
-            <label class="field-label">Your name</label>
-            <div class="input-icon-wrap">
-              <i class="bi bi-person"></i>
-              <input type="text" class="form-control field-input"
-                     formControlName="username" placeholder="Your display name" />
-            </div>
-            @if (businessForm.get('username')?.touched && businessForm.get('username')?.invalid) {
-              <div class="field-error">Username is required</div>
-            }
-          </div>
-
-          <div class="mb-4">
-            <label class="field-label">Your work email</label>
-            <div class="input-icon-wrap">
-              <i class="bi bi-envelope"></i>
-              <input type="email" class="form-control field-input"
-                     formControlName="email" placeholder="you@yourcompany.com" />
-            </div>
-            @if (businessForm.get('email')?.touched && businessForm.get('email')?.invalid) {
-              <div class="field-error">Valid email is required</div>
-            }
-            <div class="field-hint">Must match your organization's email domain below.</div>
-          </div>
-
-          <div class="mb-4">
-            <label class="field-label">Password</label>
-            <div class="input-icon-wrap">
-              <i class="bi bi-lock"></i>
-              <input type="password" class="form-control field-input"
-                     formControlName="password" placeholder="Min 6 characters" />
-            </div>
-            @if (businessForm.get('password')?.touched && businessForm.get('password')?.invalid) {
-              <div class="field-error">Password must be at least 6 characters</div>
-            }
-          </div>
-
-          <div class="mb-4">
-            <label class="field-label">Organization name</label>
-            <div class="input-icon-wrap">
-              <i class="bi bi-building"></i>
-              <input type="text" class="form-control field-input"
-                     formControlName="organizationName" placeholder="Acme Inc." />
-            </div>
-            @if (businessForm.get('organizationName')?.touched && businessForm.get('organizationName')?.invalid) {
-              <div class="field-error">Organization name is required</div>
-            }
-          </div>
-
-          <div class="mb-4">
-            <label class="field-label">Organization email domain</label>
-            <div class="input-icon-wrap">
-              <i class="bi bi-globe"></i>
-              <input type="text" class="form-control field-input"
-                     formControlName="emailDomain" placeholder="yourcompany.com" />
-            </div>
-            @if (businessForm.get('emailDomain')?.touched && businessForm.get('emailDomain')?.invalid) {
-              <div class="field-error">Email domain is required</div>
-            }
-          </div>
-
-          <div class="mb-4">
-            <label class="field-label">Manager email <span class="text-muted fw-normal">(optional)</span></label>
-            <div class="input-icon-wrap">
-              <i class="bi bi-person-badge"></i>
-              <input type="email" class="form-control field-input"
-                     formControlName="managerEmail" placeholder="manager@yourcompany.com" />
-            </div>
-            @if (businessForm.get('managerEmail')?.touched && businessForm.get('managerEmail')?.invalid) {
-              <div class="field-error">Manager email must be a valid email address</div>
-            }
-            <div class="field-hint">They'll be able to join as a Manager once they register with this email.</div>
-          </div>
-
-          <div class="mb-4">
-            <label class="field-label">Team Lead email <span class="text-muted fw-normal">(optional)</span></label>
-            <div class="input-icon-wrap">
-              <i class="bi bi-person-badge"></i>
-              <input type="email" class="form-control field-input"
-                     formControlName="teamLeadEmail" placeholder="teamlead@yourcompany.com" />
-            </div>
-            @if (businessForm.get('teamLeadEmail')?.touched && businessForm.get('teamLeadEmail')?.invalid) {
-              <div class="field-error">Team Lead email must be a valid email address</div>
-            } @else if (managerTeamLeadSame) {
-              <div class="field-error">Manager and Team Lead cannot be the same email</div>
-            }
-            <div class="field-hint">They'll be able to join as a Team Lead once they register with this email.</div>
-          </div>
-
-          <button type="submit" class="btn btn-primary submit-btn w-100" [disabled]="loading || managerTeamLeadSame">
-            @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
-            {{ loading ? 'Creating organization...' : 'Create Organization' }}
-          </button>
-        </form>
-        }
-
-        <p class="auth-link-text">
-          Already have an account? <a routerLink="/login">Sign in</a>
-        </p>
-
+      @if (error) {
+        <div class="alert alert-danger py-2 mb-4 small">{{ error }}</div>
       }
+
+      <form [formGroup]="form" (ngSubmit)="submit()">
+
+        <div class="mb-4">
+          <label class="field-label">Your name</label>
+          <div class="input-icon-wrap">
+            <i class="bi bi-person"></i>
+            <input type="text" class="form-control field-input"
+                   formControlName="username" placeholder="Your display name" />
+          </div>
+          @if (form.get('username')?.touched && form.get('username')?.invalid) {
+            <div class="field-error">Username is required</div>
+          }
+        </div>
+
+        <div class="mb-4">
+          <label class="field-label">Your work email</label>
+          <div class="input-icon-wrap">
+            <i class="bi bi-envelope"></i>
+            <input type="email" class="form-control field-input"
+                   formControlName="email" placeholder="you@yourcompany.com" />
+          </div>
+          @if (form.get('email')?.touched && form.get('email')?.invalid) {
+            <div class="field-error">Valid email is required</div>
+          }
+          <div class="field-hint">Must match your organization's email domain below.</div>
+        </div>
+
+        <div class="mb-4">
+          <label class="field-label">Password</label>
+          <div class="input-icon-wrap">
+            <i class="bi bi-lock"></i>
+            <input type="password" class="form-control field-input"
+                   formControlName="password" placeholder="Min 6 characters" />
+          </div>
+          @if (form.get('password')?.touched && form.get('password')?.invalid) {
+            <div class="field-error">Password must be at least 6 characters</div>
+          }
+        </div>
+
+        <div class="mb-4">
+          <label class="field-label">Organization name</label>
+          <div class="input-icon-wrap">
+            <i class="bi bi-building"></i>
+            <input type="text" class="form-control field-input"
+                   formControlName="organizationName" placeholder="Acme Inc." />
+          </div>
+          @if (form.get('organizationName')?.touched && form.get('organizationName')?.invalid) {
+            <div class="field-error">Organization name is required</div>
+          }
+        </div>
+
+        <div class="mb-4">
+          <label class="field-label">Organization email domain</label>
+          <div class="input-icon-wrap">
+            <i class="bi bi-globe"></i>
+            <input type="text" class="form-control field-input"
+                   formControlName="emailDomain" placeholder="yourcompany.com" />
+          </div>
+          @if (form.get('emailDomain')?.touched && form.get('emailDomain')?.invalid) {
+            <div class="field-error">Email domain is required</div>
+          }
+        </div>
+
+        <button type="submit" class="btn btn-primary submit-btn w-100" [disabled]="loading">
+          @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+          {{ loading ? 'Creating organization...' : 'Create Organization' }}
+        </button>
+      </form>
+
+      <p class="auth-link-text">
+        Already have an account? <a routerLink="/login">Sign in</a>
+      </p>
     </div>
   </div>
 

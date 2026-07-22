@@ -2,7 +2,7 @@ import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { User, PaginatedUsers } from '../../models/user.model';
+import { User, PaginatedUsers, UpdateUserPayload, ReassignableWork } from '../../models/user.model';
 
 @Injectable({ providedIn: 'root' })
 export class UserService {
@@ -77,8 +77,24 @@ export class UserService {
     return this.http.patch<{ message: string; user: User }>(`${this.api}/${id}/activate`, {});
   }
 
-  deactivateUser(id: number) {
-    return this.http.patch<{ message: string; user: User }>(`${this.api}/${id}/deactivate`, {});
+  // Deactivating with no reassignToId (nothing to reassign) is synchronous —
+  // `user` comes back deactivated immediately. With a reassignToId, the
+  // reassignment runs as a background job (see backend/workers/
+  // userDeactivationWorker.js): this returns right away with `queued: true`
+  // and no `user`, since the target isn't deactivated yet.
+  deactivateUser(id: number, reassignToId?: number) {
+    return this.http.patch<{ message: string; user?: User; queued?: boolean }>(
+      `${this.api}/${id}/deactivate`,
+      reassignToId ? { reassignToId } : {}
+    );
+  }
+
+  updateUser(id: number, payload: UpdateUserPayload) {
+    return this.http.patch<{ message: string; user: User }>(`${this.api}/${id}`, payload);
+  }
+
+  getReassignableWork(id: number) {
+    return this.http.get<ReassignableWork>(`${this.api}/${id}/reassignable-work`);
   }
 
   updateUserPassword(id: number, password: string) {

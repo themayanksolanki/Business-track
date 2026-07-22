@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { Organization, User } from '../../models/user.model';
-import { Invite, CreateInvitePayload, ActivateInvitePayload } from '../../models/invite.model';
+import { Invite, CreateInvitePayload, ActivateInvitePayload, InviteTokenInfo } from '../../models/invite.model';
 
 @Injectable({ providedIn: 'root' })
 export class OrganizationService {
@@ -36,5 +36,12 @@ export class OrganizationService {
 
   activateInvite(id: number, payload: ActivateInvitePayload) {
     return this.http.post<{ message: string; user: User }>(`${this.api}/invites/${id}/activate`, payload);
+  }
+
+  // Public lookup — reached from the emailed accept-invite link before the
+  // invitee has any account/session. Session-establishing on accept is
+  // handled by AuthService.acceptInvite, not here.
+  getInviteByToken(token: string) {
+    return this.http.get<InviteTokenInfo>(`${this.api}/invites/token/${token}`);
   }
 }

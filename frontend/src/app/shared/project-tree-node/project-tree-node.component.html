@@ -253,7 +253,7 @@
   @if (addChildOpen && canEdit) {
     <div class="tree-add-child-row form" [style.padding-left]="'calc(' + (node.depth + 1) + ' * var(--tree-indent-unit, 22px) + 40px)'">
       <textarea class="tree-title-edit tree-title-edit-inline" rows="1" [(ngModel)]="addChildTitle"
-                [appAutoGrow]="addChildTitle" placeholder="New item title…" maxlength="200"
+                [appAutoGrow]="addChildTitle" [placeholder]="addChildPlaceholder" maxlength="200"
                 (keydown)="onAddChildKeydown($event)"></textarea>
       <button class="btn btn-sm btn-success add-subtask-btn" (click)="submitAddChild()" [disabled]="addChildLoading || !addChildTitle.trim()">
         @if (addChildLoading) { <span class="spinner-border spinner-border-sm"></span> } @else { <i class="bi bi-plus-lg"></i> }
@@ -290,6 +290,7 @@
             (openDetail)="openDetail.emit($event)"
             (toggleSelect)="toggleSelect.emit($event)"
             (moveToGroupRequested)="moveToGroupRequested.emit($event)"
+            (moveToProjectRequested)="moveToProjectRequested.emit($event)"
             (copyTaskLinkRequested)="copyTaskLinkRequested.emit($event)"
             (deleted)="deleted.emit($event)">
           </app-project-tree-node>

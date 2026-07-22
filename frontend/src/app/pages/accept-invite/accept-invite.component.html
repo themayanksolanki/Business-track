@@ -1,0 +1,108 @@
+<div class="auth-page">
+
+  <!-- Left branding panel -->
+  <div class="auth-left d-none d-lg-flex">
+    <div class="brand-area">
+      <div class="brand-logo mb-4">
+        <i class="bi bi-check2-square"></i>
+      </div>
+      <h1 class="brand-name">Business Tracker</h1>
+      <p class="brand-tagline">Manage projects, tasks, and teams across your organization — all in one place.</p>
+      <ul class="feature-list mt-5">
+        <li><i class="bi bi-envelope-check-fill"></i> You've been invited by your team</li>
+        <li><i class="bi bi-shield-lock-fill"></i> Choose your own password</li>
+        <li><i class="bi bi-rocket-takeoff-fill"></i> Straight into your dashboard</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Right form panel -->
+  <div class="auth-right">
+    <div class="auth-form-wrap">
+
+      <!-- Mobile logo -->
+      <div class="d-flex d-lg-none align-items-center gap-2 mb-4">
+        <span class="mobile-logo"><i class="bi bi-check2-square"></i></span>
+        <span class="mobile-brand">Business Tracker</span>
+      </div>
+
+      @if (checkingToken) {
+        <div class="text-center py-5">
+          <span class="spinner-border spinner-border-sm me-2"></span> Checking your invite…
+        </div>
+      } @else if (tokenError) {
+        <div class="step-icon-wrap mb-3">
+          <i class="bi bi-exclamation-triangle-fill step-icon text-danger-icon"></i>
+        </div>
+        <h2 class="form-title">Invite link invalid</h2>
+        <p class="form-subtitle">{{ tokenError }}</p>
+        <p class="auth-link-text">
+          <a routerLink="/login">Back to login</a>
+        </p>
+      } @else if (invite) {
+        <div class="step-icon-wrap mb-3">
+          <i class="bi bi-person-plus-fill step-icon"></i>
+        </div>
+        <h2 class="form-title">Join {{ invite.organizationName }}</h2>
+        <p class="form-subtitle">
+          You've been invited as a <strong>{{ invite.role }}</strong> — {{ invite.email }}.
+          Choose a username and password to finish setting up your account.
+        </p>
+
+        @if (submitError) {
+          <div class="alert alert-danger py-2 mb-4 small">{{ submitError }}</div>
+        }
+
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <div class="mb-4">
+            <label class="field-label">Username</label>
+            <div class="input-icon-wrap">
+              <i class="bi bi-person"></i>
+              <input type="text" class="form-control field-input"
+                     formControlName="username" placeholder="Choose a username" />
+            </div>
+            @if (form.get('username')?.touched && form.get('username')?.invalid) {
+              <div class="field-error">Username is required</div>
+            }
+          </div>
+
+          <div class="mb-4">
+            <label class="field-label">Password</label>
+            <div class="input-icon-wrap">
+              <i class="bi bi-lock"></i>
+              <input [type]="showPassword ? 'text' : 'password'"
+                     class="form-control field-input field-input-pw"
+                     formControlName="password" placeholder="Min 6 characters" />
+              <button type="button" class="pw-toggle" (click)="showPassword = !showPassword" tabindex="-1">
+                <i class="bi" [class.bi-eye]="!showPassword" [class.bi-eye-slash]="showPassword"></i>
+              </button>
+            </div>
+            @if (form.get('password')?.touched && form.get('password')?.invalid) {
+              <div class="field-error">Minimum 6 characters</div>
+            }
+          </div>
+
+          <div class="mb-4">
+            <label class="field-label">Confirm Password</label>
+            <div class="input-icon-wrap">
+              <i class="bi bi-lock-fill"></i>
+              <input [type]="showConfirm ? 'text' : 'password'"
+                     class="form-control field-input field-input-pw"
+                     formControlName="confirmPassword" placeholder="Repeat password" />
+              <button type="button" class="pw-toggle" (click)="showConfirm = !showConfirm" tabindex="-1">
+                <i class="bi" [class.bi-eye]="!showConfirm" [class.bi-eye-slash]="showConfirm"></i>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary submit-btn w-100" [disabled]="submitLoading || form.invalid">
+            @if (submitLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+            {{ submitLoading ? 'Creating account...' : 'Accept Invite & Create Account' }}
+          </button>
+        </form>
+      }
+
+    </div>
+  </div>
+
+</div>

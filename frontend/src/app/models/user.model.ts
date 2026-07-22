@@ -4,6 +4,15 @@ export type Role = 'Admin' | 'Manager' | 'Team Lead' | 'User';
 
 export type DateFormat = 'DD_MM_YYYY' | 'MM_DD_YYYY' | 'YYYY_MM_DD' | 'DD_MMM_YY';
 export type TimeFormat = 'HOUR_12' | 'HOUR_24';
+export type LandingPage =
+  | 'dashboard'
+  | 'tasks'
+  | 'projects'
+  | 'drafts'
+  | 'chat'
+  | 'users'
+  | 'organization'
+  | 'team-tasks';
 
 export interface Organization {
   id?: number;
@@ -34,6 +43,7 @@ export interface User {
   phoneNumber?: string | null;
   dateFormat?: DateFormat;
   timeFormat?: TimeFormat;
+  defaultLandingPage?: LandingPage;
   managerId?: number | null;
   teamLeadId?: number | null;
   manager?: UserLite | null;
@@ -57,4 +67,19 @@ export interface PaginatedUsers {
   page: number;
   limit: number;
   totalPages: number;
+}
+
+export interface UpdateUserPayload {
+  username?: string;
+  email?: string;
+  role?: Role;
+  managerId?: number | null;
+  teamLeadId?: number | null;
+}
+
+export interface ReassignableWork {
+  assignedTasks: number;
+  assignedProjectItems: number;
+  ownedProjects: number;
+  projectMemberships: number;
 }

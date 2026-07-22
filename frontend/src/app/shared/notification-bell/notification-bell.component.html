@@ -1,8 +1,8 @@
-<div class="nav-item-group dropdown">
+<div class="nav-item-group dropdown" ngbDropdown container="body">
   <a
     href="javascript:void(0)"
     class="nav-item"
-    data-bs-toggle="dropdown"
+    ngbDropdownToggle
     [title]="showLabel ? '' : 'Notifications'"
   >
     <span class="nav-icon">
@@ -16,7 +16,7 @@
     }
   </a>
 
-  <div class="dropdown-menu notification-panel shadow-sm">
+  <div class="notification-panel shadow-sm" ngbDropdownMenu>
     <div class="notification-panel-header">
       <span class="notification-panel-title">Notifications</span>
       @if (svc.unreadCount() > 0) {

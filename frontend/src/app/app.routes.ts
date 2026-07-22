@@ -21,6 +21,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/forgot-password/forgot-password.component').then((m) => m.ForgotPasswordComponent),
   },
   {
+    path: 'accept-invite/:token',
+    canActivate: [guestGuard],
+    loadComponent: () => import('./pages/accept-invite/accept-invite.component').then((m) => m.AcceptInviteComponent),
+  },
+  {
     path: 'dashboard',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/dashboard/dashboard.component').then((m) => m.DashboardComponent),

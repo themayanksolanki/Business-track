@@ -12,6 +12,11 @@
         }
       </p>
     </div>
+    @if (canManageUsers) {
+      <button class="btn btn-primary btn-add-user" (click)="openInvite()">
+        <i class="bi bi-person-plus-fill me-2"></i>Add User
+      </button>
+    }
   </div>
 
   @if (successMessage) {
@@ -121,11 +126,25 @@
                 </td>
                 <td><span class="status-badge status-active">Active</span></td>
                 <td class="text-end pe-3">
-                  @if (canEditPassword(user)) {
-                    <button class="btn btn-sm btn-edit-pass" (click)="openPassEdit(user)" title="Change password">
-                      <i class="bi bi-key-fill me-1"></i>Password
-                    </button>
-                  }
+                  <div class="d-flex justify-content-end gap-2">
+                    @if (canEditPassword(user)) {
+                      <button class="btn btn-sm btn-edit-pass" (click)="openPassEdit(user)" title="Change password">
+                        <i class="bi bi-key-fill me-1"></i>Password
+                      </button>
+                    }
+                    @if (canManageUser(user)) {
+                      <button class="btn btn-sm btn-edit-user" (click)="openEdit(user)" title="Edit user">
+                        <i class="bi bi-pencil-fill me-1"></i>Edit
+                      </button>
+                      <button
+                        class="btn btn-sm btn-deactivate-user"
+                        (click)="openDeactivate(user)"
+                        [disabled]="reassignChecking"
+                        title="Deactivate user">
+                        <i class="bi bi-person-dash-fill me-1"></i>Deactivate
+                      </button>
+                    }
+                  </div>
                 </td>
               </tr>
             }
@@ -297,5 +316,228 @@
 
     </div>
   }
+  </div>
+</div>
+
+<!-- Add User (invite) modal -->
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="inviteOpen" (appModalClosed)="closeInvite()">
+  <div class="modal-dialog modal-dialog-centered pass-dialog">
+    @if (inviteOpen) {
+      <div class="modal-content pass-content">
+
+        <div class="pass-icon-wrap">
+          <i class="bi bi-person-plus-fill pass-icon"></i>
+        </div>
+
+        <h5 class="pass-title">Add User</h5>
+        <p class="pass-subtitle">Invite a new member by email — they'll get a link to create their own password.</p>
+
+        @if (inviteError) {
+          <div class="alert alert-danger py-2 mb-3">{{ inviteError }}</div>
+        }
+
+        <div class="pass-input-wrap mb-3">
+          <label class="pass-label">Email</label>
+          <input
+            type="email"
+            class="form-control field-input"
+            placeholder="name@company.com"
+            [(ngModel)]="inviteEmail"
+            name="inviteEmail" />
+        </div>
+
+        <div class="mb-3">
+          <label class="field-label">Role</label>
+          <select class="form-select field-input" [(ngModel)]="inviteRole" name="inviteRole">
+            @for (r of invitableRoles; track r) {
+              <option [value]="r">{{ r }}</option>
+            }
+          </select>
+        </div>
+
+        @if (departments.length > 0) {
+          <div class="mb-4">
+            <label class="field-label">Departments (optional)</label>
+            <div class="org-dept-checks">
+              @for (dept of departments; track dept.id) {
+                <label class="org-dept-check">
+                  <input type="checkbox"
+                         [checked]="isInviteDepartmentSelected(dept.id)"
+                         (change)="toggleInviteDepartment(dept.id, $any($event.target).checked)" />
+                  {{ dept.name }}
+                </label>
+              }
+            </div>
+          </div>
+        }
+
+        <div class="pass-actions">
+          <button type="button" class="pass-btn pass-btn-cancel" (click)="closeInvite()" [disabled]="inviteLoading">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="pass-btn pass-btn-confirm"
+            (click)="submitInvite()"
+            [disabled]="inviteLoading || !inviteEmail.trim()">
+            @if (inviteLoading) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+            }
+            Send Invite
+          </button>
+        </div>
+
+      </div>
+    }
+  </div>
+</div>
+
+<!-- Edit user modal -->
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="!!editUserTarget" (appModalClosed)="closeEdit()">
+  <div class="modal-dialog modal-dialog-centered pass-dialog">
+    @if (editUserTarget) {
+      <div class="modal-content pass-content">
+
+        <div class="pass-icon-wrap">
+          <i class="bi bi-pencil-fill pass-icon"></i>
+        </div>
+
+        <h5 class="pass-title">Edit User</h5>
+        <p class="pass-subtitle">Update details for <strong>{{ editUserTarget.username }}</strong>.</p>
+
+        @if (editError) {
+          <div class="alert alert-danger py-2 mb-3">{{ editError }}</div>
+        }
+
+        <div class="pass-input-wrap mb-3">
+          <label class="pass-label">Username</label>
+          <input type="text" class="form-control field-input" [(ngModel)]="editUsername" name="editUsername" />
+        </div>
+
+        <div class="pass-input-wrap mb-3">
+          <label class="pass-label">Email</label>
+          <input type="email" class="form-control field-input" [(ngModel)]="editEmail" name="editEmail" />
+        </div>
+
+        <div class="mb-3">
+          <label class="field-label">Role</label>
+          <select class="form-select field-input" [(ngModel)]="editRole" name="editRole">
+            @for (r of editableRolesFor(editUserTarget); track r) {
+              <option [value]="r">{{ r }}</option>
+            }
+          </select>
+        </div>
+
+        @if (departments.length > 0) {
+          <div class="mb-4">
+            <label class="field-label">Departments</label>
+            <div class="org-dept-checks">
+              @for (dept of departments; track dept.id) {
+                <label class="org-dept-check">
+                  <input type="checkbox"
+                         [checked]="isEditDepartmentSelected(dept.id)"
+                         (change)="toggleEditDepartment(dept.id, $any($event.target).checked)" />
+                  {{ dept.name }}
+                </label>
+              }
+            </div>
+          </div>
+        }
+
+        <div class="pass-actions">
+          <button type="button" class="pass-btn pass-btn-cancel" (click)="closeEdit()" [disabled]="editLoading">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="pass-btn pass-btn-confirm"
+            (click)="submitEdit()"
+            [disabled]="editLoading || !editUsername.trim()">
+            @if (editLoading) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+            }
+            Save Changes
+          </button>
+        </div>
+
+      </div>
+    }
+  </div>
+</div>
+
+<!-- Deactivate: simple confirm (no assigned work to reassign) -->
+<app-confirm-dialog
+  [open]="!!deactivateConfirmTarget"
+  title="Deactivate User"
+  [message]="'Deactivate ' + (deactivateConfirmTarget?.username ?? '') + '? They will no longer be able to log in.'"
+  confirmLabel="Deactivate"
+  [loading]="deactivateLoading"
+  (confirmed)="confirmDeactivateSimple()"
+  (cancelled)="cancelDeactivateConfirm()">
+</app-confirm-dialog>
+
+<!-- Deactivate: reassign work modal (target has open assigned work) -->
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="!!reassignTarget" (appModalClosed)="cancelReassign()">
+  <div class="modal-dialog modal-dialog-centered pass-dialog">
+    @if (reassignTarget && reassignWork) {
+      <div class="modal-content pass-content">
+
+        <div class="pass-icon-wrap">
+          <i class="bi bi-person-dash-fill pass-icon"></i>
+        </div>
+
+        <h5 class="pass-title">Reassign Work &amp; Deactivate</h5>
+        <p class="pass-subtitle">
+          <strong>{{ reassignTarget.username }}</strong> currently has open work. Choose who should take it over
+          before deactivating their account.
+        </p>
+
+        <ul class="reassign-summary mb-3">
+          @if (reassignWork.assignedTasks > 0) {
+            <li>{{ reassignWork.assignedTasks }} assigned task{{ reassignWork.assignedTasks !== 1 ? 's' : '' }}</li>
+          }
+          @if (reassignWork.assignedProjectItems > 0) {
+            <li>{{ reassignWork.assignedProjectItems }} assigned project item{{ reassignWork.assignedProjectItems !== 1 ? 's' : '' }}</li>
+          }
+          @if (reassignWork.ownedProjects > 0) {
+            <li>{{ reassignWork.ownedProjects }} owned project{{ reassignWork.ownedProjects !== 1 ? 's' : '' }}</li>
+          }
+          @if (reassignWork.projectMemberships > 0) {
+            <li>{{ reassignWork.projectMemberships }} project membership{{ reassignWork.projectMemberships !== 1 ? 's' : '' }}</li>
+          }
+        </ul>
+
+        @if (reassignError) {
+          <div class="alert alert-danger py-2 mb-3">{{ reassignError }}</div>
+        }
+
+        <div class="mb-4">
+          <label class="field-label">Reassign to</label>
+          <select class="form-select field-input" [(ngModel)]="reassignToId" name="reassignToId">
+            <option [ngValue]="null">-- Select a user --</option>
+            @for (u of reassignHandlerOptions; track u.id) {
+              <option [ngValue]="u.id">{{ u.username }} ({{ u.role }})</option>
+            }
+          </select>
+        </div>
+
+        <div class="pass-actions">
+          <button type="button" class="pass-btn pass-btn-cancel" (click)="cancelReassign()" [disabled]="reassignLoading">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="pass-btn pass-btn-confirm"
+            (click)="confirmReassignAndDeactivate()"
+            [disabled]="reassignLoading || !reassignToId">
+            @if (reassignLoading) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+            }
+            Reassign &amp; Deactivate
+          </button>
+        </div>
+
+      </div>
+    }
   </div>
 </div>

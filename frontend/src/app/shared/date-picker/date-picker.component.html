@@ -18,7 +18,9 @@
 
   @if (open) {
     <div class="picker-backdrop" (click)="close()"></div>
-    <div class="picker-panel" [style.top.px]="panelTop" [style.left.px]="panelLeft" [style.right.px]="panelRight" (click)="$event.stopPropagation()">
+    <div class="picker-panel"
+         [style.top.px]="panelTop" [style.bottom.px]="panelBottom" [style.left.px]="panelLeft" [style.right.px]="panelRight"
+         (click)="$event.stopPropagation()">
       <div class="picker-panel-header">
         <button type="button" class="picker-nav-btn" (click)="prevMonth()" title="Previous month">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>

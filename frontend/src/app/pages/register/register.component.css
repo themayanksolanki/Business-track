@@ -119,34 +119,6 @@
   margin-bottom: 28px;
 }
 
-/* ── Mode switcher ── */
-.mode-switcher {
-  display: flex;
-  gap: 8px;
-  padding: 4px;
-  border-radius: 12px;
-  background: var(--bg-input);
-}
-
-.mode-btn {
-  flex: 1;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 10px 12px;
-  border-radius: 9px;
-  transition: background 0.15s, color 0.15s;
-}
-
-.mode-btn:hover { color: var(--text-primary); }
-
-.mode-btn-active {
-  background: #3b82f6;
-  color: #fff;
-}
-
 /* ── Fields ── */
 .field-label {
   display: block;
@@ -200,55 +172,6 @@
   margin-top: 5px;
 }
 
-/* ── Role cards ── */
-.role-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-
-.role-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 8px;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-  background: var(--bg-input);
-  user-select: none;
-}
-
-.role-card:hover {
-  border-color: #94a3b8;
-  background: #f1f5f9;
-}
-
-.role-card-active {
-  border-color: #3b82f6 !important;
-  background: #eff6ff !important;
-}
-
-.role-icon {
-  font-size: 1.4rem;
-}
-
-.role-icon-manager  { color: #1d4ed8; }
-.role-icon-lead     { color: #6d28d9; }
-.role-icon-employee { color: #15803d; }
-
-.role-card-label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.role-card-active .role-card-label {
-  color: #1d4ed8;
-}
-
 /* ── Submit ── */
 .submit-btn {
   height: 46px;
@@ -275,21 +198,3 @@
 }
 
 .auth-link-text a:hover { text-decoration: underline; }
-
-/* ── Success state ── */
-.success-state {
-  padding: 24px 0;
-}
-
-.success-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 72px;
-  height: 72px;
-  background: #f0fdf4;
-  border-radius: 50%;
-  font-size: 2rem;
-  color: #16a34a;
-  margin: 0 auto;
-}

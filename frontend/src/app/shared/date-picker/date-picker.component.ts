@@ -10,6 +10,10 @@ interface CalendarDay {
   isSelected: boolean;
 }
 
+// Rough panel height (header + weekday row + 6 fixed week rows + footer)
+// used to decide whether there's room to open downward — see updatePanelPosition().
+const PANEL_HEIGHT_ESTIMATE = 360;
+
 @Component({
   selector: 'app-date-picker',
   standalone: true,
@@ -34,8 +38,10 @@ export class DatePickerComponent implements OnChanges, OnDestroy {
 
   // Panel is position:fixed and its coords are computed from the trigger's
   // viewport rect so it always escapes clipping ancestors (e.g. a scrollable
-  // modal body with overflow: hidden/auto) instead of being cut off.
-  panelTop = 0;
+  // modal body with overflow: hidden/auto) instead of being cut off, and
+  // flips to open upward when there isn't room below — see updatePanelPosition().
+  panelTop: number | null = 0;
+  panelBottom: number | null = null;
   panelLeft: number | null = 0;
   panelRight: number | null = null;
 
@@ -122,7 +128,17 @@ export class DatePickerComponent implements OnChanges, OnDestroy {
   private updatePanelPosition() {
     if (!this.triggerRef) return;
     const rect = this.triggerRef.nativeElement.getBoundingClientRect();
-    this.panelTop = rect.bottom + 6;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < PANEL_HEIGHT_ESTIMATE && rect.top > spaceBelow;
+
+    if (openUpward) {
+      this.panelTop = null;
+      this.panelBottom = window.innerHeight - rect.top + 6;
+    } else {
+      this.panelTop = rect.bottom + 6;
+      this.panelBottom = null;
+    }
+
     if (this.align === 'right') {
       this.panelLeft = null;
       this.panelRight = window.innerWidth - rect.right;

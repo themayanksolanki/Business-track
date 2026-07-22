@@ -5,7 +5,9 @@ export type NotificationType =
   | 'projectMemberAdded'
   | 'taskAssigned'
   | 'taskUpdated'
-  | 'taskCommentAdded';
+  | 'taskCommentAdded'
+  | 'mentioned'
+  | 'userDeactivated';
 
 export interface NotificationActor {
   id: number;

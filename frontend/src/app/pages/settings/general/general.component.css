@@ -68,3 +68,19 @@
   top: 12px;
   right: 12px;
 }
+
+.format-opt-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.format-opt-icon {
+  display: inline-flex;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.format-opt-active .format-opt-icon {
+  color: #3b82f6;
+}

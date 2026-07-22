@@ -1,0 +1,87 @@
+<div
+  class="modal fade"
+  tabindex="-1"
+  aria-hidden="true"
+  [appModal]="open"
+  [appModalOptions]="{ backdrop: 'static' }"
+  (appModalClosed)="cancel()"
+>
+  <div class="modal-dialog modal-dialog-centered mtp-dialog">
+    <div class="modal-content mtp-content" (click)="$event.stopPropagation()">
+
+      <div class="mtp-icon-wrap">
+        <i class="bi bi-send mtp-icon"></i>
+      </div>
+
+      @if (step === 'project') {
+        <h5 class="mtp-title">Move to Project</h5>
+        <p class="mtp-message">Select a destination project.</p>
+
+        <input type="text" class="form-control mtp-search" placeholder="Search projects…" [(ngModel)]="projectSearch" [disabled]="loading" />
+
+        @if (projectsLoading) {
+          <div class="mtp-inline-loading"><span class="spinner-border spinner-border-sm"></span></div>
+        } @else if (projectsError) {
+          <p class="mtp-empty text-danger">{{ projectsError }}</p>
+        } @else if (filteredProjects.length === 0) {
+          <p class="mtp-empty text-muted">No other projects available.</p>
+        } @else {
+          <div class="mtp-list">
+            @for (project of filteredProjects; track project.id) {
+              <button type="button" class="mtp-item" [disabled]="loading" (click)="selectProject(project)">
+                <i class="bi bi-kanban me-2"></i>
+                <span class="mtp-item-title">{{ project.name }}</span>
+                @if (project.status === 'draft') {
+                  <span class="mtp-badge">Draft</span>
+                }
+              </button>
+            }
+          </div>
+        }
+      } @else {
+        <h5 class="mtp-title">Move to Project</h5>
+        <p class="mtp-message">{{ parentPickerLabel }}</p>
+
+        <input type="text" class="form-control mtp-search" placeholder="Search…" [(ngModel)]="parentSearch" [disabled]="loading" />
+
+        @if (parentItemsLoading) {
+          <div class="mtp-inline-loading"><span class="spinner-border spinner-border-sm"></span></div>
+        } @else if (parentItemsError) {
+          <p class="mtp-empty text-danger">{{ parentItemsError }}</p>
+        } @else if (filteredParentItems.length === 0) {
+          <p class="mtp-empty text-muted">
+            "{{ selectedProject?.name }}" has no {{ itemType === 'task' ? 'groups' : 'tasks or subtasks' }} yet.
+          </p>
+        } @else {
+          <div class="mtp-list">
+            @for (parent of filteredParentItems; track parent.id) {
+              <button type="button" class="mtp-item" [disabled]="loading" (click)="selectParent(parent)"
+                      [style.padding-left.px]="12 + parent.depth * 14">
+                <i class="bi me-2" [class]="iconFor(parent.type)"></i>
+                <span class="mtp-item-title">{{ parent.title }}</span>
+              </button>
+            }
+          </div>
+        }
+      }
+
+      <div class="mtp-actions">
+        @if (step === 'parent') {
+          <button type="button" class="mtp-btn mtp-btn-cancel" [disabled]="loading" (click)="backToProjects()">
+            Back
+          </button>
+        }
+        <button type="button" class="mtp-btn mtp-btn-cancel" data-bs-dismiss="modal" [disabled]="loading">
+          Cancel
+        </button>
+      </div>
+
+      @if (loading) {
+        <div class="mtp-loading-overlay">
+          <span class="spinner-border spinner-border-sm"></span>
+        </div>
+      }
+
+    </div>
+  </div>
+</div>

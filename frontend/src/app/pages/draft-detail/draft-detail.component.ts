@@ -43,6 +43,7 @@ import { TagPickerComponent } from '../../shared/tag-picker/tag-picker.component
 import { DropListRegistryService } from '../../shared/drop-list-registry.service';
 import { NotificationService } from '../../shared/notification.service';
 import { MoveToGroupDialogComponent } from '../../shared/move-to-group-dialog/move-to-group-dialog.component';
+import { MoveToProjectDialogComponent } from '../../shared/move-to-project-dialog/move-to-project-dialog.component';
 import { HelpTipComponent } from '../../shared/help-tip/help-tip.component';
 import { NgbPopover, NgbTooltip } from '@ng-bootstrap/ng-bootstrap';
 import { ProjectTeamsComponent } from '../../shared/project-teams/project-teams.component';
@@ -74,6 +75,7 @@ import { CardResizeDirective, CardResizeEvent } from '../../shared/card-resize.d
     TagPickerComponent,
     CKEditorModule,
     MoveToGroupDialogComponent,
+    MoveToProjectDialogComponent,
     HelpTipComponent,
     NgbTooltip,
     ProjectTeamsComponent,
@@ -121,6 +123,10 @@ export class DraftDetailComponent implements OnInit {
   moveGroupMode: 'single' | 'bulk' = 'single';
   moveGroupLoading = false;
   moveGroupTargetNode: ProjectTreeNode | null = null;
+
+  moveProjectOpen = false;
+  moveProjectLoading = false;
+  moveProjectTargetNode: ProjectTreeNode | null = null;
 
   bulkDeleteConfirmOpen = false;
   bulkDeleteLoading = false;
@@ -196,7 +202,13 @@ export class DraftDetailComponent implements OnInit {
     this.projectService
       .updateProject(this.projectId, { tags: tags.map((t) => t.id) })
       .subscribe({
-        next: (res) => (this.project = res.project),
+        next: (res) => {
+          this.project = res.project;
+          this.notifications.success('Tags updated');
+        },
+        error: (err) => {
+          this.notifications.error(err.error?.message || 'Failed to update tags');
+        },
       });
   }
 
@@ -272,14 +284,26 @@ export class DraftDetailComponent implements OnInit {
     if (!this.project) return;
     const owner = user ? user.id : null;
     this.projectService.updateProject(this.projectId, { owner }).subscribe({
-      next: (res) => (this.project = res.project),
+      next: (res) => {
+        this.project = res.project;
+        this.notifications.success('Owner updated');
+      },
+      error: (err) => {
+        this.notifications.error(err.error?.message || 'Failed to update owner');
+      },
     });
   }
 
   setPriority(priority: ProjectPriority) {
     if (!this.project || this.project.priority === priority) return;
     this.projectService.updateProject(this.projectId, { priority }).subscribe({
-      next: (res) => (this.project = res.project),
+      next: (res) => {
+        this.project = res.project;
+        this.notifications.success('Priority updated');
+      },
+      error: (err) => {
+        this.notifications.error(err.error?.message || 'Failed to update priority');
+      },
     });
   }
 
@@ -300,7 +324,13 @@ export class DraftDetailComponent implements OnInit {
     this.projectService
       .updateProject(this.projectId, { department })
       .subscribe({
-        next: (res) => (this.project = res.project),
+        next: (res) => {
+          this.project = res.project;
+          this.notifications.success('Department updated');
+        },
+        error: (err) => {
+          this.notifications.error(err.error?.message || 'Failed to update department');
+        },
       });
   }
 
@@ -309,7 +339,13 @@ export class DraftDetailComponent implements OnInit {
     const category = cat ? cat.id : null;
     if ((this.project.category?.id ?? null) === category) return;
     this.projectService.updateProject(this.projectId, { category }).subscribe({
-      next: (res) => (this.project = res.project),
+      next: (res) => {
+        this.project = res.project;
+        this.notifications.success('Category updated');
+      },
+      error: (err) => {
+        this.notifications.error(err.error?.message || 'Failed to update category');
+      },
     });
   }
 
@@ -451,7 +487,13 @@ export class DraftDetailComponent implements OnInit {
   setEffort(effort: ProjectEffort) {
     if (!this.project || this.project.effort === effort) return;
     this.projectService.updateProject(this.projectId, { effort }).subscribe({
-      next: (res) => (this.project = res.project),
+      next: (res) => {
+        this.project = res.project;
+        this.notifications.success('Effort updated');
+      },
+      error: (err) => {
+        this.notifications.error(err.error?.message || 'Failed to update effort');
+      },
     });
   }
 
@@ -751,6 +793,37 @@ export class DraftDetailComponent implements OnInit {
         },
       });
     }
+  }
+
+  openMoveToProject(node: ProjectTreeNode) {
+    this.moveProjectTargetNode = node;
+    this.moveProjectOpen = true;
+  }
+
+  cancelMoveToProject() {
+    this.moveProjectOpen = false;
+  }
+
+  onProjectMoveConfirmed(target: { targetProjectId: number; targetParentId: number | null }) {
+    const node = this.moveProjectTargetNode;
+    if (!node) return;
+    this.moveProjectLoading = true;
+    this.projectService
+      .moveItemToProject(this.projectId, node.id, target.targetProjectId, target.targetParentId)
+      .subscribe({
+        next: () => {
+          this.moveProjectLoading = false;
+          this.moveProjectOpen = false;
+          this.removeNodeById(this.tree, node.id);
+          this.tree = [...this.tree];
+          if (this.selectedNode?.id === node.id) this.selectedNode = null;
+          this.notifications.success(`"${node.title}" moved to another project.`);
+        },
+        error: (err) => {
+          this.moveProjectLoading = false;
+          this.notifications.error(err.error?.message || 'Failed to move item to project');
+        },
+      });
   }
 
   openBulkDeleteConfirm() {

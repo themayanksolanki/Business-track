@@ -7,6 +7,7 @@ enum NotificationType {
   taskUpdated
   taskCommentAdded
   mentioned
+  userDeactivated
 }
 
 // actorId is who triggered it (assigner, updater, commenter) — null for

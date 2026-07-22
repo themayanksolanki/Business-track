@@ -18,6 +18,7 @@ import {
 } from '../../models/project-item.model';
 import { User } from '../../models/user.model';
 import { AuthService } from '../../core/services/auth.service';
+import { NotificationService } from '../notification.service';
 import { TagPillComponent } from '../tag-pill/tag-pill.component';
 
 export type KanbanGroupMode = 'status' | 'assignee' | 'priority';
@@ -73,7 +74,11 @@ export class KanbanBoardComponent implements OnChanges {
 
   private brokenAvatarIds = new Set<number>();
 
-  constructor(private projectService: ProjectService, public auth: AuthService) {}
+  constructor(
+    private projectService: ProjectService,
+    public auth: AuthService,
+    private notifications: NotificationService
+  ) {}
 
   avatarUrl(user: User): string | null {
     if (this.brokenAvatarIds.has(user.id)) return null;
@@ -214,8 +219,14 @@ export class KanbanBoardComponent implements OnChanges {
     node.assignedTo = user ?? null;
     if (this.groupMode === 'assignee') this.rebuildColumns();
     this.projectService.updateItem(this.projectId, node.id, { assignedTo }).subscribe({
-      next: () => this.refresh.emit(),
-      error: () => this.refresh.emit(),
+      next: () => {
+        this.refresh.emit();
+        this.notifications.success('Assignee updated');
+      },
+      error: (err) => {
+        this.refresh.emit();
+        this.notifications.error(err.error?.message || 'Failed to update assignee');
+      },
     });
   }
 
@@ -233,28 +244,38 @@ export class KanbanBoardComponent implements OnChanges {
 
   private applyColumnValue(node: ProjectTreeNode, column: KanbanColumn) {
     let payload: { status?: ProjectItemStatus; priority?: ProjectItemPriority; assignedTo?: number | null };
+    let label: string;
 
     if (this.groupMode === 'status') {
       const value = column.id.replace('kb-status-', '') as ProjectItemStatus;
       if (node.status === value) return;
       payload = { status: value };
       node.status = value;
+      label = 'Status';
     } else if (this.groupMode === 'priority') {
       const value = column.id.replace('kb-priority-', '') as ProjectItemPriority;
       if (node.priority === value) return;
       payload = { priority: value };
       node.priority = value;
+      label = 'Priority';
     } else {
       const raw = column.id.replace('kb-assignee-', '');
       const assignedTo = raw === 'unassigned' ? null : Number(raw);
       if (this.userId(node.assignedTo) === assignedTo) return;
       payload = { assignedTo };
       node.assignedTo = assignedTo ? this.users.find((u) => this.userId(u) === assignedTo) ?? null : null;
+      label = 'Assignee';
     }
 
     this.projectService.updateItem(this.projectId, node.id, payload).subscribe({
-      next: () => this.refresh.emit(),
-      error: () => this.refresh.emit(),
+      next: () => {
+        this.refresh.emit();
+        this.notifications.success(`${label} updated`);
+      },
+      error: (err) => {
+        this.refresh.emit();
+        this.notifications.error(err.error?.message || `Failed to update ${label.toLowerCase()}`);
+      },
     });
   }
 

@@ -28,7 +28,7 @@
   <h6 class="mb-1 text-muted">Time Format</h6>
   <p class="general-desc">Choose 12-hour or 24-hour time.</p>
 
-  <div class="format-grid">
+  <div class="format-grid mb-4">
     @for (opt of timeFormats; track opt.value) {
       <button
         type="button"
@@ -41,6 +41,28 @@
         @if (savingTimeFormat === opt.value) {
           <span class="spinner-border spinner-border-sm format-opt-spinner"></span>
         } @else if (auth.currentUser()?.timeFormat === opt.value) {
+          <i class="bi bi-check-circle-fill format-opt-check"></i>
+        }
+      </button>
+    }
+  </div>
+
+  <h6 class="mb-1 text-muted">Default Landing Page</h6>
+  <p class="general-desc">Choose where you land after logging in.</p>
+
+  <div class="format-grid">
+    @for (opt of landingPages; track opt.value) {
+      <button
+        type="button"
+        class="format-opt format-opt-row"
+        [class.format-opt-active]="auth.currentUser()?.defaultLandingPage === opt.value"
+        [disabled]="!!savingLandingPage"
+        (click)="selectLandingPage(opt.value)">
+        <span class="format-opt-icon"><app-icon [name]="opt.icon" [size]="16" /></span>
+        <span class="format-opt-label">{{ opt.label }}</span>
+        @if (savingLandingPage === opt.value) {
+          <span class="spinner-border spinner-border-sm format-opt-spinner"></span>
+        } @else if (auth.currentUser()?.defaultLandingPage === opt.value) {
           <i class="bi bi-check-circle-fill format-opt-check"></i>
         }
       </button>
