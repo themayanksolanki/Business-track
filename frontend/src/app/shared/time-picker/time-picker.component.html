@@ -1,5 +1,5 @@
 <div class="picker">
-  <button type="button" class="picker-trigger" [class.picker-trigger-filled]="value"
+  <button #trigger type="button" class="picker-trigger" [class.picker-trigger-filled]="value"
           [class.picker-trigger-disabled]="disabled" [disabled]="disabled" (click)="toggle()">
     <svg class="picker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="8.5"></circle>
@@ -15,7 +15,9 @@
 
   @if (open) {
     <div class="picker-backdrop" (click)="close()"></div>
-    <div class="picker-panel" [class.picker-panel-right]="align === 'right'" (click)="$event.stopPropagation()">
+    <div class="picker-panel"
+         [style.top.px]="panelTop" [style.bottom.px]="panelBottom" [style.left.px]="panelLeft" [style.right.px]="panelRight"
+         (click)="$event.stopPropagation()">
       <div class="time-list" #list>
         @for (slot of slots; track slot.value) {
           <button type="button" class="time-slot" [class.time-slot-selected]="slot.value === value" (click)="select(slot)">

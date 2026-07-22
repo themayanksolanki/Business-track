@@ -59,9 +59,13 @@
 }
 
 .picker-panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
+  /* Fixed (not absolute) so the panel is positioned relative to the
+     viewport via panelTop/panelBottom/panelLeft/panelRight — this lets it
+     escape any ancestor's overflow: hidden/auto (e.g. a scrollable modal
+     body) instead of being clipped, and flip above the trigger when there
+     isn't room below. Position is computed in the component and applied
+     via inline style bindings. */
+  position: fixed;
   z-index: 1061;
   width: 160px;
   padding: 8px;
@@ -70,8 +74,6 @@
   background: var(--bg-card);
   box-shadow: var(--shadow-lg);
 }
-
-.picker-panel-right { left: auto; right: 0; }
 
 .time-list {
   max-height: 240px;

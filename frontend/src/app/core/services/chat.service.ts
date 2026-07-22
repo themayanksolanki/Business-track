@@ -1,9 +1,8 @@
 import { Injectable, signal } from '@angular/core';
-import { HttpClient, HttpContext } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { ContactData, Message } from '../../models/message.model';
-import { SKIP_LOADER } from '../interceptors/loading.interceptor';
 
 const BASE = environment.apiUrl.replace('/api', '');
 
@@ -17,12 +16,10 @@ export class ChatService {
 
   constructor(private http: HttpClient) {}
 
-  private readonly skipLoaderContext = new HttpContext().set(SKIP_LOADER, true);
-
   prefetch() {
     if (this._contacts().length) return;
     this.http
-      .get<ContactData[]>(`${this.api}/contacts`, { context: this.skipLoaderContext })
+      .get<ContactData[]>(`${this.api}/contacts`)
       .subscribe({
         next: (c) => this._contacts.set(c),
       });
@@ -30,7 +27,7 @@ export class ChatService {
 
   fetchUnread() {
     this.http
-      .get<ContactData[]>(`${this.api}/contacts`, { context: this.skipLoaderContext })
+      .get<ContactData[]>(`${this.api}/contacts`)
       .subscribe({
         next: (contacts) => {
           this._contacts.set(contacts);

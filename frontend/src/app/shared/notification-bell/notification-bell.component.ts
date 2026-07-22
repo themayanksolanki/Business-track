@@ -1,5 +1,6 @@
 import { Component, Input, inject } from '@angular/core';
 import { Router } from '@angular/router';
+import { NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
 import { NotificationsFeedService } from '../../core/services/notifications-feed.service';
 import { AppNotification } from '../../models/notification.model';
 import { IconComponent } from '../icon/icon.component';
@@ -7,7 +8,7 @@ import { IconComponent } from '../icon/icon.component';
 @Component({
   selector: 'app-notification-bell',
   standalone: true,
-  imports: [IconComponent],
+  imports: [IconComponent, NgbDropdownModule],
   templateUrl: './notification-bell.component.html',
   styleUrl: './notification-bell.component.css',
 })

@@ -347,6 +347,7 @@
                   (openDetail)="onOpenDetail($event)"
                   (toggleSelect)="onToggleSelect($event)"
                   (moveToGroupRequested)="openMoveToGroupForTask($event)"
+                  (moveToProjectRequested)="openMoveToProject($event)"
                   (copyTaskLinkRequested)="copyTaskLink($event)"
                   (deleted)="onNodeDeleted($event)">
                 </app-project-tree-node>
@@ -364,6 +365,15 @@
         (groupSelected)="onGroupSelectedForMove($event)"
         (cancelled)="cancelMoveToGroup()">
       </app-move-to-group-dialog>
+
+      <app-move-to-project-dialog
+        [open]="moveProjectOpen"
+        [itemType]="moveProjectTargetNode?.type ?? 'task'"
+        [currentProjectId]="projectId"
+        [loading]="moveProjectLoading"
+        (moveConfirmed)="onProjectMoveConfirmed($event)"
+        (cancelled)="cancelMoveToProject()">
+      </app-move-to-project-dialog>
 
       <app-confirm-dialog
         [open]="bulkDeleteConfirmOpen"

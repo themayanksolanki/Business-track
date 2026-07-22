@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
@@ -10,7 +10,7 @@ import { AuthService } from '../../core/services/auth.service';
   templateUrl: './login.component.html',
   styleUrl: './login.component.css',
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
   form: FormGroup;
   error = '';
   loading = false;
@@ -28,6 +28,12 @@ export class LoginComponent {
     });
   }
 
+  ngOnInit() {
+    // Best-effort — a slow/failed warm-up must never block or surface an
+    // error on the login form itself.
+    this.auth.warmDb().subscribe({ error: () => {} });
+  }
+
   submit() {
     if (this.form.invalid) return;
     this.loading = true;
@@ -38,7 +44,10 @@ export class LoginComponent {
     // unauthenticated visitor here) — land them back where they meant to go.
     const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
     this.auth.login(email, password).subscribe({
-      next: () => this.router.navigateByUrl(returnUrl || '/dashboard'),
+      next: () => {
+        const landing = this.auth.getUser()?.defaultLandingPage || 'dashboard';
+        this.router.navigateByUrl(returnUrl || `/${landing}`);
+      },
       error: (err) => {
         this.error = err.error?.message || 'Login failed';
         this.loading = false;

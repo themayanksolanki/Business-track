@@ -32,6 +32,13 @@ model User {
   // is device-local, these follow the user across devices/sessions.
   dateFormat     DateFormat @default(MM_DD_YYYY)
   timeFormat     TimeFormat @default(HOUR_12)
+  // Route path (no leading slash, e.g. "dashboard", "tasks", "team-tasks") to
+  // land on after login — validated against a fixed whitelist in
+  // validate.js rather than a Prisma enum, since a couple of routes (e.g.
+  // "team-tasks") contain a hyphen, which Prisma enum values can't. A value
+  // that's no longer valid for the user's current role (e.g. role changed
+  // after it was set) is harmless — roleGuard just bounces them to /dashboard.
+  defaultLandingPage String @default("dashboard")
   resetOtp       String?
   resetOtpExpiry DateTime?
   createdAt      DateTime  @default(now())

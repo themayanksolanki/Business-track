@@ -60,6 +60,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   @Output() openDetail = new EventEmitter<ProjectTreeNode>();
   @Output() toggleSelect = new EventEmitter<number>();
   @Output() moveToGroupRequested = new EventEmitter<ProjectTreeNode>();
+  @Output() moveToProjectRequested = new EventEmitter<ProjectTreeNode>();
   @Output() deleted = new EventEmitter<number>();
   // Bubbles to project-detail.component.ts, which has the parent project's
   // organizationId/sequenceId already in scope to build the shareable link.
@@ -125,7 +126,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
 
     if (this.expandCommand && this.expandCommand.token !== this.lastExpandToken) {
       this.lastExpandToken = this.expandCommand.token;
-      this.expanded = this.expandCommand.expand;
+      if (this.node.children.length > 0) this.expanded = this.expandCommand.expand;
     }
   }
 
@@ -187,6 +188,11 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
     if (this.node.type === 'group') return 'bi-folder2';
     if (this.node.type === 'task') return 'bi-check2-square';
     return 'bi-arrow-return-right';
+  }
+
+  // Groups (depth 0) hold tasks; tasks/subtasks (depth 1+) hold subtasks.
+  get addChildPlaceholder(): string {
+    return this.node.depth === 0 ? 'Add task…' : 'Add subtask…';
   }
 
   get confirmMessage(): string {
@@ -308,6 +314,11 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
         action: 'move-to-group',
       });
     items.push({
+      label: 'Move to Project',
+      icon: 'bi-send',
+      action: 'move-to-project',
+    });
+    items.push({
       label: 'Duplicate',
       icon: 'bi-copy',
       action: 'duplicate',
@@ -389,6 +400,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
     else if (action === 'view') this.openDetail.emit(this.node);
     else if (action === 'copy-task-link') this.copyTaskLinkRequested.emit(this.node);
     else if (action === 'move-to-group') this.moveToGroupRequested.emit(this.node);
+    else if (action === 'move-to-project') this.moveToProjectRequested.emit(this.node);
     else if (action === 'duplicate') this.duplicate();
     else if (action === 'delete') this.confirmOpen = true;
   }

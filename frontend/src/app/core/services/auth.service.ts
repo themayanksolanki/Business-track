@@ -1,19 +1,12 @@
 import { Injectable, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { AuthResponse, User, DateFormat, TimeFormat } from '../../models/user.model';
+import { AuthResponse, User, DateFormat, TimeFormat, LandingPage } from '../../models/user.model';
+import { SHOW_LOADER } from '../interceptors/loading.interceptor';
 
 const BASE_URL = environment.apiUrl.replace('/api', '');
-
-export interface RegisterResponse {
-  message: string;
-  pending?: boolean;
-  token?: string;
-  refreshToken?: string;
-  user?: User;
-}
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -21,6 +14,11 @@ export class AuthService {
   private readonly USER_KEY = 'user';
   private readonly REFRESH_KEY = 'refreshToken';
   private readonly CREDS = { withCredentials: true };
+  // Login/logout are the two auth actions that route through the global
+  // loader overlay directly (see loading.interceptor.ts) rather than relying
+  // on the navigation-driven loader, so the overlay appears immediately on
+  // submit instead of waiting for the post-auth route change.
+  private readonly LOADER_CREDS = { withCredentials: true, context: new HttpContext().set(SHOW_LOADER, true) };
 
   private accessToken = signal<string | null>(null);
   currentUser = signal<User | null>(this.loadUser());
@@ -30,30 +28,12 @@ export class AuthService {
     private router: Router,
   ) {}
 
-  register(payload: {
-    username: string;
-    email: string;
-    password: string;
-    role: string;
-    referenceEmail?: string;
-  }) {
-    return this.http
-      .post<RegisterResponse>(`${this.api}/register`, payload, this.CREDS)
-      .pipe(
-        tap((res) => {
-          if (res.token && res.user) this.persist(res as AuthResponse);
-        }),
-      );
-  }
-
   registerOrganization(payload: {
     username: string;
     email: string;
     password: string;
     organizationName: string;
     emailDomain: string;
-    managerEmail: string;
-    teamLeadEmail: string;
   }) {
     return this.http
       .post<AuthResponse>(`${this.api}/register-organization`, payload, this.CREDS)
@@ -62,7 +42,7 @@ export class AuthService {
 
   login(email: string, password: string) {
     return this.http
-      .post<AuthResponse>(`${this.api}/login`, { email, password }, this.CREDS)
+      .post<AuthResponse>(`${this.api}/login`, { email, password }, this.LOADER_CREDS)
       .pipe(tap((res) => this.persist(res)));
   }
 
@@ -75,6 +55,14 @@ export class AuthService {
 
   getMe() {
     return this.http.get<User>(`${this.api}/me`);
+  }
+
+  // Fire-and-forget — called as soon as the login page mounts so a
+  // free-tier Postgres provider that's gone idle (e.g. Supabase auto-pause)
+  // has a head start waking up while the user is still typing their
+  // credentials, instead of only starting once they submit the form.
+  warmDb() {
+    return this.http.get<{ status: string }>(`${BASE_URL}/health/db`);
   }
 
   avatarUrl(user?: User | null): string | null {
@@ -93,17 +81,31 @@ export class AuthService {
   }
 
   // All fields optional/independent — the Profile page's phone editor and
-  // Settings > General's date/time-format picker each send only the fields
-  // they own, so one never clobbers the other's saved value.
+  // Settings > General's date/time-format/landing-page pickers each send
+  // only the fields they own, so one never clobbers another's saved value.
   updateProfile(payload: {
     phoneCountry?: string | null;
     phoneNumber?: string | null;
     dateFormat?: DateFormat;
     timeFormat?: TimeFormat;
+    defaultLandingPage?: LandingPage;
   }) {
     return this.http
       .patch<{ message: string; user: User }>(`${this.api}/me`, payload)
       .pipe(tap((res) => this.refreshUser(res.user)));
+  }
+
+  // Public — the invitee sets their own username/password from the emailed
+  // accept-invite link. Lives here (not OrganizationService) because a
+  // successful accept establishes a session, same as register()/login().
+  acceptInvite(token: string, payload: { username: string; password: string }) {
+    return this.http
+      .post<AuthResponse>(
+        `${environment.apiUrl}/organizations/invites/token/${token}/accept`,
+        payload,
+        this.CREDS
+      )
+      .pipe(tap((res) => this.persist(res)));
   }
 
   forgotPassword(email: string) {
@@ -126,7 +128,7 @@ export class AuthService {
   }
 
   logout() {
-    this.http.post(`${this.api}/logout`, {}, this.CREDS).subscribe({
+    this.http.post(`${this.api}/logout`, {}, this.LOADER_CREDS).subscribe({
       complete: () => this.clearSession(),
       error: () => this.clearSession(),
     });

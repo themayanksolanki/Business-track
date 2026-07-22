@@ -11,94 +11,217 @@
   </div>
 </div>
 
-<!-- Stats -->
-<div class="row g-3 mb-4">
-  <div class="col-sm-4">
-    <div class="stat-card">
-      <div class="stat-icon-wrap stat-todo">
-        <i class="bi bi-circle"></i>
-      </div>
-      <div class="stat-body">
-        <span class="stat-number">{{ todo }}</span>
-        <span class="stat-label">Todo</span>
+@if (loading) {
+  <div class="text-center text-muted py-5">
+    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+    Loading dashboard…
+  </div>
+} @else if (stats) {
+  <!-- Stats -->
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+      <div class="stat-card">
+        <div class="stat-icon-wrap stat-todo"><i class="bi bi-circle"></i></div>
+        <div class="stat-body">
+          <span class="stat-number">{{ stats.tasks.todo }}</span>
+          <span class="stat-label">Todo</span>
+        </div>
       </div>
     </div>
-  </div>
-  <div class="col-sm-4">
-    <div class="stat-card">
-      <div class="stat-icon-wrap stat-pending">
-        <i class="bi bi-hourglass-split"></i>
-      </div>
-      <div class="stat-body">
-        <span class="stat-number">{{ pending }}</span>
-        <span class="stat-label">In Progress</span>
+    <div class="col-sm-6 col-lg-3">
+      <div class="stat-card">
+        <div class="stat-icon-wrap stat-pending"><i class="bi bi-hourglass-split"></i></div>
+        <div class="stat-body">
+          <span class="stat-number">{{ stats.tasks.pending }}</span>
+          <span class="stat-label">In Progress</span>
+        </div>
       </div>
     </div>
-  </div>
-  <div class="col-sm-4">
-    <div class="stat-card">
-      <div class="stat-icon-wrap stat-done">
-        <i class="bi bi-check2-all"></i>
-      </div>
-      <div class="stat-body">
-        <span class="stat-number">{{ completed }}</span>
-        <span class="stat-label">Completed</span>
+    <div class="col-sm-6 col-lg-3">
+      <div class="stat-card">
+        <div class="stat-icon-wrap stat-done"><i class="bi bi-check2-all"></i></div>
+        <div class="stat-body">
+          <span class="stat-number">{{ stats.tasks.completed }}</span>
+          <span class="stat-label">Completed</span>
+        </div>
       </div>
     </div>
-  </div>
-</div>
-
-<!-- Progress bar -->
-@if (tasks.length > 0) {
-  <div class="card progress-card mb-4 shadow-sm">
-    <div class="card-body py-3 px-4">
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <span class="small fw-semibold text-muted text-uppercase" style="letter-spacing:.05em">Completion Rate</span>
-        <span class="fw-bold" [class.text-success]="completionRate === 100"
-              [class.text-warning]="completionRate < 100">{{ completionRate }}%</span>
-      </div>
-      <div class="progress" style="height:8px; border-radius:99px;">
-        <div class="progress-bar" role="progressbar"
-             [style.width]="completionRate + '%'"
-             [class.bg-success]="completionRate === 100"
-             [class.bg-warning]="completionRate < 100 && completionRate >= 50"
-             [class.bg-danger]="completionRate < 50">
+    <div class="col-sm-6 col-lg-3">
+      <div class="stat-card">
+        <div class="stat-icon-wrap" [class.stat-overdue]="stats.tasks.overdue > 0" [class.stat-muted]="stats.tasks.overdue === 0">
+          <i class="bi bi-exclamation-circle"></i>
+        </div>
+        <div class="stat-body">
+          <span class="stat-number">{{ stats.tasks.overdue }}</span>
+          <span class="stat-label">Overdue</span>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- Progress bar -->
+  @if (stats.tasks.total > 0) {
+    <div class="card progress-card mb-4 shadow-sm">
+      <div class="card-body py-3 px-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="small fw-semibold text-muted text-uppercase" style="letter-spacing:.05em">Completion Rate</span>
+          <span class="fw-bold" [class.text-success]="completionRate === 100"
+                [class.text-warning]="completionRate < 100">{{ completionRate }}%</span>
+        </div>
+        <div class="progress" style="height:8px; border-radius:99px;">
+          <div class="progress-bar" role="progressbar"
+               [style.width]="completionRate + '%'"
+               [class.bg-success]="completionRate === 100"
+               [class.bg-warning]="completionRate < 100 && completionRate >= 50"
+               [class.bg-danger]="completionRate < 50">
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Quick actions -->
+  <h6 class="section-label mb-3">Quick Actions</h6>
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <a routerLink="/tasks" class="action-card">
+        <div class="action-icon action-view"><i class="bi bi-list-task"></i></div>
+        <span>My Tasks</span>
+      </a>
+    </div>
+    <div class="col-6 col-md-3">
+      <a routerLink="/tasks" class="action-card">
+        <div class="action-icon action-create"><i class="bi bi-plus-circle"></i></div>
+        <span>New Task</span>
+      </a>
+    </div>
+    @if (isManager) {
+      <div class="col-6 col-md-3">
+        <a routerLink="/users" class="action-card">
+          <div class="action-icon action-users"><i class="bi bi-people"></i></div>
+          <span>Users</span>
+        </a>
+      </div>
+    }
+    @if (isTeamLead) {
+      <div class="col-6 col-md-3">
+        <a routerLink="/team-tasks" class="action-card">
+          <div class="action-icon action-team"><i class="bi bi-diagram-3"></i></div>
+          <span>Team Tasks</span>
+        </a>
+      </div>
+    }
+  </div>
+
+  <!-- Charts -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-5">
+      <div class="chart-card h-100">
+        <h6 class="section-label mb-3">Task Breakdown</h6>
+        <div class="d-flex align-items-center gap-4 flex-wrap">
+          <div class="donut" [style.background]="taskDonutBackground">
+            <div class="donut-hole">
+              <span class="donut-value">{{ stats.tasks.total }}</span>
+              <span class="donut-caption">Tasks</span>
+            </div>
+          </div>
+          <div class="legend">
+            @for (item of taskLegend; track item.key) {
+              <div class="legend-row">
+                <span class="legend-swatch" [style.background]="item.color"></span>
+                <span class="legend-label">{{ item.label }}</span>
+                <span class="legend-count">{{ item.count }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-7">
+      <div class="chart-card h-100">
+        <h6 class="section-label mb-3">Projects by Status</h6>
+        @if (stats.projects.total > 0) {
+          <div class="bar-list">
+            @for (bar of projectStatusBars; track bar.key) {
+              <div class="bar-row">
+                <span class="bar-label">{{ bar.label }}</span>
+                <div class="bar-track">
+                  <div class="bar-fill" [style.width]="bar.width + '%'" [style.background]="bar.color"></div>
+                </div>
+                <span class="bar-count">{{ bar.count }}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="text-muted small mb-0">No projects in view yet.</p>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent projects -->
+  @if (stats.recentProjects.length > 0) {
+    <h6 class="section-label mb-3">Recent Projects</h6>
+    <div class="row g-3 mb-4">
+      @for (p of stats.recentProjects; track p.id) {
+        <div class="col-md-6 col-lg-4">
+          <div class="project-card">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <span class="project-name">{{ p.name }}</span>
+              <span class="project-priority" [class]="'priority-' + p.priority">{{ p.priority }}</span>
+            </div>
+            @if (p.department) {
+              <div class="project-dept mb-2">
+                <span class="dept-dot" [style.background]="p.department.color"></span>
+                {{ p.department.name }}
+              </div>
+            }
+            <div class="progress" style="height:6px; border-radius:99px;">
+              <div class="progress-bar bg-primary" role="progressbar" [style.width]="p.progress + '%'"></div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+              <span class="project-items text-muted">{{ p.itemsCompleted }}/{{ p.itemsTotal }} items</span>
+              <span class="project-progress-label">{{ p.progress }}%</span>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Role-specific -->
+  @if ((isAdmin || isManager) && stats.departmentBreakdown?.length) {
+    <h6 class="section-label mb-3">Projects by Department</h6>
+    <div class="chart-card mb-4">
+      <div class="bar-list">
+        @for (dept of departmentBars; track dept.id) {
+          <div class="bar-row">
+            <span class="bar-label">{{ dept.name }}</span>
+            <div class="bar-track">
+              <div class="bar-fill" [style.width]="dept.width + '%'" [style.background]="dept.color"></div>
+            </div>
+            <span class="bar-count">{{ dept.totalProjects }}</span>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  @if (isTeamLead && stats.teamBreakdown?.length) {
+    <h6 class="section-label mb-3">Team Workload</h6>
+    <div class="chart-card mb-4">
+      @for (m of stats.teamBreakdown; track m.id) {
+        <div class="team-row">
+          <div class="team-avatar">{{ m.username[0].toUpperCase() }}</div>
+          <span class="team-name">{{ m.username }}</span>
+          <div class="team-bar">
+            @for (seg of memberSegments(m); track seg.key) {
+              <span class="team-seg" [style.width]="seg.width + '%'" [style.background]="seg.color"></span>
+            }
+          </div>
+          <span class="team-total">{{ m.total }}</span>
+        </div>
+      }
+    </div>
+  }
 }
-
-<!-- Quick actions -->
-<h6 class="section-label mb-3">Quick Actions</h6>
-<div class="row g-3 mb-4">
-  <div class="col-6 col-md-3">
-    <a routerLink="/tasks" class="action-card">
-      <div class="action-icon action-view"><i class="bi bi-list-task"></i></div>
-      <span>My Tasks</span>
-    </a>
-  </div>
-  <div class="col-6 col-md-3">
-    <a routerLink="/tasks" class="action-card">
-      <div class="action-icon action-create"><i class="bi bi-plus-circle"></i></div>
-      <span>New Task</span>
-    </a>
-  </div>
-  @if (isManager) {
-    <div class="col-6 col-md-3">
-      <a routerLink="/users" class="action-card">
-        <div class="action-icon action-users"><i class="bi bi-people"></i></div>
-        <span>Users</span>
-      </a>
-    </div>
-  }
-  @if (isTeamLead) {
-    <div class="col-6 col-md-3">
-      <a routerLink="/team-tasks" class="action-card">
-        <div class="action-icon action-team"><i class="bi bi-diagram-3"></i></div>
-        <span>Team Tasks</span>
-      </a>
-    </div>
-  }
-</div>
-

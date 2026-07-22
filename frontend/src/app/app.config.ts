@@ -2,7 +2,7 @@ import { ApplicationConfig, provideZoneChangeDetection, APP_INITIALIZER } from '
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { catchError, firstValueFrom, of, timeout } from 'rxjs';
-import { NgbTooltipConfig, NgbPopoverConfig } from '@ng-bootstrap/ng-bootstrap';
+import { NgbTooltipConfig, NgbPopoverConfig, NgbDropdownConfig } from '@ng-bootstrap/ng-bootstrap';
 import { routes } from './app.routes';
 import { tokenInterceptor } from './core/interceptors/token.interceptor';
 import { loadingInterceptor } from './core/interceptors/loading.interceptor';
@@ -21,6 +21,12 @@ function popoverDefaults(): NgbPopoverConfig {
   const config = new NgbPopoverConfig();
   config.container = 'body';
   config.placement = 'auto';
+  return config;
+}
+
+function dropdownDefaults(): NgbDropdownConfig {
+  const config = new NgbDropdownConfig();
+  config.container = 'body';
   return config;
 }
 
@@ -55,5 +61,6 @@ export const appConfig: ApplicationConfig = {
     },
     { provide: NgbTooltipConfig, useFactory: tooltipDefaults },
     { provide: NgbPopoverConfig, useFactory: popoverDefaults },
+    { provide: NgbDropdownConfig, useFactory: dropdownDefaults },
   ],
 };

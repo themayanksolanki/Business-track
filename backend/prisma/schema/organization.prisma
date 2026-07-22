@@ -38,6 +38,9 @@ model Invite {
   teamLeadId     Int?
   invitedById    Int
   status         InviteStatus @default(pending)
+  // Emailed accept-invite link — cleared once the invite is accepted.
+  token          String?      @unique
+  tokenExpiresAt DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 

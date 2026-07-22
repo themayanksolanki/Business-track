@@ -5,6 +5,7 @@ import { MentionModule } from 'angular-mentions';
 import dayjs from 'dayjs/esm';
 import { ProjectService } from '../../core/services/project.service';
 import { AuthService } from '../../core/services/auth.service';
+import { NotificationService } from '../notification.service';
 import {
   ProjectItem,
   ProjectItemStatus,
@@ -155,7 +156,8 @@ export class ProjectItemDetailComponent implements OnChanges, OnInit, OnDestroy 
     private fb: FormBuilder,
     private projectService: ProjectService,
     public auth: AuthService,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private notifications: NotificationService
   ) {
     this.editForm = this.fb.group({
       title: ['', Validators.required],
@@ -253,6 +255,10 @@ export class ProjectItemDetailComponent implements OnChanges, OnInit, OnDestroy 
       next: (res) => {
         this.item = res.item;
         this.saved.emit(res.item);
+        this.notifications.success('Status updated');
+      },
+      error: (err) => {
+        this.notifications.error(err.error?.message || 'Failed to update status');
       },
     });
   }
@@ -263,6 +269,10 @@ export class ProjectItemDetailComponent implements OnChanges, OnInit, OnDestroy 
       next: (res) => {
         this.item = res.item;
         this.saved.emit(res.item);
+        this.notifications.success('Priority updated');
+      },
+      error: (err) => {
+        this.notifications.error(err.error?.message || 'Failed to update priority');
       },
     });
   }
@@ -278,6 +288,10 @@ export class ProjectItemDetailComponent implements OnChanges, OnInit, OnDestroy 
       next: (res) => {
         this.item = res.item;
         this.saved.emit(res.item);
+        this.notifications.success('Assignee updated');
+      },
+      error: (err) => {
+        this.notifications.error(err.error?.message || 'Failed to update assignee');
       },
     });
   }
@@ -288,6 +302,10 @@ export class ProjectItemDetailComponent implements OnChanges, OnInit, OnDestroy 
       next: (res) => {
         this.item = res.item;
         this.saved.emit(res.item);
+        this.notifications.success('Tags updated');
+      },
+      error: (err) => {
+        this.notifications.error(err.error?.message || 'Failed to update tags');
       },
     });
   }

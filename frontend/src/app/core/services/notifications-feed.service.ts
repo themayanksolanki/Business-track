@@ -1,8 +1,7 @@
 import { Injectable, signal } from '@angular/core';
-import { HttpClient, HttpContext } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { AppNotification } from '../../models/notification.model';
-import { SKIP_LOADER } from '../interceptors/loading.interceptor';
 
 export interface NotificationLink {
   commands: any[];
@@ -17,15 +16,11 @@ export class NotificationsFeedService {
   readonly notifications = this._notifications.asReadonly();
   readonly unreadCount = signal(0);
 
-  private readonly skipLoaderContext = new HttpContext().set(SKIP_LOADER, true);
-
   constructor(private http: HttpClient) {}
 
   fetchRecent() {
     this.http
-      .get<{ notifications: AppNotification[]; unreadCount: number }>(this.api, {
-        context: this.skipLoaderContext,
-      })
+      .get<{ notifications: AppNotification[]; unreadCount: number }>(this.api)
       .subscribe({
         next: (res) => {
           this._notifications.set(res.notifications);

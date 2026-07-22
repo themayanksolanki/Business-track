@@ -150,6 +150,17 @@ export class ProjectService {
     );
   }
 
+  // Re-homes an item (and its whole subtree) into a different project.
+  // targetParentId is the destination group/task/subtask to nest it under —
+  // omit it (or pass null) only when moving a group, which always lands at
+  // the destination project's root.
+  moveItemToProject(projectId: string, itemId: number, targetProjectId: number, targetParentId: number | null) {
+    return this.http.patch<{ message: string; item: ProjectItem }>(
+      `${this.api}/${projectId}/items/${itemId}/move-to-project`,
+      { targetProjectId, targetParentId }
+    );
+  }
+
   // Comments
   getComments(projectId: string, itemId: number) {
     return this.http.get<ProjectComment[]>(`${this.api}/${projectId}/items/${itemId}/comments`);
