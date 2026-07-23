@@ -1,6 +1,9 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { Dropdown } from 'bootstrap';
+import dayjs from 'dayjs/esm';
 import { TaskService } from '../../core/services/task.service';
+import { DatePickerComponent } from '../../shared/date-picker/date-picker.component';
 import { UserService } from '../../core/services/user.service';
 import { AuthService } from '../../core/services/auth.service';
 import { AttachmentService } from '../../core/services/attachment.service';
@@ -32,6 +35,7 @@ import { HelpTipComponent } from '../../shared/help-tip/help-tip.component';
     TaskAttachmentsModalComponent,
     TagPillComponent,
     HelpTipComponent,
+    DatePickerComponent,
   ],
   templateUrl: './task-list.component.html',
   styleUrl: './task-list.component.css',
@@ -253,6 +257,8 @@ export class TaskListComponent implements OnInit, OnDestroy {
       title: this.editTask.title,
       description: this.editTask.description,
       status: this.editTask.status,
+      startDate: this.editTask.startDate,
+      dueDate: this.editTask.dueDate,
       tags: this.editTask.tags,
     };
   }
@@ -276,6 +282,21 @@ export class TaskListComponent implements OnInit, OnDestroy {
         this.editLoading = false;
       },
     });
+  }
+
+  // The status/assignee dropdown cells have their own (click)="$event.stopPropagation()"
+  // (kept so picking an option doesn't also open the row's detail view) —
+  // that also stops the click from reaching `document`, which is where
+  // Bootstrap's dropdown auto-close-on-selection listener lives, so the menu
+  // is otherwise left open after a selection. Called from the template
+  // alongside setStatus/reassign, deriving the specific row's toggle button
+  // from the click target since this list renders one dropdown per row (no
+  // single ViewChild could target "the right one").
+  closeDropdownFrom(event: Event) {
+    const toggle = (event.target as HTMLElement)
+      .closest('.dropdown')
+      ?.querySelector<HTMLElement>('[data-bs-toggle="dropdown"]');
+    if (toggle) Dropdown.getInstance(toggle)?.hide();
   }
 
   reassign(task: Task, user: User) {
@@ -325,6 +346,24 @@ export class TaskListComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.subtaskError = err.error?.message || 'Failed to add subtask';
         this.subtaskLoading = false;
+      },
+    });
+  }
+
+  dueValue(task: Task): string | null {
+    return task.dueDate ? dayjs(task.dueDate).format('YYYY-MM-DD') : null;
+  }
+
+  setDue(task: Task, date: string | null) {
+    const dueDate = date ? dayjs(date, 'YYYY-MM-DD').toISOString() : null;
+    this.taskService.updateTask(task.id, { dueDate }).subscribe({
+      next: (res) => {
+        task.dueDate = res.task.dueDate;
+        if (this.selectedTask?.id === task.id) this.selectedTask = { ...task, dueDate: res.task.dueDate };
+        this.notifications.success('Due date updated');
+      },
+      error: (err) => {
+        this.notifications.error(err.error?.message || 'Failed to update due date');
       },
     });
   }

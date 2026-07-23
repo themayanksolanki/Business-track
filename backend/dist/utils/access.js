@@ -8,6 +8,29 @@ export const ROLE_RANK = { Admin: 4, Manager: 3, 'Team Lead': 2, User: 1 };
 // `targetRole`. Admins outrank (and can manage) everyone, including other
 // Admins; everyone else needs a strictly higher rank.
 export const canManageRole = (actorRole, targetRole) => actorRole === 'Admin' || ROLE_RANK[actorRole] > ROLE_RANK[targetRole];
+// Whether `actor` may activate/deactivate/edit, or reset the password of,
+// `target`. Requires actor to outrank target (canManageRole) and, for every
+// non-Admin actor, that target is actually their direct report (target's
+// managerId/teamLeadId points back at actor).
+//
+// This used to be four different strictness levels hand-rolled across
+// userController's activateUser/deactivateUser/updateUser/updateUserPassword
+// — only activateUser required direct-report scoping for Manager, and only
+// activateUser/updateUserPassword required it for Team Lead. Nothing
+// suggested that spread was intentional (a Manager could edit/deactivate/
+// reset the password of a user outside their team but not activate them),
+// so this unifies on the strictest of the four.
+export const canActOnUser = (actor, target) => {
+    if (!canManageRole(actor.role, target.role))
+        return false;
+    if (actor.role === 'Admin')
+        return true;
+    if (actor.role === 'Manager')
+        return target.managerId === actor.id;
+    if (actor.role === 'Team Lead')
+        return target.teamLeadId === actor.id;
+    return false;
+};
 // Accepts one root id or many — batching multiple roots into the same
 // frontier keeps this to one query per depth level total, instead of one
 // full walk per root.

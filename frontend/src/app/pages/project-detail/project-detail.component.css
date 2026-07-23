@@ -15,8 +15,25 @@
     --col-assignee: 24px;
     --col-status: 88px;
     --col-due: 96px;
-    --col-priority: 78px;
+    /* Priority is icon-only from here down (see project-tree-node.component
+       .css's own ≤860px rule, which hides .priority-label) — no more text
+       to fit, just the flag glyph plus the badge's own padding. */
+    --col-priority: 40px;
     --col-icon: 26px;
+  }
+
+  /* Matches project-tree-node.component.css's ≤860px grid: the
+     Attachments/Description icon columns collapse into the "More actions"
+     menu, so both the header and the rows drop to 8 tracks — must stay in
+     lockstep with the row's own grid-template-columns or the header
+     misaligns with the columns below it again. */
+  .item-table-header {
+    grid-template-columns: var(--col-id) var(--col-icon) var(--col-assignee) minmax(140px, 1fr) var(--col-status) var(--col-due) var(--col-priority) var(--col-icon);
+  }
+
+  .item-table-header span:nth-child(8),
+  .item-table-header span:nth-child(9) {
+    display: none;
   }
 }
 
@@ -30,7 +47,11 @@
   grid-template-columns: var(--col-id) var(--col-icon) var(--col-assignee) minmax(160px, 1fr) var(--col-status) var(--col-due) var(--col-priority) var(--col-icon) var(--col-icon) var(--col-icon);
   column-gap: 8px;
   align-items: center;
-  padding: 4px 4px 10px;
+  /* Left/right must match the rows' effective inset — .tree-root's 2px
+     padding plus .tree-row-main's own 10px (see project-tree-node.component
+     .css) — or the grid columns line up but the header itself sits shifted
+     relative to where they actually start. */
+  padding: 4px 12px 10px;
   margin-bottom: 6px;
   border-bottom: 1px solid var(--border);
   position: sticky;

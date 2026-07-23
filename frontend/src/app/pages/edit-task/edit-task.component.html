@@ -16,6 +16,7 @@
       <div class="alert alert-danger py-2 small mb-4">{{ error }}</div>
     }
 
+    @if (!notFound) {
     <div class="card edit-card shadow-sm">
       <div class="card-body p-4 p-md-5">
         <form [formGroup]="form" (ngSubmit)="submit()">
@@ -34,6 +35,17 @@
             <textarea class="form-control field-input" style="height:auto"
                       formControlName="description" rows="4"
                       placeholder="Add a description..."></textarea>
+          </div>
+
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <label class="field-label">Start</label>
+              <app-date-picker [value]="startDate" (valueChange)="startDate = $event"></app-date-picker>
+            </div>
+            <div class="col-md-6">
+              <label class="field-label">Due</label>
+              <app-date-picker [value]="dueDate" [min]="startDate" (valueChange)="dueDate = $event"></app-date-picker>
+            </div>
           </div>
 
           <div class="mb-5">
@@ -71,6 +83,7 @@
         </form>
       </div>
     </div>
+    }
 
   </div>
 </div>

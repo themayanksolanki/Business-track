@@ -24,39 +24,45 @@
         } @else if (attachments.length === 0) {
           <p class="text-muted small mb-4">No files uploaded yet.</p>
         } @else {
-          <ul class="attachment-list mb-4">
+          <div class="att-grid mb-4">
             @for (a of attachments; track a.id) {
-              <li class="attachment-item" [class.attachment-item-pending]="isPending(a)">
-                <i class="bi attachment-file-icon" [class]="fileIcon(a.mimeType)"></i>
-                <div class="attachment-info">
-                  <span class="attachment-name" [class.attachment-name-pending]="isPending(a)">{{ a.fileName }}</span>
-                  <span class="attachment-meta">
-                    {{ formatSize(a.size) }} · {{ a.uploadedBy.username }} · {{ formatUploadedAt(a.createdAt) }}
+              <div class="att-tile" [class.att-tile-pending]="isPending(a)">
+                <div class="att-tile-thumb" (click)="!isPending(a) && viewRequested.emit(a)">
+                  <app-attachment-thumb [attachment]="a" [getFileInfo]="getFileInfo"></app-attachment-thumb>
+                  @if (isPending(a)) {
+                    <div class="att-tile-overlay att-tile-overlay-pending">
+                      <span class="att-tile-countdown">{{ remainingSeconds(a) }}s</span>
+                      <button type="button" class="att-tile-action btn btn-success btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); undoRequested.emit(a)" title="Undo">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                      </button>
+                    </div>
+                  } @else {
+                    <div class="att-tile-overlay">
+                      <button type="button" class="att-tile-action btn btn-light btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); viewRequested.emit(a)" title="Preview">
+                        <i class="bi bi-eye"></i>
+                      </button>
+                      <button type="button" class="att-tile-action btn btn-light btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); download.emit(a)" [disabled]="downloadingId === a.id" title="Download">
+                        @if (downloadingId === a.id) {
+                          <span class="spinner-border spinner-border-sm"></span>
+                        } @else {
+                          <i class="bi bi-download"></i>
+                        }
+                      </button>
+                      <button type="button" class="att-tile-action btn btn-danger btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); deleteRequested.emit(a)" title="Delete">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </div>
+                  }
+                </div>
+                <div class="att-tile-info">
+                  <span class="att-tile-name text-truncate" [class.att-tile-name-pending]="isPending(a)" [title]="a.fileName">{{ a.fileName }}</span>
+                  <span class="att-tile-meta" [title]="formatUploadedAt(a.createdAt)">
+                    @if (isPending(a)) { Deleting… } @else { {{ formatSize(a.size) }} }
                   </span>
                 </div>
-                @if (isPending(a)) {
-                  <span class="attachment-countdown">Deleting in {{ remainingSeconds(a) }}s</span>
-                  <button class="attachment-download-btn attachment-undo-btn" (click)="undoRequested.emit(a)" title="Undo">
-                    <i class="bi bi-arrow-counterclockwise"></i>
-                  </button>
-                } @else {
-                  <button class="attachment-download-btn" (click)="viewRequested.emit(a)" title="Preview">
-                    <i class="bi bi-eye"></i>
-                  </button>
-                  <button class="attachment-download-btn" (click)="download.emit(a)" [disabled]="downloadingId === a.id" title="Download">
-                    @if (downloadingId === a.id) {
-                      <span class="spinner-border spinner-border-sm"></span>
-                    } @else {
-                      <i class="bi bi-download"></i>
-                    }
-                  </button>
-                  <button class="attachment-download-btn attachment-delete-btn" (click)="deleteRequested.emit(a)" title="Delete">
-                    <i class="bi bi-trash"></i>
-                  </button>
-                }
-              </li>
+              </div>
             }
-          </ul>
+          </div>
         }
 
         <div class="attachment-upload-row">

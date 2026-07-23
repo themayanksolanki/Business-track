@@ -20,6 +20,19 @@ const validateTagIdsArray = (tags) => {
         return 'tags must all be valid IDs';
     return null;
 };
+// Shared "array of valid IDs" check reused by validateBulkMoveToParent/
+// validateReorder/validateProjectRoleReorder/validateDepartmentIds — each
+// used to hand-roll the same two checks (non-empty + every-id-valid) with a
+// field name baked into the message.
+const validateIdArray = (fieldName, ids, opts) => {
+    if (!Array.isArray(ids))
+        return `${fieldName} must be an array`;
+    if (!opts?.allowEmpty && ids.length === 0)
+        return `${fieldName} must be a non-empty array`;
+    if (!ids.every((id) => isValidId(id)))
+        return `${fieldName} must all be valid IDs`;
+    return null;
+};
 export const validateOrgRegister = (req, res, next) => {
     const { username, email, password, organizationName, emailDomain } = req.body;
     if (!username || !username.trim())
@@ -84,14 +97,14 @@ const VALID_LANDING_PAGES = [
     'chat',
     'users',
     'organization',
-    'team-tasks',
 ];
+const VALID_SIDEBAR_THEMES = ['MIDNIGHT', 'CHARCOAL', 'OCEAN', 'FOREST', 'PLUM', 'DAYLIGHT'];
 // Fields are all independently optional — this endpoint is shared by the
 // Profile page's phone editor and Settings > General's date/time-format/
 // landing-page pickers, and a request from one shouldn't need to (or
 // accidentally) touch the others' fields.
 export const validateUpdateProfile = (req, res, next) => {
-    const { phoneCountry, phoneNumber, dateFormat, timeFormat, defaultLandingPage } = req.body;
+    const { phoneCountry, phoneNumber, dateFormat, timeFormat, defaultLandingPage, sidebarTheme, sidebarTextColor } = req.body;
     // Both null/empty clears the phone number; otherwise both must be present
     // and valid — a country code with no number (or vice versa) isn't useful.
     if (phoneCountry || phoneNumber) {
@@ -106,10 +119,15 @@ export const validateUpdateProfile = (req, res, next) => {
         return next(new AppError(`timeFormat must be one of: ${VALID_TIME_FORMATS.join(', ')}`, 400));
     if (defaultLandingPage !== undefined && !VALID_LANDING_PAGES.includes(defaultLandingPage))
         return next(new AppError(`defaultLandingPage must be one of: ${VALID_LANDING_PAGES.join(', ')}`, 400));
+    if (sidebarTheme !== undefined && !VALID_SIDEBAR_THEMES.includes(sidebarTheme))
+        return next(new AppError(`sidebarTheme must be one of: ${VALID_SIDEBAR_THEMES.join(', ')}`, 400));
+    // null clears the override back to the active theme's own default text color.
+    if (sidebarTextColor !== undefined && sidebarTextColor !== null && !HEX_COLOR_REGEX.test(sidebarTextColor))
+        return next(new AppError('sidebarTextColor must be a valid hex color', 400));
     next();
 };
 export const validateTask = (req, res, next) => {
-    const { title, status, assignedTo, parentTask, tags } = req.body;
+    const { title, status, assignedTo, parentTask, startDate, dueDate, tags } = req.body;
     if (req.method === 'POST' && (!title || !title.trim()))
         return next(new AppError('Title is required', 400));
     if (status !== undefined && !['todo', 'pending', 'completed'].includes(status))
@@ -118,6 +136,9 @@ export const validateTask = (req, res, next) => {
         return next(new AppError('assignedTo is not a valid ID', 400));
     if (parentTask && !isValidId(parentTask))
         return next(new AppError('parentTask is not a valid ID', 400));
+    const dateError = validateDateRange(startDate, dueDate, 'startDate', 'dueDate');
+    if (dateError)
+        return next(new AppError(dateError, 400));
     const tagsError = validateTagIdsArray(tags);
     if (tagsError)
         return next(new AppError(tagsError, 400));
@@ -146,13 +167,13 @@ export const validateItemId = validateParamId('itemId');
 export const validateCommentId = validateParamId('commentId');
 export const validateAttachmentId = validateParamId('attachmentId');
 const isValidDateValue = (value) => !isNaN(new Date(value).getTime());
-const validateDateRange = (startDate, endDate) => {
+const validateDateRange = (startDate, endDate, startField = 'startDate', endField = 'endDate') => {
     if (startDate !== undefined && startDate !== null && !isValidDateValue(startDate))
-        return 'startDate is not a valid date';
+        return `${startField} is not a valid date`;
     if (endDate !== undefined && endDate !== null && !isValidDateValue(endDate))
-        return 'endDate is not a valid date';
+        return `${endField} is not a valid date`;
     if (startDate && endDate && new Date(endDate) < new Date(startDate))
-        return 'endDate must be on or after startDate';
+        return `${endField} must be on or after ${startField}`;
     return null;
 };
 const VALID_PRIORITIES = ['low', 'medium', 'high'];
@@ -228,7 +249,7 @@ export const validateProjectDetailsLayout = (req, res, next) => {
 const VALID_ITEM_STATUSES = ['todo', 'doing', 'completed'];
 const VALID_ITEM_PRIORITIES = VALID_PRIORITIES;
 export const validateProjectItem = (req, res, next) => {
-    const { title, status, priority, assignedTo, parentId, startDate, endDate, tags } = req.body;
+    const { title, status, priority, assignedTo, parentId, startDate, endDate, tags, emoji, meetingLinkUrl, meetingLinkTitle, meetingLinkAt, } = req.body;
     if (req.method === 'POST' && (!title || !title.trim()))
         return next(new AppError('Title is required', 400));
     if (status !== undefined && !VALID_ITEM_STATUSES.includes(status))
@@ -239,12 +260,36 @@ export const validateProjectItem = (req, res, next) => {
         return next(new AppError('assignedTo is not a valid ID', 400));
     if (parentId && !isValidId(parentId))
         return next(new AppError('parentId is not a valid ID', 400));
+    // Generous cap, not a strict single-grapheme check — some emoji are
+    // multi-codepoint sequences (skin tone modifiers, ZWJ family/profession
+    // joins) that run well past a naive `.length` of 1-2.
+    if (emoji != null && typeof emoji === 'string' && emoji.length > 16)
+        return next(new AppError('emoji is too long', 400));
     const dateError = validateDateRange(startDate, endDate);
     if (dateError)
         return next(new AppError(dateError, 400));
     const tagsError = validateTagIdsArray(tags);
     if (tagsError)
         return next(new AppError(tagsError, 400));
+    // Only validated when actually setting a link — sending null/'' for all
+    // three clears it, which the controller treats as "remove", not "add".
+    if (meetingLinkUrl) {
+        let parsedUrl;
+        try {
+            parsedUrl = new URL(meetingLinkUrl);
+        }
+        catch {
+            return next(new AppError('meetingLinkUrl must be a valid URL', 400));
+        }
+        if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:')
+            return next(new AppError('meetingLinkUrl must use http or https', 400));
+        if (!meetingLinkTitle || !meetingLinkTitle.trim())
+            return next(new AppError('meetingLinkTitle is required when adding a meeting link', 400));
+        if (meetingLinkTitle.length > 100)
+            return next(new AppError('meetingLinkTitle is too long', 400));
+        if (!meetingLinkAt || isNaN(new Date(meetingLinkAt).getTime()))
+            return next(new AppError('meetingLinkAt is required when adding a meeting link', 400));
+    }
     next();
 };
 const VALID_MOVE_DIRECTIONS = ['up', 'down', 'indent', 'outdent'];
@@ -277,20 +322,29 @@ export const validateBulkMoveToParent = (req, res, next) => {
     const { itemIds, parentId } = req.body;
     if (!isValidId(parentId))
         return next(new AppError('parentId is not a valid ID', 400));
-    if (!Array.isArray(itemIds) || itemIds.length === 0)
-        return next(new AppError('itemIds must be a non-empty array', 400));
-    if (!itemIds.every((id) => isValidId(id)))
-        return next(new AppError('itemIds must all be valid IDs', 400));
+    const idsError = validateIdArray('itemIds', itemIds);
+    if (idsError)
+        return next(new AppError(idsError, 400));
+    next();
+};
+export const validateBulkMoveToProject = (req, res, next) => {
+    const { itemIds, targetProjectId, targetParentId } = req.body;
+    if (!isValidId(targetProjectId))
+        return next(new AppError('targetProjectId is not a valid ID', 400));
+    if (!isValidId(targetParentId))
+        return next(new AppError('targetParentId is not a valid ID', 400));
+    const idsError = validateIdArray('itemIds', itemIds);
+    if (idsError)
+        return next(new AppError(idsError, 400));
     next();
 };
 export const validateReorder = (req, res, next) => {
     const { parentId, orderedIds } = req.body;
     if (parentId && !isValidId(parentId))
         return next(new AppError('parentId is not a valid ID', 400));
-    if (!Array.isArray(orderedIds) || orderedIds.length === 0)
-        return next(new AppError('orderedIds must be a non-empty array', 400));
-    if (!orderedIds.every((id) => isValidId(id)))
-        return next(new AppError('orderedIds must all be valid IDs', 400));
+    const idsError = validateIdArray('orderedIds', orderedIds);
+    if (idsError)
+        return next(new AppError(idsError, 400));
     next();
 };
 export const validateComment = (req, res, next) => {
@@ -327,10 +381,9 @@ export const validateDepartment = (req, res, next) => {
 export const validateDepartmentId = validateParamId('id');
 export const validateDepartmentIds = (req, res, next) => {
     const { departmentIds } = req.body;
-    if (!Array.isArray(departmentIds))
-        return next(new AppError('departmentIds must be an array', 400));
-    if (!departmentIds.every((id) => isValidId(id)))
-        return next(new AppError('departmentIds must all be valid IDs', 400));
+    const idsError = validateIdArray('departmentIds', departmentIds, { allowEmpty: true });
+    if (idsError)
+        return next(new AppError(idsError, 400));
     next();
 };
 export const validateTag = (req, res, next) => {
@@ -366,10 +419,9 @@ export const validateProjectRole = (req, res, next) => {
 export const validateProjectRoleId = validateParamId('id');
 export const validateProjectRoleReorder = (req, res, next) => {
     const { orderedIds } = req.body;
-    if (!Array.isArray(orderedIds) || orderedIds.length === 0)
-        return next(new AppError('orderedIds must be a non-empty array', 400));
-    if (!orderedIds.every((id) => isValidId(id)))
-        return next(new AppError('orderedIds must all be valid IDs', 400));
+    const idsError = validateIdArray('orderedIds', orderedIds);
+    if (idsError)
+        return next(new AppError(idsError, 400));
     next();
 };
 export const validateAddMember = (req, res, next) => {

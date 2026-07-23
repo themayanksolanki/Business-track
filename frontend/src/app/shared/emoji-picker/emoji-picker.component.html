@@ -1,0 +1,38 @@
+<div class="ep-wrap">
+  <button type="button" class="ep-trigger" [class.ep-trigger-ghost]="variant === 'ghost'"
+          [class.ep-trigger-disabled]="disabled" [disabled]="disabled"
+          (click)="toggle($event)" title="Emoji">
+    @if (value) {
+      <span class="ep-current">{{ value }}</span>
+    } @else {
+      <i class="bi bi-emoji-smile"></i>
+    }
+  </button>
+
+  @if (open) {
+    <div class="ep-panel" (click)="$event.stopPropagation()">
+      <div class="ep-cats">
+        @for (cat of emojiCategories; track cat.label; let i = $index) {
+          <button type="button" class="ep-cat-btn" [class.ep-cat-active]="activeCatIdx === i"
+                  (click)="activeCatIdx = i" [title]="cat.label">
+            {{ cat.icon }}
+          </button>
+        }
+      </div>
+
+      <div class="ep-grid">
+        @for (e of emojiCategories[activeCatIdx].emojis; track e) {
+          <button type="button" class="ep-item" (click)="select($event, e)">{{ e }}</button>
+        }
+      </div>
+
+      @if (value) {
+        <div class="ep-footer">
+          <button type="button" class="ep-clear-btn" (click)="clear($event)">
+            <i class="bi bi-x-lg me-1"></i>Remove emoji
+          </button>
+        </div>
+      }
+    </div>
+  }
+</div>

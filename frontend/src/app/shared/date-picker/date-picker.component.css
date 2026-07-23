@@ -4,18 +4,23 @@
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 6px;
   height: 42px;
-  padding: 0 12px;
+  padding: 0 8px 0 10px;
   border: 1px solid var(--border-strong);
   border-radius: 10px;
   background: var(--bg-input);
-  cursor: pointer;
-  text-align: left;
   transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
-.picker-trigger:hover { border-color: #94a3b8; background: var(--bg-card); }
-.picker-trigger-filled { border-color: var(--border-strong); }
+.picker-trigger:hover { border-color: #94a3b8; }
+.picker-trigger:focus-within { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+
+.picker-trigger-invalid,
+.picker-trigger-invalid:hover,
+.picker-trigger-invalid:focus-within {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
 
 .picker-trigger-disabled,
 .picker-trigger-disabled:hover {
@@ -27,30 +32,46 @@
 
 .picker-trigger-compact {
   height: 26px;
-  padding: 0 8px;
-  gap: 5px;
+  padding: 0 6px 0 8px;
+  gap: 3px;
   border: none;
   border-radius: 99px;
   background: transparent;
 }
 .picker-trigger-compact:hover { background: var(--bg-hover); border-color: transparent; }
+.picker-trigger-compact:focus-within { background: var(--bg-hover); box-shadow: none; }
 .picker-trigger-compact .picker-icon { width: 13px; height: 13px; }
-.picker-trigger-compact .picker-label { font-size: 0.72rem; font-weight: 600; }
+.picker-trigger-compact .picker-input { font-size: 0.72rem; font-weight: 600; }
 .picker-trigger-compact .picker-clear { width: 15px; height: 15px; }
 .picker-trigger-compact .picker-clear svg { width: 9px; height: 9px; }
 
+.picker-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+.picker-icon-btn:disabled { cursor: not-allowed; }
+
 .picker-icon { width: 17px; height: 17px; color: var(--text-dim); flex-shrink: 0; }
 
-.picker-label {
+.picker-input {
   flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-.picker-label-placeholder { color: var(--text-dim); font-weight: 400; }
+.picker-input::placeholder { color: var(--text-dim); font-weight: 400; }
+.picker-input:disabled { cursor: not-allowed; }
 
 .picker-clear {
   display: inline-flex;
@@ -89,76 +110,6 @@
   box-shadow: var(--shadow-lg);
 }
 
-.picker-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.picker-month-label {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.picker-nav-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-.picker-nav-btn:hover { background: var(--bg-muted); color: var(--text-primary); }
-.picker-nav-btn svg { width: 16px; height: 16px; }
-
-.picker-weekday-row, .picker-week-row {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-}
-
-.picker-weekday {
-  text-align: center;
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  padding-bottom: 6px;
-}
-
-.picker-day {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 32px;
-  margin: 1px 0;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s;
-}
-.picker-day:hover:not(:disabled) { background: var(--bg-hover); }
-.picker-day:disabled { color: var(--text-dim); opacity: 0.4; cursor: not-allowed; }
-
-.picker-day-out { color: var(--text-dim); opacity: 0.5; }
-
-.picker-day-today { font-weight: 700; color: #3b82f6; }
-
-.picker-day-selected, .picker-day-selected:hover {
-  background: #3b82f6;
-  color: #fff;
-  font-weight: 700;
-}
-
 .picker-panel-footer {
   display: flex;
   justify-content: space-between;
@@ -179,3 +130,86 @@
 }
 .picker-footer-btn:hover { background: var(--bg-muted); }
 .picker-footer-btn-muted { color: var(--text-muted); }
+
+.picker-panel-error {
+  margin-top: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.picker-error-banner {
+  position: fixed;
+  z-index: 1061;
+  max-width: 240px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-lg);
+}
+
+/* ngb-datepicker theming — its internal markup is a separate component
+   with its own encapsulation, so these rules have to pierce it to blend
+   the widget into the app's card/border/text CSS variables instead of
+   leaving Bootstrap's default light-only look. */
+.picker-panel ::ng-deep ngb-datepicker.ngb-dp-body,
+.picker-panel ::ng-deep .ngb-dp-months { background: transparent; border: none; width: 100%; }
+
+.picker-panel ::ng-deep ngb-datepicker { width: 100%; border: none !important; background: transparent !important; }
+
+.picker-panel ::ng-deep .ngb-dp-month { width: 100%; }
+.picker-panel ::ng-deep .ngb-dp-month-name { background: transparent !important; color: var(--text-primary); }
+
+.picker-panel ::ng-deep .ngb-dp-header {
+  background: transparent !important;
+  padding-bottom: 8px;
+  border: none;
+}
+
+.picker-panel ::ng-deep .ngb-dp-navigation-select {
+  gap: 6px;
+}
+.picker-panel ::ng-deep .ngb-dp-navigation-select > .form-select {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  background-color: var(--bg-input);
+  border-color: var(--border-strong);
+  padding: 2px 22px 2px 8px;
+}
+
+.picker-panel ::ng-deep .ngb-dp-arrow-btn {
+  color: var(--text-muted);
+}
+.picker-panel ::ng-deep .ngb-dp-arrow-btn:hover { color: var(--text-primary); }
+
+.picker-panel ::ng-deep .ngb-dp-weekday {
+  color: var(--text-dim);
+  font-style: normal;
+  font-weight: 700;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.picker-panel ::ng-deep .ngb-dp-week { width: 100%; }
+
+.picker-panel ::ng-deep .ngb-dp-day,
+.picker-panel ::ng-deep .ngb-dp-weekday,
+.picker-panel ::ng-deep .ngb-dp-week-number {
+  width: 2rem;
+  height: 2rem;
+}
+
+.picker-panel ::ng-deep .ngb-dp-day div {
+  color: var(--text-secondary);
+  border-radius: 8px;
+}
+.picker-panel ::ng-deep .ngb-dp-day .bg-primary { font-weight: 700; }
+.picker-panel ::ng-deep .ngb-dp-day .text-muted { color: var(--text-dim) !important; opacity: 0.5; }
+.picker-panel ::ng-deep .ngb-dp-day:not(.disabled) div:hover { background: var(--bg-hover); }

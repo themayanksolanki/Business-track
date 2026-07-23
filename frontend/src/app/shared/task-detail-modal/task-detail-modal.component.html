@@ -91,6 +91,14 @@
             </span>
           </div>
           <div class="detail-meta-cell">
+            <span class="detail-meta-label"><i class="bi bi-calendar-event me-1"></i>Start</span>
+            <span class="detail-meta-val">{{ task.startDate ? (task.startDate | appDate) : '—' }}</span>
+          </div>
+          <div class="detail-meta-cell">
+            <span class="detail-meta-label"><i class="bi bi-calendar-check me-1"></i>Due</span>
+            <span class="detail-meta-val">{{ task.dueDate ? (task.dueDate | appDate) : '—' }}</span>
+          </div>
+          <div class="detail-meta-cell">
             <span class="detail-meta-label"><i class="bi bi-calendar3 me-1"></i>Created</span>
             <span class="detail-meta-val">{{ task.createdAt | appDate }}</span>
           </div>

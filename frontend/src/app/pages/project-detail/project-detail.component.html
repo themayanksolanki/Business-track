@@ -281,6 +281,9 @@
           <button type="button" class="btn btn-sm btn-outline-primary" (click)="openBulkMoveToGroup()">
             <i class="bi bi-folder-symlink me-1"></i>Move to Group
           </button>
+          <button type="button" class="btn btn-sm btn-outline-primary" (click)="openBulkMoveToProject()">
+            <i class="bi bi-send me-1"></i>Move to Project
+          </button>
           <button type="button" class="btn btn-sm btn-outline-danger" (click)="openBulkDeleteConfirm()">
             <i class="bi bi-trash3 me-1"></i>Delete
           </button>
@@ -368,7 +371,7 @@
 
       <app-move-to-project-dialog
         [open]="moveProjectOpen"
-        [itemType]="moveProjectTargetNode?.type ?? 'task'"
+        [itemType]="moveProjectMode === 'bulk' ? 'task' : (moveProjectTargetNode?.type ?? 'task')"
         [currentProjectId]="projectId"
         [loading]="moveProjectLoading"
         (moveConfirmed)="onProjectMoveConfirmed($event)"
@@ -565,7 +568,8 @@
   [highlightCommentId]="highlightCommentId"
   (closed)="closeDetail()"
   (saved)="onItemSaved($event)"
-  (breadcrumbNavigate)="onOpenDetail($event)">
+  (breadcrumbNavigate)="onOpenDetail($event)"
+  (copyTaskLinkRequested)="copyTaskLink($event)">
 </app-project-item-detail>
 
 

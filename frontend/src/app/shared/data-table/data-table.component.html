@@ -1,0 +1,161 @@
+<div class="card dt-card shadow-sm">
+  <div class="table-responsive dt-responsive">
+    <table class="table table-hover align-middle mb-0 dt-fixed-table">
+      <colgroup>
+        @for (col of columns; track trackByCol($index, col)) {
+          <col [style.width.px]="columnWidths[col.key]" />
+        }
+      </colgroup>
+      <thead>
+        <tr class="dt-header-row">
+          @for (col of columns; track trackByCol($index, col); let first = $first; let last = $last) {
+            <th class="dt-th"
+                [class.ps-4]="first" [class.pe-4]="last" [class.text-end]="col.align === 'right'"
+                [class]="col.headerClass" [style.minWidth.px]="minWidthFor(col)">
+              @if (col.sortable || (col.type && col.type !== 'none')) {
+                <div class="dt-th-inner" ngbDropdown #dd="ngbDropdown" (openChange)="onDropdownOpenChange($event, col)">
+                  <button type="button" class="dt-th-trigger" [class.dt-th-trigger-filtered]="isColumnFiltered(col)" ngbDropdownToggle>
+                    <span>{{ col.label }}</span>
+                    @if (col.sortable) {
+                      <i class="bi dt-sort-icon"
+                         [class.bi-arrow-up]="sortDirFor(col) === 'asc'"
+                         [class.bi-arrow-down]="sortDirFor(col) === 'desc'"
+                         [class.bi-arrow-down-up]="!sortDirFor(col)"
+                         [class.dt-sort-idle]="!sortDirFor(col)"></i>
+                    }
+                    @if (isColumnFiltered(col)) {
+                      <span class="dt-filter-dot" title="Filter active"></span>
+                    }
+                  </button>
+
+                  <div ngbDropdownMenu class="dt-dropdown-menu" (click)="$event.stopPropagation()">
+                    @if (col.sortable) {
+                      <button type="button" class="dt-menu-item" (click)="setSort(col, 'asc'); dd.close()">
+                        <i class="bi bi-arrow-up me-2"></i>Sort Ascending
+                      </button>
+                      <button type="button" class="dt-menu-item" (click)="setSort(col, 'desc'); dd.close()">
+                        <i class="bi bi-arrow-down me-2"></i>Sort Descending
+                      </button>
+                      @if (sortState.key === col.key) {
+                        <button type="button" class="dt-menu-item dt-menu-item-muted" (click)="clearSort(); dd.close()">
+                          <i class="bi bi-x-lg me-2"></i>Clear sort
+                        </button>
+                      }
+                    }
+
+                    @if (col.type && col.type !== 'none') {
+                      @if (col.sortable) { <div class="dt-menu-divider"></div> }
+
+                      @switch (col.type) {
+                        @case ('text') {
+                          <div class="dt-filter-body">
+                            <input type="text" class="form-control form-control-sm" autocomplete="off"
+                                   [ngModel]="draft(col.key).text" (ngModelChange)="setDraftText(col.key, $event)"
+                                   placeholder="Search…" (keydown.enter)="applyFilter(col.key); dd.close()" />
+                          </div>
+                        }
+                        @case ('date') {
+                          <div class="dt-filter-body dt-filter-date">
+                            <label class="dt-filter-label">From</label>
+                            <app-date-picker [value]="draft(col.key).dateFrom ?? null"
+                                              (valueChange)="setDraftDate(col.key, 'dateFrom', $event)"></app-date-picker>
+                            <label class="dt-filter-label">To</label>
+                            <app-date-picker [value]="draft(col.key).dateTo ?? null" [min]="draft(col.key).dateFrom ?? null"
+                                              (valueChange)="setDraftDate(col.key, 'dateTo', $event)"></app-date-picker>
+                          </div>
+                        }
+                        @case ('multiselect') {
+                          <div class="dt-filter-body dt-filter-multiselect">
+                            @if ((col.options?.length ?? 0) > 6) {
+                              <input type="text" class="form-control form-control-sm mb-2" autocomplete="off"
+                                     [ngModel]="optionSearch(col.key)" (ngModelChange)="setOptionSearch(col.key, $event)"
+                                     placeholder="Search options…" />
+                            }
+                            <div class="dt-checklist">
+                              @for (opt of filteredOptions(col); track opt.value) {
+                                <label class="dt-check-row" [style.paddingLeft.px]="8 + (opt.depth ?? 0) * 16">
+                                  <input type="checkbox" [checked]="isOptionChecked(col.key, opt.value)"
+                                         [indeterminate]="isOptionIndeterminate(col, opt.value)"
+                                         (change)="toggleOption(col, opt.value)" />
+                                  @if (opt.color) { <span class="dt-color-dot" [style.background]="opt.color"></span> }
+                                  <span>{{ opt.label }}</span>
+                                </label>
+                              }
+                              @if (filteredOptions(col).length === 0) {
+                                <div class="dt-check-empty">No matches</div>
+                              }
+                            </div>
+                          </div>
+                        }
+                      }
+
+                      <div class="dt-filter-footer">
+                        <button type="button" class="dt-footer-btn dt-footer-btn-muted" (click)="clearFilter(col.key); dd.close()">Clear</button>
+                        <button type="button" class="dt-footer-btn dt-footer-btn-primary" (click)="applyFilter(col.key); dd.close()">Apply</button>
+                      </div>
+                    }
+                  </div>
+                </div>
+              } @else {
+                <span class="dt-th-static">{{ col.label }}</span>
+              }
+              <span class="dt-resize-handle" (mousedown)="startResize($event, col)" (click)="$event.stopPropagation()"></span>
+            </th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @if (loading) {
+          <tr class="dt-state-row">
+            <td [attr.colspan]="columns.length" class="text-center py-5 text-muted">
+              <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+            </td>
+          </tr>
+        } @else if (rows.length === 0) {
+          <tr class="dt-state-row">
+            <td [attr.colspan]="columns.length" class="text-center py-5 text-muted">{{ emptyMessage }}</td>
+          </tr>
+        } @else {
+          @for (row of rows; track trackBy($index, row)) {
+            <tr class="dt-row" [class]="rowClass(row)" (click)="rowClick.emit(row)">
+              @for (col of columns; track trackByCol($index, col); let first = $first; let last = $last) {
+                <td [class.ps-4]="first" [class.pe-4]="last" [class.text-end]="col.align === 'right'" [class]="col.cellClass">
+                  @if (cellTemplateFor(col.key); as tpl) {
+                    <ng-container *ngTemplateOutlet="tpl; context: { $implicit: row, column: col.key }"></ng-container>
+                  } @else {
+                    <span class="text-muted-em">{{ row[col.key] }}</span>
+                  }
+                </td>
+              }
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+
+  @if (totalItems !== undefined && totalPages > 1) {
+    <div class="dt-pagination-bar d-flex align-items-center justify-content-between px-4 py-3">
+      <span class="dt-page-info">{{ pageStart }}–{{ pageEnd }} of {{ totalItems }}</span>
+      <nav>
+        <ul class="pagination pagination-sm mb-0">
+          <li class="page-item" [class.disabled]="page === 1">
+            <button class="page-link" (click)="goToPage(page - 1)"><i class="bi bi-chevron-left"></i></button>
+          </li>
+          @for (p of pageNumbers; track $index) {
+            @if (p === -1) {
+              <li class="page-item disabled"><span class="page-link dt-ellipsis">…</span></li>
+            } @else {
+              <li class="page-item" [class.active]="p === page">
+                <button class="page-link" (click)="goToPage(p)">{{ p }}</button>
+              </li>
+            }
+          }
+          <li class="page-item" [class.disabled]="page === totalPages">
+            <button class="page-link" (click)="goToPage(page + 1)"><i class="bi bi-chevron-right"></i></button>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  }
+</div>

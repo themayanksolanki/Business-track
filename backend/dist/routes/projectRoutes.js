@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import protect from '../middleware/authMiddleware.js';
 import { attachmentUpload } from '../middleware/attachmentUpload.js';
-import { validateProject, validateProjectItem, validateReorder, validateMove, validateMoveToParent, validateMoveToProject, validateBulkMoveToParent, validateComment, validateProjectId, validateItemId, validateCommentId, validateAttachmentId, validateAttachmentLink, validateAddMember, validateUpdateMemberRole, validateMemberId, validateProjectDetailsLayout, } from '../middleware/validate.js';
+import { validateProject, validateProjectItem, validateReorder, validateMove, validateMoveToParent, validateMoveToProject, validateBulkMoveToParent, validateBulkMoveToProject, validateComment, validateProjectId, validateItemId, validateCommentId, validateAttachmentId, validateAttachmentLink, validateAddMember, validateUpdateMemberRole, validateMemberId, validateProjectDetailsLayout, } from '../middleware/validate.js';
 import { getProjects, createProject, getProjectById, getSharedProject, updateProject, updateProjectDetailsLayout, deleteProject, uploadProjectPlan, downloadProjectPlan, removeProjectPlan, } from '../controllers/projectController.js';
-import { getItems, getItemsSummary, getSharedProjectItems, createItem, getItemById, updateItem, deleteItem, duplicateItem, reorderItems, moveItem, moveItemToParent, moveItemToProject, bulkMoveItemsToParent, } from '../controllers/projectItemController.js';
+import { getItems, getItemsSummary, getSharedProjectItems, createItem, getItemById, updateItem, deleteItem, duplicateItem, reorderItems, moveItem, moveItemToParent, moveItemToProject, bulkMoveItemsToParent, bulkMoveItemsToProject, } from '../controllers/projectItemController.js';
 import { getComments, createComment, updateComment, deleteComment, } from '../controllers/projectCommentController.js';
 import { getMembers, getMemberCandidates, addMember, updateMemberRole, removeMember, } from '../controllers/projectMemberController.js';
 import { getItemAttachments, uploadItemAttachment, addItemAttachmentLink, downloadItemAttachment, deleteItemAttachment, undoItemAttachment, getProjectAttachments, uploadProjectAttachment, downloadProjectAttachment, deleteProjectAttachment, } from '../controllers/attachmentController.js';
@@ -43,6 +43,7 @@ router.patch('/:projectId/items/:itemId/move', protect, validateProjectId, valid
 router.patch('/:projectId/items/:itemId/move-to', protect, validateProjectId, validateItemId, validateMoveToParent, moveItemToParent);
 router.patch('/:projectId/items/:itemId/move-to-project', protect, validateProjectId, validateItemId, validateMoveToProject, moveItemToProject);
 router.patch('/:projectId/items/bulk-move-to', protect, validateProjectId, validateBulkMoveToParent, bulkMoveItemsToParent);
+router.patch('/:projectId/items/bulk-move-to-project', protect, validateProjectId, validateBulkMoveToProject, bulkMoveItemsToProject);
 router.put('/:projectId/items/:itemId', protect, validateProjectId, validateItemId, validateProjectItem, updateItem);
 router.delete('/:projectId/items/:itemId', protect, validateProjectId, validateItemId, deleteItem);
 router.post('/:projectId/items/:itemId/duplicate', protect, validateProjectId, validateItemId, duplicateItem);

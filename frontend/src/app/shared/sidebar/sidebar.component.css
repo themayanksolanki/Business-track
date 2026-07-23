@@ -11,9 +11,9 @@
   z-index: 1030;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #0f172a 0%, #0b1220 100%);
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-  transition: width 0.18s ease;
+  background: linear-gradient(180deg, var(--sb-bg-start, #0f172a) 0%, var(--sb-bg-end, #0b1220) 100%);
+  border-right: 1px solid var(--sb-border, rgba(255, 255, 255, 0.06));
+  transition: width 0.18s ease, background 0.15s ease;
 }
 
 .app-sidebar.dragging {
@@ -72,8 +72,8 @@
   height: 26px;
   border: none;
   border-radius: 7px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #94a3b8;
+  background: var(--sb-overlay-1, rgba(255, 255, 255, 0.06));
+  color: var(--sb-text, #94a3b8);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -82,8 +82,8 @@
 }
 
 .collapse-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  background: var(--sb-overlay-2, rgba(255, 255, 255, 0.12));
+  color: var(--sb-text-hover, #fff);
 }
 
 .collapse-chevron {
@@ -111,7 +111,7 @@
   gap: 12px;
   padding: 9px 10px;
   border-radius: 9px;
-  color: #94a3b8;
+  color: var(--sb-text-override, var(--sb-text, #94a3b8));
   text-decoration: none;
   font-size: 0.875rem;
   white-space: nowrap;
@@ -124,13 +124,13 @@
 }
 
 .nav-item:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.07);
+  color: var(--sb-text-hover, #fff);
+  background: var(--sb-overlay-2, rgba(255, 255, 255, 0.07));
 }
 
 .nav-item.active {
-  color: #fff;
-  background: rgba(59, 130, 246, 0.18);
+  color: var(--sb-text-hover, #fff);
+  background: var(--sb-active-bg, rgba(59, 130, 246, 0.18));
 }
 
 .app-sidebar.collapsed .nav-item {
@@ -179,8 +179,8 @@
   min-width: 140px;
   padding: 6px;
   border-radius: 10px;
-  background: #16213a;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--sb-submenu-bg, #16213a);
+  border: 1px solid var(--sb-overlay-1, rgba(255, 255, 255, 0.08));
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   z-index: 1031;
   flex-direction: column;
@@ -201,7 +201,7 @@
   border: none;
   border-radius: 7px;
   background: transparent;
-  color: #94a3b8;
+  color: var(--sb-text-override, var(--sb-text, #94a3b8));
   font-size: 0.825rem;
   white-space: nowrap;
   cursor: pointer;
@@ -210,13 +210,13 @@
 }
 
 .nav-submenu-item:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.07);
+  color: var(--sb-text-hover, #fff);
+  background: var(--sb-overlay-2, rgba(255, 255, 255, 0.07));
 }
 
 .nav-submenu-item.active {
-  color: #fff;
-  background: rgba(59, 130, 246, 0.18);
+  color: var(--sb-text-hover, #fff);
+  background: var(--sb-active-bg, rgba(59, 130, 246, 0.18));
 }
 
 .sidebar-spacer {
@@ -226,7 +226,7 @@
 /* ── User + logout ── */
 .sidebar-user {
   padding: 8px 10px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--sb-border, rgba(255, 255, 255, 0.06));
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -258,7 +258,7 @@
 }
 
 .user-name {
-  color: #f1f5f9;
+  color: var(--sb-heading, #f1f5f9);
   font-weight: 600;
   font-size: 0.825rem;
   overflow: hidden;
@@ -266,13 +266,13 @@
 }
 
 .user-role {
-  color: #64748b;
+  color: var(--sb-muted, #64748b);
   font-size: 0.7rem;
 }
 
 .logout-item:hover {
-  color: #fca5a5;
-  background: rgba(239, 68, 68, 0.12);
+  color: var(--sb-danger-text, #fca5a5);
+  background: var(--sb-danger-bg, rgba(239, 68, 68, 0.12));
 }
 
 /* ── Resize handle ── */
@@ -296,13 +296,13 @@
   top: 0;
   bottom: 0;
   width: 1px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--sb-overlay-1, rgba(255, 255, 255, 0.08));
   transform: translateX(-50%);
 }
 
 .grip-dots {
   opacity: 0;
-  color: #475569;
+  color: var(--sb-muted, #475569);
   transition: opacity 0.15s;
 }
 
@@ -376,4 +376,106 @@
     background: rgba(0, 0, 0, 0.4);
     z-index: 1025;
   }
+}
+
+/* ── Sidebar Theme presets (Profile > Appearance > Sidebar Theme) ──
+   Colors here are the source of truth mirrored (for preview-card swatches
+   only) in shared/sidebar-theme-data.ts. --sb-text-override, when set via
+   the inline style binding in sidebar.component.html, wins over --sb-text
+   on menu-item base state; hover/active always switch to --sb-text-hover
+   for guaranteed contrast against the highlighted background. */
+.app-sidebar[data-sidebar-theme='MIDNIGHT'] {
+  --sb-bg-start: #0f172a;
+  --sb-bg-end: #0b1220;
+  --sb-border: rgba(255, 255, 255, 0.06);
+  --sb-overlay-1: rgba(255, 255, 255, 0.06);
+  --sb-overlay-2: rgba(255, 255, 255, 0.12);
+  --sb-active-bg: rgba(59, 130, 246, 0.18);
+  --sb-text: #94a3b8;
+  --sb-text-hover: #ffffff;
+  --sb-heading: #f1f5f9;
+  --sb-muted: #64748b;
+  --sb-submenu-bg: #16213a;
+  --sb-danger-text: #fca5a5;
+  --sb-danger-bg: rgba(239, 68, 68, 0.12);
+}
+
+.app-sidebar[data-sidebar-theme='CHARCOAL'] {
+  --sb-bg-start: #27272a;
+  --sb-bg-end: #18181b;
+  --sb-border: rgba(255, 255, 255, 0.06);
+  --sb-overlay-1: rgba(255, 255, 255, 0.06);
+  --sb-overlay-2: rgba(255, 255, 255, 0.12);
+  --sb-active-bg: rgba(167, 139, 250, 0.2);
+  --sb-text: #a1a1aa;
+  --sb-text-hover: #ffffff;
+  --sb-heading: #fafafa;
+  --sb-muted: #71717a;
+  --sb-submenu-bg: #2a2a30;
+  --sb-danger-text: #fca5a5;
+  --sb-danger-bg: rgba(239, 68, 68, 0.12);
+}
+
+.app-sidebar[data-sidebar-theme='OCEAN'] {
+  --sb-bg-start: #063a4a;
+  --sb-bg-end: #042a36;
+  --sb-border: rgba(255, 255, 255, 0.07);
+  --sb-overlay-1: rgba(255, 255, 255, 0.07);
+  --sb-overlay-2: rgba(255, 255, 255, 0.13);
+  --sb-active-bg: rgba(34, 211, 238, 0.2);
+  --sb-text: #8bb4c0;
+  --sb-text-hover: #ffffff;
+  --sb-heading: #e6f6fa;
+  --sb-muted: #5c8a96;
+  --sb-submenu-bg: #0a4457;
+  --sb-danger-text: #fca5a5;
+  --sb-danger-bg: rgba(239, 68, 68, 0.15);
+}
+
+.app-sidebar[data-sidebar-theme='FOREST'] {
+  --sb-bg-start: #0f2b1e;
+  --sb-bg-end: #0a1f15;
+  --sb-border: rgba(255, 255, 255, 0.07);
+  --sb-overlay-1: rgba(255, 255, 255, 0.07);
+  --sb-overlay-2: rgba(255, 255, 255, 0.13);
+  --sb-active-bg: rgba(52, 211, 153, 0.2);
+  --sb-text: #8fb5a3;
+  --sb-text-hover: #ffffff;
+  --sb-heading: #e7f7ef;
+  --sb-muted: #5f8672;
+  --sb-submenu-bg: #123626;
+  --sb-danger-text: #fca5a5;
+  --sb-danger-bg: rgba(239, 68, 68, 0.15);
+}
+
+.app-sidebar[data-sidebar-theme='PLUM'] {
+  --sb-bg-start: #2e1140;
+  --sb-bg-end: #1f0b2c;
+  --sb-border: rgba(255, 255, 255, 0.07);
+  --sb-overlay-1: rgba(255, 255, 255, 0.07);
+  --sb-overlay-2: rgba(255, 255, 255, 0.13);
+  --sb-active-bg: rgba(244, 114, 182, 0.2);
+  --sb-text: #bfa1cc;
+  --sb-text-hover: #ffffff;
+  --sb-heading: #f6e9fb;
+  --sb-muted: #8a71a1;
+  --sb-submenu-bg: #3a1650;
+  --sb-danger-text: #fca5a5;
+  --sb-danger-bg: rgba(239, 68, 68, 0.15);
+}
+
+.app-sidebar[data-sidebar-theme='DAYLIGHT'] {
+  --sb-bg-start: #ffffff;
+  --sb-bg-end: #f1f5f9;
+  --sb-border: rgba(0, 0, 0, 0.08);
+  --sb-overlay-1: rgba(0, 0, 0, 0.05);
+  --sb-overlay-2: rgba(0, 0, 0, 0.08);
+  --sb-active-bg: rgba(37, 99, 235, 0.12);
+  --sb-text: #475569;
+  --sb-text-hover: #0f172a;
+  --sb-heading: #0f172a;
+  --sb-muted: #94a3b8;
+  --sb-submenu-bg: #ffffff;
+  --sb-danger-text: #dc2626;
+  --sb-danger-bg: rgba(239, 68, 68, 0.08);
 }

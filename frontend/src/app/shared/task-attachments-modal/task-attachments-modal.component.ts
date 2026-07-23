@@ -10,14 +10,16 @@ import {
   SimpleChanges,
   ViewChild,
 } from '@angular/core';
-import { Attachment, ACCEPTED_ATTACHMENT_TYPES } from '../../models/attachment.model';
+import { Observable } from 'rxjs';
+import { Attachment, ACCEPTED_ATTACHMENT_TYPES, DownloadInfo } from '../../models/attachment.model';
 import { Task } from '../../models/task.model';
 import { ModalDirective } from '../modal.directive';
+import { AttachmentThumbComponent } from '../attachment-thumb/attachment-thumb.component';
 
 @Component({
   selector: 'app-task-attachments-modal',
   standalone: true,
-  imports: [ModalDirective],
+  imports: [ModalDirective, AttachmentThumbComponent],
   templateUrl: './task-attachments-modal.component.html',
   styleUrl: './task-attachments-modal.component.css',
 })
@@ -30,6 +32,7 @@ export class TaskAttachmentsModalComponent implements OnChanges, OnInit, OnDestr
   @Input() uploading = false;
   @Input() uploadError = '';
   @Input() downloadingId: number | null = null;
+  @Input({ required: true }) getFileInfo!: (attachment: Attachment) => Observable<DownloadInfo>;
 
   @Output() closed = new EventEmitter<void>();
   @Output() fileSelected = new EventEmitter<File>();
@@ -102,17 +105,5 @@ export class TaskAttachmentsModalComponent implements OnChanges, OnInit, OnDestr
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
-  fileIcon(mimeType: string): string {
-    if (mimeType.startsWith('image/')) return 'bi-file-earmark-image';
-    if (mimeType.startsWith('video/')) return 'bi-file-earmark-play';
-    if (mimeType === 'application/pdf') return 'bi-file-earmark-pdf';
-    if (mimeType.includes('zip')) return 'bi-file-earmark-zip';
-    if (mimeType.includes('word')) return 'bi-file-earmark-word';
-    if (mimeType.includes('sheet') || mimeType.includes('excel')) return 'bi-file-earmark-spreadsheet';
-    if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return 'bi-file-earmark-slides';
-    if (mimeType.startsWith('text/')) return 'bi-file-earmark-text';
-    return 'bi-file-earmark';
   }
 }

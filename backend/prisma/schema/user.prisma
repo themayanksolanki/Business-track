@@ -10,6 +10,15 @@ enum TimeFormat {
   HOUR_24
 }
 
+enum SidebarTheme {
+  MIDNIGHT
+  CHARCOAL
+  OCEAN
+  FOREST
+  PLUM
+  DAYLIGHT
+}
+
 model User {
   id             Int        @id @default(autoincrement())
   sequenceId     Int?
@@ -39,6 +48,12 @@ model User {
   // that's no longer valid for the user's current role (e.g. role changed
   // after it was set) is harmless — roleGuard just bounces them to /dashboard.
   defaultLandingPage String @default("dashboard")
+  // Sidebar appearance (Profile > Appearance) — same cross-device-persisted
+  // treatment as dateFormat/timeFormat above, not device-local like the
+  // light/dark app theme. sidebarTextColor null means "use the active
+  // theme's own default text color" rather than a stored override.
+  sidebarTheme     SidebarTheme @default(MIDNIGHT)
+  sidebarTextColor String?
   resetOtp       String?
   resetOtpExpiry DateTime?
   createdAt      DateTime  @default(now())

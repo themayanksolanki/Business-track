@@ -9,6 +9,7 @@ import {
   validateMoveToParent,
   validateMoveToProject,
   validateBulkMoveToParent,
+  validateBulkMoveToProject,
   validateComment,
   validateProjectId,
   validateItemId,
@@ -46,6 +47,7 @@ import {
   moveItemToParent,
   moveItemToProject,
   bulkMoveItemsToParent,
+  bulkMoveItemsToProject,
 } from '../controllers/projectItemController.js';
 import {
   getComments,
@@ -172,6 +174,13 @@ router.patch(
   validateProjectId,
   validateBulkMoveToParent,
   bulkMoveItemsToParent
+);
+router.patch(
+  '/:projectId/items/bulk-move-to-project',
+  protect,
+  validateProjectId,
+  validateBulkMoveToProject,
+  bulkMoveItemsToProject
 );
 router.put(
   '/:projectId/items/:itemId',

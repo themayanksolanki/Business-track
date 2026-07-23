@@ -567,7 +567,10 @@ export class DraftDetailComponent implements OnInit {
     );
   }
 
-  copyTaskLink(node: ProjectTreeNode) {
+  // Only reads .sequenceId, so this also accepts the plain ProjectItem
+  // project-item-detail's "Copy Task Link" header button emits, not just a
+  // full ProjectTreeNode from the tree row's context menu.
+  copyTaskLink(node: Pick<ProjectTreeNode, 'sequenceId'>) {
     if (!this.project?.sequenceId || !node.sequenceId) return;
     const url =
       `${window.location.origin}/projects/shared/${this.project.organizationId}/${this.project.sequenceId}` +

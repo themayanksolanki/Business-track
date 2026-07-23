@@ -1,4 +1,4 @@
-import { purgeExpiredAttachments } from '../controllers/attachmentController.js';
+import { purgeExpiredAttachments } from '../services/attachment.service.js';
 // No job queue exists in this codebase (no Bull/Agenda/cron), and the 10s
 // pending-delete window is short enough that a plain interval is sufficient —
 // this only needs to catch attachments whose countdown expired while no

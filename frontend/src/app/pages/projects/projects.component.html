@@ -120,121 +120,108 @@
       <p class="fs-5 mb-0">No projects yet.</p>
     </div>
   } @else if (viewMode === 'table') {
-    <div class="card project-table-card shadow-sm">
-      <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-          <thead>
-            <tr class="table-dark-header">
-              <th class="ps-4">ID</th>
-              <th>Name</th>
-              <th>Owner</th>
-              <th>Department</th>
-              <th>Category</th>
-              <th>Tags</th>
-              <th>Priority</th>
-              <th>Status</th>
-              <th>Dates</th>
-              <th>Created By</th>
-              <th class="pe-4 text-end">Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (project of pagedItems; track project.id) {
-              <tr class="project-row" (click)="open(project)">
-                <td class="ps-4"><span class="text-muted-em">{{ project.sequenceId ? '#' + project.sequenceId : '—' }}</span></td>
-                <td>
-                  <div class="d-flex align-items-center gap-2">
-                    <span class="project-row-icon"><i class="bi bi-kanban"></i></span>
-                    <span class="fw-medium project-row-title">{{ project.name }}</span>
-                  </div>
-                </td>
-                <td>
-                  @if (project.owner) {
-                    @if (avatarUrl(project.owner)) {
-                      <img class="avatar-img-xs me-2" [src]="avatarUrl(project.owner)!" [alt]="project.owner.username"
-                           (error)="onAvatarError(project.owner)" />
-                    } @else {
-                      <span class="assign-avatar avatar-xs me-2" [class]="'avatar-' + roleClass(project.owner.role)">{{ project.owner.username[0].toUpperCase() }}</span>
-                    }
-                    <span class="text-muted-em">{{ project.owner.username }}</span>
-                  } @else {
-                    <span class="text-muted-em">—</span>
-                  }
-                </td>
-                <td>
-                  @if (project.department) {
-                    <span class="dept-badge" [style.color]="project.department.color" [style.borderColor]="project.department.color">
-                      {{ project.department.name }}
-                    </span>
-                  } @else {
-                    <span class="text-muted-em">—</span>
-                  }
-                </td>
-                <td>
-                  @if (project.category) {
-                    <span class="dept-badge" [style.color]="project.category.color" [style.borderColor]="project.category.color">
-                      {{ project.category.name }}
-                    </span>
-                  } @else {
-                    <span class="text-muted-em">—</span>
-                  }
-                </td>
-                <td>
-                  @if (project.tags.length > 0) {
-                    <div class="project-tag-row">
-                      @for (tag of visibleTags(project); track tag.id) {
-                        <app-tag-pill [tag]="tag"></app-tag-pill>
-                      }
-                      @if (hiddenTagCount(project) > 0) {
-                        <span class="tag-overflow">+{{ hiddenTagCount(project) }}</span>
-                      }
-                    </div>
-                  } @else {
-                    <span class="text-muted-em">—</span>
-                  }
-                </td>
-                <td>
-                  <span class="priority-badge-sm" [class]="'priority-' + project.priority">{{ project.priority }}</span>
-                </td>
-                <td>
-                  <span class="status-badge-sm" [class]="'status-' + project.status">{{ project.status }}</span>
-                </td>
-                <td>
-                  <span class="text-muted-em">{{ formatRange(project.startDate, project.endDate) || '—' }}</span>
-                </td>
-                <td><span class="text-muted-em">{{ project.createdBy.username }}</span></td>
-                <td class="pe-4 text-end"><span class="text-muted-em">{{ project.createdAt | appDate }}</span></td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
+    <app-data-table
+      [columns]="columns"
+      [rows]="pagedItems"
+      [sortState]="sortState"
+      [filterState]="filterState"
+      [page]="currentPage"
+      [pageSize]="pageSize"
+      [totalItems]="totalItems"
+      [trackBy]="trackByProjectId"
+      (sortChange)="onSortChange($event)"
+      (filterChange)="onFilterChange($event)"
+      (pageChange)="loadPage($event)"
+      (rowClick)="open($event)">
 
-      @if (totalPages > 1) {
-        <div class="pagination-bar d-flex align-items-center justify-content-between px-4 py-3">
-          <span class="page-info">{{ pageStart }}–{{ pageEnd }} of {{ totalItems }} projects</span>
-          <nav>
-            <ul class="pagination pagination-sm mb-0">
-              <li class="page-item" [class.disabled]="currentPage === 1">
-                <button class="page-link" (click)="loadPage(currentPage - 1)"><i class="bi bi-chevron-left"></i></button>
-              </li>
-              @for (p of pageNumbers; track $index) {
-                @if (p === -1) {
-                  <li class="page-item disabled"><span class="page-link ellipsis">…</span></li>
-                } @else {
-                  <li class="page-item" [class.active]="p === currentPage">
-                    <button class="page-link" (click)="loadPage(p)">{{ p }}</button>
-                  </li>
-                }
-              }
-              <li class="page-item" [class.disabled]="currentPage === totalPages">
-                <button class="page-link" (click)="loadPage(currentPage + 1)"><i class="bi bi-chevron-right"></i></button>
-              </li>
-            </ul>
-          </nav>
+      <ng-template appDataTableCell="sequenceId" let-project>
+        <span class="text-muted-em">{{ project.sequenceId ? '#' + project.sequenceId : '—' }}</span>
+      </ng-template>
+
+      <ng-template appDataTableCell="name" let-project>
+        <div class="d-flex align-items-center gap-2">
+          <span class="project-row-icon"><i class="bi bi-kanban"></i></span>
+          <span class="fw-medium project-row-title">{{ project.name }}</span>
         </div>
-      }
-    </div>
+      </ng-template>
+
+      <ng-template appDataTableCell="owner" let-project>
+        @if (project.owner) {
+          @if (avatarUrl(project.owner)) {
+            <img class="avatar-img-xs me-2" [src]="avatarUrl(project.owner)!" [alt]="project.owner.username"
+                 (error)="onAvatarError(project.owner)" />
+          } @else {
+            <span class="assign-avatar avatar-xs me-2" [class]="'avatar-' + roleClass(project.owner.role)">{{ project.owner.username[0].toUpperCase() }}</span>
+          }
+          <span class="text-muted-em">{{ project.owner.username }}</span>
+        } @else {
+          <span class="text-muted-em">—</span>
+        }
+      </ng-template>
+
+      <ng-template appDataTableCell="department" let-project>
+        @if (project.department) {
+          <span class="dept-badge" [style.color]="project.department.color" [style.borderColor]="project.department.color">
+            {{ project.department.name }}
+          </span>
+        } @else {
+          <span class="text-muted-em">—</span>
+        }
+      </ng-template>
+
+      <ng-template appDataTableCell="category" let-project>
+        @if (project.category) {
+          <span class="dept-badge" [style.color]="project.category.color" [style.borderColor]="project.category.color">
+            {{ project.category.name }}
+          </span>
+        } @else {
+          <span class="text-muted-em">—</span>
+        }
+      </ng-template>
+
+      <ng-template appDataTableCell="tags" let-project>
+        @if (project.tags.length > 0) {
+          <div class="project-tag-row">
+            @for (tag of visibleTags(project); track tag.id) {
+              <app-tag-pill [tag]="tag"></app-tag-pill>
+            }
+            @if (hiddenTagCount(project) > 0) {
+              <span class="tag-overflow">+{{ hiddenTagCount(project) }}</span>
+            }
+          </div>
+        } @else {
+          <span class="text-muted-em">—</span>
+        }
+      </ng-template>
+
+      <ng-template appDataTableCell="priority" let-project>
+        <span class="priority-badge-sm" [class]="'priority-' + project.priority">{{ project.priority }}</span>
+      </ng-template>
+
+      <ng-template appDataTableCell="status" let-project>
+        <span class="status-badge-sm" [class]="'status-' + project.status">{{ project.status }}</span>
+      </ng-template>
+
+      <ng-template appDataTableCell="effort" let-project>
+        <span class="priority-badge-sm" [class]="'priority-' + project.effort">{{ project.effort }}</span>
+      </ng-template>
+
+      <ng-template appDataTableCell="startDate" let-project>
+        <span class="text-muted-em">{{ project.startDate ? (project.startDate | appDate) : '—' }}</span>
+      </ng-template>
+
+      <ng-template appDataTableCell="endDate" let-project>
+        <span class="text-muted-em">{{ project.endDate ? (project.endDate | appDate) : '—' }}</span>
+      </ng-template>
+
+      <ng-template appDataTableCell="createdBy" let-project>
+        <span class="text-muted-em">{{ project.createdBy.username }}</span>
+      </ng-template>
+
+      <ng-template appDataTableCell="createdAt" let-project>
+        <span class="text-muted-em">{{ project.createdAt | appDate }}</span>
+      </ng-template>
+    </app-data-table>
   } @else {
     <div class="project-list">
       @for (project of pagedItems; track project.id) {

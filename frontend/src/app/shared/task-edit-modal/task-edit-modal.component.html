@@ -40,6 +40,17 @@
             </app-tag-picker>
           </div>
 
+          <div class="row g-3 mb-4">
+            <div class="col-6">
+              <label class="field-label">Start</label>
+              <app-date-picker [value]="startDate" (valueChange)="startDate = $event"></app-date-picker>
+            </div>
+            <div class="col-6">
+              <label class="field-label">Due</label>
+              <app-date-picker [value]="dueDate" [min]="startDate" (valueChange)="dueDate = $event"></app-date-picker>
+            </div>
+          </div>
+
           <div class="mb-5">
             <label class="field-label">Status</label>
             <div class="status-toggle-grid">

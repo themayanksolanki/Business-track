@@ -1,7 +1,6 @@
 import multer from 'multer';
 import AppError from '../utils/AppError.js';
 import { MAX_ATTACHMENT_SIZE_MB } from './attachmentUpload.js';
-const handleCastError = (err) => new AppError(`Invalid value for field '${err.path}': ${err.value}`, 400);
 const handleMulterError = (err) => {
     if (err.code === 'LIMIT_FILE_SIZE') {
         return new AppError(`File is too large. Maximum size is ${MAX_ATTACHMENT_SIZE_MB}MB.`, 400);
@@ -21,23 +20,15 @@ const handleCloudinaryUploadError = (err) => new AppError(err.message, err.http_
 // through to a bare 500 instead of surfacing what actually went wrong.
 const isAwsError = (err) => typeof err?.$metadata?.httpStatusCode === 'number' && typeof err.message === 'string';
 const handleAwsError = (err) => new AppError(err.message, err.$metadata.httpStatusCode < 500 ? err.$metadata.httpStatusCode : 502);
-const handleDuplicateKey = (err) => {
-    const field = Object.keys(err.keyValue)[0];
-    return new AppError(`'${err.keyValue[field]}' is already registered for ${field}`, 409);
-};
 const handleJWTError = () => new AppError('Invalid token. Please log in again.', 401);
 const handleJWTExpired = () => new AppError('Token expired. Please log in again.', 401);
 // `err` is deliberately `any` here — this single handler fans out across
-// heterogeneous error shapes with nothing in common (Mongoose CastError/
-// duplicate-key, multer.MulterError, a raw Cloudinary API error, a raw AWS
-// SDK error, jsonwebtoken errors, and this app's own AppError), so there's
-// no real shape to narrow `err` to up front.
+// heterogeneous error shapes with nothing in common (multer.MulterError, a
+// raw Cloudinary API error, a raw AWS SDK error, jsonwebtoken errors, and
+// this app's own AppError), so there's no real shape to narrow `err` to up
+// front.
 const errorMiddleware = (err, req, res, next) => {
     let error = err;
-    if (err.name === 'CastError')
-        error = handleCastError(err);
-    if (err.code === 11000)
-        error = handleDuplicateKey(err);
     if (err.name === 'JsonWebTokenError')
         error = handleJWTError();
     if (err.name === 'TokenExpiredError')

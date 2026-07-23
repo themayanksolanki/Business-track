@@ -16,11 +16,35 @@ import { UserService } from '../../core/services/user.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ProjectFormComponent } from '../../shared/project-form/project-form.component';
 import { TagPillComponent } from '../../shared/tag-pill/tag-pill.component';
+import { DataTableComponent } from '../../shared/data-table/data-table.component';
+import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
+import {
+  DataTableColumn,
+  DataTableFilterOption,
+  DataTableFilterState,
+  DataTableSortState,
+  toHierarchicalOptions,
+} from '../../shared/data-table/data-table.model';
+
+const PRIORITY_OPTIONS: DataTableFilterOption[] = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+];
+
+const EFFORT_OPTIONS: DataTableFilterOption[] = PRIORITY_OPTIONS;
+
+const STATUS_OPTIONS: DataTableFilterOption[] = [
+  { value: 'active', label: 'Active' },
+  { value: 'archived', label: 'Archived' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'draft', label: 'Draft' },
+];
 
 @Component({
   selector: 'app-projects',
   standalone: true,
-  imports: [AppDatePipe, ProjectFormComponent, TagPillComponent],
+  imports: [AppDatePipe, ProjectFormComponent, TagPillComponent, DataTableComponent, DataTableCellDirective],
   templateUrl: './projects.component.html',
   styleUrl: './projects.component.css',
 })
@@ -86,6 +110,110 @@ export class ProjectsComponent implements OnInit, OnDestroy {
   currentPage = 1;
   totalItems = 0;
   totalPages = 1;
+
+  // Data table sort/filter — additive to the statusFilter tabs above (the
+  // Status column's multiselect just sends `statuses`, which the backend
+  // treats as authoritative over the tabs' `status`/`includeDrafts` when
+  // present; the tabs keep working exactly as before otherwise).
+  sortState: DataTableSortState = { key: null, direction: null };
+  filterState: DataTableFilterState = {};
+
+  get columns(): DataTableColumn[] {
+    return [
+      { key: 'sequenceId', label: 'ID', sortable: true, width: '70px', minWidth: '60px' },
+      { key: 'name', label: 'Name', sortable: true, type: 'text', width: '220px', minWidth: '140px' },
+      { key: 'owner', label: 'Owner', sortable: true, width: '160px', minWidth: '110px' },
+      {
+        key: 'department',
+        label: 'Department',
+        sortable: true,
+        type: 'multiselect',
+        width: '160px',
+        minWidth: '110px',
+        options: toHierarchicalOptions(this.departments, (d, depth) => ({
+          value: d.id,
+          label: d.name,
+          color: d.color,
+          depth,
+        })),
+      },
+      {
+        key: 'category',
+        label: 'Category',
+        sortable: true,
+        type: 'multiselect',
+        width: '160px',
+        minWidth: '110px',
+        options: toHierarchicalOptions(this.categories, (c, depth) => ({
+          value: c.id,
+          label: c.name,
+          color: c.color,
+          depth,
+        })),
+      },
+      {
+        key: 'tags',
+        label: 'Tags',
+        type: 'multiselect',
+        width: '180px',
+        minWidth: '120px',
+        options: this.allTags.map((t) => ({ value: t.id, label: t.name, color: t.backgroundColor })),
+      },
+      { key: 'priority', label: 'Priority', sortable: true, type: 'multiselect', options: PRIORITY_OPTIONS, width: '110px', minWidth: '90px' },
+      { key: 'status', label: 'Status', sortable: true, type: 'multiselect', options: STATUS_OPTIONS, width: '110px', minWidth: '90px' },
+      { key: 'effort', label: 'Effort', sortable: true, type: 'multiselect', options: EFFORT_OPTIONS, width: '110px', minWidth: '90px' },
+      { key: 'startDate', label: 'Start', sortable: true, type: 'date', width: '130px', minWidth: '100px' },
+      { key: 'endDate', label: 'End', sortable: true, type: 'date', width: '130px', minWidth: '100px' },
+      { key: 'createdBy', label: 'Created By', width: '140px', minWidth: '110px' },
+      { key: 'createdAt', label: 'Created', sortable: true, type: 'date', align: 'right', width: '130px', minWidth: '100px' },
+    ];
+  }
+
+  onSortChange(state: DataTableSortState) {
+    this.sortState = state;
+    this.loadPage(1);
+  }
+
+  onFilterChange(state: DataTableFilterState) {
+    this.filterState = state;
+    this.loadPage(1);
+  }
+
+  // Maps the table's generic sort/filter state onto GET /projects' query
+  // param names (see backend/controllers/projectController.ts getProjects).
+  private buildQueryParams(): Record<string, string> {
+    const params: Record<string, string> = {};
+
+    if (this.sortState.key && this.sortState.direction) {
+      params['sortBy'] = this.sortState.key;
+      params['sortDir'] = this.sortState.direction;
+    }
+
+    const nameFilter = this.filterState['name']?.text?.trim();
+    if (nameFilter) params['search'] = nameFilter;
+
+    const multi = (key: string, paramName: string) => {
+      const values = this.filterState[key]?.values;
+      if (values?.length) params[paramName] = values.join(',');
+    };
+    multi('department', 'departmentIds');
+    multi('category', 'categoryIds');
+    multi('tags', 'tagIds');
+    multi('priority', 'priorities');
+    multi('status', 'statuses');
+    multi('effort', 'efforts');
+
+    const dateRange = (key: string, fromParam: string, toParam: string) => {
+      const f = this.filterState[key];
+      if (f?.dateFrom) params[fromParam] = f.dateFrom;
+      if (f?.dateTo) params[toParam] = f.dateTo;
+    };
+    dateRange('startDate', 'startDateFrom', 'startDateTo');
+    dateRange('endDate', 'endDateFrom', 'endDateTo');
+    dateRange('createdAt', 'createdAtFrom', 'createdAtTo');
+
+    return params;
+  }
 
   createOpen = false;
   createLoading = false;
@@ -177,26 +305,28 @@ export class ProjectsComponent implements OnInit, OnDestroy {
   loadMoreCards() {
     this.cardsLoadingMore = true;
     this.loading = this.cardsItems.length === 0;
-    this.projectService.getProjects(this.cardsPage, this.CARDS_PAGE_SIZE, this.statusFilter, this.includeDrafts).subscribe({
-      next: (res) => {
-        this.cardsItems = [...this.cardsItems, ...res.projects];
-        this.cardsHasMore = this.cardsPage < res.totalPages;
-        this.cardsPage++;
-        this.cardsLoadingMore = false;
-        this.loading = false;
-      },
-      error: (err) => {
-        this.error = err.error?.message || 'Failed to load projects';
-        this.cardsLoadingMore = false;
-        this.loading = false;
-      },
-    });
+    this.projectService
+      .getProjects(this.cardsPage, this.CARDS_PAGE_SIZE, this.statusFilter, this.includeDrafts, this.buildQueryParams())
+      .subscribe({
+        next: (res) => {
+          this.cardsItems = [...this.cardsItems, ...res.projects];
+          this.cardsHasMore = this.cardsPage < res.totalPages;
+          this.cardsPage++;
+          this.cardsLoadingMore = false;
+          this.loading = false;
+        },
+        error: (err) => {
+          this.error = err.error?.message || 'Failed to load projects';
+          this.cardsLoadingMore = false;
+          this.loading = false;
+        },
+      });
   }
 
   loadPage(page: number) {
     if (page < 1 || (page > this.totalPages && this.totalItems > 0)) return;
     this.loading = true;
-    this.projectService.getProjects(page, this.pageSize, this.statusFilter, this.includeDrafts).subscribe({
+    this.projectService.getProjects(page, this.pageSize, this.statusFilter, this.includeDrafts, this.buildQueryParams()).subscribe({
       next: (res) => {
         this.pagedItems = res.projects;
         this.currentPage = res.page;
@@ -233,6 +363,8 @@ export class ProjectsComponent implements OnInit, OnDestroy {
   get pageEnd(): number {
     return Math.min(this.currentPage * this.pageSize, this.totalItems);
   }
+
+  trackByProjectId = (_: number, project: Project) => project.id;
 
   open(project: Project) {
     // A draft can surface here via "Include drafts" — route it to the

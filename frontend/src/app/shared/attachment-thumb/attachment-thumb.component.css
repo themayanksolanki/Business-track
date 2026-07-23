@@ -1,0 +1,31 @@
+.ath-box {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--bg-input);
+}
+
+.ath-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.ath-spinner { color: var(--text-muted); }
+
+.ath-icon-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #7c3aed;
+}
+.ath-icon-box i { font-size: 1.75rem; }
+
+.ath-ext {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}

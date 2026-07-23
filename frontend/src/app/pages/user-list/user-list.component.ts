@@ -27,7 +27,6 @@ export class UserListComponent implements OnInit, OnDestroy {
   error = '';
   successMessage = '';
   activating: Set<number> = new Set();
-  isTeamLead = false;
 
   readonly pageSize = 12;
   currentPage = 1;
@@ -93,17 +92,8 @@ export class UserListComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    this.isTeamLead = this.auth.getUser()?.role === 'Team Lead';
     this.loadPendingAndInvited();
-
-    if (this.isTeamLead) {
-      this.userService.getTeamMembers().subscribe({
-        next: (res) => (this.activeUsers = res),
-        error: (err) => (this.error = err.error?.message || 'Failed to load users'),
-      });
-    } else {
-      this.loadActivePage(1);
-    }
+    this.loadActivePage(1);
 
     if (this.canManageUsers) {
       this.departmentService.ensureDepartmentsLoaded();
@@ -166,7 +156,6 @@ export class UserListComponent implements OnInit, OnDestroy {
   }
 
   loadActivePage(page: number) {
-    if (this.isTeamLead) return;
     if (page < 1 || (page > this.totalPages && this.totalItems > 0)) return;
     this.userService.getUsersPage(page, this.pageSize).subscribe({
       next: (res) => {
@@ -214,11 +203,7 @@ export class UserListComponent implements OnInit, OnDestroy {
         this.pendingUsers = this.pendingUsers.filter((u) => u.id !== id);
         this.activating.delete(id);
         this.userService.refreshUsers().subscribe();
-        if (this.isTeamLead) {
-          this.activeUsers = [...this.activeUsers, { ...user, isActive: true }];
-        } else {
-          this.loadActivePage(this.currentPage);
-        }
+        this.loadActivePage(this.currentPage);
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to activate user';
@@ -237,7 +222,6 @@ export class UserListComponent implements OnInit, OnDestroy {
     if (user.id === me.id) return false;
     if (me.role === 'Admin') return true;
     if (me.role === 'Manager') return user.role === 'Team Lead' || user.role === 'User';
-    if (me.role === 'Team Lead') return user.role === 'User';
     return false;
   }
 
@@ -311,11 +295,7 @@ export class UserListComponent implements OnInit, OnDestroy {
           this.activateLoading = false;
           this.invitedUsers = this.invitedUsers.filter((i) => i.id !== invite.id);
           this.userService.refreshUsers().subscribe();
-          if (this.isTeamLead) {
-            this.activeUsers = [...this.activeUsers, res.user];
-          } else {
-            this.loadActivePage(this.currentPage);
-          }
+          this.loadActivePage(this.currentPage);
           setTimeout(() => this.closeActivateInvite(), 1600);
         },
         error: (err) => {
@@ -530,8 +510,7 @@ export class UserListComponent implements OnInit, OnDestroy {
   }
 
   get totalCount(): number {
-    const activeCount = this.isTeamLead ? this.activeUsers.length : this.totalItems;
-    return activeCount + this.pendingUsers.length + this.invitedUsers.length;
+    return this.totalItems + this.pendingUsers.length + this.invitedUsers.length;
   }
 
   roleClass(role: string): string {

@@ -4,6 +4,7 @@ export type Role = 'Admin' | 'Manager' | 'Team Lead' | 'User';
 
 export type DateFormat = 'DD_MM_YYYY' | 'MM_DD_YYYY' | 'YYYY_MM_DD' | 'DD_MMM_YY';
 export type TimeFormat = 'HOUR_12' | 'HOUR_24';
+export type SidebarTheme = 'MIDNIGHT' | 'CHARCOAL' | 'OCEAN' | 'FOREST' | 'PLUM' | 'DAYLIGHT';
 export type LandingPage =
   | 'dashboard'
   | 'tasks'
@@ -11,8 +12,7 @@ export type LandingPage =
   | 'drafts'
   | 'chat'
   | 'users'
-  | 'organization'
-  | 'team-tasks';
+  | 'organization';
 
 export interface Organization {
   id?: number;
@@ -44,6 +44,8 @@ export interface User {
   dateFormat?: DateFormat;
   timeFormat?: TimeFormat;
   defaultLandingPage?: LandingPage;
+  sidebarTheme?: SidebarTheme;
+  sidebarTextColor?: string | null;
   managerId?: number | null;
   teamLeadId?: number | null;
   manager?: UserLite | null;

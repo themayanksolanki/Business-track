@@ -135,6 +135,7 @@ export class ProjectDetailComponent implements OnInit {
   moveGroupTargetNode: ProjectTreeNode | null = null;
 
   moveProjectOpen = false;
+  moveProjectMode: 'single' | 'bulk' = 'single';
   moveProjectLoading = false;
   moveProjectTargetNode: ProjectTreeNode | null = null;
 
@@ -590,13 +591,39 @@ export class ProjectDetailComponent implements OnInit {
   private resolvePendingOpenItem() {
     if (this.pendingOpenItemId != null) {
       const node = this.findNode(this.tree, this.pendingOpenItemId);
-      if (node) this.onOpenDetail(node);
+      if (node) {
+        this.onOpenDetail(node);
+      } else {
+        this.notifications.error('This task no longer exists — it may have been deleted.');
+        this.clearDeepLinkQueryParams();
+      }
       this.pendingOpenItemId = null;
     }
     if (this.pendingOpenItemSequenceId != null) {
       const node = this.findNodeBySequenceId(this.tree, this.pendingOpenItemSequenceId);
-      if (node) this.onOpenDetail(node);
+      if (node) {
+        this.onOpenDetail(node);
+      } else {
+        this.notifications.error('This task no longer exists — it may have been deleted.');
+        this.clearDeepLinkQueryParams();
+      }
       this.pendingOpenItemSequenceId = null;
+    }
+  }
+
+  // Clears ?item=, ?comment=, ?taskSeq= — shared by closeDetail() (modal
+  // dismissed normally) and resolvePendingOpenItem() (the linked item/task
+  // no longer exists), so neither a closed modal nor a dead link reopens or
+  // re-highlights anything on a later reload or re-share of the URL.
+  private clearDeepLinkQueryParams() {
+    const params = this.route.snapshot.queryParamMap;
+    if (params.has('item') || params.has('comment') || params.has('taskSeq')) {
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { item: null, comment: null, taskSeq: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
     }
   }
 
@@ -898,7 +925,10 @@ export class ProjectDetailComponent implements OnInit {
   // query param — see resolvePendingOpenItem() for how that's resolved back
   // into the right node once the tree loads (either here directly in a
   // shared read-only view, or after being redirected to /projects/:id).
-  copyTaskLink(node: ProjectTreeNode) {
+  // Only reads .sequenceId, so this also accepts the plain ProjectItem
+  // project-item-detail's "Copy Task Link" header button emits, not just a
+  // full ProjectTreeNode from the tree row's context menu.
+  copyTaskLink(node: Pick<ProjectTreeNode, 'sequenceId'>) {
     if (!this.project?.sequenceId || !node.sequenceId) return;
     const url =
       `${window.location.origin}/projects/shared/${this.project.organizationId}/${this.project.sequenceId}` +
@@ -975,18 +1005,7 @@ export class ProjectDetailComponent implements OnInit {
 
   closeDetail() {
     this.selectedNode = null;
-    // Clean up deep-link query params (?item=, ?comment=, ?taskSeq=) once the
-    // modal they opened is dismissed, so closing/reopening or sharing the URL
-    // afterwards doesn't reopen or re-highlight the same task.
-    const params = this.route.snapshot.queryParamMap;
-    if (params.has('item') || params.has('comment') || params.has('taskSeq')) {
-      this.router.navigate([], {
-        relativeTo: this.route,
-        queryParams: { item: null, comment: null, taskSeq: null },
-        queryParamsHandling: 'merge',
-        replaceUrl: true,
-      });
-    }
+    this.clearDeepLinkQueryParams();
   }
 
   // Removes a node from wherever it lives in the tree (any depth) in place,
@@ -1145,7 +1164,14 @@ export class ProjectDetailComponent implements OnInit {
   }
 
   openMoveToProject(node: ProjectTreeNode) {
+    this.moveProjectMode = 'single';
     this.moveProjectTargetNode = node;
+    this.moveProjectOpen = true;
+  }
+
+  openBulkMoveToProject() {
+    if (this.selectedIds.size === 0) return;
+    this.moveProjectMode = 'bulk';
     this.moveProjectOpen = true;
   }
 
@@ -1157,6 +1183,32 @@ export class ProjectDetailComponent implements OnInit {
   // all once it lands in the destination project — remove it locally rather
   // than trying to patch it into a group we haven't loaded.
   onProjectMoveConfirmed(target: { targetProjectId: number; targetParentId: number | null }) {
+    if (this.moveProjectMode === 'bulk') {
+      if (!target.targetParentId) return; // bulk selection is task-only — always needs a destination group
+      const ids = Array.from(this.selectedIds);
+      this.moveProjectLoading = true;
+      this.projectService
+        .bulkMoveItemsToProject(this.projectId, ids, target.targetProjectId, target.targetParentId)
+        .subscribe({
+          next: (res) => {
+            this.moveProjectLoading = false;
+            this.moveProjectOpen = false;
+            for (const id of ids) this.removeNodeById(this.tree, id);
+            this.tree = [...this.tree];
+            if (this.selectedNode && ids.includes(this.selectedNode.id)) this.selectedNode = null;
+            this.selectedIds.clear();
+            this.notifications.success(
+              `${res.movedCount} task(s) moved to another project${res.skippedCount ? ` (${res.skippedCount} skipped)` : ''}.`
+            );
+          },
+          error: (err) => {
+            this.moveProjectLoading = false;
+            this.notifications.error(err.error?.message || 'Failed to move tasks to project');
+          },
+        });
+      return;
+    }
+
     const node = this.moveProjectTargetNode;
     if (!node) return;
     this.moveProjectLoading = true;

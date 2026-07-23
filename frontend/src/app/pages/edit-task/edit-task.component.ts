@@ -1,12 +1,14 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import dayjs from 'dayjs/esm';
 import { TaskService } from '../../core/services/task.service';
+import { DatePickerComponent } from '../../shared/date-picker/date-picker.component';
 
 @Component({
   selector: 'app-edit-task',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, DatePickerComponent],
   templateUrl: './edit-task.component.html',
   styleUrl: './edit-task.component.css',
 })
@@ -14,7 +16,13 @@ export class EditTaskComponent implements OnInit {
   form: FormGroup;
   error = '';
   loading = false;
+  // Set only when the initial load fails (task deleted/inaccessible) — kept
+  // separate from `error` (also used for a failed save) so a later submit
+  // failure doesn't hide the form the user is actively editing.
+  notFound = false;
   taskId = '';
+  startDate: string | null = null;
+  dueDate: string | null = null;
 
   constructor(
     private fb: FormBuilder,
@@ -38,8 +46,13 @@ export class EditTaskComponent implements OnInit {
           description: task.description,
           status: task.status,
         });
+        this.startDate = task.startDate ? dayjs(task.startDate).format('YYYY-MM-DD') : null;
+        this.dueDate = task.dueDate ? dayjs(task.dueDate).format('YYYY-MM-DD') : null;
       },
-      error: (err) => (this.error = err.error?.message || 'Failed to load task'),
+      error: (err) => {
+        this.error = err.error?.message || 'Failed to load task';
+        this.notFound = true;
+      },
     });
   }
 
@@ -56,7 +69,13 @@ export class EditTaskComponent implements OnInit {
     this.loading = true;
     this.error = '';
 
-    this.taskService.updateTask(Number(this.taskId), this.form.value).subscribe({
+    const payload = {
+      ...this.form.value,
+      startDate: this.startDate ? dayjs(this.startDate, 'YYYY-MM-DD').toISOString() : null,
+      dueDate: this.dueDate ? dayjs(this.dueDate, 'YYYY-MM-DD').toISOString() : null,
+    };
+
+    this.taskService.updateTask(Number(this.taskId), payload).subscribe({
       next: () => this.router.navigate(['/tasks']),
       error: (err) => {
         this.error = err.error?.message || 'Failed to update task';

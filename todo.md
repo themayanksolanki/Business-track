@@ -1,68 +1,46 @@
-# .js files to delete on the other system
+# Todo
 
-If the other machine already has an older checkout of this repo, unzipping/extracting on top
-of it will **not** remove files that no longer exist in the new version. These 55 `.js` files
-were replaced by `.ts` equivalents during this session's migration — delete them manually
-(or do a clean extract into an empty directory instead of overwriting).
+Follow-ups from recent feature work. Grouped by what's built-but-unverified
+vs. discussed-but-not-built.
 
-All paths are relative to `backend/`:
+## Needs a live/visual check (code is done, not eyeballed in a browser)
 
-```
-lib/prisma.js
-lib/redis.js
-lib/s3.js
-utils/AppError.js
-utils/utils.js
-utils/blobStorage.js
-utils/mailer.js
-utils/mentions.js
-utils/counter.js
-utils/sequence.js
-utils/access.js
-utils/notifications.js
-middleware/errorMiddleware.js
-middleware/authMiddleware.js
-middleware/roleMiddleware.js
-middleware/validate.js
-middleware/upload.js
-middleware/attachmentUpload.js
-services/statusSync.service.js
-queues/userDeactivationQueue.js
-jobs/attachmentSweeper.js
-workers/userDeactivationWorker.js
-socket.js
-controllers/authController.js
-controllers/projectRoleController.js
-controllers/organizationController.js
-controllers/userController.js
-controllers/departmentController.js
-controllers/categoryController.js
-controllers/tagController.js
-controllers/projectController.js
-controllers/projectItemController.js
-controllers/projectMemberController.js
-controllers/projectCommentController.js
-controllers/attachmentController.js
-controllers/taskController.js
-controllers/notificationController.js
-controllers/chatController.js
-controllers/dashboardController.js
-routes/authRoutes.js
-routes/userRoutes.js
-routes/organizationRoutes.js
-routes/departmentRoutes.js
-routes/categoryRoutes.js
-routes/tagRoutes.js
-routes/projectRoleRoutes.js
-routes/projectRoutes.js
-routes/taskRoutes.js
-routes/notificationRoutes.js
-routes/chatRoutes.js
-routes/dashboardRoutes.js
-index.js
-scripts/migrateTaskStatus.js
-models/Counter.js
-```
+- [ ] **Attachment thumbnail grid** — check tile spacing, hover overlay, and
+      image-vs-icon rendering across all four surfaces: `attachment-panel`,
+      `project-item-detail`, `project-attachments-card`, `task-attachments-modal`.
+- [ ] **Sidebar Theme (Profile > Appearance)** — check all 6 presets render
+      correctly, especially **Daylight** (the one light-background theme) for
+      contrast; confirm the custom text-color picker's live drag-preview
+      actually updates the real sidebar, not just the in-page preview swatch.
+- [ ] **Meeting link (project item detail, below Created By)** — check badge
+      wrapping with a long title in the sidebar's narrow column, and the
+      add/edit form layout (URL + title + date/time pickers).
+- [ ] **Notification gaps fill** (`projectItemAssigned` / `projectItemUpdated`)
+      — end-to-end test: assign an item to someone, add/edit/remove a meeting
+      link, confirm the notification bell updates live via socket and the
+      message text is correct (esp. the meeting-link-specific wording).
+- [ ] **Deleted-link handling** — click through a stale "Copy Task Link" to a
+      since-deleted project item (should toast "no longer exists", not go
+      silent) and open `/tasks/:id/edit` for a deleted task (should hide the
+      form, not show a blank editable one).
+- [ ] **Sidebar nav reorder** — visual check across all three roles (User,
+      Team Lead, Admin/Manager) for spacing/grouping now that Chat/Notifications
+      moved up and Settings moved to the end.
+- [ ] **Team Tasks / My Team removal** — smoke-test a Team Lead login: confirm
+      neither nav item appears, `/team-tasks` and `/users` are both
+      inaccessible (redirect to dashboard), and nothing else on their
+      dashboard/task views broke.
 
-No `.js` files remain anywhere in `backend/` after this migration — if any of the above (or
-any other `.js` file) still exists after extracting, it's stale and safe to delete.
+## Discussed, not built (explicitly offered as follow-ups)
+
+- [ ] **Public, no-login video share links** (Loom-style) — every attachment
+      route currently requires auth; a real public flow needs a signed/expiring
+      per-attachment share token and a new unauthenticated route, not just a
+      relaxed membership check.
+- [ ] **Auto-rewrite pasted `loom.com/share/...` links to `loom.com/embed/...`**
+      server-side, so users don't have to remember to grab Loom's embed URL
+      manually for it to play inline.
+- [ ] **Multi-device session management** ("log out everywhere" / active
+      sessions list) — currently impossible since auth is fully stateless
+      (no session/refresh-token table); would need real session tracking if
+      ever wanted.

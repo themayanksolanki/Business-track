@@ -9,6 +9,8 @@ export interface Task {
   title: string;
   description: string;
   status: TaskStatus;
+  startDate?: string | null;
+  dueDate?: string | null;
   createdBy: User;
   updatedBy?: User | null;
   assignedTo: User;
@@ -24,6 +26,8 @@ export interface CreateTaskPayload {
   description?: string;
   assignedTo?: number;
   parentTask?: number;
+  startDate?: string | null;
+  dueDate?: string | null;
   tags?: number[];
 }
 
@@ -31,5 +35,7 @@ export interface UpdateTaskPayload {
   title?: string;
   description?: string;
   status?: TaskStatus;
+  startDate?: string | null;
+  dueDate?: string | null;
   tags?: number[];
 }

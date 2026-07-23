@@ -22,44 +22,49 @@
     } @else if (attachments.length === 0) {
       <p class="text-muted small mb-2">No files uploaded yet.</p>
     } @else {
-      <ul class="attachment-list mb-2">
+      <div class="att-grid mb-2">
         @for (a of attachments; track a.id) {
-          <li class="attachment-item" [class.attachment-item-pending]="isPending(a)">
-            <i class="bi attachment-file-icon" [class]="a.kind === 'link' ? 'bi-link-45deg' : fileIcon(a.mimeType)"></i>
-            <div class="attachment-info">
-              <span class="attachment-name" [class.attachment-name-pending]="isPending(a)">{{ a.fileName }}</span>
-              <span class="attachment-meta">
-                @if (a.kind === 'link') { Link } @else { {{ formatSize(a.size) }} }
-                 · {{ a.uploadedBy.username }}
+          <div class="att-tile" [class.att-tile-pending]="isPending(a)">
+            <div class="att-tile-thumb" (click)="!isPending(a) && openViewer(a)">
+              <app-attachment-thumb [attachment]="a" [getFileInfo]="getAttachmentFileInfo"></app-attachment-thumb>
+              @if (isPending(a)) {
+                <div class="att-tile-overlay att-tile-overlay-pending">
+                  <span class="att-tile-countdown">{{ remainingSeconds(a) }}s</span>
+                  @if (canEdit) {
+                    <button type="button" class="att-tile-action btn btn-success btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); undoDeleteAttachment(a)" title="Undo">
+                      <i class="bi bi-arrow-counterclockwise"></i>
+                    </button>
+                  }
+                </div>
+              } @else {
+                <div class="att-tile-overlay">
+                  <button type="button" class="att-tile-action btn btn-light btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); openViewer(a)" title="Preview">
+                    <i class="bi bi-eye"></i>
+                  </button>
+                  <button type="button" class="att-tile-action btn btn-light btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); download(a)" [disabled]="downloadingId === a.id" [title]="a.kind === 'link' ? 'Open' : 'Download'">
+                    @if (downloadingId === a.id) {
+                      <span class="spinner-border spinner-border-sm"></span>
+                    } @else {
+                      <i class="bi" [class.bi-download]="a.kind !== 'link'" [class.bi-box-arrow-up-right]="a.kind === 'link'"></i>
+                    }
+                  </button>
+                  @if (canEdit) {
+                    <button type="button" class="att-tile-action btn btn-danger btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); deleteAttachment(a)" title="Delete">
+                      <i class="bi bi-trash3"></i>
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+            <div class="att-tile-info">
+              <span class="att-tile-name text-truncate" [class.att-tile-name-pending]="isPending(a)" [title]="a.fileName">{{ a.fileName }}</span>
+              <span class="att-tile-meta">
+                @if (isPending(a)) { Deleting… } @else if (a.kind === 'link') { Link } @else { {{ formatSize(a.size) }} }
               </span>
             </div>
-            @if (isPending(a)) {
-              <span class="attachment-countdown">Deleting in {{ remainingSeconds(a) }}s</span>
-              @if (canEdit) {
-                <button class="attachment-download-btn attachment-undo-btn" (click)="undoDeleteAttachment(a)" title="Undo">
-                  <i class="bi bi-arrow-counterclockwise"></i>
-                </button>
-              }
-            } @else {
-              <button class="attachment-download-btn" (click)="openViewer(a)" title="Preview">
-                <i class="bi bi-eye"></i>
-              </button>
-              <button class="attachment-download-btn" (click)="download(a)" [disabled]="downloadingId === a.id" [title]="a.kind === 'link' ? 'Open' : 'Download'">
-                @if (downloadingId === a.id) {
-                  <span class="spinner-border spinner-border-sm"></span>
-                } @else {
-                  <i class="bi" [class.bi-download]="a.kind !== 'link'" [class.bi-box-arrow-up-right]="a.kind === 'link'"></i>
-                }
-              </button>
-              @if (canEdit) {
-                <button class="subtask-del-btn" (click)="deleteAttachment(a)" title="Delete">
-                  <i class="bi bi-trash3"></i>
-                </button>
-              }
-            }
-          </li>
+          </div>
         }
-      </ul>
+      </div>
     }
 
     @if (canEdit) {
@@ -86,7 +91,7 @@
                  [ngModelOptions]="{standalone: true}" (keydown.enter)="submitLink()" />
           <input type="text" class="add-link-input" placeholder="Label (optional)" [(ngModel)]="linkLabelInput"
                  [ngModelOptions]="{standalone: true}" (keydown.enter)="submitLink()" />
-          <button type="button" class="attachment-download-btn" (click)="submitLink()" [disabled]="addLinkLoading || !linkUrlInput.trim()" title="Add">
+          <button type="button" class="add-link-submit-btn btn btn-primary d-inline-flex align-items-center justify-content-center p-0" (click)="submitLink()" [disabled]="addLinkLoading || !linkUrlInput.trim()" title="Add">
             @if (addLinkLoading) {
               <span class="spinner-border spinner-border-sm"></span>
             } @else {
