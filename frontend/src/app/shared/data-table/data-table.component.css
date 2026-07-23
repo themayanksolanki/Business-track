@@ -6,7 +6,15 @@
    overflow: visible (which used to matter for the old Bootstrap-JS-driven
    dropdowns elsewhere in the app, but doesn't apply here). Needed once
    columns can be resized wider than the container. */
-.dt-responsive { overflow-x: auto; overflow-y: visible; }
+.dt-responsive { overflow-x: auto; overflow-y: visible; scrollbar-width: thin; }
+
+/* Force a slim, always-rendered scrollbar (any ::-webkit-scrollbar rule
+   switches WebKit/Blink off the OS's auto-hiding overlay style) instead of
+   the platform default that only appears transiently while scrolling. */
+.dt-responsive::-webkit-scrollbar { height: 6px; }
+.dt-responsive::-webkit-scrollbar-track { background: transparent; }
+.dt-responsive::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+.dt-responsive::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
 
 /* Column widths are fully driven by <colgroup><col> (see columnWidths) —
    fixed layout makes every cell in a column honor that width exactly,

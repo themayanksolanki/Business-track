@@ -138,11 +138,27 @@
   box-shadow: var(--shadow-sm);
   cursor: grab;
   overflow: hidden;
+  position: relative;
 }
 
 .kanban-card:hover { box-shadow: var(--shadow-md); }
 .kanban-card.cdk-drag-preview { box-shadow: var(--shadow-lg); }
 .kanban-card.cdk-drag-placeholder { opacity: 0; }
+
+.kanban-card-locked { cursor: not-allowed; opacity: 0.75; }
+
+.kanban-card-lock { margin-left: -2px; font-size: 0.7rem; opacity: 0.55; }
+
+.kanban-card-saving {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  z-index: 1;
+}
 
 .kanban-card-placeholder {
   min-height: 76px;

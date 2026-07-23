@@ -8,7 +8,6 @@
   border: none;
   background: transparent;
   color: var(--text-dim, #94a3b8);
-  cursor: help;
   line-height: 1;
   vertical-align: middle;
 }

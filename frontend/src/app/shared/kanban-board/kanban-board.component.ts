@@ -14,7 +14,7 @@ import {
   ProjectItemPriority,
   ProjectItemSummary,
   CreateProjectItemPayload,
-  flattenLeaves,
+  flattenTasks,
 } from '../../models/project-item.model';
 import { User } from '../../models/user.model';
 import { AuthService } from '../../core/services/auth.service';
@@ -73,6 +73,7 @@ export class KanbanBoardComponent implements OnChanges {
   addError = '';
 
   private brokenAvatarIds = new Set<number>();
+  savingIds = new Set<number>();
 
   constructor(
     private projectService: ProjectService,
@@ -91,7 +92,11 @@ export class KanbanBoardComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['tree'] || changes['users']) this.rebuildColumns();
-    if (changes['itemSummary']) this.syncCovers(flattenLeaves(this.tree));
+    if (changes['itemSummary']) this.syncCovers(flattenTasks(this.tree));
+  }
+
+  isStatusLocked(node: ProjectTreeNode): boolean {
+    return this.groupMode === 'status' && node.childCount > 0;
   }
 
   setGroupMode(mode: KanbanGroupMode) {
@@ -107,7 +112,7 @@ export class KanbanBoardComponent implements OnChanges {
   }
 
   private rebuildColumns() {
-    const leaves = flattenLeaves(this.tree);
+    const tasks = flattenTasks(this.tree);
 
     if (this.groupMode === 'status') {
       this.columns = STATUS_DEFS.map((def) => ({
@@ -115,7 +120,7 @@ export class KanbanBoardComponent implements OnChanges {
         label: def.label,
         icon: def.icon,
         colorClass: def.colorClass,
-        items: leaves.filter((i) => i.status === def.value),
+        items: tasks.filter((i) => i.status === def.value),
       }));
     } else if (this.groupMode === 'priority') {
       this.columns = PRIORITY_DEFS.map((def) => ({
@@ -123,7 +128,7 @@ export class KanbanBoardComponent implements OnChanges {
         label: def.label,
         icon: def.icon,
         colorClass: def.colorClass,
-        items: leaves.filter((i) => i.priority === def.value),
+        items: tasks.filter((i) => i.priority === def.value),
       }));
     } else {
       const cols: KanbanColumn[] = [
@@ -132,7 +137,7 @@ export class KanbanBoardComponent implements OnChanges {
           label: 'Unassigned',
           icon: 'bi-person',
           colorClass: 'col-unassigned',
-          items: leaves.filter((i) => !i.assignedTo),
+          items: tasks.filter((i) => !i.assignedTo),
         },
       ];
       for (const u of this.users) {
@@ -143,7 +148,7 @@ export class KanbanBoardComponent implements OnChanges {
           label: u.username,
           icon: 'bi-person-fill',
           colorClass: 'col-user',
-          items: leaves.filter((i) => this.userId(i.assignedTo) === uid),
+          items: tasks.filter((i) => this.userId(i.assignedTo) === uid),
         });
       }
       this.columns = cols;
@@ -151,7 +156,7 @@ export class KanbanBoardComponent implements OnChanges {
 
     this.connectedIds.length = 0;
     this.connectedIds.push(...this.columns.map((c) => c.id));
-    this.syncCovers(leaves);
+    this.syncCovers(tasks);
   }
 
   private syncCovers(leaves: ProjectTreeNode[]) {
@@ -218,12 +223,15 @@ export class KanbanBoardComponent implements OnChanges {
     if (this.userId(node.assignedTo) === assignedTo) return;
     node.assignedTo = user ?? null;
     if (this.groupMode === 'assignee') this.rebuildColumns();
+    this.savingIds.add(node.id);
     this.projectService.updateItem(this.projectId, node.id, { assignedTo }).subscribe({
       next: () => {
+        this.savingIds.delete(node.id);
         this.refresh.emit();
         this.notifications.success('Assignee updated');
       },
       error: (err) => {
+        this.savingIds.delete(node.id);
         this.refresh.emit();
         this.notifications.error(err.error?.message || 'Failed to update assignee');
       },
@@ -243,6 +251,8 @@ export class KanbanBoardComponent implements OnChanges {
   }
 
   private applyColumnValue(node: ProjectTreeNode, column: KanbanColumn) {
+    if (this.isStatusLocked(node)) return;
+
     let payload: { status?: ProjectItemStatus; priority?: ProjectItemPriority; assignedTo?: number | null };
     let label: string;
 
@@ -267,12 +277,15 @@ export class KanbanBoardComponent implements OnChanges {
       label = 'Assignee';
     }
 
+    this.savingIds.add(node.id);
     this.projectService.updateItem(this.projectId, node.id, payload).subscribe({
       next: () => {
+        this.savingIds.delete(node.id);
         this.refresh.emit();
         this.notifications.success(`${label} updated`);
       },
       error: (err) => {
+        this.savingIds.delete(node.id);
         this.refresh.emit();
         this.notifications.error(err.error?.message || `Failed to update ${label.toLowerCase()}`);
       },
@@ -281,8 +294,8 @@ export class KanbanBoardComponent implements OnChanges {
 
   // ── Quick-add (bottom of column) ──
   // New items are created directly under the project's first group, since
-  // Kanban only ever shows leaf tasks/subtasks — a root-level item created
-  // without a parent would be a group itself and wouldn't appear on the board.
+  // Kanban never shows groups themselves — a root-level item created
+  // without a parent would be a group and wouldn't appear on the board.
   get hasGroups(): boolean {
     return this.tree.length > 0;
   }

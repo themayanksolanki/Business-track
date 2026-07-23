@@ -25,8 +25,13 @@
         <div class="kanban-column-body" cdkDropList [id]="col.id" [cdkDropListData]="col.items"
              [cdkDropListConnectedTo]="connectedIds" (cdkDropListDropped)="drop($event, col)">
           @for (node of col.items; track node.id) {
-            <div class="kanban-card" cdkDrag [cdkDragData]="node" (click)="onCardClick(node)">
+            <div class="kanban-card" [class.kanban-card-locked]="isStatusLocked(node)"
+                 cdkDrag [cdkDragDisabled]="isStatusLocked(node)" [cdkDragData]="node" (click)="onCardClick(node)">
               <div class="kanban-card-placeholder" *cdkDragPlaceholder></div>
+
+              @if (savingIds.has(node.id)) {
+                <div class="kanban-card-saving"><span class="spinner-border spinner-border-sm"></span></div>
+              }
 
               @if (coverUrls.has(node.id)) {
                 <div class="kanban-card-cover">
@@ -42,9 +47,9 @@
                        [class.bi-check2-square]="node.type === 'task'"
                        [class.bi-arrow-return-right]="node.type === 'subtask'"></i>
                   </span>
-                  @if (node.emoji) { <span class="kanban-card-emoji">{{ node.emoji }}</span> }
                   @if (node.sequenceId) { <span class="kanban-card-id">#{{ node.sequenceId }}</span> }
                   <span class="kanban-card-title">{{ node.title }}</span>
+                  @if (node.emoji) { <span class="kanban-card-emoji">{{ node.emoji }}</span> }
                 </div>
 
                 @if (node.description) {
@@ -53,6 +58,9 @@
 
                 <div class="kanban-card-meta">
                   <span class="status-badge" [class]="statusColorClass(node.status)">{{ node.status }}</span>
+                  @if (isStatusLocked(node)) {
+                    <i class="bi bi-lock-fill kanban-card-lock" title="Status is derived from subtasks"></i>
+                  }
                   <span class="priority-badge" [class]="priorityColorClass(node.priority)">{{ node.priority }}</span>
                   @for (tag of visibleTags(node); track tag.id) {
                     <app-tag-pill [tag]="tag"></app-tag-pill>

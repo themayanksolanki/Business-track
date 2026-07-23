@@ -365,6 +365,7 @@ export const updateItem = async (req: Request, res: Response, next: NextFunction
       endDate,
       tags,
       mentions,
+      emoji,
       meetingLinkUrl,
       meetingLinkTitle,
       meetingLinkAt,
@@ -398,6 +399,7 @@ export const updateItem = async (req: Request, res: Response, next: NextFunction
     if (startDate !== undefined) data.startDate = startDate || null;
     if (endDate !== undefined) data.endDate = endDate || null;
     if (tags !== undefined) data.tags = { set: tags.map((id: number | string) => ({ id: Number(id) })) };
+    if (emoji !== undefined) data.emoji = emoji || null;
 
     // meetingLinkUrl is the trigger field, matching validateProjectItem: a
     // truthy URL sets the link (platform is always re-derived server-side,

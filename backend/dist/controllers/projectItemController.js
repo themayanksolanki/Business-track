@@ -311,7 +311,7 @@ export const updateItem = async (req, res, next) => {
         });
         if (!item)
             return next(new AppError('Item not found', 404));
-        const { title, description, priority, assignedTo, status, startDate, endDate, tags, mentions, meetingLinkUrl, meetingLinkTitle, meetingLinkAt, } = req.body;
+        const { title, description, priority, assignedTo, status, startDate, endDate, tags, mentions, emoji, meetingLinkUrl, meetingLinkTitle, meetingLinkAt, } = req.body;
         const data = { updatedById: req.user.id };
         if (project.status === 'draft' && (startDate !== undefined || endDate !== undefined))
             return next(new AppError('Item dates are locked until the draft is approved', 400));
@@ -344,6 +344,8 @@ export const updateItem = async (req, res, next) => {
             data.endDate = endDate || null;
         if (tags !== undefined)
             data.tags = { set: tags.map((id) => ({ id: Number(id) })) };
+        if (emoji !== undefined)
+            data.emoji = emoji || null;
         // meetingLinkUrl is the trigger field, matching validateProjectItem: a
         // truthy URL sets the link (platform is always re-derived server-side,
         // never trusted from the client), anything else clears all four fields.

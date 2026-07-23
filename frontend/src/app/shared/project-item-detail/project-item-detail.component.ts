@@ -29,6 +29,7 @@ import { EmojiPickerComponent } from '../emoji-picker/emoji-picker.component';
 import { HttpEventType } from '@angular/common/http';
 import { AppDatePipe } from '../pipes/app-date.pipe';
 import { AppTimePipe } from '../pipes/app-time.pipe';
+import { NgbTooltipModule } from '@ng-bootstrap/ng-bootstrap';
 
 @Component({
   selector: 'app-project-item-detail',
@@ -48,6 +49,7 @@ import { AppTimePipe } from '../pipes/app-time.pipe';
     TagPillComponent,
     EmojiPickerComponent,
     MentionModule,
+    NgbTooltipModule
   ],
   templateUrl: './project-item-detail.component.html',
   styleUrl: './project-item-detail.component.css',

@@ -654,7 +654,7 @@
 }
 
 /* ── Meeting Link ── */
-.meeting-link-val { flex-wrap: wrap; align-items: flex-start; }
+.meeting-link-val { flex-wrap: wrap}
 
 .meeting-link-badge {
   --mlb-color: #64748b;

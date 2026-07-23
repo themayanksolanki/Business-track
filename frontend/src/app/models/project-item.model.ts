@@ -115,19 +115,19 @@ export function computeCompletionRollup(nodes: ProjectTreeNode[]): CompletionRol
   return { percent, completed, doing, total };
 }
 
-// Walks a tree and returns only the leaf nodes (no children) — the actionable
-// work items a Kanban board should show as cards, since status/priority on a
-// group with children is derived/rolled-up rather than directly editable.
-export function flattenLeaves(nodes: ProjectTreeNode[]): ProjectTreeNode[] {
-  const leaves: ProjectTreeNode[] = [];
+// Walks a tree and returns every non-group node (tasks and subtasks at any
+// depth), each as its own entry, for the Kanban board to show as a card —
+// a task with subtasks is still real, assignable work, not just a container.
+export function flattenTasks(nodes: ProjectTreeNode[]): ProjectTreeNode[] {
+  const tasks: ProjectTreeNode[] = [];
   const walk = (list: ProjectTreeNode[]) => {
     for (const n of list) {
-      if (n.type !== 'group' && n.children.length === 0) leaves.push(n);
-      else walk(n.children);
+      if (n.type !== 'group') tasks.push(n);
+      walk(n.children);
     }
   };
   walk(nodes);
-  return leaves;
+  return tasks;
 }
 
 export function buildProjectTree(items: ProjectItem[]): ProjectTreeNode[] {
