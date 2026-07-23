@@ -8,6 +8,7 @@ import { canAccessProject, canEditProject } from './projectController.js';
 import { nextSequenceId } from '../utils/sequence.js';
 import { notifyUsers } from '../utils/notifications.js';
 import { filterValidMentions } from '../utils/mentions.js';
+import { detectMeetingPlatform } from '../utils/meetingLink.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
 const ACCESS_INCLUDE = { members: { select: { userId: true } } };
@@ -354,7 +355,20 @@ export const updateItem = async (req: Request, res: Response, next: NextFunction
     });
     if (!item) return next(new AppError('Item not found', 404));
 
-    const { title, description, priority, assignedTo, status, startDate, endDate, tags, mentions } = req.body;
+    const {
+      title,
+      description,
+      priority,
+      assignedTo,
+      status,
+      startDate,
+      endDate,
+      tags,
+      mentions,
+      meetingLinkUrl,
+      meetingLinkTitle,
+      meetingLinkAt,
+    } = req.body;
     const data: Prisma.ProjectItemUncheckedUpdateInput = { updatedById: req.user!.id };
 
     if (project.status === 'draft' && (startDate !== undefined || endDate !== undefined))
@@ -384,6 +398,23 @@ export const updateItem = async (req: Request, res: Response, next: NextFunction
     if (startDate !== undefined) data.startDate = startDate || null;
     if (endDate !== undefined) data.endDate = endDate || null;
     if (tags !== undefined) data.tags = { set: tags.map((id: number | string) => ({ id: Number(id) })) };
+
+    // meetingLinkUrl is the trigger field, matching validateProjectItem: a
+    // truthy URL sets the link (platform is always re-derived server-side,
+    // never trusted from the client), anything else clears all four fields.
+    if (meetingLinkUrl !== undefined) {
+      if (meetingLinkUrl) {
+        data.meetingLinkUrl = meetingLinkUrl;
+        data.meetingLinkTitle = meetingLinkTitle;
+        data.meetingLinkAt = new Date(meetingLinkAt);
+        data.meetingLinkPlatform = detectMeetingPlatform(meetingLinkUrl);
+      } else {
+        data.meetingLinkUrl = null;
+        data.meetingLinkTitle = null;
+        data.meetingLinkAt = null;
+        data.meetingLinkPlatform = null;
+      }
+    }
 
     const memberIds = new Set(project.members.map((m) => m.userId));
     const validMentions = mentions !== undefined ? filterValidMentions(mentions, memberIds) : undefined;
@@ -935,6 +966,113 @@ export const bulkMoveItemsToParent = async (req: Request, res: Response, next: N
       message: `${movedCount} item(s) moved`,
       movedCount,
       alreadyInGroupCount,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Bulk counterpart to moveItemToProject: moves several items into a group in
+// a different project. Bulk selections are task-only (the frontend never
+// sends a null targetParentId for this endpoint), so unlike the single-item
+// version there's no group-to-root case to handle.
+export const bulkMoveItemsToProject = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE_WITH_ROLE,
+    });
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user!, project)))
+      return next(new AppError('You do not have access to this project', 403));
+    if (!canEditProject(req.user!, project))
+      return next(new AppError('You have view-only access to this project', 403));
+
+    const { itemIds, targetProjectId, targetParentId } = req.body;
+    const targetProjectIdNum = Number(targetProjectId);
+    if (targetProjectIdNum === project.id)
+      return next(new AppError('Items are already in this project', 400));
+
+    const targetProject = await prisma.project.findUnique({
+      where: { id: targetProjectIdNum },
+      include: ACCESS_INCLUDE_WITH_ROLE,
+    });
+    if (!targetProject) return next(new AppError('Target project not found', 404));
+    if (!(await canAccessProject(req.user!, targetProject)))
+      return next(new AppError('You do not have access to the target project', 403));
+    if (!canEditProject(req.user!, targetProject))
+      return next(new AppError('You have view-only access to the target project', 403));
+
+    const newParent = await prisma.projectItem.findFirst({
+      where: { id: Number(targetParentId), projectId: targetProjectIdNum },
+    });
+    if (!newParent) return next(new AppError('Target group not found in the target project', 404));
+
+    const newDepth = newParent.depth + 1;
+
+    const items = await prisma.projectItem.findMany({
+      where: { id: { in: itemIds.map(Number) }, projectId: project.id, type: { not: 'group' } },
+    });
+
+    let movedCount = 0;
+    let skippedCount = 0;
+    const affectedParentIds = new Set<number>();
+
+    for (const item of items) {
+      const oldParentId = item.parentId;
+
+      const descendantIds = await getDescendantIds(item.id);
+      const subtreeMaxDepth = await getMaxDescendantDepth(item.id, item.depth);
+      const depthDelta = newDepth - item.depth;
+      if (subtreeMaxDepth + depthDelta > MAX_DEPTH) {
+        skippedCount += 1;
+        continue;
+      }
+
+      // close the gap left behind among the old siblings
+      const oldSiblings = await prisma.projectItem.findMany({
+        where: { projectId: project.id, parentId: oldParentId, id: { not: item.id } },
+        orderBy: { order: 'asc' },
+      });
+      if (oldSiblings.length)
+        await prisma.$transaction(
+          oldSiblings.map((s, i) => prisma.projectItem.update({ where: { id: s.id }, data: { order: i } }))
+        );
+
+      // append to the end of the destination group's children
+      const newSiblingCount = await prisma.projectItem.count({
+        where: { projectId: targetProjectIdNum, parentId: newParent.id },
+      });
+
+      const data: Prisma.ProjectItemUncheckedUpdateInput = {
+        projectId: targetProjectIdNum,
+        parentId: newParent.id,
+        order: newSiblingCount,
+        depth: newDepth,
+        type: typeForDepth(newDepth),
+        updatedById: req.user!.id,
+      };
+      await prisma.projectItem.update({ where: { id: item.id }, data });
+
+      if (descendantIds.length)
+        await prisma.projectItem.updateMany({
+          where: { id: { in: descendantIds } },
+          data: { projectId: targetProjectIdNum },
+        });
+
+      if (depthDelta !== 0) await shiftDescendantDepths(item.id, depthDelta);
+
+      if (oldParentId) affectedParentIds.add(oldParentId);
+      affectedParentIds.add(newParent.id);
+      movedCount += 1;
+    }
+
+    for (const id of affectedParentIds) await recomputeAncestorStatuses(id);
+
+    res.status(200).json({
+      message: `${movedCount} item(s) moved to project`,
+      movedCount,
+      skippedCount,
     });
   } catch (err) {
     next(err);
