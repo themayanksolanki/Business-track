@@ -3,11 +3,12 @@ import { HttpEventType } from '@angular/common/http';
 import { ProjectService } from '../../core/services/project.service';
 import { Attachment, ACCEPTED_ATTACHMENT_TYPES } from '../../models/attachment.model';
 import { AttachmentViewerComponent } from '../attachment-viewer/attachment-viewer.component';
+import { AttachmentThumbComponent } from '../attachment-thumb/attachment-thumb.component';
 
 @Component({
   selector: 'app-project-attachments-card',
   standalone: true,
-  imports: [AttachmentViewerComponent],
+  imports: [AttachmentViewerComponent, AttachmentThumbComponent],
   templateUrl: './project-attachments-card.component.html',
   styleUrl: './project-attachments-card.component.css',
 })
@@ -106,17 +107,5 @@ export class ProjectAttachmentsCardComponent implements OnInit {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
-  fileIcon(mimeType: string): string {
-    if (mimeType.startsWith('image/')) return 'bi-file-earmark-image';
-    if (mimeType === 'application/pdf') return 'bi-file-earmark-pdf';
-    if (mimeType.includes('zip')) return 'bi-file-earmark-zip';
-    if (mimeType.includes('word')) return 'bi-file-earmark-word';
-    if (mimeType.includes('sheet') || mimeType.includes('excel')) return 'bi-file-earmark-spreadsheet';
-    if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return 'bi-file-earmark-slides';
-    if (mimeType.startsWith('video/')) return 'bi-file-earmark-play';
-    if (mimeType.startsWith('text/')) return 'bi-file-earmark-text';
-    return 'bi-file-earmark';
   }
 }

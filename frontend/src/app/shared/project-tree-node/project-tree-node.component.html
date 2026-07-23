@@ -37,7 +37,7 @@
     <div class="dropdown tree-cell-assignee" (click)="$event.stopPropagation()">
       @if (node.type !== 'group') {
         @if (canEdit) {
-          <button type="button" class="tree-assignee-trigger dropdown-toggle" data-bs-toggle="dropdown"
+          <button #assigneeToggle type="button" class="tree-assignee-trigger dropdown-toggle" data-bs-toggle="dropdown"
                   title="Click to reassign">
             @if (node.assignedTo) {
               @if (avatarUrl(node.assignedTo)) {
@@ -147,7 +147,7 @@
 
     <div class="dropdown tree-cell-status" (click)="$event.stopPropagation()">
       @if (node.type !== 'group') {
-        <button type="button" class="status-badge dropdown-toggle"
+        <button #statusToggle type="button" class="status-badge dropdown-toggle"
                 [class.badge-todo]="node.status === 'todo'"
                 [class.badge-doing]="node.status === 'doing'"
                 [class.badge-completed]="node.status === 'completed'"
@@ -181,13 +181,13 @@
     </div>
 
     <div class="dropdown tree-cell-priority" (click)="$event.stopPropagation()">
-      <button type="button" class="priority-badge"
+      <button #priorityToggle type="button" class="priority-badge"
               [class.dropdown-toggle]="canEdit"
               [class.priority-low]="node.priority === 'low'"
               [class.priority-medium]="node.priority === 'medium'"
               [class.priority-high]="node.priority === 'high'"
               [attr.data-bs-toggle]="canEdit ? 'dropdown' : null" title="Change priority">
-        <i class="bi bi-flag-fill me-1"></i>{{ node.priority }}
+        <i class="bi bi-flag-fill me-1"></i><span class="priority-label">{{ node.priority }}</span>
       </button>
       @if (canEdit) {
       <ul class="dropdown-menu status-dropdown shadow-sm">
@@ -204,7 +204,7 @@
       }
     </div>
 
-    <button type="button" class="tree-icon-btn" [class.active]="attachmentsOpen || node.attachmentCount > 0"
+    <button type="button" class="tree-icon-btn tree-icon-btn-attachments" [class.active]="attachmentsOpen || node.attachmentCount > 0"
             [class.tree-icon-hidden]="node.type === 'group'"
             (click)="$event.stopPropagation(); toggleAttachments()" title="Attachments">
       <i class="bi bi-paperclip"></i>
@@ -213,7 +213,7 @@
       }
     </button>
 
-    <button type="button" class="tree-icon-btn" [class.active]="descriptionOpen"
+    <button type="button" class="tree-icon-btn tree-icon-btn-description" [class.active]="descriptionOpen"
             [class.tree-icon-hidden]="node.type === 'group'"
             (click)="$event.stopPropagation(); toggleDescription()" title="Description">
       <i class="bi bi-card-text"></i>

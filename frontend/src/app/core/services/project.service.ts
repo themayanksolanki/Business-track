@@ -36,8 +36,19 @@ export class ProjectService {
   }
 
   // Projects
-  getProjects(page: number, limit: number, status?: ProjectStatus | 'all', includeDrafts = false) {
-    const params: Record<string, string | number> = { page, limit };
+  // `extra` carries the data table's sort/filter query params (sortBy,
+  // sortDir, search, statuses, priorities, efforts, departmentIds,
+  // categoryIds, tagIds, and the *From/*To date-range pairs) — kept as a
+  // free-form map here rather than named params so new filterable columns
+  // don't require touching this signature again.
+  getProjects(
+    page: number,
+    limit: number,
+    status?: ProjectStatus | 'all',
+    includeDrafts = false,
+    extra?: Record<string, string>
+  ) {
+    const params: Record<string, string | number> = { page, limit, ...extra };
     if (status && status !== 'all') params['status'] = status;
     if (includeDrafts) params['includeDrafts'] = 'true';
     return this.http.get<PaginatedProjects>(this.api, { params });
@@ -158,6 +169,18 @@ export class ProjectService {
     return this.http.patch<{ message: string; item: ProjectItem }>(
       `${this.api}/${projectId}/items/${itemId}/move-to-project`,
       { targetProjectId, targetParentId }
+    );
+  }
+
+  // Bulk counterpart — tasks only (groups aren't supported, matching the
+  // selection UI: the checkbox for bulk-select only ever appears on depth-1
+  // task rows), so targetParentId is always required, unlike the
+  // single-item version which allows null for a group moving to the
+  // target's root.
+  bulkMoveItemsToProject(projectId: string, itemIds: number[], targetProjectId: number, targetParentId: number) {
+    return this.http.patch<{ message: string; movedCount: number; skippedCount: number }>(
+      `${this.api}/${projectId}/items/bulk-move-to-project`,
+      { itemIds, targetProjectId, targetParentId }
     );
   }
 

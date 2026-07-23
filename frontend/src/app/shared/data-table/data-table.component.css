@@ -1,0 +1,183 @@
+.dt-card { border-radius: 12px; border: none; overflow: visible; }
+
+/* ngbDropdown menus render into <body> app-wide (see NgbDropdownConfig in
+   app.config.ts), so they're never clipped by an ancestor's overflow —
+   this can scroll horizontally like a normal wide table instead of forcing
+   overflow: visible (which used to matter for the old Bootstrap-JS-driven
+   dropdowns elsewhere in the app, but doesn't apply here). Needed once
+   columns can be resized wider than the container. */
+.dt-responsive { overflow-x: auto; overflow-y: visible; }
+
+/* Column widths are fully driven by <colgroup><col> (see columnWidths) —
+   fixed layout makes every cell in a column honor that width exactly,
+   instead of auto-layout re-measuring content on every row. */
+.dt-fixed-table { table-layout: fixed; }
+
+.dt-header-row th {
+  position: relative;
+  background: #1e293b;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: none;
+  padding: 0;
+  vertical-align: middle;
+  overflow: hidden;
+}
+.dt-header-row th:first-child { border-top-left-radius: 12px; }
+.dt-header-row th:last-child { border-top-right-radius: 12px; }
+
+.dt-th-static { display: inline-block; padding: 14px 16px; }
+
+.dt-th-inner { position: relative; display: inline-block; width: 100%; }
+
+.dt-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 1;
+}
+.dt-resize-handle:hover, .dt-resize-handle:active { background: rgba(59, 130, 246, 0.5); }
+
+.dt-th-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 14px 16px;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+.dt-th-trigger:hover { color: #e2e8f0; }
+.dt-th-trigger::after { display: none; } /* hide bootstrap's default caret */
+
+.dt-th-trigger-filtered {
+  background: rgba(59, 130, 246, 0.22);
+  color: #bfdbfe;
+  border-radius: 8px;
+}
+.dt-th-trigger-filtered:hover { background: rgba(59, 130, 246, 0.32); color: #e2e8f0; }
+
+.dt-sort-icon { font-size: 0.7rem; }
+.dt-sort-idle { opacity: 0.35; }
+
+.dt-filter-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3b82f6;
+  flex-shrink: 0;
+}
+
+.dt-row { cursor: pointer; }
+.dt-row:hover td { background: var(--bg-hover); }
+.dt-row td {
+  border-color: var(--border);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dt-state-row td { border: none; }
+
+/* Dropdown menu — mirrors date-picker.component.css's card/border/shadow
+   language so every ngbDropdown panel in the app looks consistent. */
+.dt-dropdown-menu {
+  min-width: 240px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-lg);
+}
+
+.dt-menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.dt-menu-item:hover { background: var(--bg-hover); }
+.dt-menu-item-muted { color: var(--text-muted); }
+
+.dt-menu-divider { height: 1px; margin: 6px 4px; background: var(--border); }
+
+.dt-filter-body { padding: 6px 6px 2px; }
+
+.dt-filter-date { display: flex; flex-direction: column; gap: 6px; }
+.dt-filter-label { font-size: 0.68rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+
+.dt-checklist { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+
+.dt-check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.dt-check-row:hover { background: var(--bg-hover); }
+.dt-check-row input[type='checkbox'] { flex-shrink: 0; cursor: pointer; }
+
+.dt-color-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+.dt-check-empty { padding: 10px; font-size: 0.78rem; color: var(--text-dim); text-align: center; }
+
+.dt-filter-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.dt-footer-btn {
+  border: none;
+  background: transparent;
+  color: #3b82f6;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 6px;
+}
+.dt-footer-btn:hover { background: var(--bg-muted); }
+.dt-footer-btn-muted { color: var(--text-muted); }
+.dt-footer-btn-primary { color: #3b82f6; font-weight: 700; }
+
+.dt-pagination-bar { border-top: 1px solid var(--border); background: var(--bg-card-alt); }
+.dt-page-info { font-size: 0.8rem; color: var(--text-muted); }
+.dt-pagination-bar .pagination .page-link {
+  border-radius: 6px !important;
+  margin: 0 2px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  background: var(--bg-card);
+}
+.dt-pagination-bar .pagination .page-item.active .page-link { background: #1e293b; border-color: #1e293b; color: #fff; }
+.dt-pagination-bar .pagination .page-item.disabled .page-link { color: var(--text-dim); background: transparent; border-color: var(--border); }
+.dt-pagination-bar .pagination .page-link:hover:not(.dt-ellipsis) { background: var(--bg-muted); color: var(--text-primary); }

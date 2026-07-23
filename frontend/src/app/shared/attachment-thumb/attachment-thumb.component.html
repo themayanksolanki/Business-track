@@ -1,0 +1,14 @@
+<div class="ath-box">
+  @if (isImage && !imageFailed) {
+    @if (imageUrl) {
+      <img class="ath-img" [src]="imageUrl" [alt]="attachment.fileName" />
+    } @else {
+      <span class="ath-spinner spinner-border spinner-border-sm"></span>
+    }
+  } @else {
+    <div class="ath-icon-box">
+      <i class="bi" [class]="icon"></i>
+      @if (ext) { <span class="ath-ext">{{ ext }}</span> }
+    </div>
+  }
+</div>

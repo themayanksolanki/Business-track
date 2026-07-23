@@ -13,6 +13,16 @@
 }
 
 .mtp-icon-wrap {
+  /* Bootstrap's own .modal-content is display:flex;flex-direction:column
+     with no align-items (defaults to stretch) — text-align:center on
+     .mtp-content only centers *text*, and only works here because
+     .mtp-title/.mtp-message have no explicit width so they stretch to fill
+     it; this icon circle has a fixed 56px size, so under the inherited
+     "stretch" cross-axis alignment it just sits at flex-start (left)
+     instead. align-self here overrides that for just this one flex child,
+     without touching how .mtp-list/.mtp-search/.mtp-actions stretch to
+     full width. */
+  align-self: center;
   display: inline-flex;
   align-items: center;
   justify-content: center;

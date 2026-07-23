@@ -6,6 +6,12 @@ enum NotificationType {
   taskAssigned
   taskUpdated
   taskCommentAdded
+  // Project-item-level parity with taskAssigned/taskUpdated above — project
+  // items previously only ever notified on @mentions, so assigning one or
+  // changing a field (including adding/editing/removing its meeting link)
+  // silently notified nobody.
+  projectItemAssigned
+  projectItemUpdated
   mentioned
   userDeactivated
 }

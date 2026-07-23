@@ -1,6 +1,7 @@
 import { Component, Input, Output, EventEmitter, OnInit, OnChanges, OnDestroy, SimpleChanges, viewChild, TemplateRef, ViewChild, ElementRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DragDropModule, CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
+import { Dropdown } from 'bootstrap';
 import dayjs from 'dayjs/esm';
 import { ProjectService } from '../../core/services/project.service';
 import {
@@ -66,6 +67,9 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   // organizationId/sequenceId already in scope to build the shareable link.
   @Output() copyTaskLinkRequested = new EventEmitter<ProjectTreeNode>();
   @ViewChild('titleInput') titleInput!: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('statusToggle') statusToggle?: ElementRef<HTMLButtonElement>;
+  @ViewChild('priorityToggle') priorityToggle?: ElementRef<HTMLButtonElement>;
+  @ViewChild('assigneeToggle') assigneeToggle?: ElementRef<HTMLButtonElement>;
 
   expanded = false;
   attachmentsOpen = false;
@@ -225,7 +229,19 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
     return !this.isGroup && this.node.childCount === 0 && this.canEdit;
   }
 
+  // This row's own (click)="$event.stopPropagation()" (kept so picking a
+  // status/priority/assignee doesn't also trigger the row's select/open
+  // handler) also stops the click from ever reaching `document`, which is
+  // where Bootstrap's dropdown auto-close-on-selection listener lives — so
+  // without this, the menu is left open after a click. Closing it through
+  // the Dropdown API directly is the fix, not removing stopPropagation.
+  private closeDropdown(ref?: ElementRef<HTMLElement>) {
+    if (!ref) return;
+    Dropdown.getInstance(ref.nativeElement)?.hide();
+  }
+
   setStatus(status: ProjectItemStatus) {
+    this.closeDropdown(this.statusToggle);
     if (!this.canEditStatus || this.node.status === status) return;
     this.projectService
       .updateItem(this.projectId, this.node.id, { status })
@@ -241,6 +257,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   setPriority(priority: ProjectItemPriority) {
+    this.closeDropdown(this.priorityToggle);
     if (this.node.priority === priority) return;
     this.projectService
       .updateItem(this.projectId, this.node.id, { priority })
@@ -291,12 +308,32 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
       : [];
   }
 
+  // Viewing, not mutating — available regardless of canEdit, same as "View
+  // Details"/"Copy Task Link". These duplicate the row's own dedicated
+  // Attachments/Description icon buttons on purpose: those two buttons are
+  // hidden below tablet width (see the ≤860px rule in the stylesheet) to
+  // keep the row from overflowing, and this menu is where they land instead
+  // — but there's no reason to hide them from the menu on desktop too, so
+  // they're always present here regardless of screen size.
+  private get attachmentsAndDescriptionMenuItems(): ContextMenuItem[] {
+    return this.node.type === 'group'
+      ? []
+      : [
+          { label: 'Attachments', icon: 'bi-paperclip', action: 'attachments' },
+          { label: 'Description', icon: 'bi-card-text', action: 'description' },
+        ];
+  }
+
   get menuItems(): ContextMenuItem[] {
     const items: ContextMenuItem[] = [];
     // View-only users only ever get "View Details" (+ copy link) —
     // everything else here is a mutation (add/move/duplicate/delete).
     if (!this.canEdit) {
-      items.push({ label: 'View Details', icon: 'bi-eye', action: 'view' }, ...this.copyTaskLinkMenuItem);
+      items.push(
+        { label: 'View Details', icon: 'bi-eye', action: 'view' },
+        ...this.attachmentsAndDescriptionMenuItems,
+        ...this.copyTaskLinkMenuItem
+      );
       return items;
     }
     if (this.canAddChild)
@@ -306,6 +343,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
         action: 'add-child',
       });
     items.push({ label: 'View Details', icon: 'bi-eye', action: 'view' });
+    items.push(...this.attachmentsAndDescriptionMenuItems);
     items.push(...this.copyTaskLinkMenuItem);
     if (this.node.type === 'task')
       items.push({
@@ -337,6 +375,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   selectAssignee(user: User | null) {
+    this.closeDropdown(this.assigneeToggle);
     if (this.isGroup) return;
     const assignedTo = user ? user.id ?? user.id ?? null : null;
     this.projectService.updateItem(this.projectId, this.node.id, { assignedTo }).subscribe({
@@ -398,6 +437,8 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   onMenuAction(action: string) {
     if (action === 'add-child') this.openAddChild();
     else if (action === 'view') this.openDetail.emit(this.node);
+    else if (action === 'attachments') this.toggleAttachments();
+    else if (action === 'description') this.toggleDescription();
     else if (action === 'copy-task-link') this.copyTaskLinkRequested.emit(this.node);
     else if (action === 'move-to-group') this.moveToGroupRequested.emit(this.node);
     else if (action === 'move-to-project') this.moveToProjectRequested.emit(this.node);

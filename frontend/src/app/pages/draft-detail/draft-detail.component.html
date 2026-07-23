@@ -470,7 +470,8 @@
   [readOnly]="true"
   (closed)="closeDetail()"
   (saved)="onItemSaved($event)"
-  (breadcrumbNavigate)="onOpenDetail($event)">
+  (breadcrumbNavigate)="onOpenDetail($event)"
+  (copyTaskLinkRequested)="copyTaskLink($event)">
 </app-project-item-detail>
 
 <app-confirm-dialog

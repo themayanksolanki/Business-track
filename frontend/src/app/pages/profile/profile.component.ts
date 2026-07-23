@@ -5,11 +5,13 @@ import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { TaskService } from '../../core/services/task.service';
 import { ThemeService } from '../../core/services/theme.service';
-import { User } from '../../models/user.model';
+import { SidebarAppearanceService } from '../../core/services/sidebar-appearance.service';
+import { User, SidebarTheme } from '../../models/user.model';
 import { Task } from '../../models/task.model';
 import { COUNTRIES, DEFAULT_COUNTRY_ISO2, flagEmoji } from '../../models/country.model';
 import { DateFormatService } from '../../core/services/date-format.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
+import { SIDEBAR_THEMES } from '../../shared/sidebar-theme-data';
 
 @Component({
   selector: 'app-profile',
@@ -40,11 +42,17 @@ export class ProfileComponent implements OnInit {
   phoneCountryForm = DEFAULT_COUNTRY_ISO2;
   phoneNumberForm = '';
 
+  readonly sidebarThemes = SIDEBAR_THEMES;
+  savingSidebarTheme: SidebarTheme | null = null;
+  savingSidebarTextColor = false;
+  sidebarTextColorError = '';
+
   constructor(
     public auth: AuthService,
     private taskService: TaskService,
     public themeSvc: ThemeService,
     private dateFormat: DateFormatService,
+    public sidebarAppearance: SidebarAppearanceService,
   ) {}
 
   ngOnInit() {
@@ -193,5 +201,81 @@ export class ProfileComponent implements OnInit {
 
   get teamLeadName(): string {
     return this.profile?.teamLead?.username ?? '';
+  }
+
+  selectSidebarTheme(theme: SidebarTheme) {
+    if (this.savingSidebarTheme || theme === this.profile?.sidebarTheme) return;
+    this.savingSidebarTheme = theme;
+    this.auth.updateProfile({ sidebarTheme: theme }).subscribe({
+      next: (res) => {
+        this.profile = this.profile ? { ...this.profile, sidebarTheme: res.user.sidebarTheme } : res.user;
+        this.savingSidebarTheme = null;
+      },
+      error: () => (this.savingSidebarTheme = null),
+    });
+  }
+
+  // Default text color for the currently-selected sidebar theme — used both
+  // as the color-picker's starting value and as the live-preview swatch's
+  // fallback while no custom override is set.
+  get sidebarThemeDefaultText(): string {
+    const key = this.profile?.sidebarTheme ?? 'MIDNIGHT';
+    return this.sidebarThemes.find((t) => t.key === key)?.text ?? '#94a3b8';
+  }
+
+  get sidebarTextColorValue(): string {
+    return this.profile?.sidebarTextColor || this.sidebarThemeDefaultText;
+  }
+
+  get currentSidebarThemePreset() {
+    const key = this.profile?.sidebarTheme ?? 'MIDNIGHT';
+    return this.sidebarThemes.find((t) => t.key === key) ?? this.sidebarThemes[0];
+  }
+
+  get sidebarTextPreviewColor(): string {
+    return this.sidebarAppearance.previewTextColor() ?? this.sidebarTextColorValue;
+  }
+
+  // Fires on every drag tick of the native color input — cheap, local-only,
+  // and read by the always-mounted sidebar for a true live preview without
+  // hitting the backend on each tick (that happens once, on commit below).
+  onSidebarTextColorPreview(event: Event) {
+    this.sidebarAppearance.setPreview((event.target as HTMLInputElement).value);
+  }
+
+  onSidebarTextColorCommit(event: Event) {
+    this.commitSidebarTextColor((event.target as HTMLInputElement).value);
+  }
+
+  onSidebarTextColorHexCommit(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const value = input.value.trim();
+    if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value)) {
+      input.value = this.sidebarTextColorValue;
+      return;
+    }
+    this.commitSidebarTextColor(value);
+  }
+
+  resetSidebarTextColor() {
+    this.sidebarAppearance.clearPreview();
+    this.commitSidebarTextColor(null);
+  }
+
+  private commitSidebarTextColor(color: string | null) {
+    this.savingSidebarTextColor = true;
+    this.sidebarTextColorError = '';
+    this.auth.updateProfile({ sidebarTextColor: color }).subscribe({
+      next: (res) => {
+        this.profile = this.profile ? { ...this.profile, sidebarTextColor: res.user.sidebarTextColor } : res.user;
+        this.sidebarAppearance.clearPreview();
+        this.savingSidebarTextColor = false;
+      },
+      error: (err) => {
+        this.sidebarTextColorError = err.error?.message || 'Failed to save text color';
+        this.sidebarAppearance.clearPreview();
+        this.savingSidebarTextColor = false;
+      },
+    });
   }
 }

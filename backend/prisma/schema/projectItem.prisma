@@ -10,6 +10,14 @@ enum ProjectItemStatus {
   completed
 }
 
+enum MeetingPlatform {
+  ZOOM
+  GOOGLE_MEET
+  TEAMS
+  WEBEX
+  OTHER
+}
+
 model ProjectItem {
   id             Int               @id @default(autoincrement())
   sequenceId     Int?
@@ -24,6 +32,20 @@ model ProjectItem {
   description    String            @default("")
   status         ProjectItemStatus @default(todo)
   priority       ProjectPriority   @default(medium)
+  // A single user-picked emoji shown only on the Kanban card (not the list/
+  // tree row) — purely decorative, no validation beyond a generous length
+  // cap to allow multi-codepoint sequences (skin tone modifiers, ZWJ joins).
+  emoji          String?
+  // Single meeting link shown just below "Created By" in the item detail
+  // panel — scalar fields rather than a relation since only one is allowed
+  // at a time. meetingLinkPlatform is derived server-side from the URL
+  // (never trusted from the client) so the badge stays accurate regardless
+  // of what the client sends; OTHER means the URL didn't match a recognized
+  // platform but was still accepted, per product decision.
+  meetingLinkUrl      String?
+  meetingLinkTitle    String?
+  meetingLinkPlatform MeetingPlatform?
+  meetingLinkAt       DateTime?
   assignedToId   Int?
   createdById    Int
   updatedById    Int?

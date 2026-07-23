@@ -18,6 +18,8 @@
   [class.dragging]="svc.dragging()"
   [class.mobile-open]="svc.mobileOpen()"
   [style.width.px]="svc.currentWidth()"
+  [attr.data-sidebar-theme]="auth.currentUser()?.sidebarTheme || 'MIDNIGHT'"
+  [style.--sb-text-override]="appearance.previewTextColor() ?? auth.currentUser()?.sidebarTextColor ?? null"
 >
   <div class="sidebar-top">
     <a class="sidebar-brand" routerLink="/dashboard" (click)="closeMobile()">
@@ -118,6 +120,24 @@
         <span class="nav-label">Drafts</span>
       }
     </a>
+    <a
+      routerLink="/chat"
+      class="nav-item"
+      routerLinkActive="active"
+      [title]="labelsVisible() ? '' : 'Chat'"
+      (click)="closeMobile()"
+    >
+      <span class="nav-icon">
+        <app-icon name="chat" [size]="18" />
+        @if (chatSvc.totalUnread() > 0) {
+          <span class="nav-badge">{{ chatSvc.totalUnread() > 99 ? '99+' : chatSvc.totalUnread() }}</span>
+        }
+      </span>
+      @if (labelsVisible()) {
+        <span class="nav-label">Chat</span>
+      }
+    </a>
+    <app-notification-bell [showLabel]="labelsVisible()" />
     @if (auth.getUser()?.role === 'Admin' || auth.getUser()?.role === 'Manager') {
       <a
         routerLink="/users"
@@ -144,32 +164,6 @@
         }
       </a>
     }
-    @if (auth.getUser()?.role === 'Team Lead') {
-      <a
-        routerLink="/team-tasks"
-        class="nav-item"
-        routerLinkActive="active"
-        [title]="labelsVisible() ? '' : 'Team Tasks'"
-        (click)="closeMobile()"
-      >
-        <span class="nav-icon"><app-icon name="team" [size]="18" /></span>
-        @if (labelsVisible()) {
-          <span class="nav-label">Team Tasks</span>
-        }
-      </a>
-      <a
-        routerLink="/users"
-        class="nav-item"
-        routerLinkActive="active"
-        [title]="labelsVisible() ? '' : 'My Team'"
-        (click)="closeMobile()"
-      >
-        <span class="nav-icon"><app-icon name="users" [size]="18" /></span>
-        @if (labelsVisible()) {
-          <span class="nav-label">My Team</span>
-        }
-      </a>
-    }
     <a
       routerLink="/settings"
       class="nav-item"
@@ -182,24 +176,6 @@
         <span class="nav-label">Settings</span>
       }
     </a>
-    <a
-      routerLink="/chat"
-      class="nav-item"
-      routerLinkActive="active"
-      [title]="labelsVisible() ? '' : 'Chat'"
-      (click)="closeMobile()"
-    >
-      <span class="nav-icon">
-        <app-icon name="chat" [size]="18" />
-        @if (chatSvc.totalUnread() > 0) {
-          <span class="nav-badge">{{ chatSvc.totalUnread() > 99 ? '99+' : chatSvc.totalUnread() }}</span>
-        }
-      </span>
-      @if (labelsVisible()) {
-        <span class="nav-label">Chat</span>
-      }
-    </a>
-    <app-notification-bell [showLabel]="labelsVisible()" />
   </nav>
 
   <div class="sidebar-spacer"></div>

@@ -1,0 +1,118 @@
+.ep-wrap { position: relative; display: inline-block; }
+
+.ep-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg-input);
+  color: var(--text-dim);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.ep-trigger:hover { border-color: #94a3b8; background: var(--bg-card); }
+
+/* No fixed border/background — a translucent black overlay reads correctly
+   whether it's sitting on a light pastel header, a dark-mode gradient
+   header, or a plain card, without needing a per-context color override
+   (mirrors project-item-detail's .detail-x close button). */
+.ep-trigger-ghost {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-muted);
+}
+.ep-trigger-ghost:hover { background: rgba(0, 0, 0, 0.12); }
+
+.ep-trigger-disabled { cursor: not-allowed; opacity: 0.6; }
+
+.ep-current { font-size: 1.1rem; line-height: 1; }
+
+.ep-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 1061;
+  width: 280px;
+  border-radius: 14px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-lg);
+  animation: ep-pop 0.15s ease;
+}
+
+@keyframes ep-pop {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+.ep-cats {
+  display: flex;
+  gap: 2px;
+  padding: 8px 8px 6px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ep-cats::-webkit-scrollbar { display: none; }
+
+.ep-cat-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.ep-cat-btn:hover { background: var(--bg-hover); }
+.ep-cat-active { background: #eff6ff !important; }
+
+.ep-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  padding: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.ep-item {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 1.15rem;
+  cursor: pointer;
+  transition: background 0.1s, transform 0.1s;
+}
+.ep-item:hover { background: var(--bg-hover); transform: scale(1.15); }
+
+.ep-footer {
+  border-top: 1px solid var(--border);
+  padding: 6px 8px;
+}
+
+.ep-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.ep-clear-btn:hover { background: var(--bg-muted); color: #dc2626; }
+
+[data-theme='dark'] .ep-cat-active { background: rgba(59, 130, 246, 0.2) !important; }

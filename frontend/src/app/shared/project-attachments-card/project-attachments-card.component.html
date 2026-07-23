@@ -10,30 +10,34 @@
   } @else if (attachments.length === 0) {
     <p class="text-muted small mb-3">No files uploaded yet.</p>
   } @else {
-    <ul class="attachment-list mb-3">
+    <div class="att-grid mb-3">
       @for (a of attachments; track a.id) {
-        <li class="attachment-item">
-          <i class="bi attachment-file-icon" [class]="fileIcon(a.mimeType)"></i>
-          <div class="attachment-info">
-            <span class="attachment-name">{{ a.fileName }}</span>
-            <span class="attachment-meta">{{ formatSize(a.size) }} · {{ a.uploadedBy.username }}</span>
+        <div class="att-tile">
+          <div class="att-tile-thumb" (click)="openViewer(a)">
+            <app-attachment-thumb [attachment]="a" [getFileInfo]="getAttachmentFileInfo"></app-attachment-thumb>
+            <div class="att-tile-overlay">
+              <button type="button" class="att-tile-action btn btn-light btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); openViewer(a)" title="Preview">
+                <i class="bi bi-eye"></i>
+              </button>
+              <button type="button" class="att-tile-action btn btn-light btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); download(a)" [disabled]="downloadingId === a.id" title="Download">
+                @if (downloadingId === a.id) {
+                  <span class="spinner-border spinner-border-sm"></span>
+                } @else {
+                  <i class="bi bi-download"></i>
+                }
+              </button>
+              <button type="button" class="att-tile-action btn btn-danger btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); deleteAttachment(a)" title="Delete">
+                <i class="bi bi-trash3"></i>
+              </button>
+            </div>
           </div>
-          <button class="attachment-download-btn" (click)="openViewer(a)" title="Preview">
-            <i class="bi bi-eye"></i>
-          </button>
-          <button class="attachment-download-btn" (click)="download(a)" [disabled]="downloadingId === a.id" title="Download">
-            @if (downloadingId === a.id) {
-              <span class="spinner-border spinner-border-sm"></span>
-            } @else {
-              <i class="bi bi-download"></i>
-            }
-          </button>
-          <button class="subtask-del-btn" (click)="deleteAttachment(a)" title="Delete">
-            <i class="bi bi-trash3"></i>
-          </button>
-        </li>
+          <div class="att-tile-info">
+            <span class="att-tile-name text-truncate" [title]="a.fileName">{{ a.fileName }}</span>
+            <span class="att-tile-meta">{{ formatSize(a.size) }}</span>
+          </div>
+        </div>
       }
-    </ul>
+    </div>
   }
 
   @if (uploading) {

@@ -1,87 +1,57 @@
 :host { display: block; height: 100%; }
 .details-card { padding: 1.25rem; height: 100%; box-sizing: border-box; }
 
-.attachment-list {
-  list-style: none;
+.att-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 10px;
   margin: 0;
   padding: 0;
   max-height: 320px;
   overflow-y: auto;
 }
 
-.attachment-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
+.att-tile { display: flex; flex-direction: column; gap: 6px; }
+
+.att-tile-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
   border-radius: 10px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  cursor: pointer;
   background: var(--bg-card-alt);
 }
 
-.attachment-item + .attachment-item { margin-top: 8px; }
-
-.attachment-file-icon {
-  font-size: 1.25rem;
-  color: #7c3aed;
-  flex-shrink: 0;
-}
-
-.attachment-info {
-  flex: 1;
-  min-width: 0;
+.att-tile-overlay {
+  position: absolute;
+  inset: 0;
   display: flex;
-  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0) 65%);
 }
 
-.attachment-name {
-  font-size: 0.875rem;
+.att-tile-action {
+  width: 26px;
+  height: 26px;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+  border: none;
+}
+
+.att-tile-info { display: flex; flex-direction: column; min-width: 0; }
+
+.att-tile-name {
+  font-size: 0.72rem;
   font-weight: 500;
   color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.attachment-meta {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-.attachment-download-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  border: none;
-  background: #eff6ff;
-  color: #3b82f6;
-  flex-shrink: 0;
-  transition: background 0.15s, color 0.15s;
-}
-
-.attachment-download-btn:hover:not(:disabled) { background: #dbeafe; color: #1d4ed8; }
-.attachment-download-btn:disabled { opacity: 0.6; }
-
-.subtask-del-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-dim);
-  font-size: 0.85rem;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.15s, color 0.15s;
-  padding: 0;
-}
-.subtask-del-btn:hover { background: #fee2e2; color: #dc2626; }
+.att-tile-meta { font-size: 0.65rem; color: var(--text-muted); }
 
 .attachment-upload-row { display: flex; }
 

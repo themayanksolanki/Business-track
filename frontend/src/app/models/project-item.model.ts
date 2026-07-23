@@ -4,6 +4,7 @@ import { TagLite } from './tag.model';
 export type ProjectItemType = 'group' | 'task' | 'subtask';
 export type ProjectItemStatus = 'todo' | 'doing' | 'completed';
 export type ProjectItemPriority = 'low' | 'medium' | 'high';
+export type MeetingPlatform = 'ZOOM' | 'GOOGLE_MEET' | 'TEAMS' | 'WEBEX' | 'OTHER';
 
 export const MAX_PROJECT_ITEM_DEPTH = 4; // depths 0-4 => 5 levels total
 
@@ -25,6 +26,15 @@ export interface ProjectItem {
   startDate: string | null;
   endDate: string | null;
   attachmentCount: number;
+  // Shown only on the Kanban card, not the list/tree row.
+  emoji?: string | null;
+  // Single meeting link shown below "Created By" in the detail panel.
+  // meetingLinkPlatform is derived server-side from the URL — never sent by
+  // the client — so the badge is always consistent with the stored URL.
+  meetingLinkUrl?: string | null;
+  meetingLinkTitle?: string | null;
+  meetingLinkPlatform?: MeetingPlatform | null;
+  meetingLinkAt?: string | null;
   tags: TagLite[];
   createdAt: string;
   updatedAt: string;
@@ -38,6 +48,7 @@ export interface CreateProjectItemPayload {
   parentId?: number | null;
   startDate?: string | null;
   endDate?: string | null;
+  emoji?: string | null;
   tags?: number[];
 }
 
@@ -49,6 +60,12 @@ export interface UpdateProjectItemPayload {
   status?: ProjectItemStatus;
   startDate?: string | null;
   endDate?: string | null;
+  emoji?: string | null;
+  // Always sent together (add/edit/remove all resend all three) — see
+  // ProjectItem's comment above.
+  meetingLinkUrl?: string | null;
+  meetingLinkTitle?: string | null;
+  meetingLinkAt?: string | null;
   tags?: number[];
   // {userId, username} pairs currently @mentioned in `description` — the
   // backend diffs this against the item's previously-stored list and only

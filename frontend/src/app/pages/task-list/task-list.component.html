@@ -40,6 +40,7 @@
               </th>
               <th>Assigned To</th>
               <th>Created By</th>
+              <th>Due</th>
               <th class="pe-4 text-end">Actions</th>
             </tr>
           </thead>
@@ -71,13 +72,13 @@
                       {{ task.status }}
                     </button>
                     <ul class="dropdown-menu status-dropdown shadow-sm">
-                      <li><a class="dropdown-item status-opt" (click)="setStatus(task, 'todo')">
+                      <li><a class="dropdown-item status-opt" (click)="setStatus(task, 'todo'); closeDropdownFrom($event)">
                         <i class="bi bi-circle me-2 status-icon-todo"></i>Todo
                       </a></li>
-                      <li><a class="dropdown-item status-opt" (click)="setStatus(task, 'pending')">
+                      <li><a class="dropdown-item status-opt" (click)="setStatus(task, 'pending'); closeDropdownFrom($event)">
                         <i class="bi bi-hourglass-split me-2 status-icon-pending"></i>Pending
                       </a></li>
-                      <li><a class="dropdown-item status-opt" (click)="setStatus(task, 'completed')">
+                      <li><a class="dropdown-item status-opt" (click)="setStatus(task, 'completed'); closeDropdownFrom($event)">
                         <i class="bi bi-check-circle-fill me-2 status-icon-completed"></i>Completed
                       </a></li>
                     </ul>
@@ -99,7 +100,7 @@
                         <ul class="dropdown-menu assign-dropdown">
                           @for (u of users; track u.id) {
                             <li>
-                              <a class="assign-item" (click)="reassign(task, u)">
+                              <a class="assign-item" (click)="reassign(task, u); closeDropdownFrom($event)">
                                 @if (avatarUrl(u)) {
                                   <img class="assignee-avatar-img" [src]="avatarUrl(u)!" [alt]="u.username" (error)="onAvatarError(u)" />
                                 } @else {
@@ -140,6 +141,10 @@
                   } @else {
                     <span class="text-muted-em">—</span>
                   }
+                </td>
+                <td (click)="$event.stopPropagation()">
+                  <app-date-picker [value]="dueValue(task)" [compact]="true" placeholder="None"
+                                   (valueChange)="setDue(task, $event)"></app-date-picker>
                 </td>
                 <td class="pe-4 text-end" (click)="$event.stopPropagation()">
                   <div class="d-flex gap-1 justify-content-end">
@@ -245,6 +250,7 @@
   [uploading]="attachmentUploading"
   [uploadError]="attachmentUploadError"
   [downloadingId]="downloadingId"
+  [getFileInfo]="getAttachmentFileInfo"
   (closed)="closeAttachments()"
   (fileSelected)="onFileSelected($event)"
   (download)="download($event)"

@@ -3,6 +3,7 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { ChatService } from '../../core/services/chat.service';
 import { ProjectsViewMode, ProjectsViewService } from '../../core/services/projects-view.service';
+import { SidebarAppearanceService } from '../../core/services/sidebar-appearance.service';
 import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
@@ -24,6 +25,7 @@ export class SidebarComponent implements OnDestroy {
   readonly chatSvc = inject(ChatService);
   readonly svc = inject(SidebarService);
   readonly projectsView = inject(ProjectsViewService);
+  readonly appearance = inject(SidebarAppearanceService);
   private readonly router = inject(Router);
 
   private dragStartX = 0;

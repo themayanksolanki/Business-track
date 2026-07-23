@@ -6,6 +6,8 @@ export type NotificationType =
   | 'taskAssigned'
   | 'taskUpdated'
   | 'taskCommentAdded'
+  | 'projectItemAssigned'
+  | 'projectItemUpdated'
   | 'mentioned'
   | 'userDeactivated';
 

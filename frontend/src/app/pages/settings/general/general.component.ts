@@ -29,9 +29,8 @@ const LANDING_PAGE_OPTIONS: LandingPageOption[] = [
   { value: 'projects', label: 'Projects', icon: 'projects' },
   { value: 'drafts', label: 'Drafts', icon: 'draft' },
   { value: 'chat', label: 'Chat', icon: 'chat' },
-  { value: 'users', label: 'Users', icon: 'users', roles: ['Admin', 'Manager', 'Team Lead'] },
+  { value: 'users', label: 'Users', icon: 'users', roles: ['Admin', 'Manager'] },
   { value: 'organization', label: 'Organization', icon: 'building', roles: ['Admin', 'Manager'] },
-  { value: 'team-tasks', label: 'Team Tasks', icon: 'team', roles: ['Team Lead'] },
 ];
 
 @Component({

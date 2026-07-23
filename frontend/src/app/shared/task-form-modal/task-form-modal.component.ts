@@ -1,16 +1,18 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import dayjs from 'dayjs/esm';
 import { CreateTaskPayload } from '../../models/task.model';
 import { Tag, TagLite } from '../../models/tag.model';
 import { User } from '../../models/user.model';
 import { ModalDirective } from '../modal.directive';
 import { AuthService } from '../../core/services/auth.service';
 import { TagPickerComponent } from '../tag-picker/tag-picker.component';
+import { DatePickerComponent } from '../date-picker/date-picker.component';
 
 @Component({
   selector: 'app-task-form-modal',
   standalone: true,
-  imports: [ReactiveFormsModule, ModalDirective, TagPickerComponent],
+  imports: [ReactiveFormsModule, ModalDirective, TagPickerComponent, DatePickerComponent],
   templateUrl: './task-form-modal.component.html',
   styleUrl: './task-form-modal.component.css',
 })
@@ -28,6 +30,8 @@ export class TaskFormModalComponent implements OnChanges {
 
   form: FormGroup;
   selectedTags: TagLite[] = [];
+  startDate: string | null = null;
+  dueDate: string | null = null;
   private brokenAvatarIds = new Set<number>();
 
   constructor(private fb: FormBuilder, public auth: AuthService) {
@@ -42,6 +46,8 @@ export class TaskFormModalComponent implements OnChanges {
     if (changes['open'] && this.open) {
       this.form.reset({ title: '', description: '', assignedTo: '' });
       this.selectedTags = [];
+      this.startDate = null;
+      this.dueDate = null;
     }
   }
 
@@ -86,7 +92,12 @@ export class TaskFormModalComponent implements OnChanges {
       this.form.markAllAsTouched();
       return;
     }
-    const payload: CreateTaskPayload = { ...this.form.value, tags: this.selectedTags.map((t) => t.id) };
+    const payload: CreateTaskPayload = {
+      ...this.form.value,
+      startDate: this.startDate ? dayjs(this.startDate, 'YYYY-MM-DD').toISOString() : null,
+      dueDate: this.dueDate ? dayjs(this.dueDate, 'YYYY-MM-DD').toISOString() : null,
+      tags: this.selectedTags.map((t) => t.id),
+    };
     if (!payload.assignedTo) delete payload.assignedTo;
     this.submitted.emit(payload);
   }

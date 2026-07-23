@@ -95,6 +95,17 @@
             </app-tag-picker>
           </div>
 
+          <div class="row g-3 mb-4">
+            <div class="col-6">
+              <label class="form-label fw-semibold">Start</label>
+              <app-date-picker [value]="startDate" (valueChange)="startDate = $event"></app-date-picker>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold">Due</label>
+              <app-date-picker [value]="dueDate" [min]="startDate" (valueChange)="dueDate = $event"></app-date-picker>
+            </div>
+          </div>
+
           <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary" [disabled]="loading">
               {{ loading ? 'Creating...' : 'Create Task' }}

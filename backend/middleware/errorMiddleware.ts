@@ -3,9 +3,6 @@ import type { Request, Response, NextFunction } from 'express';
 import AppError from '../utils/AppError.js';
 import { MAX_ATTACHMENT_SIZE_MB } from './attachmentUpload.js';
 
-const handleCastError = (err: any) =>
-  new AppError(`Invalid value for field '${err.path}': ${err.value}`, 400);
-
 const handleMulterError = (err: multer.MulterError) => {
   if (err.code === 'LIMIT_FILE_SIZE') {
     return new AppError(`File is too large. Maximum size is ${MAX_ATTACHMENT_SIZE_MB}MB.`, 400);
@@ -31,25 +28,18 @@ const isAwsError = (err: any) => typeof err?.$metadata?.httpStatusCode === 'numb
 const handleAwsError = (err: any) =>
   new AppError(err.message, err.$metadata.httpStatusCode < 500 ? err.$metadata.httpStatusCode : 502);
 
-const handleDuplicateKey = (err: any) => {
-  const field = Object.keys(err.keyValue)[0];
-  return new AppError(`'${err.keyValue[field]}' is already registered for ${field}`, 409);
-};
-
 const handleJWTError = () => new AppError('Invalid token. Please log in again.', 401);
 
 const handleJWTExpired = () => new AppError('Token expired. Please log in again.', 401);
 
 // `err` is deliberately `any` here — this single handler fans out across
-// heterogeneous error shapes with nothing in common (Mongoose CastError/
-// duplicate-key, multer.MulterError, a raw Cloudinary API error, a raw AWS
-// SDK error, jsonwebtoken errors, and this app's own AppError), so there's
-// no real shape to narrow `err` to up front.
+// heterogeneous error shapes with nothing in common (multer.MulterError, a
+// raw Cloudinary API error, a raw AWS SDK error, jsonwebtoken errors, and
+// this app's own AppError), so there's no real shape to narrow `err` to up
+// front.
 const errorMiddleware = (err: any, req: Request, res: Response, next: NextFunction) => {
   let error = err;
 
-  if (err.name === 'CastError') error = handleCastError(err);
-  if (err.code === 11000) error = handleDuplicateKey(err);
   if (err.name === 'JsonWebTokenError') error = handleJWTError();
   if (err.name === 'TokenExpiredError') error = handleJWTExpired();
   if (err instanceof multer.MulterError) error = handleMulterError(err);

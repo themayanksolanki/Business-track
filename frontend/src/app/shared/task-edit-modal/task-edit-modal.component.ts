@@ -1,21 +1,25 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import dayjs from 'dayjs/esm';
 import { UpdateTaskPayload } from '../../models/task.model';
 import { Tag, TagLite } from '../../models/tag.model';
 import { ModalDirective } from '../modal.directive';
 import { TagPickerComponent } from '../tag-picker/tag-picker.component';
+import { DatePickerComponent } from '../date-picker/date-picker.component';
 
 export interface TaskEditInitial {
   title: string;
   description: string;
   status: string;
+  startDate?: string | null;
+  dueDate?: string | null;
   tags: TagLite[];
 }
 
 @Component({
   selector: 'app-task-edit-modal',
   standalone: true,
-  imports: [ReactiveFormsModule, ModalDirective, TagPickerComponent],
+  imports: [ReactiveFormsModule, ModalDirective, TagPickerComponent, DatePickerComponent],
   templateUrl: './task-edit-modal.component.html',
   styleUrl: './task-edit-modal.component.css',
 })
@@ -32,6 +36,8 @@ export class TaskEditModalComponent implements OnChanges {
 
   form: FormGroup;
   selectedTags: TagLite[] = [];
+  startDate: string | null = null;
+  dueDate: string | null = null;
 
   constructor(private fb: FormBuilder) {
     this.form = this.fb.group({
@@ -49,6 +55,8 @@ export class TaskEditModalComponent implements OnChanges {
         status: this.initial?.status ?? 'todo',
       });
       this.selectedTags = this.initial?.tags ?? [];
+      this.startDate = this.initial?.startDate ? dayjs(this.initial.startDate).format('YYYY-MM-DD') : null;
+      this.dueDate = this.initial?.dueDate ? dayjs(this.initial.dueDate).format('YYYY-MM-DD') : null;
     }
   }
 
@@ -71,6 +79,8 @@ export class TaskEditModalComponent implements OnChanges {
     }
     this.submitted.emit({
       ...this.form.value,
+      startDate: this.startDate ? dayjs(this.startDate, 'YYYY-MM-DD').toISOString() : null,
+      dueDate: this.dueDate ? dayjs(this.dueDate, 'YYYY-MM-DD').toISOString() : null,
       tags: this.selectedTags.map((t) => t.id),
     });
   }

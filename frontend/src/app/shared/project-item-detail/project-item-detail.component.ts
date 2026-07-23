@@ -11,6 +11,7 @@ import {
   ProjectItemStatus,
   ProjectItemPriority,
   ProjectTreeNode,
+  MeetingPlatform,
 } from '../../models/project-item.model';
 import { User } from '../../models/user.model';
 import { Tag, TagLite } from '../../models/tag.model';
@@ -20,9 +21,11 @@ import { DatePickerComponent } from '../date-picker/date-picker.component';
 import { TimePickerComponent } from '../time-picker/time-picker.component';
 import { ModalDirective } from '../modal.directive';
 import { AttachmentViewerComponent } from '../attachment-viewer/attachment-viewer.component';
+import { AttachmentThumbComponent } from '../attachment-thumb/attachment-thumb.component';
 import { AutoGrowDirective } from '../auto-grow.directive';
 import { TagPickerComponent } from '../tag-picker/tag-picker.component';
 import { TagPillComponent } from '../tag-pill/tag-pill.component';
+import { EmojiPickerComponent } from '../emoji-picker/emoji-picker.component';
 import { HttpEventType } from '@angular/common/http';
 import { AppDatePipe } from '../pipes/app-date.pipe';
 import { AppTimePipe } from '../pipes/app-time.pipe';
@@ -39,9 +42,11 @@ import { AppTimePipe } from '../pipes/app-time.pipe';
     TimePickerComponent,
     ModalDirective,
     AttachmentViewerComponent,
+    AttachmentThumbComponent,
     AutoGrowDirective,
     TagPickerComponent,
     TagPillComponent,
+    EmojiPickerComponent,
     MentionModule,
   ],
   templateUrl: './project-item-detail.component.html',
@@ -82,6 +87,12 @@ export class ProjectItemDetailComponent implements OnChanges, OnInit, OnDestroy 
   @Output() saved = new EventEmitter<ProjectItem>();
   @Output() breadcrumbNavigate = new EventEmitter<ProjectTreeNode>();
   @Output() tagCreated = new EventEmitter<Tag>();
+  // Bubbles to project-detail.component.ts / draft-detail.component.ts,
+  // which already have a copyTaskLink() building the shareable URL from
+  // their own project.organizationId/sequenceId — same mechanism as
+  // project-tree-node's "Copy Task Link" context menu item, just reachable
+  // from inside the open detail modal too.
+  @Output() copyTaskLinkRequested = new EventEmitter<ProjectItem>();
 
   editForm: FormGroup;
   editLoading = false;
@@ -151,6 +162,22 @@ export class ProjectItemDetailComponent implements OnChanges, OnInit, OnDestroy 
   startTimeStr: string | null = null;
   endDateStr: string | null = null;
   endTimeStr: string | null = null;
+
+  meetingLinkFormOpen = false;
+  meetingLinkUrlDraft = '';
+  meetingLinkTitleDraft = '';
+  meetingLinkDateStr: string | null = null;
+  meetingLinkTimeStr: string | null = null;
+  meetingLinkSaving = false;
+  meetingLinkError = '';
+
+  readonly meetingPlatformMeta: Record<MeetingPlatform, { label: string; icon: string; color: string }> = {
+    ZOOM: { label: 'Zoom', icon: 'bi-camera-video-fill', color: '#2d8cff' },
+    GOOGLE_MEET: { label: 'Google Meet', icon: 'bi-camera-video-fill', color: '#00897b' },
+    TEAMS: { label: 'Microsoft Teams', icon: 'bi-camera-video-fill', color: '#5b5fc7' },
+    WEBEX: { label: 'Webex', icon: 'bi-camera-video-fill', color: '#00bceb' },
+    OTHER: { label: 'Link', icon: 'bi-link-45deg', color: '#64748b' },
+  };
 
   constructor(
     private fb: FormBuilder,
@@ -245,6 +272,17 @@ export class ProjectItemDetailComponent implements OnChanges, OnInit, OnDestroy 
     return this.item?.type === 'group';
   }
 
+  // Groups aren't "tasks", and a legacy item with no sequenceId has nothing
+  // stable to build a link from — mirrors project-tree-node's identical gate.
+  get canCopyTaskLink(): boolean {
+    return !this.isGroup && !!this.item?.sequenceId;
+  }
+
+  copyTaskLink() {
+    if (!this.item) return;
+    this.copyTaskLinkRequested.emit(this.item);
+  }
+
   get canEditStatus(): boolean {
     return !this.isGroup && this.childCount === 0 && !this.readOnly && this.canEdit;
   }
@@ -294,6 +332,93 @@ export class ProjectItemDetailComponent implements OnChanges, OnInit, OnDestroy 
         this.notifications.error(err.error?.message || 'Failed to update assignee');
       },
     });
+  }
+
+  setEmoji(emoji: string | null) {
+    if (!this.item) return;
+    this.projectService.updateItem(this.projectId, this.item.id, { emoji }).subscribe({
+      next: (res) => {
+        this.item = res.item;
+        this.saved.emit(res.item);
+      },
+      error: (err) => {
+        this.notifications.error(err.error?.message || 'Failed to update emoji');
+      },
+    });
+  }
+
+  get meetingLinkPlatformInfo() {
+    const key = this.item?.meetingLinkPlatform ?? 'OTHER';
+    return this.meetingPlatformMeta[key];
+  }
+
+  openMeetingLinkForm() {
+    this.meetingLinkFormOpen = true;
+    this.meetingLinkError = '';
+    this.meetingLinkUrlDraft = this.item?.meetingLinkUrl ?? '';
+    this.meetingLinkTitleDraft = this.item?.meetingLinkTitle ?? '';
+    this.meetingLinkDateStr = this.item?.meetingLinkAt ? dayjs(this.item.meetingLinkAt).format('YYYY-MM-DD') : null;
+    this.meetingLinkTimeStr = this.item?.meetingLinkAt ? dayjs(this.item.meetingLinkAt).format('HH:mm') : null;
+  }
+
+  cancelMeetingLinkForm() {
+    this.meetingLinkFormOpen = false;
+    this.meetingLinkError = '';
+  }
+
+  submitMeetingLink() {
+    if (!this.item) return;
+    const url = this.meetingLinkUrlDraft.trim();
+    const title = this.meetingLinkTitleDraft.trim();
+
+    if (!/^https?:\/\//i.test(url)) {
+      this.meetingLinkError = 'Enter a valid link starting with http:// or https://';
+      return;
+    }
+    if (!title) {
+      this.meetingLinkError = 'Enter a title for this link.';
+      return;
+    }
+    if (!this.meetingLinkDateStr) {
+      this.meetingLinkError = 'Choose a date for this meeting.';
+      return;
+    }
+
+    this.meetingLinkError = '';
+    this.meetingLinkSaving = true;
+    const meetingLinkAt = this.combineDateTime(this.meetingLinkDateStr, this.meetingLinkTimeStr);
+    this.projectService
+      .updateItem(this.projectId, this.item.id, { meetingLinkUrl: url, meetingLinkTitle: title, meetingLinkAt })
+      .subscribe({
+        next: (res) => {
+          this.item = res.item;
+          this.saved.emit(res.item);
+          this.meetingLinkFormOpen = false;
+          this.meetingLinkSaving = false;
+        },
+        error: (err) => {
+          this.meetingLinkError = err.error?.message || 'Failed to save meeting link';
+          this.meetingLinkSaving = false;
+        },
+      });
+  }
+
+  removeMeetingLink() {
+    if (!this.item) return;
+    this.meetingLinkSaving = true;
+    this.projectService
+      .updateItem(this.projectId, this.item.id, { meetingLinkUrl: null, meetingLinkTitle: null, meetingLinkAt: null })
+      .subscribe({
+        next: (res) => {
+          this.item = res.item;
+          this.saved.emit(res.item);
+          this.meetingLinkSaving = false;
+        },
+        error: (err) => {
+          this.notifications.error(err.error?.message || 'Failed to remove meeting link');
+          this.meetingLinkSaving = false;
+        },
+      });
   }
 
   selectTags(tags: TagLite[]) {
@@ -643,17 +768,5 @@ export class ProjectItemDetailComponent implements OnChanges, OnInit, OnDestroy 
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
-  fileIcon(mimeType: string): string {
-    if (mimeType.startsWith('image/')) return 'bi-file-earmark-image';
-    if (mimeType.startsWith('video/')) return 'bi-file-earmark-play';
-    if (mimeType === 'application/pdf') return 'bi-file-earmark-pdf';
-    if (mimeType.includes('zip')) return 'bi-file-earmark-zip';
-    if (mimeType.includes('word')) return 'bi-file-earmark-word';
-    if (mimeType.includes('sheet') || mimeType.includes('excel')) return 'bi-file-earmark-spreadsheet';
-    if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return 'bi-file-earmark-slides';
-    if (mimeType.startsWith('text/')) return 'bi-file-earmark-text';
-    return 'bi-file-earmark';
   }
 }

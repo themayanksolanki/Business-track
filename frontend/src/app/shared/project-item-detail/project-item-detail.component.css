@@ -119,6 +119,11 @@
 .pill-disabled { cursor: not-allowed; opacity: 0.75; }
 .pill-disabled:hover { opacity: 0.75; }
 
+.detail-title-form {
+  flex: 1;
+  min-width: 0;
+}
+
 .detail-title-input {
   width: 100%;
   border: none;
@@ -136,6 +141,20 @@
 }
 .detail-title-input:focus { outline: 2px solid rgba(59, 130, 246, 0.25); border-radius: 4px; }
 .detail-title-input::placeholder { color: #94a3b8; }
+
+/* Ghost variant of .item-emoji-display (see emoji-picker.component's own
+   ep-trigger-ghost) — for the read-only case sitting on the colored status
+   header, instead of the bordered/boxed default below. Combined-class
+   selector so it wins over .item-emoji-display's conflicting properties
+   regardless of which is declared first. */
+.item-emoji-display.item-emoji-display-ghost {
+  width: 30px;
+  height: 30px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.06);
+}
 
 [data-theme="dark"] .detail-title-input { color: #e6edf3; }
 [data-theme="dark"] .detail-title-input::placeholder { color: #6e7681; }
@@ -223,6 +242,19 @@
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--text-dim);
+}
+
+.item-emoji-display {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  font-size: 1.1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg-input);
+  flex-shrink: 0;
 }
 
 .detail-meta-val {
@@ -407,8 +439,6 @@
   background: var(--bg-card-alt);
 }
 
-.attachment-file-icon { font-size: 1.25rem; color: #7c3aed; flex-shrink: 0; }
-
 .attachment-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
 .attachment-name {
@@ -422,36 +452,77 @@
 
 .attachment-meta { font-size: 0.75rem; color: var(--text-muted); }
 
-.attachment-download-btn {
-  display: inline-flex;
+/* ── Attachment thumbnail grid (separate from the .attachment-list/
+   .attachment-item row layout above, which the comments list still uses) ── */
+.att-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.att-tile { display: flex; flex-direction: column; gap: 6px; }
+
+.att-tile-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--bg-card-alt);
+}
+
+.att-tile-pending .att-tile-thumb { opacity: 0.75; cursor: default; }
+
+.att-tile-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0) 65%);
+}
+
+.att-tile-overlay-pending {
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.att-tile-action {
+  width: 26px;
+  height: 26px;
+  font-size: 0.78rem;
+  flex-shrink: 0;
   border: none;
-  background: #eff6ff;
-  color: #3b82f6;
-  flex-shrink: 0;
-  transition: background 0.15s, color 0.15s;
 }
-.attachment-download-btn:hover:not(:disabled) { background: #dbeafe; color: #1d4ed8; }
-.attachment-download-btn:disabled { opacity: 0.6; }
 
-.attachment-undo-btn { background: #f0fdf4; color: #16a34a; }
-.attachment-undo-btn:hover:not(:disabled) { background: #dcfce7; color: #15803d; }
-
-.attachment-item-pending { opacity: 0.75; }
-
-.attachment-name-pending { text-decoration: line-through; color: var(--text-muted); }
-
-.attachment-countdown {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #ef4444;
+.att-tile-countdown {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fff;
   white-space: nowrap;
-  flex-shrink: 0;
 }
+
+.att-tile-info { display: flex; flex-direction: column; min-width: 0; }
+
+.att-tile-name {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.att-tile-name-pending { text-decoration: line-through; color: var(--text-muted); }
+
+.att-tile-meta { font-size: 0.65rem; color: var(--text-muted); }
 
 .attachment-upload-row { display: flex; gap: 8px; }
 
@@ -469,6 +540,8 @@
   font-size: 0.875rem;
 }
 .add-link-input:focus { outline: none; border-color: #7c3aed; }
+
+.add-link-submit-btn { width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0; }
 
 .attachment-upload-btn {
   display: inline-flex;
@@ -579,6 +652,144 @@
   flex: 1;
   min-width: 0;
 }
+
+/* ── Meeting Link ── */
+.meeting-link-val { flex-wrap: wrap; align-items: flex-start; }
+
+.meeting-link-badge {
+  --mlb-color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mlb-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mlb-color) 30%, transparent);
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 0.82rem;
+  max-width: 100%;
+  transition: background 0.15s, border-color 0.15s;
+}
+.meeting-link-badge:hover {
+  background: color-mix(in srgb, var(--mlb-color) 20%, transparent);
+  color: var(--text-primary);
+}
+
+.meeting-link-icon { color: var(--mlb-color); font-size: 0.9rem; flex-shrink: 0; }
+
+.meeting-link-platform {
+  font-weight: 700;
+  color: var(--mlb-color);
+  flex-shrink: 0;
+}
+
+.meeting-link-title {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.meeting-link-warn { color: #f59e0b; font-size: 0.8rem; flex-shrink: 0; }
+
+.meeting-link-actions { display: flex; gap: 4px; }
+
+.meeting-link-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 7px;
+  background: var(--bg-muted);
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.meeting-link-icon-btn:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+.meeting-link-icon-btn-danger:hover:not(:disabled) { background: #fee2e2; color: #dc2626; }
+.meeting-link-icon-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.meeting-link-add-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px dashed var(--border-strong);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.meeting-link-add-btn:hover { border-color: #7c3aed; background: #f5f3ff; color: #7c3aed; }
+
+.meeting-link-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card-alt);
+}
+
+.meeting-link-input {
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  width: 100%;
+}
+.meeting-link-input:focus { outline: none; border-color: #7c3aed; }
+
+.meeting-link-datetime-row { display: flex; gap: 8px; }
+
+.meeting-link-form-actions { display: flex; gap: 8px; }
+
+.meeting-link-save-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.meeting-link-save-btn:hover:not(:disabled) { background: #2563eb; }
+.meeting-link-save-btn:disabled { background: #93c5fd; cursor: not-allowed; }
+
+.meeting-link-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.meeting-link-cancel-btn:hover { background: var(--bg-muted); }
 
 .comment-item { align-items: flex-start; }
 .comment-body {

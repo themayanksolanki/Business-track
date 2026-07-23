@@ -83,18 +83,33 @@
             <span class="type-pill">{{ item.type }}</span>
           </div>
 
-          <button type="button" class="detail-x" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+          <div class="d-flex align-items-center gap-1">
+            @if (canCopyTaskLink) {
+              <button type="button" class="detail-x" (click)="copyTaskLink()" title="Copy Task Link">
+                <i class="bi bi-link-45deg"></i>
+              </button>
+            }
+            <button type="button" class="detail-x" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+          </div>
         </div>
 
-        @if (canEdit) {
-          <form [formGroup]="editForm" (ngSubmit)="submitEdit()">
-            <textarea class="detail-title-input" rows="1" formControlName="title" placeholder="Title"
-                      [appAutoGrow]="editForm.get('title')?.value" (keydown)="onTitleKeydown($event)"
-                      (blur)="submitEdit()"></textarea>
-          </form>
-        } @else {
-          <div class="detail-title-input">{{ item.title }}</div>
-        }
+        <div class="d-flex align-items-start gap-2">
+          @if (canEdit) {
+            <app-emoji-picker variant="ghost" [value]="item.emoji ?? null" (emojiSelected)="setEmoji($event)"></app-emoji-picker>
+          } @else if (item.emoji) {
+            <span class="item-emoji-display item-emoji-display-ghost" title="Emoji">{{ item.emoji }}</span>
+          }
+
+          @if (canEdit) {
+            <form class="detail-title-form" [formGroup]="editForm" (ngSubmit)="submitEdit()">
+              <textarea class="detail-title-input" rows="1" formControlName="title" placeholder="Title"
+                        [appAutoGrow]="editForm.get('title')?.value" (keydown)="onTitleKeydown($event)"
+                        (blur)="submitEdit()"></textarea>
+            </form>
+          } @else {
+            <div class="detail-title-input">{{ item.title }}</div>
+          }
+        </div>
       </div>
 
       <div class="modal-body detail-body item-detail-body">
@@ -136,44 +151,49 @@
                 } @else if (attachments.length === 0) {
                   <p class="text-muted small mb-2">No files uploaded yet.</p>
                 } @else {
-                  <ul class="attachment-list mb-2">
+                  <div class="att-grid mb-2">
                     @for (a of attachments; track a.id) {
-                      <li class="attachment-item" [class.attachment-item-pending]="isPending(a)">
-                        <i class="bi attachment-file-icon" [class]="a.kind === 'link' ? 'bi-link-45deg' : fileIcon(a.mimeType)"></i>
-                        <div class="attachment-info">
-                          <span class="attachment-name" [class.attachment-name-pending]="isPending(a)">{{ a.fileName }}</span>
-                          <span class="attachment-meta">
-                            @if (a.kind === 'link') { Link } @else { {{ formatSize(a.size) }} }
-                             · {{ a.uploadedBy.username }}
+                      <div class="att-tile" [class.att-tile-pending]="isPending(a)">
+                        <div class="att-tile-thumb" (click)="!isPending(a) && openViewer(a)">
+                          <app-attachment-thumb [attachment]="a" [getFileInfo]="getAttachmentFileInfo"></app-attachment-thumb>
+                          @if (isPending(a)) {
+                            <div class="att-tile-overlay att-tile-overlay-pending">
+                              <span class="att-tile-countdown">{{ remainingSeconds(a) }}s</span>
+                              @if (canEdit) {
+                                <button type="button" class="att-tile-action btn btn-success btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); undoDeleteAttachment(a)" title="Undo">
+                                  <i class="bi bi-arrow-counterclockwise"></i>
+                                </button>
+                              }
+                            </div>
+                          } @else {
+                            <div class="att-tile-overlay">
+                              <button type="button" class="att-tile-action btn btn-light btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); openViewer(a)" title="Preview">
+                                <i class="bi bi-eye"></i>
+                              </button>
+                              <button type="button" class="att-tile-action btn btn-light btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); download(a)" [disabled]="downloadingId === a.id" [title]="a.kind === 'link' ? 'Open' : 'Download'">
+                                @if (downloadingId === a.id) {
+                                  <span class="spinner-border spinner-border-sm"></span>
+                                } @else {
+                                  <i class="bi" [class.bi-download]="a.kind !== 'link'" [class.bi-box-arrow-up-right]="a.kind === 'link'"></i>
+                                }
+                              </button>
+                              @if (canEdit) {
+                                <button type="button" class="att-tile-action btn btn-danger btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); deleteAttachment(a)" title="Delete">
+                                  <i class="bi bi-trash3"></i>
+                                </button>
+                              }
+                            </div>
+                          }
+                        </div>
+                        <div class="att-tile-info">
+                          <span class="att-tile-name text-truncate" [class.att-tile-name-pending]="isPending(a)" [title]="a.fileName">{{ a.fileName }}</span>
+                          <span class="att-tile-meta">
+                            @if (isPending(a)) { Deleting… } @else if (a.kind === 'link') { Link } @else { {{ formatSize(a.size) }} }
                           </span>
                         </div>
-                        @if (isPending(a)) {
-                          <span class="attachment-countdown">Deleting in {{ remainingSeconds(a) }}s</span>
-                          @if (canEdit) {
-                            <button class="attachment-download-btn attachment-undo-btn" (click)="undoDeleteAttachment(a)" title="Undo">
-                              <i class="bi bi-arrow-counterclockwise"></i>
-                            </button>
-                          }
-                        } @else {
-                          <button class="attachment-download-btn" (click)="openViewer(a)" title="Preview">
-                            <i class="bi bi-eye"></i>
-                          </button>
-                          <button class="attachment-download-btn" (click)="download(a)" [disabled]="downloadingId === a.id" [title]="a.kind === 'link' ? 'Open' : 'Download'">
-                            @if (downloadingId === a.id) {
-                              <span class="spinner-border spinner-border-sm"></span>
-                            } @else {
-                              <i class="bi" [class.bi-download]="a.kind !== 'link'" [class.bi-box-arrow-up-right]="a.kind === 'link'"></i>
-                            }
-                          </button>
-                          @if (canEdit) {
-                            <button class="subtask-del-btn" (click)="deleteAttachment(a)" title="Delete">
-                              <i class="bi bi-trash3"></i>
-                            </button>
-                          }
-                        }
-                      </li>
+                      </div>
                     }
-                  </ul>
+                  </div>
                 }
 
                 @if (canEdit) {
@@ -200,7 +220,7 @@
                              [ngModelOptions]="{standalone: true}" (keydown.enter)="submitLink()" />
                       <input type="text" class="add-link-input" placeholder="Label (optional)" [(ngModel)]="linkLabelInput"
                              [ngModelOptions]="{standalone: true}" (keydown.enter)="submitLink()" />
-                      <button type="button" class="attachment-download-btn" (click)="submitLink()" [disabled]="addLinkLoading || !linkUrlInput.trim()" title="Add">
+                      <button type="button" class="add-link-submit-btn btn btn-primary d-inline-flex align-items-center justify-content-center p-0" (click)="submitLink()" [disabled]="addLinkLoading || !linkUrlInput.trim()" title="Add">
                         @if (addLinkLoading) {
                           <span class="spinner-border spinner-border-sm"></span>
                         } @else {
@@ -399,6 +419,67 @@
                   </span>
                 }
                 {{ item.createdBy.username }}
+              </div>
+            </div>
+
+            <div class="sidebar-field">
+              <span class="detail-meta-label"><i class="bi bi-camera-video me-1"></i>Meeting Link</span>
+              <div class="detail-meta-val meeting-link-val">
+                @if (item.meetingLinkUrl) {
+                  <a class="meeting-link-badge" [href]="item.meetingLinkUrl" target="_blank" rel="noopener noreferrer"
+                     [style.--mlb-color]="meetingLinkPlatformInfo.color" [title]="'Open ' + meetingLinkPlatformInfo.label">
+                    <i class="bi meeting-link-icon" [class]="meetingLinkPlatformInfo.icon"></i>
+                    <span class="meeting-link-platform">{{ meetingLinkPlatformInfo.label }}</span>
+                    <span class="meeting-link-title">{{ item.meetingLinkTitle }}</span>
+                    @if (item.meetingLinkPlatform === 'OTHER') {
+                      <i class="bi bi-exclamation-triangle-fill meeting-link-warn"
+                         title="Unrecognized platform — not verified as a meeting link"></i>
+                    }
+                  </a>
+                  @if (canEdit && !readOnly) {
+                    <div class="meeting-link-actions">
+                      <button type="button" class="meeting-link-icon-btn" (click)="openMeetingLinkForm()" title="Edit meeting link">
+                        <i class="bi bi-pencil"></i>
+                      </button>
+                      <button type="button" class="meeting-link-icon-btn meeting-link-icon-btn-danger"
+                              (click)="removeMeetingLink()" [disabled]="meetingLinkSaving" title="Remove meeting link">
+                        <i class="bi bi-trash3"></i>
+                      </button>
+                    </div>
+                  }
+                } @else if (canEdit && !readOnly) {
+                  <button type="button" class="meeting-link-add-btn" (click)="openMeetingLinkForm()">
+                    <i class="bi bi-plus-lg me-1"></i>Add meeting link
+                  </button>
+                } @else {
+                  <span class="text-muted small">—</span>
+                }
+
+                @if (meetingLinkFormOpen) {
+                  <div class="meeting-link-form">
+                    <input type="url" class="meeting-link-input" placeholder="https://zoom.us/j/…"
+                           [(ngModel)]="meetingLinkUrlDraft" [ngModelOptions]="{standalone: true}" />
+                    <input type="text" class="meeting-link-input" placeholder="Title (e.g. Sprint Standup)"
+                           [(ngModel)]="meetingLinkTitleDraft" [ngModelOptions]="{standalone: true}" maxlength="100" />
+                    <div class="meeting-link-datetime-row">
+                      <app-date-picker [value]="meetingLinkDateStr" (valueChange)="meetingLinkDateStr = $event"></app-date-picker>
+                      <app-time-picker [value]="meetingLinkTimeStr" (valueChange)="meetingLinkTimeStr = $event"></app-time-picker>
+                    </div>
+                    <div class="meeting-link-form-actions">
+                      <button type="button" class="meeting-link-save-btn" (click)="submitMeetingLink()" [disabled]="meetingLinkSaving">
+                        @if (meetingLinkSaving) {
+                          <span class="spinner-border spinner-border-sm"></span>
+                        } @else {
+                          Save
+                        }
+                      </button>
+                      <button type="button" class="meeting-link-cancel-btn" (click)="cancelMeetingLinkForm()">Cancel</button>
+                    </div>
+                    @if (meetingLinkError) {
+                      <div class="field-error">{{ meetingLinkError }}</div>
+                    }
+                  </div>
+                }
               </div>
             </div>
 

@@ -457,6 +457,28 @@
   margin-bottom: 4px;
 }
 
+/* ── Responsive: tablet (covers iPad 11" portrait @834px) and below —
+   collapse the separate Attachments/Description icon buttons into the
+   "More actions" (⋯) menu (see attachmentsAndDescriptionMenuItems() in the
+   component; they're always in that menu too, just redundant with these
+   dedicated buttons above this width) and show priority as just its
+   colored flag, dropping the text label. Frees enough width to keep the
+   row on one line down to tablet width, before the phone breakpoint below
+   drops the grid entirely in favor of wrapping. ── */
+@media (max-width: 860px) {
+  .tree-icon-btn-attachments,
+  .tree-icon-btn-description {
+    display: none;
+  }
+
+  .priority-label { display: none; }
+  .priority-badge { padding: 5px 8px; }
+
+  .tree-row-main {
+    grid-template-columns: var(--col-id) var(--col-icon) var(--col-assignee) minmax(140px, 1fr) var(--col-status) var(--col-due) var(--col-priority) var(--col-icon);
+  }
+}
+
 /* ── Responsive: below tablet width, drop the rigid grid in favor of a
    wrapping row — the task cell takes the full first line, everything else
    (assignee, status, due, priority, actions) wraps onto line(s) below. ── */
