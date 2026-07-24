@@ -1,0 +1,97 @@
+enum MetricStatus {
+  active
+  archived
+  deleted
+}
+
+// Determines how a metric's daily/weekly/etc. values are decorated in the
+// Bowling View's read mode (see metric-bowling.component.ts) — the actual
+// unit shown (which currency, which weight unit) comes from the VIEWING
+// user's own Settings > General preferences (User.currency/unit), not from
+// the metric itself; this only picks which of those preferences applies,
+// or none for 'number'/'percentage'. No unit conversion is implied — the
+// stored number is shown as-is with a label attached.
+enum MetricDataType {
+  number
+  weight
+  currency
+  percentage
+}
+
+model Metric {
+  id             Int          @id @default(autoincrement())
+  sequenceId     Int?
+  organizationId Int?
+  departmentId   Int
+  categoryId     Int?
+  parentId       Int?
+  title          String
+  // CKEditor HTML — same plain-String (no @db.Text) treatment as
+  // Project.detailsText/ProjectItem.description.
+  notes          String       @default("")
+  status         MetricStatus   @default(active)
+  dataType       MetricDataType @default(number)
+  // Sibling position for future drag-drop reordering — not wired up to any
+  // UI yet, seeded like ProjectItem's `order` (append-at-end on create).
+  order          Int          @default(0)
+  depth          Int          @default(0)
+  startDate      DateTime?
+  dueDate        DateTime?
+  ownerId        Int
+  createdById    Int
+  updatedById    Int?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  department   Department    @relation(fields: [departmentId], references: [id])
+  category     Category?     @relation(fields: [categoryId], references: [id])
+  parent       Metric?       @relation("MetricHierarchy", fields: [parentId], references: [id])
+  children     Metric[]      @relation("MetricHierarchy")
+  owner        User          @relation("MetricOwner", fields: [ownerId], references: [id])
+  createdBy    User          @relation("MetricCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?         @relation("MetricUpdatedBy", fields: [updatedById], references: [id])
+  periodTotals MetricPeriodTotal[]
+
+  @@index([organizationId])
+  @@index([departmentId])
+  @@index([categoryId])
+  @@index([parentId, order])
+  @@unique([organizationId, sequenceId])
+  @@map("metrics")
+}
+
+// Mirrors MetricFrequency in backend/models/metricTracking.model.ts (the
+// Mongoose-side type) — kept as a separate Prisma enum since it lives in a
+// different datastore, not because the concept differs.
+enum MetricFrequency {
+  daily
+  weekly
+  monthly
+  quarterly
+  yearly
+}
+
+// SQL-side mirror of the Actual/Target totals computed in
+// metricTrackingController.ts (see savePeriodDiff) — the day-level `periods`
+// detail stays MongoDB-only (MetricTracking), but the aggregate totals are
+// also persisted here on every save so SQL-side reporting/joins (with
+// Department/Category/etc.) don't need to reach into Mongo at all.
+model MetricPeriodTotal {
+  id          Int             @id @default(autoincrement())
+  metricId    Int
+  frequency   MetricFrequency
+  year        Int
+  // Only meaningful for frequency == daily, same convention as the Mongo
+  // model's `month` field.
+  month       Int?
+  actualTotal Float
+  targetTotal Float
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  metric Metric @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+  @@unique([metricId, frequency, year, month])
+  @@map("metric_period_totals")
+}

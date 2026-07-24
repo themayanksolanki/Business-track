@@ -1,0 +1,110 @@
+<div class="calendar-page">
+  <div class="calendar-toolbar">
+    <div class="calendar-toolbar-nav">
+      <button type="button" class="calendar-sidebar-toggle" (click)="toggleSidebar()" title="Toggle mini calendar">
+        <i class="bi bi-calendar3"></i>
+      </button>
+      <button type="button" class="calendar-today-btn" (click)="state.today()">Today</button>
+      <button type="button" class="calendar-nav-btn" (click)="state.prev()" title="Previous">
+        <i class="bi bi-chevron-left"></i>
+      </button>
+      <button type="button" class="calendar-nav-btn" (click)="state.next()" title="Next">
+        <i class="bi bi-chevron-right"></i>
+      </button>
+      <h5 class="calendar-range-label">{{ state.rangeLabel() }}</h5>
+      @if (state.eventsLoading()) {
+        <span class="spinner-border spinner-border-sm text-muted"></span>
+      }
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <button type="button" class="btn btn-primary calendar-create-btn" (click)="openCreateEvent()">
+        <i class="bi bi-plus-lg calendar-create-icon"></i><span class="calendar-create-label">Create Event</span>
+      </button>
+      <div class="btn-group calendar-view-switcher" role="group">
+        @for (mode of viewModes; track mode) {
+          <button
+            type="button"
+            class="btn calendar-view-btn"
+            [class.active]="state.viewMode() === mode"
+            (click)="setView(mode)">
+            {{ viewLabel(mode) }}
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+
+  @if (state.eventsError()) {
+    <div class="alert alert-danger py-2 mb-0 mx-3 mt-3">{{ state.eventsError() }}</div>
+  }
+
+  <div class="calendar-body">
+    @if (sidebarOpen) {
+      <div class="calendar-sidebar-backdrop" (click)="toggleSidebar()"></div>
+    }
+    <aside class="calendar-sidebar" [class.calendar-sidebar-open]="sidebarOpen">
+      <app-mini-month-picker [selectedDate]="selectedDateIso" (dateSelected)="onDateSelected($event)"></app-mini-month-picker>
+
+      <div class="my-calendars">
+        <div class="my-calendars-header">
+          <span>My Calendars</span>
+          <button type="button" class="my-calendars-add-btn" (click)="openCreateCalendar()" title="New calendar">
+            <i class="bi bi-plus-lg"></i>
+          </button>
+        </div>
+        @for (cal of calendarService.calendars(); track cal.id) {
+          <div class="my-calendar-row">
+            <label class="my-calendar-toggle">
+              <input type="checkbox" [checked]="cal.isEnabled" (change)="toggleCalendarEnabled(cal)" />
+              <span class="my-calendar-color-dot" [style.background]="cal.color"></span>
+              <span class="my-calendar-name">{{ cal.name }}</span>
+            </label>
+            <div class="my-calendar-actions">
+              <button type="button" class="my-calendar-action-btn" (click)="openEditCalendar(cal)" title="Rename / recolor">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button type="button" class="my-calendar-action-btn" (click)="confirmDeleteCalendar(cal)" title="Delete">
+                <i class="bi bi-trash3"></i>
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    </aside>
+    <div class="calendar-content">
+      <router-outlet></router-outlet>
+    </div>
+  </div>
+</div>
+
+<app-event-detail-dialog
+  [open]="state.dialogOpen()"
+  [mode]="state.dialogMode()"
+  [eventId]="state.selectedEventId()"
+  [originalStart]="state.selectedOriginalStart()"
+  [initialStart]="state.createRangeStart()"
+  [initialEnd]="state.createRangeEnd()"
+  (closed)="state.closeEventDetail()"
+  (saved)="state.refreshEvents()"
+  (deleted)="state.refreshEvents()">
+</app-event-detail-dialog>
+
+<app-calendar-form
+  [open]="calendarFormOpen"
+  [mode]="calendarFormMode"
+  [initial]="calendarFormInitial"
+  [loading]="calendarFormLoading"
+  [error]="calendarFormError"
+  (closed)="closeCalendarForm()"
+  (submitted)="submitCalendarForm($event)">
+</app-calendar-form>
+
+<app-confirm-dialog
+  [open]="confirmDeleteCalendarOpen"
+  title="Delete Calendar"
+  [message]="calendarDeleteMessage"
+  confirmLabel="Delete"
+  [loading]="confirmDeleteCalendarLoading"
+  (confirmed)="deleteCalendar()"
+  (cancelled)="cancelDeleteCalendar()">
+</app-confirm-dialog>

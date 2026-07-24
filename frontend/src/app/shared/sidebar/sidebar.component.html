@@ -121,6 +121,43 @@
       }
     </a>
     <a
+      routerLink="/calendar"
+      class="nav-item"
+      routerLinkActive="active"
+      [title]="labelsVisible() ? '' : 'Calendar'"
+      (click)="closeMobile()"
+    >
+      <span class="nav-icon"><app-icon name="calendar" [size]="18" /></span>
+      @if (labelsVisible()) {
+        <span class="nav-label">Calendar</span>
+      }
+    </a>
+    <div class="nav-item-group">
+      <a
+        routerLink="/metrics"
+        class="nav-item"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        [title]="labelsVisible() ? '' : 'Metrics'"
+        (click)="closeMobile()"
+      >
+        <span class="nav-icon"><app-icon name="metrics" [size]="18" /></span>
+        @if (labelsVisible()) {
+          <span class="nav-label">Metrics</span>
+        }
+      </a>
+      <div class="nav-submenu">
+        <a routerLink="/metrics" [routerLinkActiveOptions]="{ exact: true }" routerLinkActive="active" class="nav-submenu-item" (click)="closeMobile()">
+          <i class="bi bi-list-ul"></i>
+          <span>List</span>
+        </a>
+        <a routerLink="/metrics/bowling" routerLinkActive="active" class="nav-submenu-item" (click)="closeMobile()">
+          <i class="bi bi-bar-chart-steps"></i>
+          <span>Bowling</span>
+        </a>
+      </div>
+    </div>
+    <a
       routerLink="/chat"
       class="nav-item"
       routerLinkActive="active"

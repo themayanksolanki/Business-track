@@ -19,6 +19,10 @@ model Organization {
   projects     Project[]
   tasks        Task[]
   projectItems ProjectItem[]
+  metrics      Metric[]
+  calendars           Calendar[]
+  calendarCategories  CalendarCategory[]
+  calendarEvents      CalendarEvent[]
   sequences    OrgSequence[]
 
   @@map("organizations")

@@ -1,0 +1,32 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+/* Below ~700px, 7 flex-squeezed day columns become illegibly thin. Instead
+   of shrinking columns further, give the header/time-grid rows a min-width
+   so they overflow into a horizontal scroll — CalendarComponent's own
+   .calendar-content already sets overflow:auto and min-width:0, so this is
+   the only piece needed to turn the squeeze into a scroll. The gutter width
+   (time-label column) shrinks too, with every margin/width that mirrors it
+   updated to match so the day columns stay aligned under their headers. */
+@media (max-width: 700px) {
+  ::ng-deep .cal-week-view .cal-day-headers,
+  ::ng-deep .cal-week-view .cal-time-events {
+    min-width: 620px;
+  }
+  ::ng-deep .cal-week-view .cal-day-headers {
+    padding-left: 48px;
+  }
+  ::ng-deep .cal-week-view .cal-time-label-column,
+  ::ng-deep .cal-week-view .cal-time {
+    width: 48px;
+  }
+  ::ng-deep .cal-week-view .cal-all-day-events .cal-events-row {
+    margin-left: 48px;
+  }
+  ::ng-deep .cal-week-view .cal-event {
+    font-size: 11px;
+    padding: 0 3px;
+  }
+}

@@ -1,0 +1,97 @@
+<div class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div>
+    <h2 class="page-title mb-0">Metrics</h2>
+    <p class="page-sub">Track daily business KPIs</p>
+  </div>
+  <button class="btn btn-primary" type="button" (click)="openCreate()">
+    <i class="bi bi-plus-lg me-1"></i>Create Metric
+  </button>
+</div>
+
+<div class="btn-group status-filter-tabs mb-3" role="group">
+  @for (s of statusFilterOptions; track s) {
+    <button type="button" class="btn status-filter-btn" [class.active]="statusFilter === s" (click)="setStatusFilter(s)">
+      {{ statusLabel(s) }}
+    </button>
+  }
+</div>
+
+@if (error) {
+  <div class="alert alert-danger py-2">{{ error }}</div>
+}
+
+@if (loading) {
+  <div class="text-center py-5 text-muted">
+    <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+  </div>
+} @else if (metrics.length === 0) {
+  <div class="empty-state text-center py-5 text-muted">
+    <i class="bi bi-graph-up-arrow display-5 d-block mb-3"></i>
+    <p class="mb-0">No metrics yet.</p>
+  </div>
+} @else {
+  <div class="metrics-table">
+    <div class="metrics-table-header">
+      <span>Name</span>
+      <span>Department</span>
+      <span>Owner</span>
+    </div>
+    @for (m of metrics; track m.id) {
+      <div class="metrics-row" (click)="openEdit(m)">
+        <span class="metric-title">{{ m.title }}</span>
+        <span class="metric-dept">
+          <span class="dept-dot" [style.background]="m.department.color"></span>{{ m.department.name }}
+        </span>
+        <span class="metric-owner">
+          @if (auth.avatarUrl(m.owner)) {
+            <img class="owner-avatar" [src]="auth.avatarUrl(m.owner)!" [alt]="m.owner.username" />
+          } @else {
+            <span class="owner-avatar owner-avatar-fallback">{{ m.owner.username[0].toUpperCase() }}</span>
+          }
+          <span>{{ m.owner.username }}</span>
+        </span>
+      </div>
+    }
+  </div>
+
+  @if (totalPages > 1) {
+    <div class="pagination-bar d-flex align-items-center justify-content-between px-2 py-3">
+      <span class="page-info">{{ pageStart }}–{{ pageEnd }} of {{ totalItems }} metrics</span>
+      <nav>
+        <ul class="pagination pagination-sm mb-0">
+          <li class="page-item" [class.disabled]="currentPage === 1">
+            <button class="page-link" (click)="loadPage(currentPage - 1)"><i class="bi bi-chevron-left"></i></button>
+          </li>
+          @for (p of pageNumbers; track $index) {
+            @if (p === -1) {
+              <li class="page-item disabled"><span class="page-link ellipsis">…</span></li>
+            } @else {
+              <li class="page-item" [class.active]="p === currentPage">
+                <button class="page-link" (click)="loadPage(p)">{{ p }}</button>
+              </li>
+            }
+          }
+          <li class="page-item" [class.disabled]="currentPage === totalPages">
+            <button class="page-link" (click)="loadPage(currentPage + 1)"><i class="bi bi-chevron-right"></i></button>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  }
+}
+
+<app-metric-form-modal
+  [open]="formOpen"
+  [mode]="formMode"
+  [initial]="formInitial"
+  [departments]="departmentService.departments()"
+  [categories]="categoryService.categories()"
+  [users]="userService.users()"
+  [parentOptions]="parentOptions"
+  [loading]="formLoading"
+  [error]="formError"
+  [deleteLoading]="deleteLoading"
+  (closed)="closeForm()"
+  (submitted)="submitForm($event)"
+  (deleteConfirmed)="onDeleteConfirmed()">
+</app-metric-form-modal>

@@ -1,0 +1,64 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+/* angular-calendar.css ships with zero @media rules — the 7-column grid
+   just gets flex-squeezed on narrow screens otherwise. ::ng-deep is needed
+   because the .cal-* elements are rendered inside mwl-calendar-month-view's
+   own template, not this component's. */
+@media (max-width: 768px) {
+  ::ng-deep .cal-month-view .cal-header .cal-cell {
+    padding: 3px 0;
+    font-size: 0.72rem;
+  }
+  ::ng-deep .cal-month-view .cal-cell-top {
+    min-height: 52px;
+  }
+  ::ng-deep .cal-month-view .cal-day-cell {
+    min-height: 58px;
+  }
+  ::ng-deep .cal-month-view .cal-day-number {
+    font-size: 0.85em;
+    margin-top: 4px;
+    margin-right: 4px;
+    margin-bottom: 2px;
+  }
+  ::ng-deep .cal-month-view .cal-day-cell.cal-today .cal-day-number {
+    font-size: 1.1em;
+  }
+  ::ng-deep .cal-month-view .cal-day-badge {
+    margin-top: 4px;
+    margin-left: 4px;
+    padding: 1px 5px;
+    font-size: 10px;
+  }
+  ::ng-deep .cal-month-view .cal-events {
+    margin: 2px;
+  }
+  ::ng-deep .cal-month-view .cal-event {
+    width: 6px;
+    height: 6px;
+    margin: 1px;
+  }
+}
+
+@media (max-width: 480px) {
+  ::ng-deep .cal-month-view .cal-header .cal-cell {
+    font-size: 0.62rem;
+  }
+  ::ng-deep .cal-month-view .cal-cell-top {
+    min-height: 42px;
+  }
+  ::ng-deep .cal-month-view .cal-day-cell {
+    min-height: 46px;
+  }
+  ::ng-deep .cal-month-view .cal-day-number {
+    font-size: 0.75em;
+    margin-top: 2px;
+    margin-right: 2px;
+  }
+  ::ng-deep .cal-month-view .cal-day-badge {
+    display: none;
+  }
+}

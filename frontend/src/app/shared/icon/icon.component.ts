@@ -16,7 +16,9 @@ export type IconName =
   | 'settings'
   | 'building'
   | 'draft'
-  | 'bell';
+  | 'bell'
+  | 'metrics'
+  | 'calendar';
 
 @Component({
   selector: 'app-icon',
@@ -125,6 +127,19 @@ export type IconName =
         @case ('bell') {
           <path d="M6 9a6 6 0 1 1 12 0c0 3.6 1 5.4 1.8 6.4a1 1 0 0 1-.8 1.6H5a1 1 0 0 1-.8-1.6C5 14.4 6 12.6 6 9z" />
           <path d="M9.5 19a2.5 2.5 0 0 0 5 0" />
+        }
+        @case ('metrics') {
+          <line x1="4" y1="20" x2="20" y2="20" />
+          <path d="M6 20v-6" />
+          <path d="M11 20V8" />
+          <path d="M16 20v-10" />
+          <path d="M4 11l5 -5 4 3 6 -6" stroke-width="2" />
+        }
+        @case ('calendar') {
+          <rect x="3" y="5" width="18" height="16" rx="2" />
+          <path d="M3 10h18" />
+          <path d="M8 3v4" />
+          <path d="M16 3v4" />
         }
       }
     </svg>

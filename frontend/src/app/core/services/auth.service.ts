@@ -3,7 +3,7 @@ import { HttpClient, HttpContext } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { AuthResponse, User, DateFormat, TimeFormat, LandingPage, SidebarTheme } from '../../models/user.model';
+import { AuthResponse, User, DateFormat, TimeFormat, LandingPage, SidebarTheme, Currency, MeasurementUnit } from '../../models/user.model';
 import { SHOW_LOADER } from '../interceptors/loading.interceptor';
 
 const BASE_URL = environment.apiUrl.replace('/api', '');
@@ -91,6 +91,9 @@ export class AuthService {
     defaultLandingPage?: LandingPage;
     sidebarTheme?: SidebarTheme;
     sidebarTextColor?: string | null;
+    currency?: Currency;
+    unit?: MeasurementUnit;
+    decimalPoints?: number;
   }) {
     return this.http
       .patch<{ message: string; user: User }>(`${this.api}/me`, payload)

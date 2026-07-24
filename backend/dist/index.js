@@ -21,6 +21,7 @@ import categoryRoutes from './routes/categoryRoutes.js';
 import projectRoleRoutes from './routes/projectRoleRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
+import metricRoutes from './routes/metricRoutes.js';
 import errorMiddleware from './middleware/errorMiddleware.js';
 import { setupSocket } from './socket.js';
 import { startAttachmentSweeper } from './jobs/attachmentSweeper.js';
@@ -91,6 +92,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/project-roles', projectRoleRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/metrics', metricRoutes);
 app.use(errorMiddleware);
 async function start() {
     try {

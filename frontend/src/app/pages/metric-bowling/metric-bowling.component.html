@@ -1,0 +1,105 @@
+<div class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div>
+    <h2 class="page-title mb-0">Metrics · Bowling View</h2>
+    <p class="page-sub">Daily Actual vs Target tracking</p>
+  </div>
+  <input type="month" class="form-control bowling-month-input" [(ngModel)]="selectedMonthStr" (change)="onMonthChange()" />
+</div>
+
+@if (error) {
+  <div class="alert alert-danger py-2">{{ error }}</div>
+}
+
+@if (loading) {
+  <div class="text-center py-5 text-muted">
+    <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+  </div>
+} @else if (rows.length === 0) {
+  <div class="empty-state text-center py-5 text-muted">
+    <i class="bi bi-graph-up-arrow display-5 d-block mb-3"></i>
+    <p class="mb-0">No metrics yet — create one from the Metrics list first.</p>
+  </div>
+} @else {
+  <div class="bowling-grid">
+    <!-- Shared header: one Month/Date row for the whole page -->
+    <div class="bowling-row bowling-header-row">
+      <div class="bowling-info-col">Metric</div>
+      <div class="bowling-days-col">
+        <div class="bowling-window-nav">
+          <button type="button" class="bowling-nav-btn" (click)="prevWindow()" [disabled]="windowIndex === 0">
+            <i class="bi bi-chevron-left"></i> Prev 15 Days
+          </button>
+          <span class="bowling-window-label">{{ windowLabel }}</span>
+          <button type="button" class="bowling-nav-btn" (click)="nextWindow()" [disabled]="windowIndex === totalWindows - 1">
+            Next 15 Days <i class="bi bi-chevron-right"></i>
+          </button>
+        </div>
+        <div class="bowling-day-cells">
+          @for (day of visibleDays; track day) {
+            <span class="bowling-day-cell">{{ day }}</span>
+          }
+        </div>
+      </div>
+      <div class="bowling-total-col">Total</div>
+    </div>
+
+    <!-- One section per metric -->
+    @for (row of rows; track row.item.id; let rowIndex = $index) {
+      <div class="bowling-row">
+        <div class="bowling-info-col">
+          <div class="bowling-metric-name">{{ row.item.title }}</div>
+          <div class="bowling-metric-dept">
+            <span class="dept-dot" [style.background]="row.item.department.color"></span>{{ row.item.department.name }}
+          </div>
+          <div class="bowling-metric-owner">{{ row.item.owner.username }}</div>
+          @if (row.error) {
+            <div class="bowling-row-error">{{ row.error }}</div>
+          }
+        </div>
+
+        <div class="bowling-days-col bowling-days-scroll">
+          @if (row.loading) {
+            <div class="bowling-row-loading"><span class="spinner-border spinner-border-sm"></span></div>
+          } @else {
+            <div class="bowling-values-row">
+              <span class="bowling-row-label">Actual</span>
+              @for (day of visibleDays; track day) {
+                <div class="bowling-cell" (click)="startEdit(rowIndex, 'actual', day)">
+                  @if (isEditing(rowIndex, 'actual', day)) {
+                    <input #activeInput type="text" inputmode="decimal" class="bowling-cell-input"
+                           [class.bowling-cell-input-error]="editError" [(ngModel)]="editValue"
+                           (keydown)="onCellKeydown($event)" (blur)="onCellBlur()" />
+                  } @else {
+                    <span class="bowling-cell-value">{{ formatRead(rowIndex, 'actual', day) }}</span>
+                  }
+                </div>
+              }
+            </div>
+            <div class="bowling-values-row">
+              <span class="bowling-row-label">Target</span>
+              @for (day of visibleDays; track day) {
+                <div class="bowling-cell" (click)="startEdit(rowIndex, 'target', day)">
+                  @if (isEditing(rowIndex, 'target', day)) {
+                    <input #activeInput type="text" inputmode="decimal" class="bowling-cell-input"
+                           [class.bowling-cell-input-error]="editError" [(ngModel)]="editValue"
+                           (keydown)="onCellKeydown($event)" (blur)="onCellBlur()" />
+                  } @else {
+                    <span class="bowling-cell-value">{{ formatRead(rowIndex, 'target', day) }}</span>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="bowling-total-col">
+          <div class="bowling-total-value">
+            {{ formatTotal(rowIndex, 'actual') }}
+            @if (row.saving) { <span class="spinner-border spinner-border-sm ms-1"></span> }
+          </div>
+          <div class="bowling-total-value">{{ formatTotal(rowIndex, 'target') }}</div>
+        </div>
+      </div>
+    }
+  </div>
+}

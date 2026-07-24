@@ -1,0 +1,27 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+/* Day view is already single-column so it doesn't need horizontal scroll
+   like week view — just a narrower time gutter and smaller event text so
+   nothing crowds a small phone screen. mwl-calendar-day-view renders using
+   the same internal week-view template (single day), hence the
+   .cal-week-view selectors here too. */
+@media (max-width: 480px) {
+  ::ng-deep .cal-week-view .cal-time-label-column,
+  ::ng-deep .cal-week-view .cal-time {
+    width: 48px;
+  }
+  ::ng-deep .cal-day-view .cal-events-container {
+    margin-left: 48px;
+  }
+  ::ng-deep .cal-day-view .cal-current-time-marker {
+    margin-left: 48px;
+    width: calc(100% - 48px);
+  }
+  ::ng-deep .cal-week-view .cal-event {
+    font-size: 11px;
+    padding: 0 3px;
+  }
+}

@@ -1,4 +1,6 @@
 import AppError from '../utils/AppError.js';
+import { METRIC_FREQUENCIES } from '../models/metricTracking.model.js';
+import { periodCount } from '../utils/metricPeriods.js';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DOMAIN_REGEX = /^[^\s@]+\.[^\s@]+$/;
 const VALID_ROLES = ['Admin', 'Manager', 'Team Lead', 'User'];
@@ -98,13 +100,15 @@ const VALID_LANDING_PAGES = [
     'users',
     'organization',
 ];
-const VALID_SIDEBAR_THEMES = ['MIDNIGHT', 'CHARCOAL', 'OCEAN', 'FOREST', 'PLUM', 'DAYLIGHT'];
+const VALID_SIDEBAR_THEMES = ['MIDNIGHT', 'CHARCOAL', 'OCEAN', 'FOREST', 'PLUM', 'DAYLIGHT', 'ROSE', 'SKY', 'SAND', 'LEMON'];
+const VALID_CURRENCIES = ['USD', 'EUR', 'JPY', 'GBP', 'CNY', 'INR'];
+const VALID_MEASUREMENT_UNITS = ['KG', 'LB', 'LTR'];
 // Fields are all independently optional — this endpoint is shared by the
 // Profile page's phone editor and Settings > General's date/time-format/
 // landing-page pickers, and a request from one shouldn't need to (or
 // accidentally) touch the others' fields.
 export const validateUpdateProfile = (req, res, next) => {
-    const { phoneCountry, phoneNumber, dateFormat, timeFormat, defaultLandingPage, sidebarTheme, sidebarTextColor } = req.body;
+    const { phoneCountry, phoneNumber, dateFormat, timeFormat, defaultLandingPage, sidebarTheme, sidebarTextColor, currency, unit, decimalPoints, } = req.body;
     // Both null/empty clears the phone number; otherwise both must be present
     // and valid — a country code with no number (or vice versa) isn't useful.
     if (phoneCountry || phoneNumber) {
@@ -124,6 +128,12 @@ export const validateUpdateProfile = (req, res, next) => {
     // null clears the override back to the active theme's own default text color.
     if (sidebarTextColor !== undefined && sidebarTextColor !== null && !HEX_COLOR_REGEX.test(sidebarTextColor))
         return next(new AppError('sidebarTextColor must be a valid hex color', 400));
+    if (currency !== undefined && !VALID_CURRENCIES.includes(currency))
+        return next(new AppError(`currency must be one of: ${VALID_CURRENCIES.join(', ')}`, 400));
+    if (unit !== undefined && !VALID_MEASUREMENT_UNITS.includes(unit))
+        return next(new AppError(`unit must be one of: ${VALID_MEASUREMENT_UNITS.join(', ')}`, 400));
+    if (decimalPoints !== undefined && (!Number.isInteger(decimalPoints) || decimalPoints < 0 || decimalPoints > 7))
+        return next(new AppError('decimalPoints must be an integer between 0 and 7', 400));
     next();
 };
 export const validateTask = (req, res, next) => {
@@ -439,4 +449,85 @@ export const validateUpdateMemberRole = (req, res, next) => {
     next();
 };
 export const validateMemberId = validateParamId('memberId');
+const VALID_METRIC_STATUSES = ['active', 'archived', 'deleted'];
+const VALID_METRIC_DATA_TYPES = ['number', 'weight', 'currency', 'percentage'];
+export const validateMetric = (req, res, next) => {
+    const { title, department, category, owner, parentId, startDate, dueDate, notes, status, dataType } = req.body;
+    if (req.method === 'POST') {
+        if (!title || !title.trim())
+            return next(new AppError('Title is required', 400));
+        if (!department || !isValidId(department))
+            return next(new AppError('department is required', 400));
+        if (!owner || !isValidId(owner))
+            return next(new AppError('owner is required', 400));
+    }
+    else {
+        if (title !== undefined && !title.trim())
+            return next(new AppError('Title cannot be empty', 400));
+        if (department !== undefined && !isValidId(department))
+            return next(new AppError('department is not a valid ID', 400));
+        if (owner !== undefined && !isValidId(owner))
+            return next(new AppError('owner is not a valid ID', 400));
+    }
+    // category is optional and clearable — null unsets it, anything else must
+    // be a valid ID.
+    if (category !== undefined && category !== null && !isValidId(category))
+        return next(new AppError('category is not a valid ID', 400));
+    if (parentId != null && !isValidId(parentId))
+        return next(new AppError('parentId is not a valid ID', 400));
+    if (notes !== undefined && typeof notes !== 'string')
+        return next(new AppError('notes must be a string', 400));
+    if (status !== undefined && !VALID_METRIC_STATUSES.includes(status))
+        return next(new AppError(`status must be one of: ${VALID_METRIC_STATUSES.join(', ')}`, 400));
+    if (dataType !== undefined && !VALID_METRIC_DATA_TYPES.includes(dataType))
+        return next(new AppError(`dataType must be one of: ${VALID_METRIC_DATA_TYPES.join(', ')}`, 400));
+    const dateError = validateDateRange(startDate, dueDate, 'startDate', 'dueDate');
+    if (dateError)
+        return next(new AppError(dateError, 400));
+    next();
+};
+export const validateMetricId = validateParamId('metricId');
+const VALID_METRIC_FREQUENCIES = METRIC_FREQUENCIES;
+// Only 'daily' is actually implemented yet (see backend/utils/metricPeriods.ts)
+// — the others are accepted here as a recognizable shape so the frontend gets
+// a clean "not implemented" 400 instead of falling through to a 500 deeper in
+// the controller/model layer.
+const IMPLEMENTED_METRIC_FREQUENCIES = ['daily'];
+export const validateTrackingParams = (req, res, next) => {
+    const frequency = String(req.params.frequency);
+    const year = Number(req.query.year);
+    const month = req.query.month !== undefined ? Number(req.query.month) : undefined;
+    if (!VALID_METRIC_FREQUENCIES.includes(frequency))
+        return next(new AppError(`frequency must be one of: ${VALID_METRIC_FREQUENCIES.join(', ')}`, 400));
+    if (!IMPLEMENTED_METRIC_FREQUENCIES.includes(frequency))
+        return next(new AppError(`'${frequency}' tracking is not implemented yet`, 400));
+    if (!Number.isInteger(year) || year < 2000 || year > 2100)
+        return next(new AppError('year must be a valid 4-digit year', 400));
+    if (frequency === 'daily' && (!Number.isInteger(month) || month < 1 || month > 12))
+        return next(new AppError('month must be between 1 and 12 for daily frequency', 400));
+    next();
+};
+export const validateTrackingDiff = (req, res, next) => {
+    const { diff } = req.body;
+    if (diff === undefined || diff === null || typeof diff !== 'object' || Array.isArray(diff))
+        return next(new AppError('diff must be an object', 400));
+    const year = Number(req.query.year);
+    const month = Number(req.query.month);
+    // req.params.frequency is guaranteed 'daily' by validateTrackingParams,
+    // which always runs first on these routes.
+    const maxPeriod = periodCount('daily', year, month);
+    for (const [key, value] of Object.entries(diff)) {
+        const periodNum = Number(key);
+        if (!Number.isInteger(periodNum) || periodNum < 1 || periodNum > maxPeriod)
+            return next(new AppError(`diff key "${key}" is out of range for this period`, 400));
+        if (!value || typeof value !== 'object' || Array.isArray(value))
+            return next(new AppError(`diff["${key}"] must be an object`, 400));
+        const { actual, target } = value;
+        if (actual !== undefined && actual !== null && typeof actual !== 'number')
+            return next(new AppError(`diff["${key}"].actual must be a number or null`, 400));
+        if (target !== undefined && target !== null && typeof target !== 'number')
+            return next(new AppError(`diff["${key}"].target must be a number or null`, 400));
+    }
+    next();
+};
 //# sourceMappingURL=validate.js.map

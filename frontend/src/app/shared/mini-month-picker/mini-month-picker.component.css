@@ -1,0 +1,51 @@
+/* ngb-datepicker theming — same override set as date-picker.component.css's
+   .picker-panel rules, just scoped to this component's own host class since
+   this widget renders inline (not inside a floating panel). */
+.mini-month-picker ::ng-deep ngb-datepicker { width: 100%; border: none !important; background: transparent !important; }
+.mini-month-picker ::ng-deep .ngb-dp-body,
+.mini-month-picker ::ng-deep .ngb-dp-months { background: transparent; border: none; width: 100%; }
+.mini-month-picker ::ng-deep .ngb-dp-month { width: 100%; }
+.mini-month-picker ::ng-deep .ngb-dp-month-name { background: transparent !important; color: var(--text-primary); }
+
+.mini-month-picker ::ng-deep .ngb-dp-header {
+  background: transparent !important;
+  padding-bottom: 8px;
+  border: none;
+}
+
+.mini-month-picker ::ng-deep .ngb-dp-navigation-select {
+  gap: 6px;
+}
+.mini-month-picker ::ng-deep .ngb-dp-navigation-select > .form-select {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  background-color: var(--bg-input);
+  border-color: var(--border-strong);
+  padding: 2px 22px 2px 8px;
+}
+
+.mini-month-picker ::ng-deep .ngb-dp-arrow-btn { color: var(--text-muted); }
+.mini-month-picker ::ng-deep .ngb-dp-arrow-btn:hover { color: var(--text-primary); }
+
+.mini-month-picker ::ng-deep .ngb-dp-weekday {
+  color: var(--text-dim, var(--text-muted));
+  font-style: normal;
+  font-weight: 700;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+}
+
+.mini-month-picker ::ng-deep .ngb-dp-week { width: 100%; }
+
+.mini-month-picker ::ng-deep .ngb-dp-day,
+.mini-month-picker ::ng-deep .ngb-dp-weekday,
+.mini-month-picker ::ng-deep .ngb-dp-week-number {
+  width: 1.9rem;
+  height: 1.9rem;
+}
+
+.mini-month-picker ::ng-deep .ngb-dp-day div { color: var(--text-secondary, var(--text-primary)); border-radius: 8px; }
+.mini-month-picker ::ng-deep .ngb-dp-day .bg-primary { font-weight: 700; }
+.mini-month-picker ::ng-deep .ngb-dp-day .text-muted { color: var(--text-dim, var(--text-muted)) !important; opacity: 0.5; }
+.mini-month-picker ::ng-deep .ngb-dp-day:not(.disabled) div:hover { background: var(--bg-hover); }

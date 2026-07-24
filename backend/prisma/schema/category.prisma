@@ -20,6 +20,7 @@ model Category {
   updatedBy    User?         @relation("CategoryUpdatedBy", fields: [updatedById], references: [id])
 
   projects Project[]
+  metrics  Metric[]
 
   @@index([parentId, order])
   @@index([organizationId])

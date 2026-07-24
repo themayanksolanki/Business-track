@@ -1,7 +1,15 @@
 import { Component } from '@angular/core';
 import { AuthService } from '../../../core/services/auth.service';
 import { DateFormatService } from '../../../core/services/date-format.service';
-import { DateFormat, TimeFormat, LandingPage } from '../../../models/user.model';
+import {
+  DateFormat,
+  TimeFormat,
+  LandingPage,
+  Currency,
+  MeasurementUnit,
+  CURRENCY_SYMBOLS,
+  MEASUREMENT_UNIT_SYMBOLS,
+} from '../../../models/user.model';
 import { IconComponent, IconName } from '../../../shared/icon/icon.component';
 
 interface DateFormatOption {
@@ -12,6 +20,19 @@ interface DateFormatOption {
 interface TimeFormatOption {
   value: TimeFormat;
   label: string;
+}
+
+interface CurrencyOption {
+  value: Currency;
+  flag: string;
+  name: string;
+  symbol: string;
+}
+
+interface MeasurementUnitOption {
+  value: MeasurementUnit;
+  name: string;
+  symbol: string;
 }
 
 interface LandingPageOption {
@@ -53,6 +74,25 @@ export class GeneralSettingsComponent {
     { value: 'HOUR_24', label: '24-hour' },
   ];
 
+  readonly currencies: CurrencyOption[] = [
+    { value: 'USD', flag: '🇺🇸', name: 'US Dollar', symbol: CURRENCY_SYMBOLS.USD },
+    { value: 'EUR', flag: '🇪🇺', name: 'Euro', symbol: CURRENCY_SYMBOLS.EUR },
+    { value: 'JPY', flag: '🇯🇵', name: 'Japanese Yen', symbol: CURRENCY_SYMBOLS.JPY },
+    { value: 'GBP', flag: '🇬🇧', name: 'British Pound', symbol: CURRENCY_SYMBOLS.GBP },
+    { value: 'CNY', flag: '🇨🇳', name: 'Chinese Yuan', symbol: CURRENCY_SYMBOLS.CNY },
+    { value: 'INR', flag: '🇮🇳', name: 'Indian Rupee', symbol: CURRENCY_SYMBOLS.INR },
+  ];
+
+  readonly measurementUnits: MeasurementUnitOption[] = [
+    { value: 'KG', name: 'Kilograms', symbol: MEASUREMENT_UNIT_SYMBOLS.KG },
+    { value: 'LB', name: 'Pounds', symbol: MEASUREMENT_UNIT_SYMBOLS.LB },
+    { value: 'LTR', name: 'Liters', symbol: MEASUREMENT_UNIT_SYMBOLS.LTR },
+  ];
+
+  // 0-7 — matches the backend's validated range (validate.ts).
+  readonly decimalPointsOptions: number[] = [0, 1, 2, 3, 4, 5, 6, 7];
+  private readonly decimalExampleValue = 1234.56789123;
+
   get landingPages(): LandingPageOption[] {
     const role = this.auth.currentUser()?.role;
     return LANDING_PAGE_OPTIONS.filter((opt) => !opt.roles || (role && opt.roles.includes(role)));
@@ -61,6 +101,9 @@ export class GeneralSettingsComponent {
   savingDateFormat: DateFormat | null = null;
   savingTimeFormat: TimeFormat | null = null;
   savingLandingPage: LandingPage | null = null;
+  savingCurrency: Currency | null = null;
+  savingUnit: MeasurementUnit | null = null;
+  savingDecimalPoints: number | null = null;
   error = '';
 
   constructor(
@@ -74,6 +117,10 @@ export class GeneralSettingsComponent {
 
   exampleTime(format: TimeFormat): string {
     return this.dateFormatSvc.exampleTime(format);
+  }
+
+  exampleDecimal(points: number): string {
+    return this.decimalExampleValue.toFixed(points);
   }
 
   selectDateFormat(format: DateFormat) {
@@ -98,6 +145,45 @@ export class GeneralSettingsComponent {
       error: (err) => {
         this.error = err.error?.message || 'Failed to save time format';
         this.savingTimeFormat = null;
+      },
+    });
+  }
+
+  selectCurrency(currency: Currency) {
+    if (this.savingCurrency || currency === this.auth.currentUser()?.currency) return;
+    this.error = '';
+    this.savingCurrency = currency;
+    this.auth.updateProfile({ currency }).subscribe({
+      next: () => (this.savingCurrency = null),
+      error: (err) => {
+        this.error = err.error?.message || 'Failed to save currency';
+        this.savingCurrency = null;
+      },
+    });
+  }
+
+  selectUnit(unit: MeasurementUnit) {
+    if (this.savingUnit || unit === this.auth.currentUser()?.unit) return;
+    this.error = '';
+    this.savingUnit = unit;
+    this.auth.updateProfile({ unit }).subscribe({
+      next: () => (this.savingUnit = null),
+      error: (err) => {
+        this.error = err.error?.message || 'Failed to save unit';
+        this.savingUnit = null;
+      },
+    });
+  }
+
+  selectDecimalPoints(points: number) {
+    if (this.savingDecimalPoints !== null || points === this.auth.currentUser()?.decimalPoints) return;
+    this.error = '';
+    this.savingDecimalPoints = points;
+    this.auth.updateProfile({ decimalPoints: points }).subscribe({
+      next: () => (this.savingDecimalPoints = null),
+      error: (err) => {
+        this.error = err.error?.message || 'Failed to save decimal points';
+        this.savingDecimalPoints = null;
       },
     });
   }

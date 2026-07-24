@@ -1,0 +1,358 @@
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="closed.emit()">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+  @if (open) {
+    <div class="modal-content event-modal-content">
+      <div class="modal-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h5 class="mb-0">
+            <i class="bi bi-calendar-event me-2"></i>{{ dialogTitle }}
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        @if (error) {
+          <div class="alert alert-danger py-2">{{ error }}</div>
+        }
+
+        @if (loading) {
+          <div class="text-center py-5">
+            <span class="spinner-border spinner-border-sm text-muted"></span>
+          </div>
+        } @else if (isViewing) {
+          <!-- VIEW MODE: read-only summary -->
+          <div class="event-view">
+            <p class="event-view-time">
+              <i class="bi bi-clock me-2"></i>{{ timeRangeLabel }}
+              @if (loadedEvent?.allDay) { <span class="badge text-bg-secondary ms-2">All day</span> }
+            </p>
+
+            @if (loadedEvent?.category) {
+              <p class="event-view-row">
+                <span class="event-color-dot" [style.background]="loadedEvent!.category!.color"></span>
+                {{ loadedEvent!.category!.name }}
+              </p>
+            }
+
+            @if (loadedEvent?.calendar) {
+              <p class="event-view-row">
+                <span class="event-color-dot" [style.background]="loadedEvent!.calendar.color"></span>
+                {{ loadedEvent!.calendar.name }}
+              </p>
+            }
+
+            @if (recurrenceLabel) {
+              <p class="event-view-row"><i class="bi bi-arrow-repeat me-2"></i>{{ recurrenceLabel }}</p>
+            }
+
+            @if (loadedEvent?.location) {
+              <p class="event-view-row"><i class="bi bi-geo-alt me-2"></i>{{ loadedEvent!.location }}</p>
+            }
+
+            @if (loadedEvent?.meetingLinkUrl) {
+              <p class="event-view-row">
+                <i class="bi bi-camera-video me-2"></i>
+                <a [href]="loadedEvent!.meetingLinkUrl" target="_blank" rel="noopener">{{ loadedEvent!.meetingLinkTitle || loadedEvent!.meetingLinkUrl }}</a>
+              </p>
+            }
+
+            @if (loadedEvent?.description) {
+              <p class="event-view-description">{{ loadedEvent!.description }}</p>
+            }
+
+            @if (loadedEvent && loadedEvent.guests.length) {
+              <div class="event-view-row">
+                <i class="bi bi-people me-2"></i>
+                @for (g of loadedEvent.guests; track g.id) {
+                  <span class="guest-pill">{{ g.name || g.email }}</span>
+                }
+              </div>
+            }
+
+            <div class="d-flex gap-3 event-view-meta">
+              <span><i class="bi bi-eye me-1"></i>{{ loadedEvent?.visibility }}</span>
+              <span><i class="bi bi-slash-circle me-1"></i>{{ loadedEvent?.busyStatus }}</span>
+              <span>Owner: {{ loadedEvent?.owner?.username }}</span>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mt-4">
+            @if (canManage) {
+              <button type="button" class="btn btn-outline-danger modal-submit-btn" (click)="requestDelete()">
+                <i class="bi bi-trash3 me-1"></i>Delete
+              </button>
+            } @else {
+              <span></span>
+            }
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-light modal-submit-btn" [disabled]="duplicating" (click)="duplicate()">
+                @if (duplicating) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                Duplicate
+              </button>
+              @if (canManage) {
+                <button type="button" class="btn btn-primary modal-submit-btn" (click)="startEdit()">
+                  <i class="bi bi-pencil me-1"></i>Edit
+                </button>
+              }
+            </div>
+          </div>
+        } @else {
+          <!-- CREATE / EDIT MODE: full form -->
+          <form (ngSubmit)="submit()">
+            <div class="mb-3">
+              <label class="field-label">Title <span class="text-danger">*</span></label>
+              <input type="text" class="form-control field-input" [(ngModel)]="title" name="title" placeholder="Event title" />
+            </div>
+
+            <div class="mb-3">
+              <label class="field-label">Description</label>
+              <textarea class="form-control field-input" style="height:auto" [(ngModel)]="description" name="description" rows="2" placeholder="Optional description"></textarea>
+            </div>
+
+            <div class="mb-3">
+              <label class="field-label">Location</label>
+              <input type="text" class="form-control field-input" [(ngModel)]="location" name="location" placeholder="Optional location" />
+            </div>
+
+            <div class="form-check mb-3">
+              <input type="checkbox" class="form-check-input" id="event-all-day" [(ngModel)]="allDay" name="allDay" />
+              <label class="form-check-label" for="event-all-day">All day</label>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="field-label">Start <span class="text-danger">*</span></label>
+                <div class="d-flex gap-2">
+                  <app-date-picker class="flex-grow-1" [value]="startDate" (valueChange)="startDate = $event"></app-date-picker>
+                  @if (!allDay) {
+                    <app-time-picker [value]="startTime" (valueChange)="startTime = $event"></app-time-picker>
+                  }
+                </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="field-label">End <span class="text-danger">*</span></label>
+                <div class="d-flex gap-2">
+                  <app-date-picker class="flex-grow-1" [value]="endDate" [min]="startDate" (valueChange)="endDate = $event"></app-date-picker>
+                  @if (!allDay) {
+                    <app-time-picker [value]="endTime" (valueChange)="endTime = $event"></app-time-picker>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="field-label">Color</label>
+                <div class="d-flex align-items-center gap-2">
+                  <input type="color" class="event-color-input" [(ngModel)]="color" name="color" />
+                  <input type="text" class="form-control field-input" [(ngModel)]="color" name="colorHex" />
+                </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="field-label">Category</label>
+                <select class="form-select field-input" [(ngModel)]="categoryId" name="categoryId">
+                  <option [ngValue]="null">No category</option>
+                  @for (cat of categories; track cat.id) {
+                    <option [ngValue]="cat.id">{{ cat.name }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="field-label">Calendar</label>
+                <select class="form-select field-input" [(ngModel)]="calendarId" name="calendarId">
+                  @for (cal of calendars; track cal.id) {
+                    <option [ngValue]="cal.id">{{ cal.name }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="field-label">Visibility</label>
+                <select class="form-select field-input" [(ngModel)]="visibility" name="visibility">
+                  @for (opt of visibilityOptions; track opt.value) {
+                    <option [ngValue]="opt.value">{{ opt.label }}</option>
+                  }
+                </select>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="field-label">Busy / Free</label>
+                <div class="btn-group w-100" role="group">
+                  <button type="button" class="btn btn-outline-secondary" [class.active]="busyStatus === 'busy'" (click)="busyStatus = 'busy'">Busy</button>
+                  <button type="button" class="btn btn-outline-secondary" [class.active]="busyStatus === 'free'" (click)="busyStatus = 'free'">Free</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="field-label">Meeting link</label>
+                <input type="text" class="form-control field-input" [(ngModel)]="meetingLinkUrl" name="meetingLinkUrl" placeholder="https://..." />
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="field-label">Meeting link title</label>
+                <input type="text" class="form-control field-input" [(ngModel)]="meetingLinkTitle" name="meetingLinkTitle" placeholder="Optional" [disabled]="!meetingLinkUrl.trim()" />
+              </div>
+            </div>
+
+            <!-- Repeat -->
+            <div class="mb-3 event-subsection">
+              <div class="form-check mb-2">
+                <input type="checkbox" class="form-check-input" id="event-repeats" [(ngModel)]="repeats" name="repeats" />
+                <label class="form-check-label" for="event-repeats">Repeat</label>
+              </div>
+              @if (repeats) {
+                <div class="row align-items-end">
+                  <div class="col-md-4 mb-2">
+                    <label class="field-label">Frequency</label>
+                    <select class="form-select field-input" [(ngModel)]="recurrenceFrequency" name="recurrenceFrequency">
+                      @for (opt of frequencyOptions; track opt.value) {
+                        <option [ngValue]="opt.value">{{ opt.label }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="col-md-4 mb-2">
+                    <label class="field-label">Every</label>
+                    <input type="number" min="1" class="form-control field-input" [(ngModel)]="recurrenceInterval" name="recurrenceInterval" />
+                  </div>
+                </div>
+                <div class="row align-items-end">
+                  <div class="col-md-4 mb-2">
+                    <div class="form-check">
+                      <input type="radio" class="form-check-input" id="rec-end-never" name="recurrenceEndType" [(ngModel)]="recurrenceEndType" value="never" />
+                      <label class="form-check-label" for="rec-end-never">Never ends</label>
+                    </div>
+                    <div class="form-check">
+                      <input type="radio" class="form-check-input" id="rec-end-on" name="recurrenceEndType" [(ngModel)]="recurrenceEndType" value="on" />
+                      <label class="form-check-label" for="rec-end-on">Ends on</label>
+                    </div>
+                    <div class="form-check">
+                      <input type="radio" class="form-check-input" id="rec-end-after" name="recurrenceEndType" [(ngModel)]="recurrenceEndType" value="after" />
+                      <label class="form-check-label" for="rec-end-after">Ends after</label>
+                    </div>
+                  </div>
+                  @if (recurrenceEndType === 'on') {
+                    <div class="col-md-4 mb-2">
+                      <app-date-picker [value]="recurrenceUntil" [min]="startDate" (valueChange)="recurrenceUntil = $event"></app-date-picker>
+                    </div>
+                  }
+                  @if (recurrenceEndType === 'after') {
+                    <div class="col-md-4 mb-2">
+                      <div class="input-group">
+                        <input type="number" min="1" class="form-control field-input" [(ngModel)]="recurrenceCount" name="recurrenceCount" />
+                        <span class="input-group-text">occurrences</span>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+
+            <!-- Reminders -->
+            <div class="mb-3 event-subsection">
+              <label class="field-label">Reminders</label>
+              @for (r of reminders; track $index) {
+                <div class="d-flex gap-2 align-items-center mb-2">
+                  <select class="form-select field-input reminder-method-select" [(ngModel)]="r.method" [name]="'reminderMethod' + $index">
+                    @for (opt of reminderMethodOptions; track opt.value) {
+                      <option [ngValue]="opt.value">{{ opt.label }}</option>
+                    }
+                  </select>
+                  <div class="input-group reminder-minutes-group">
+                    <input type="number" min="0" class="form-control field-input" [(ngModel)]="r.minutesBefore" [name]="'reminderMinutes' + $index" />
+                    <span class="input-group-text">min before</span>
+                  </div>
+                  <button type="button" class="btn btn-link text-danger p-0" (click)="removeReminder($index)"><i class="bi bi-x-lg"></i></button>
+                </div>
+              }
+              <button type="button" class="btn btn-sm btn-light" (click)="addReminder()"><i class="bi bi-plus-lg me-1"></i>Add reminder</button>
+            </div>
+
+            <!-- Guests -->
+            <div class="mb-4 event-subsection">
+              <label class="field-label">Guests</label>
+              @if (guests.length) {
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                  @for (g of guests; track g.email; let i = $index) {
+                    <span class="guest-pill">
+                      {{ g.name || g.email }}
+                      <i class="bi bi-x-lg ms-1" (click)="removeGuest(i)"></i>
+                    </span>
+                  }
+                </div>
+              }
+              <div class="d-flex gap-2">
+                <input type="email" class="form-control field-input" [(ngModel)]="guestEmailInput" name="guestEmailInput" placeholder="Email" (keydown.enter)="$event.preventDefault(); addGuest()" />
+                <input type="text" class="form-control field-input" [(ngModel)]="guestNameInput" name="guestNameInput" placeholder="Name (optional)" (keydown.enter)="$event.preventDefault(); addGuest()" />
+                <button type="button" class="btn btn-light" (click)="addGuest()">Add</button>
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
+              @if (internalMode === 'edit' && canManage) {
+                <button type="button" class="btn btn-outline-danger modal-submit-btn" (click)="requestDelete()">
+                  <i class="bi bi-trash3 me-1"></i>Delete
+                </button>
+              } @else {
+                <span></span>
+              }
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-light modal-submit-btn" (click)="cancelEdit()">Cancel</button>
+                <button type="submit" class="btn btn-primary modal-submit-btn" [disabled]="saving">
+                  @if (saving) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                  {{ saving ? 'Saving...' : 'Save' }}
+                </button>
+              </div>
+            </div>
+          </form>
+        }
+      </div>
+    </div>
+  }
+  </div>
+</div>
+
+<app-confirm-dialog
+  [open]="confirmDeleteOpen"
+  title="Delete Event"
+  message="This event will be permanently deleted. This action cannot be undone."
+  confirmLabel="Delete"
+  [loading]="deleteLoading"
+  (confirmed)="confirmDelete()"
+  (cancelled)="cancelDelete()">
+</app-confirm-dialog>
+
+<!-- "This event" vs "All events" — asked before a save/delete on one
+     occurrence of a recurring series takes effect. -->
+<div
+  class="modal fade"
+  tabindex="-1"
+  aria-hidden="true"
+  [appModal]="scopeChoiceOpen"
+  [appModalOptions]="{ backdrop: 'static' }"
+  (appModalClosed)="cancelScopeChoice()"
+>
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content event-modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-body p-4">
+        <h5 class="mb-3">{{ scopeChoiceKind === 'delete' ? 'Delete recurring event' : 'Save recurring event' }}</h5>
+        <p class="mb-4">This is a repeating event. {{ scopeChoiceKind === 'delete' ? 'Remove' : 'Apply changes to' }} just this occurrence, or the entire series?</p>
+        <div class="d-flex flex-column gap-2">
+          <button type="button" class="btn btn-primary modal-submit-btn" [disabled]="saving || deleteLoading" (click)="confirmScopeThis()">
+            @if (saving || deleteLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+            This event
+          </button>
+          <button type="button" class="btn btn-outline-danger modal-submit-btn" [disabled]="saving || deleteLoading" (click)="confirmScopeAll()">
+            All events
+          </button>
+          <button type="button" class="btn btn-light modal-submit-btn" [disabled]="saving || deleteLoading" (click)="cancelScopeChoice()">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

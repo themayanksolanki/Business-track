@@ -1,7 +1,7 @@
 import { Component, OnInit, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { TaskService } from '../../core/services/task.service';
 import { ThemeService } from '../../core/services/theme.service';
@@ -53,9 +53,15 @@ export class ProfileComponent implements OnInit {
     public themeSvc: ThemeService,
     private dateFormat: DateFormatService,
     public sidebarAppearance: SidebarAppearanceService,
+    private route: ActivatedRoute,
+    private router: Router,
   ) {}
 
   ngOnInit() {
+    if (this.route.snapshot.queryParamMap.get('tab') === 'appearance') {
+      this.activeTab = 'appearance';
+    }
+
     this.auth.getMe().subscribe({
       next: (user) => {
         this.profile = user;
@@ -70,6 +76,16 @@ export class ProfileComponent implements OnInit {
 
     this.taskService.getTasks().subscribe({
       next: (tasks) => (this.tasks = tasks),
+    });
+  }
+
+  setActiveTab(tab: 'overview' | 'appearance') {
+    this.activeTab = tab;
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: tab === 'overview' ? null : tab },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
     });
   }
 

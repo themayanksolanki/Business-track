@@ -95,6 +95,26 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/profile/profile.component').then((m) => m.ProfileComponent),
   },
   {
+    path: 'metrics',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/metrics/metrics.component').then((m) => m.MetricsComponent),
+  },
+  {
+    path: 'metrics/bowling',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/metric-bowling/metric-bowling.component').then((m) => m.MetricBowlingComponent),
+  },
+  {
+    // loadChildren (not loadComponent+inline children) so app.routes.ts —
+    // part of the main bundle, not itself lazy — never imports
+    // angular-calendar/date-fns at all; that only happens once this whole
+    // routes array is fetched, on first navigation to /calendar.
+    path: 'calendar',
+    canActivate: [authGuard],
+    loadChildren: () => import('./pages/calendar/calendar.routes').then((m) => m.CALENDAR_ROUTES),
+  },
+  {
     path: 'settings',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/settings/settings.component').then((m) => m.SettingsComponent),

@@ -9,6 +9,9 @@ enum SequenceEntity {
   task
   projectItem
   projectRole
+  metric
+  calendar
+  calendarEvent
 }
 
 model OrgSequence {

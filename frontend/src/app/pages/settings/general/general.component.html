@@ -47,6 +47,73 @@
     }
   </div>
 
+  <h6 class="mb-1 text-muted">Currency</h6>
+  <p class="general-desc">Choose the currency used across the app.</p>
+
+  <div class="format-grid mb-4">
+    @for (opt of currencies; track opt.value) {
+      <button
+        type="button"
+        class="format-opt format-opt-row"
+        [class.format-opt-active]="auth.currentUser()?.currency === opt.value"
+        [disabled]="!!savingCurrency"
+        (click)="selectCurrency(opt.value)">
+        <span class="format-opt-icon">{{ opt.flag }}</span>
+        <span class="format-opt-label">{{ opt.name }} ({{ opt.value }})</span>
+        <span class="format-opt-example">{{ opt.symbol }}</span>
+        @if (savingCurrency === opt.value) {
+          <span class="spinner-border spinner-border-sm format-opt-spinner"></span>
+        } @else if (auth.currentUser()?.currency === opt.value) {
+          <i class="bi bi-check-circle-fill format-opt-check"></i>
+        }
+      </button>
+    }
+  </div>
+
+  <h6 class="mb-1 text-muted">Unit</h6>
+  <p class="general-desc">Choose the measurement unit used across the app.</p>
+
+  <div class="format-grid mb-4">
+    @for (opt of measurementUnits; track opt.value) {
+      <button
+        type="button"
+        class="format-opt"
+        [class.format-opt-active]="auth.currentUser()?.unit === opt.value"
+        [disabled]="!!savingUnit"
+        (click)="selectUnit(opt.value)">
+        <span class="format-opt-label">{{ opt.name }}</span>
+        <span class="format-opt-example">{{ opt.symbol }}</span>
+        @if (savingUnit === opt.value) {
+          <span class="spinner-border spinner-border-sm format-opt-spinner"></span>
+        } @else if (auth.currentUser()?.unit === opt.value) {
+          <i class="bi bi-check-circle-fill format-opt-check"></i>
+        }
+      </button>
+    }
+  </div>
+
+  <h6 class="mb-1 text-muted">Decimal Points</h6>
+  <p class="general-desc">Choose how many decimal places numeric values show.</p>
+
+  <div class="format-grid mb-4">
+    @for (points of decimalPointsOptions; track points) {
+      <button
+        type="button"
+        class="format-opt"
+        [class.format-opt-active]="auth.currentUser()?.decimalPoints === points"
+        [disabled]="savingDecimalPoints !== null"
+        (click)="selectDecimalPoints(points)">
+        <span class="format-opt-label">{{ points }}</span>
+        <span class="format-opt-example">{{ exampleDecimal(points) }}</span>
+        @if (savingDecimalPoints === points) {
+          <span class="spinner-border spinner-border-sm format-opt-spinner"></span>
+        } @else if (auth.currentUser()?.decimalPoints === points) {
+          <i class="bi bi-check-circle-fill format-opt-check"></i>
+        }
+      </button>
+    }
+  </div>
+
   <h6 class="mb-1 text-muted">Default Landing Page</h6>
   <p class="general-desc">Choose where you land after logging in.</p>
 

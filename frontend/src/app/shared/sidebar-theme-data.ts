@@ -10,6 +10,9 @@ export interface SidebarThemePreset {
   // swatch color and as the sidebar's own fallback when the user hasn't set
   // a custom text-color override.
   text: string;
+  // Light-background themes need dark active-row text for contrast
+  // (profile.component.html); dark themes use white. Omitted/false = dark.
+  isLight?: boolean;
 }
 
 // Single source of truth for preview-card colors (profile.component.html)
@@ -22,7 +25,11 @@ export const SIDEBAR_THEMES: SidebarThemePreset[] = [
   { key: 'OCEAN', name: 'Ocean', bgStart: '#063a4a', bgEnd: '#042a36', accent: '#22d3ee', text: '#8bb4c0' },
   { key: 'FOREST', name: 'Forest', bgStart: '#0f2b1e', bgEnd: '#0a1f15', accent: '#34d399', text: '#8fb5a3' },
   { key: 'PLUM', name: 'Plum', bgStart: '#2e1140', bgEnd: '#1f0b2c', accent: '#f472b6', text: '#bfa1cc' },
-  { key: 'DAYLIGHT', name: 'Daylight', bgStart: '#ffffff', bgEnd: '#f1f5f9', accent: '#2563eb', text: '#475569' },
+  { key: 'DAYLIGHT', name: 'Daylight', bgStart: '#ffffff', bgEnd: '#f1f5f9', accent: '#2563eb', text: '#475569', isLight: true },
+  { key: 'ROSE', name: 'Rose', bgStart: '#FFF1F2', bgEnd: '#FFE4E6', accent: '#F43F5E', text: '#9f1239', isLight: true },
+  { key: 'SKY', name: 'Sky', bgStart: '#F0F9FF', bgEnd: '#E0F2FE', accent: '#3B82F6', text: '#1e40af', isLight: true },
+  { key: 'SAND', name: 'Sand', bgStart: '#FAF7F2', bgEnd: '#F5EFE6', accent: '#D97706', text: '#92400e', isLight: true },
+  { key: 'LEMON', name: 'Lemon', bgStart: '#FEFCE8', bgEnd: '#FEF9C3', accent: '#EAB308', text: '#854d0e', isLight: true },
 ];
 
 export const DEFAULT_SIDEBAR_THEME: SidebarTheme = 'MIDNIGHT';

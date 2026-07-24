@@ -21,6 +21,7 @@ model Department {
 
   users    User[]    @relation("UserDepartments")
   projects Project[]
+  metrics  Metric[]
   invites  Invite[]  @relation("InviteDepartments")
 
   @@index([parentId, order])

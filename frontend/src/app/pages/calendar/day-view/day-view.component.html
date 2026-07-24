@@ -1,0 +1,5 @@
+<mwl-calendar-day-view
+  [viewDate]="state.viewDate()"
+  [events]="state.mwlEvents()"
+  (eventClicked)="onEventClicked($event.event)">
+</mwl-calendar-day-view>

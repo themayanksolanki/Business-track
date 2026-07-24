@@ -4,7 +4,36 @@ export type Role = 'Admin' | 'Manager' | 'Team Lead' | 'User';
 
 export type DateFormat = 'DD_MM_YYYY' | 'MM_DD_YYYY' | 'YYYY_MM_DD' | 'DD_MMM_YY';
 export type TimeFormat = 'HOUR_12' | 'HOUR_24';
-export type SidebarTheme = 'MIDNIGHT' | 'CHARCOAL' | 'OCEAN' | 'FOREST' | 'PLUM' | 'DAYLIGHT';
+export type SidebarTheme =
+  | 'MIDNIGHT'
+  | 'CHARCOAL'
+  | 'OCEAN'
+  | 'FOREST'
+  | 'PLUM'
+  | 'DAYLIGHT'
+  | 'ROSE'
+  | 'SKY'
+  | 'SAND'
+  | 'LEMON';
+export type Currency = 'USD' | 'EUR' | 'JPY' | 'GBP' | 'CNY' | 'INR';
+export type MeasurementUnit = 'KG' | 'LB' | 'LTR';
+
+// Single source of truth for display symbols — reused by Settings > General
+// (the picker) and the Metrics Bowling View (read-mode value decoration).
+export const CURRENCY_SYMBOLS: Record<Currency, string> = {
+  USD: '$',
+  EUR: '€',
+  JPY: '¥',
+  GBP: '£',
+  CNY: '¥',
+  INR: '₹',
+};
+
+export const MEASUREMENT_UNIT_SYMBOLS: Record<MeasurementUnit, string> = {
+  KG: 'kg',
+  LB: 'lb',
+  LTR: 'L',
+};
 export type LandingPage =
   | 'dashboard'
   | 'tasks'
@@ -46,6 +75,9 @@ export interface User {
   defaultLandingPage?: LandingPage;
   sidebarTheme?: SidebarTheme;
   sidebarTextColor?: string | null;
+  currency?: Currency;
+  unit?: MeasurementUnit;
+  decimalPoints?: number;
   managerId?: number | null;
   teamLeadId?: number | null;
   manager?: UserLite | null;

@@ -1,0 +1,105 @@
+.event-modal-content {
+  border-radius: 14px;
+  border: none;
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.field-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.field-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+}
+
+.field-input:focus {
+  border-color: #3b82f6;
+  box-shadow: none;
+}
+
+.modal-submit-btn {
+  min-width: 96px;
+}
+
+.event-color-input {
+  width: 44px;
+  height: 38px;
+  padding: 2px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+}
+
+.event-subsection {
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+}
+
+.reminder-method-select {
+  max-width: 160px;
+}
+
+.reminder-minutes-group {
+  max-width: 220px;
+}
+
+.guest-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  font-size: 0.8rem;
+  margin-right: 4px;
+}
+
+.guest-pill i {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.guest-pill i:hover {
+  opacity: 1;
+}
+
+.event-view-time {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.event-view-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  color: var(--text-primary);
+}
+
+.event-view-description {
+  white-space: pre-wrap;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.event-view-meta {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.event-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+}

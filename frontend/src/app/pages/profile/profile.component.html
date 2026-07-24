@@ -14,10 +14,10 @@
 
   <!-- Tab navigation -->
   <div class="profile-tabs mb-4">
-    <button class="profile-tab" [class.active]="activeTab === 'overview'" (click)="activeTab = 'overview'">
+    <button class="profile-tab" [class.active]="activeTab === 'overview'" (click)="setActiveTab('overview')">
       <i class="bi bi-person me-2"></i>Overview
     </button>
-    <button class="profile-tab" [class.active]="activeTab === 'appearance'" (click)="activeTab = 'appearance'">
+    <button class="profile-tab" [class.active]="activeTab === 'appearance'" (click)="setActiveTab('appearance')">
       <i class="bi bi-palette me-2"></i>Appearance
     </button>
   </div>
@@ -360,7 +360,7 @@
             <span class="stp-row" [style.color]="sidebarTextPreviewColor">
               <i class="bi bi-house-door-fill me-2"></i>Dashboard
             </span>
-            <span class="stp-row stp-row-active" [style.color]="currentSidebarThemePreset.key === 'DAYLIGHT' ? '#0f172a' : '#ffffff'"
+            <span class="stp-row stp-row-active" [style.color]="currentSidebarThemePreset.isLight ? '#0f172a' : '#ffffff'"
                   [style.background]="currentSidebarThemePreset.accent + '30'">
               <i class="bi bi-list-task me-2"></i>Tasks
             </span>

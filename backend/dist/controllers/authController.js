@@ -41,6 +41,9 @@ export const toUserShape = (user) => ({
     defaultLandingPage: user.defaultLandingPage,
     sidebarTheme: user.sidebarTheme,
     sidebarTextColor: user.sidebarTextColor ?? null,
+    currency: user.currency,
+    unit: user.unit,
+    decimalPoints: user.decimalPoints,
     organization: user.organization
         ? { id: user.organization.id, name: user.organization.name, emailDomain: user.organization.emailDomain }
         : null,
@@ -212,7 +215,7 @@ export const updateAvatar = async (req, res, next) => {
 };
 export const updateProfile = async (req, res, next) => {
     try {
-        const { phoneCountry, phoneNumber, dateFormat, timeFormat, defaultLandingPage, sidebarTheme, sidebarTextColor } = req.body;
+        const { phoneCountry, phoneNumber, dateFormat, timeFormat, defaultLandingPage, sidebarTheme, sidebarTextColor, currency, unit, decimalPoints, } = req.body;
         // Partial update — this endpoint is shared by the Profile page's phone
         // editor and Settings > General's date/time-format/landing-page pickers,
         // so a request from one must not clobber fields the others own (e.g.
@@ -232,6 +235,12 @@ export const updateProfile = async (req, res, next) => {
             data.sidebarTheme = sidebarTheme;
         if (sidebarTextColor !== undefined)
             data.sidebarTextColor = sidebarTextColor || null;
+        if (currency !== undefined)
+            data.currency = currency;
+        if (unit !== undefined)
+            data.unit = unit;
+        if (decimalPoints !== undefined)
+            data.decimalPoints = decimalPoints;
         const user = await prisma.user.update({
             where: { id: req.user.id },
             data,

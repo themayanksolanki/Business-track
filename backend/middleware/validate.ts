@@ -1,5 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import AppError from '../utils/AppError.js';
+import { METRIC_FREQUENCIES } from '../models/metricTracking.model.js';
+import { periodCount } from '../utils/metricPeriods.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DOMAIN_REGEX = /^[^\s@]+\.[^\s@]+$/;
@@ -120,15 +122,27 @@ const VALID_LANDING_PAGES = [
   'users',
   'organization',
 ];
-const VALID_SIDEBAR_THEMES = ['MIDNIGHT', 'CHARCOAL', 'OCEAN', 'FOREST', 'PLUM', 'DAYLIGHT'];
+const VALID_SIDEBAR_THEMES = ['MIDNIGHT', 'CHARCOAL', 'OCEAN', 'FOREST', 'PLUM', 'DAYLIGHT', 'ROSE', 'SKY', 'SAND', 'LEMON'];
+const VALID_CURRENCIES = ['USD', 'EUR', 'JPY', 'GBP', 'CNY', 'INR'];
+const VALID_MEASUREMENT_UNITS = ['KG', 'LB', 'LTR'];
 
 // Fields are all independently optional — this endpoint is shared by the
 // Profile page's phone editor and Settings > General's date/time-format/
 // landing-page pickers, and a request from one shouldn't need to (or
 // accidentally) touch the others' fields.
 export const validateUpdateProfile = (req: Request, res: Response, next: NextFunction) => {
-  const { phoneCountry, phoneNumber, dateFormat, timeFormat, defaultLandingPage, sidebarTheme, sidebarTextColor } =
-    req.body;
+  const {
+    phoneCountry,
+    phoneNumber,
+    dateFormat,
+    timeFormat,
+    defaultLandingPage,
+    sidebarTheme,
+    sidebarTextColor,
+    currency,
+    unit,
+    decimalPoints,
+  } = req.body;
 
   // Both null/empty clears the phone number; otherwise both must be present
   // and valid — a country code with no number (or vice versa) isn't useful.
@@ -155,6 +169,15 @@ export const validateUpdateProfile = (req: Request, res: Response, next: NextFun
   // null clears the override back to the active theme's own default text color.
   if (sidebarTextColor !== undefined && sidebarTextColor !== null && !HEX_COLOR_REGEX.test(sidebarTextColor))
     return next(new AppError('sidebarTextColor must be a valid hex color', 400));
+
+  if (currency !== undefined && !VALID_CURRENCIES.includes(currency))
+    return next(new AppError(`currency must be one of: ${VALID_CURRENCIES.join(', ')}`, 400));
+
+  if (unit !== undefined && !VALID_MEASUREMENT_UNITS.includes(unit))
+    return next(new AppError(`unit must be one of: ${VALID_MEASUREMENT_UNITS.join(', ')}`, 400));
+
+  if (decimalPoints !== undefined && (!Number.isInteger(decimalPoints) || decimalPoints < 0 || decimalPoints > 7))
+    return next(new AppError('decimalPoints must be an integer between 0 and 7', 400));
 
   next();
 };
@@ -589,3 +612,255 @@ export const validateUpdateMemberRole = (req: Request, res: Response, next: Next
 };
 
 export const validateMemberId = validateParamId('memberId');
+
+const VALID_METRIC_STATUSES = ['active', 'archived', 'deleted'];
+const VALID_METRIC_DATA_TYPES = ['number', 'weight', 'currency', 'percentage'];
+
+export const validateMetric = (req: Request, res: Response, next: NextFunction) => {
+  const { title, department, category, owner, parentId, startDate, dueDate, notes, status, dataType } = req.body;
+
+  if (req.method === 'POST') {
+    if (!title || !title.trim()) return next(new AppError('Title is required', 400));
+    if (!department || !isValidId(department)) return next(new AppError('department is required', 400));
+    if (!owner || !isValidId(owner)) return next(new AppError('owner is required', 400));
+  } else {
+    if (title !== undefined && !title.trim()) return next(new AppError('Title cannot be empty', 400));
+    if (department !== undefined && !isValidId(department)) return next(new AppError('department is not a valid ID', 400));
+    if (owner !== undefined && !isValidId(owner)) return next(new AppError('owner is not a valid ID', 400));
+  }
+
+  // category is optional and clearable — null unsets it, anything else must
+  // be a valid ID.
+  if (category !== undefined && category !== null && !isValidId(category))
+    return next(new AppError('category is not a valid ID', 400));
+
+  if (parentId != null && !isValidId(parentId))
+    return next(new AppError('parentId is not a valid ID', 400));
+
+  if (notes !== undefined && typeof notes !== 'string')
+    return next(new AppError('notes must be a string', 400));
+
+  if (status !== undefined && !VALID_METRIC_STATUSES.includes(status))
+    return next(new AppError(`status must be one of: ${VALID_METRIC_STATUSES.join(', ')}`, 400));
+
+  if (dataType !== undefined && !VALID_METRIC_DATA_TYPES.includes(dataType))
+    return next(new AppError(`dataType must be one of: ${VALID_METRIC_DATA_TYPES.join(', ')}`, 400));
+
+  const dateError = validateDateRange(startDate, dueDate, 'startDate', 'dueDate');
+  if (dateError) return next(new AppError(dateError, 400));
+
+  next();
+};
+
+export const validateMetricId = validateParamId('metricId');
+
+const VALID_METRIC_FREQUENCIES: string[] = METRIC_FREQUENCIES;
+// Only 'daily' is actually implemented yet (see backend/utils/metricPeriods.ts)
+// — the others are accepted here as a recognizable shape so the frontend gets
+// a clean "not implemented" 400 instead of falling through to a 500 deeper in
+// the controller/model layer.
+const IMPLEMENTED_METRIC_FREQUENCIES = ['daily'];
+
+export const validateTrackingParams = (req: Request, res: Response, next: NextFunction) => {
+  const frequency = String(req.params.frequency);
+  const year = Number(req.query.year);
+  const month = req.query.month !== undefined ? Number(req.query.month) : undefined;
+
+  if (!VALID_METRIC_FREQUENCIES.includes(frequency))
+    return next(new AppError(`frequency must be one of: ${VALID_METRIC_FREQUENCIES.join(', ')}`, 400));
+
+  if (!IMPLEMENTED_METRIC_FREQUENCIES.includes(frequency))
+    return next(new AppError(`'${frequency}' tracking is not implemented yet`, 400));
+
+  if (!Number.isInteger(year) || year < 2000 || year > 2100)
+    return next(new AppError('year must be a valid 4-digit year', 400));
+
+  if (frequency === 'daily' && (!Number.isInteger(month) || month! < 1 || month! > 12))
+    return next(new AppError('month must be between 1 and 12 for daily frequency', 400));
+
+  next();
+};
+
+export const validateTrackingDiff = (req: Request, res: Response, next: NextFunction) => {
+  const { diff } = req.body;
+  if (diff === undefined || diff === null || typeof diff !== 'object' || Array.isArray(diff))
+    return next(new AppError('diff must be an object', 400));
+
+  const year = Number(req.query.year);
+  const month = Number(req.query.month);
+  // req.params.frequency is guaranteed 'daily' by validateTrackingParams,
+  // which always runs first on these routes.
+  const maxPeriod = periodCount('daily', year, month);
+
+  for (const [key, value] of Object.entries(diff)) {
+    const periodNum = Number(key);
+    if (!Number.isInteger(periodNum) || periodNum < 1 || periodNum > maxPeriod)
+      return next(new AppError(`diff key "${key}" is out of range for this period`, 400));
+
+    if (!value || typeof value !== 'object' || Array.isArray(value))
+      return next(new AppError(`diff["${key}"] must be an object`, 400));
+
+    const { actual, target } = value as { actual?: unknown; target?: unknown };
+    if (actual !== undefined && actual !== null && typeof actual !== 'number')
+      return next(new AppError(`diff["${key}"].actual must be a number or null`, 400));
+    if (target !== undefined && target !== null && typeof target !== 'number')
+      return next(new AppError(`diff["${key}"].target must be a number or null`, 400));
+  }
+
+  next();
+};
+
+export const validateEventId = validateParamId('eventId');
+
+const VALID_EVENT_VISIBILITY = ['standard', 'private', 'public'];
+const VALID_EVENT_BUSY_STATUS = ['busy', 'free'];
+const VALID_REMINDER_METHODS = ['notification', 'email'];
+const VALID_RECURRENCE_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'];
+
+export const validateEvent = (req: Request, res: Response, next: NextFunction) => {
+  const {
+    title,
+    description,
+    location,
+    start,
+    end,
+    color,
+    categoryId,
+    calendarId,
+    meetingLinkUrl,
+    meetingLinkTitle,
+    visibility,
+    busyStatus,
+    guests,
+    reminders,
+    recurrence,
+  } = req.body;
+
+  if (req.method === 'POST') {
+    if (!title || !title.trim()) return next(new AppError('Title is required', 400));
+    if (!start || !isValidDateValue(start)) return next(new AppError('start is required and must be a valid date', 400));
+    if (!end || !isValidDateValue(end)) return next(new AppError('end is required and must be a valid date', 400));
+  } else {
+    if (title !== undefined && !title.trim()) return next(new AppError('Title cannot be empty', 400));
+    if (start !== undefined && !isValidDateValue(start)) return next(new AppError('start is not a valid date', 400));
+    if (end !== undefined && !isValidDateValue(end)) return next(new AppError('end is not a valid date', 400));
+  }
+
+  if (start && end && new Date(end).getTime() < new Date(start).getTime())
+    return next(new AppError('end must be on or after start', 400));
+
+  if (description !== undefined && typeof description !== 'string')
+    return next(new AppError('description must be a string', 400));
+
+  if (location !== undefined && location !== null && typeof location !== 'string')
+    return next(new AppError('location must be a string', 400));
+
+  if (color !== undefined && color !== null && !HEX_COLOR_REGEX.test(color))
+    return next(new AppError('color must be a valid hex color', 400));
+
+  if (categoryId != null && !isValidId(categoryId))
+    return next(new AppError('categoryId is not a valid ID', 400));
+
+  if (calendarId != null && !isValidId(calendarId))
+    return next(new AppError('calendarId is not a valid ID', 400));
+
+  if (visibility !== undefined && !VALID_EVENT_VISIBILITY.includes(visibility))
+    return next(new AppError(`visibility must be one of: ${VALID_EVENT_VISIBILITY.join(', ')}`, 400));
+
+  if (busyStatus !== undefined && !VALID_EVENT_BUSY_STATUS.includes(busyStatus))
+    return next(new AppError(`busyStatus must be one of: ${VALID_EVENT_BUSY_STATUS.join(', ')}`, 400));
+
+  // Only validated when actually setting a link — null/'' clears it.
+  if (meetingLinkUrl) {
+    try {
+      const parsed = new URL(meetingLinkUrl);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')
+        return next(new AppError('meetingLinkUrl must use http or https', 400));
+    } catch {
+      return next(new AppError('meetingLinkUrl must be a valid URL', 400));
+    }
+    if (meetingLinkTitle !== undefined && meetingLinkTitle !== null && typeof meetingLinkTitle !== 'string')
+      return next(new AppError('meetingLinkTitle must be a string', 400));
+  }
+
+  if (guests !== undefined) {
+    if (!Array.isArray(guests)) return next(new AppError('guests must be an array', 400));
+    for (const g of guests) {
+      if (!g || typeof g !== 'object') return next(new AppError('Each guest must be an object', 400));
+      if (!g.email || !EMAIL_REGEX.test(g.email)) return next(new AppError('Each guest needs a valid email', 400));
+      if (g.userId !== undefined && g.userId !== null && !isValidId(g.userId))
+        return next(new AppError('guest userId is not a valid ID', 400));
+    }
+  }
+
+  if (reminders !== undefined) {
+    if (!Array.isArray(reminders)) return next(new AppError('reminders must be an array', 400));
+    for (const r of reminders) {
+      if (!r || typeof r !== 'object') return next(new AppError('Each reminder must be an object', 400));
+      if (r.method !== undefined && !VALID_REMINDER_METHODS.includes(r.method))
+        return next(new AppError(`reminder method must be one of: ${VALID_REMINDER_METHODS.join(', ')}`, 400));
+      if (r.minutesBefore !== undefined && (!Number.isInteger(r.minutesBefore) || r.minutesBefore < 0))
+        return next(new AppError('reminder minutesBefore must be a non-negative integer', 400));
+    }
+  }
+
+  if (recurrence !== undefined && recurrence !== null) {
+    if (typeof recurrence !== 'object' || Array.isArray(recurrence))
+      return next(new AppError('recurrence must be an object', 400));
+    if (!VALID_RECURRENCE_FREQUENCIES.includes(recurrence.frequency))
+      return next(new AppError(`recurrence.frequency must be one of: ${VALID_RECURRENCE_FREQUENCIES.join(', ')}`, 400));
+    if (recurrence.interval !== undefined && (!Number.isInteger(recurrence.interval) || recurrence.interval < 1))
+      return next(new AppError('recurrence.interval must be a positive integer', 400));
+    if (recurrence.byWeekday !== undefined) {
+      const validWeekdays =
+        Array.isArray(recurrence.byWeekday) &&
+        recurrence.byWeekday.every((d: unknown) => Number.isInteger(d) && (d as number) >= 0 && (d as number) <= 6);
+      if (!validWeekdays) return next(new AppError('recurrence.byWeekday must be an array of integers 0-6', 400));
+    }
+    if (recurrence.count !== undefined && recurrence.count !== null && (!Number.isInteger(recurrence.count) || recurrence.count < 1))
+      return next(new AppError('recurrence.count must be a positive integer', 400));
+    if (recurrence.until !== undefined && recurrence.until !== null && !isValidDateValue(recurrence.until))
+      return next(new AppError('recurrence.until must be a valid date', 400));
+  }
+
+  next();
+};
+
+export const validateCalendarCategoryId = validateParamId('id');
+
+export const validateCalendarCategory = (req: Request, res: Response, next: NextFunction) => {
+  const { name, color } = req.body;
+
+  if (req.method === 'POST' && (!name || !name.trim())) return next(new AppError('Name is required', 400));
+  if (name !== undefined && !name.trim()) return next(new AppError('Name cannot be empty', 400));
+  if (color !== undefined && color !== null && !HEX_COLOR_REGEX.test(color))
+    return next(new AppError('color must be a valid hex color', 400));
+
+  next();
+};
+
+export const validateCalendarId = validateParamId('id');
+
+// `originalStart` identifies which generated occurrence slot a request
+// targets (see EventException/backend/utils/recurrence.ts) — it's a date,
+// not an id, so it needs its own param validator rather than validateParamId.
+export const validateOccurrenceParams = (req: Request, res: Response, next: NextFunction) => {
+  if (!isValidId(req.params.eventId)) return next(new AppError(`Invalid ID: ${req.params.eventId}`, 400));
+  if (!isValidDateValue(req.params.originalStart))
+    return next(new AppError(`Invalid originalStart: ${req.params.originalStart}`, 400));
+
+  next();
+};
+
+export const validateCalendar = (req: Request, res: Response, next: NextFunction) => {
+  const { name, color, isEnabled } = req.body;
+
+  if (req.method === 'POST' && (!name || !name.trim())) return next(new AppError('Name is required', 400));
+  if (name !== undefined && !name.trim()) return next(new AppError('Name cannot be empty', 400));
+  if (color !== undefined && color !== null && !HEX_COLOR_REGEX.test(color))
+    return next(new AppError('color must be a valid hex color', 400));
+  if (isEnabled !== undefined && typeof isEnabled !== 'boolean')
+    return next(new AppError('isEnabled must be a boolean', 400));
+
+  next();
+};

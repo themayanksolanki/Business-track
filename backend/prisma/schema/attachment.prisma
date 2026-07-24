@@ -15,37 +15,40 @@ enum AttachmentKind {
   link
 }
 
-// Exactly one of task/projectItem/project must be set — enforced at the
-// application layer (mirrors the old Mongoose pre('validate') hook), since
-// Prisma's schema DSL has no arbitrary CHECK constraint syntax.
+// Exactly one of task/projectItem/project/calendarEvent must be set —
+// enforced at the application layer (mirrors the old Mongoose pre('validate')
+// hook), since Prisma's schema DSL has no arbitrary CHECK constraint syntax.
 model Attachment {
-  id            Int             @id @default(autoincrement())
-  taskId        Int?
-  projectItemId Int?
-  projectId     Int?
-  fileName      String
-  url           String
-  publicId      String?
-  storage       StorageProvider @default(cloudinary)
-  kind          AttachmentKind  @default(file)
-  mimeType      String
-  size          Int
-  uploadedById  Int
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id              Int             @id @default(autoincrement())
+  taskId          Int?
+  projectItemId   Int?
+  projectId       Int?
+  calendarEventId Int?
+  fileName        String
+  url             String
+  publicId        String?
+  storage         StorageProvider @default(cloudinary)
+  kind            AttachmentKind  @default(file)
+  mimeType        String
+  size            Int
+  uploadedById    Int
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
   // Set on task-attachment delete to now()+10s; the row (and the count) stays
   // live until this passes, so an undo just clears it back to null. Null means
   // "not pending" — used by both the delete-initiate check and the sweeper.
   pendingDeleteAt DateTime?
 
-  task        Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  projectItem ProjectItem? @relation(fields: [projectItemId], references: [id], onDelete: Cascade)
-  project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  uploadedBy  User         @relation("AttachmentUploadedBy", fields: [uploadedById], references: [id])
+  task          Task?          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  projectItem   ProjectItem?   @relation(fields: [projectItemId], references: [id], onDelete: Cascade)
+  project       Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  calendarEvent CalendarEvent? @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
+  uploadedBy    User           @relation("AttachmentUploadedBy", fields: [uploadedById], references: [id])
 
   @@index([taskId])
   @@index([projectItemId])
   @@index([projectId])
+  @@index([calendarEventId])
   @@index([pendingDeleteAt])
   @@map("attachments")
 }

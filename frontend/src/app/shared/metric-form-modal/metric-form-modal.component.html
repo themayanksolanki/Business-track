@@ -1,0 +1,141 @@
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="closed.emit()">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+  @if (open) {
+    <div class="modal-content metric-modal-content">
+      <div class="modal-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h5 class="mb-0">
+            <i class="bi bi-graph-up-arrow me-2"></i>{{ mode === 'create' ? 'New Metric' : 'Edit Metric' }}
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        @if (displayError) {
+          <div class="alert alert-danger py-2">{{ displayError }}</div>
+        }
+
+        <form (ngSubmit)="submit()">
+          <div class="mb-3">
+            <label class="field-label">Title <span class="text-danger">*</span></label>
+            <input type="text" class="form-control field-input" [(ngModel)]="title" name="title" placeholder="Metric name" />
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="field-label">Department <span class="text-danger">*</span></label>
+              <select class="form-select field-input" [(ngModel)]="department" name="department">
+                <option [ngValue]="null" disabled>Select department</option>
+                @for (dept of departments; track dept.id) {
+                  <option [ngValue]="dept.id">{{ dept.name }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="field-label">Category</label>
+              <select class="form-select field-input" [(ngModel)]="category" name="category">
+                <option [ngValue]="null">No category</option>
+                @for (cat of categories; track cat.id) {
+                  <option [ngValue]="cat.id">{{ cat.name }}</option>
+                }
+              </select>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="field-label">Data Type <span class="text-danger">*</span></label>
+            <select class="form-select field-input" [(ngModel)]="dataType" name="dataType">
+              @for (opt of dataTypeOptions; track opt.value) {
+                <option [ngValue]="opt.value">{{ opt.label }}</option>
+              }
+            </select>
+            <p class="field-hint">
+              Decides how values look in the Bowling View — Weight/Currency show the unit from your own
+              <a routerLink="/settings">Settings &gt; General</a> preference; Percentage adds %.
+            </p>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="field-label">Owner <span class="text-danger">*</span></label>
+              <select class="form-select field-input" [(ngModel)]="owner" name="owner">
+                <option [ngValue]="null" disabled>Select owner</option>
+                @for (u of users; track u.id) {
+                  <option [ngValue]="u.id">{{ u.username }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="field-label">Parent metric</label>
+              <select class="form-select field-input" [(ngModel)]="parentId" name="parentId">
+                <option [ngValue]="null">None (top-level)</option>
+                @for (m of availableParents; track m.id) {
+                  <option [ngValue]="m.id">{{ m.title }}</option>
+                }
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="field-label">Start date</label>
+              <app-date-picker [value]="startDate" (valueChange)="startDate = $event"></app-date-picker>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="field-label">Due date</label>
+              <app-date-picker [value]="dueDate" [min]="startDate" (valueChange)="dueDate = $event"></app-date-picker>
+            </div>
+          </div>
+
+          @if (mode === 'edit') {
+            <div class="mb-3">
+              <label class="field-label">Status</label>
+              <select class="form-select field-input metric-status-select" [(ngModel)]="status" name="status">
+                <option value="active">Active</option>
+                <option value="archived">Archived</option>
+                @if (status === 'deleted') {
+                  <!-- Only shown so an already-deleted metric's current status
+                       still displays correctly; deleting happens via the
+                       button below, not by picking this from the list. -->
+                  <option value="deleted" disabled>Deleted</option>
+                }
+              </select>
+            </div>
+          }
+
+          <div class="mb-4">
+            <label class="field-label">Notes</label>
+            <ckeditor class="metric-notes-editor" [editor]="NotesEditor" [config]="notesEditorConfig" [(ngModel)]="notes" name="notes"></ckeditor>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center">
+            @if (mode === 'edit') {
+              <button type="button" class="btn btn-outline-danger modal-submit-btn" (click)="requestDelete()">
+                <i class="bi bi-trash3 me-1"></i>Delete
+              </button>
+            } @else {
+              <span></span>
+            }
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-light modal-submit-btn" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary modal-submit-btn" [disabled]="loading">
+                @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                {{ loading ? 'Saving...' : 'Save' }}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+  </div>
+</div>
+
+<app-confirm-dialog
+  [open]="confirmDeleteOpen"
+  title="Delete Metric"
+  [message]="deleteConfirmMessage"
+  confirmLabel="Delete"
+  [loading]="deleteLoading"
+  (confirmed)="confirmDelete()"
+  (cancelled)="cancelDelete()">
+</app-confirm-dialog>

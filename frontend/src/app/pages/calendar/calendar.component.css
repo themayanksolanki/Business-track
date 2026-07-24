@@ -1,0 +1,280 @@
+.calendar-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ── Toolbar ── */
+.calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.calendar-toolbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.calendar-sidebar-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border-radius: 6px;
+}
+
+.calendar-today-btn,
+.calendar-nav-btn {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border-radius: 6px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.calendar-nav-btn {
+  width: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.calendar-today-btn:hover,
+.calendar-nav-btn:hover {
+  background: var(--bg-hover);
+}
+
+.calendar-range-label {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.calendar-view-switcher .calendar-view-btn {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-input);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  height: 32px;
+  padding: 0 14px;
+  text-transform: none;
+}
+.calendar-view-switcher .calendar-view-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.calendar-view-switcher .calendar-view-btn.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.calendar-create-btn {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+}
+
+.calendar-create-icon {
+  margin-right: 6px;
+}
+
+/* ── Body: sidebar + content ── */
+.calendar-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.calendar-sidebar {
+  flex: 0 0 240px;
+  border-right: 1px solid var(--border);
+  background: var(--bg-card);
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.calendar-content {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  background: var(--bg-card);
+}
+
+/* ── My Calendars list ── */
+.my-calendars {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.my-calendars-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.my-calendars-add-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+.my-calendars-add-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.my-calendar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 2px;
+  border-radius: 6px;
+}
+.my-calendar-row:hover {
+  background: var(--bg-hover);
+}
+.my-calendar-row:hover .my-calendar-actions {
+  visibility: visible;
+}
+
+.my-calendar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+  margin: 0;
+}
+
+.my-calendar-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.my-calendar-name {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-calendar-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  visibility: hidden;
+  flex: 0 0 auto;
+}
+
+.my-calendar-action-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 4px;
+  font-size: 0.72rem;
+}
+.my-calendar-action-btn:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.calendar-sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1039;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* ── Responsive ── */
+@media (max-width: 860px) {
+  .calendar-sidebar-toggle {
+    display: inline-flex;
+  }
+
+  .calendar-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1040;
+    width: 260px;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.35));
+  }
+  .calendar-sidebar-open {
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 560px) {
+  .calendar-range-label {
+    font-size: 0.85rem;
+  }
+  .calendar-view-switcher .calendar-view-btn {
+    padding: 0 10px;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .calendar-toolbar {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .calendar-create-btn {
+    padding: 0 10px;
+  }
+  .calendar-create-icon {
+    margin-right: 0;
+  }
+  /* Icon-only create button below this width — the full label plus the
+     view switcher no longer both fit on one row without wrapping oddly. */
+  .calendar-create-label {
+    display: none;
+  }
+}
