@@ -41,6 +41,70 @@
 
 body { background: var(--bg-page); }
 
+/* angular-calendar's own stylesheet (node_modules/angular-calendar/css/
+   angular-calendar.css, loaded globally via angular.json's "styles" array)
+   hardcodes a light theme — white background, #e1e1e1 borders, etc. — with
+   no CSS variables of its own, so it never responds to [data-theme="dark"].
+   This has to live here (a global, unencapsulated stylesheet) rather than
+   in week-view/day-view's own component CSS: Angular's emulated view
+   encapsulation scopes everything before `::ng-deep` to the component, and
+   `[data-theme="dark"]` lives on <html> — an ancestor never rendered by
+   this component, so it can never carry that scope attribute, making a
+   component-scoped `[data-theme="dark"] ::ng-deep ...` rule permanently
+   dead. mwl-calendar-day-view renders the same internal .cal-week-view
+   markup as week view, so one block here covers both. */
+[data-theme="dark"] .cal-week-view {
+  background-color: var(--bg-card);
+  border-top-color: var(--border);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .cal-week-view .cal-day-headers {
+  border-color: var(--border);
+}
+[data-theme="dark"] .cal-week-view .cal-day-headers .cal-header:not(:last-child) {
+  border-right-color: var(--border);
+}
+[data-theme="dark"] .cal-week-view .cal-day-headers .cal-header:first-child {
+  border-left-color: var(--border);
+}
+[data-theme="dark"] .cal-week-view .cal-day-headers .cal-header:hover,
+[data-theme="dark"] .cal-week-view .cal-day-headers .cal-drag-over {
+  background-color: var(--bg-hover);
+}
+[data-theme="dark"] .cal-week-view .cal-day-column {
+  border-left-color: var(--border);
+}
+[data-theme="dark"] .cal-week-view .cal-event {
+  background-color: rgba(77, 163, 255, 0.18);
+  border-color: #4da3ff;
+  color: #9cc9ff;
+}
+[data-theme="dark"] .cal-week-view .cal-header.cal-today {
+  background-color: rgba(34, 197, 94, 0.15);
+}
+[data-theme="dark"] .cal-week-view .cal-header.cal-weekend span {
+  color: #f87171;
+}
+[data-theme="dark"] .cal-week-view .cal-time-events {
+  border-color: var(--border);
+}
+[data-theme="dark"] .cal-week-view .cal-time-events .cal-day-columns:not(.cal-resize-active) .cal-hour-segment:hover {
+  background-color: var(--bg-hover);
+}
+[data-theme="dark"] .cal-week-view .cal-hour-odd {
+  background-color: var(--bg-muted);
+}
+[data-theme="dark"] .cal-week-view .cal-drag-over .cal-hour-segment {
+  background-color: var(--bg-hover);
+}
+[data-theme="dark"] .cal-week-view .cal-hour:not(:last-child) .cal-hour-segment,
+[data-theme="dark"] .cal-week-view .cal-hour:last-child :not(:last-child) .cal-hour-segment {
+  border-bottom-color: var(--border);
+}
+[data-theme="dark"] .cal-week-view .cal-time {
+  color: var(--text-muted);
+}
+
 .page {
   padding: 24px;
   max-width: 1100px;

@@ -1,8 +1,25 @@
 .calendar-page {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  /* app-calendar's host has no definite height of its own (it renders
+     inside <main>, which only sets min-height:100vh, not height) — anchor
+     directly to the viewport instead, matching chat.component.css's
+     .chat-page pattern, and cancel <main>'s 24px padding via negative
+     margin so the calendar fills it edge-to-edge like a self-contained
+     app pane rather than sizing to its (small) content. */
+  height: 100vh;
+  margin: -24px;
+  width: calc(100% + 48px);
   min-height: 0;
+}
+
+@media (max-width: 767.98px) {
+  /* <main> switches to a 20px/16px padding + 72px sidebar-rail margin at
+     this breakpoint (app.component.css) — cancel that instead. */
+  .calendar-page {
+    margin: -20px -16px;
+    width: calc(100% + 32px);
+  }
 }
 
 /* ── Toolbar ── */

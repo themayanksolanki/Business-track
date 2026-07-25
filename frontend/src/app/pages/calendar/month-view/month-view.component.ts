@@ -1,12 +1,14 @@
 import { Component, OnInit } from '@angular/core';
-import { CalendarModule, CalendarEvent } from 'angular-calendar';
+import { endOfDay, startOfDay } from 'date-fns';
 import { CalendarStateService } from '../../../core/services/calendar-state.service';
 import { CalendarOccurrence } from '../../../models/event.model';
+import { overlapsRange } from '../../../core/services/calendar-layout.util';
+import { MonthGridComponent } from './month-grid/month-grid.component';
 
 @Component({
   selector: 'app-calendar-month-view',
   standalone: true,
-  imports: [CalendarModule],
+  imports: [MonthGridComponent],
   templateUrl: './month-view.component.html',
   styleUrl: './month-view.component.css',
 })
@@ -17,16 +19,19 @@ export class MonthViewComponent implements OnInit {
     this.state.setViewMode('month');
   }
 
-  // mwl-calendar-month-view emits this when a day cell is clicked — jump the
-  // shared viewDate there without leaving month view (matches how clicking a
-  // date in most calendar apps' month grid just re-centers, rather than
-  // forcing a switch to day view).
-  onDayClicked(day: { date: Date }) {
-    this.state.setViewDate(day.date);
+  // Clicking an empty day cell jumps the shared viewDate there without
+  // leaving month view (matches how clicking a date in most calendar apps'
+  // month grid just re-centers, rather than forcing a switch to day view).
+  onDayClicked(day: Date) {
+    this.state.setViewDate(day);
   }
 
-  onEventClicked(event: CalendarEvent) {
-    const meta = event.meta as CalendarOccurrence;
-    this.state.openEventDetail(meta.id, meta.isRecurring ? meta.originalStart : undefined);
+  onStrapEventClicked(occurrence: CalendarOccurrence) {
+    this.state.openEventDetail(occurrence.id, occurrence.isRecurring ? occurrence.originalStart : undefined);
+  }
+
+  onMoreClicked(day: Date) {
+    const dayEvents = this.state.events().filter((e) => overlapsRange(e, startOfDay(day), endOfDay(day)));
+    this.state.openDayEventsPopup(day, dayEvents);
   }
 }

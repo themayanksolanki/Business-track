@@ -1,0 +1,119 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.month-grid {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-card);
+}
+
+.month-weekday-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card-alt);
+  flex-shrink: 0;
+}
+
+.month-weekday-cell {
+  padding: 8px 0;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.month-weeks {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.month-week-row {
+  position: relative;
+  flex: 1;
+  min-height: 112px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-top: 1px solid var(--border);
+}
+
+.month-day-cell {
+  padding: 6px 8px;
+  cursor: pointer;
+  border-right: 1px solid var(--border);
+  transition: background-color 0.12s ease;
+}
+
+.month-day-cell:hover {
+  background: var(--bg-hover);
+}
+
+.month-day-cell:last-child {
+  border-right: none;
+}
+
+/* Weekend columns get a faint tint (skipped once a cell is already dimmed
+   for being outside the current month, so the two treatments don't stack
+   into an odd double-muted color). */
+.month-day-cell:nth-child(1):not(.out-month),
+.month-day-cell:nth-child(7):not(.out-month) {
+  background: var(--bg-muted);
+}
+
+.month-day-cell.out-month {
+  opacity: 0.45;
+}
+
+.month-day-cell.today {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.month-day-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  min-width: 22px;
+  height: 22px;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.month-day-cell.today .month-day-number {
+  background: #3b82f6;
+  color: #fff;
+  border-radius: 50%;
+  font-weight: 600;
+}
+
+.month-week-straps {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 26px;
+  bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .month-weekday-cell {
+    font-size: 0.62rem;
+    padding: 5px 0;
+  }
+  .month-week-row {
+    min-height: 72px;
+  }
+  .month-day-number {
+    font-size: 0.7rem;
+    min-width: 18px;
+    height: 18px;
+  }
+  .month-week-straps {
+    top: 22px;
+  }
+}

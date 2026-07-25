@@ -1,0 +1,31 @@
+<div class="month-grid">
+  <div class="month-weekday-header">
+    @for (label of weekdayLabels; track label) {
+      <div class="month-weekday-cell">{{ label }}</div>
+    }
+  </div>
+  <div class="month-weeks">
+    @for (week of weeks; track $index) {
+      <div class="month-week-row">
+        @for (day of week; track day.getTime()) {
+          <div
+            class="month-day-cell"
+            [class.today]="isToday(day)"
+            [class.out-month]="isOutOfMonth(day)"
+            (click)="dayClicked.emit(day)">
+            <span class="month-day-number">{{ dayNumber(day) }}</span>
+          </div>
+        }
+        <div class="month-week-straps">
+          <app-event-strap-row
+            [days]="week"
+            [events]="events"
+            [maxVisibleLanes]="maxVisibleLanes"
+            (eventClicked)="eventClicked.emit($event)"
+            (moreClicked)="moreClicked.emit($event)">
+          </app-event-strap-row>
+        </div>
+      </div>
+    }
+  </div>
+</div>

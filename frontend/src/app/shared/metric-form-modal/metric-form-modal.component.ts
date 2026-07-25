@@ -107,6 +107,16 @@ export class MetricFormModalComponent implements OnChanges {
     }
   }
 
+  onStartDateChange(date: string | null) {
+    this.startDate = date;
+    if (date && this.dueDate && date > this.dueDate) this.dueDate = date;
+  }
+
+  onDueDateChange(date: string | null) {
+    this.dueDate = date;
+    if (date && this.startDate && date < this.startDate) this.startDate = date;
+  }
+
   submit() {
     if (!this.title.trim()) {
       this.localError = 'Title is required';

@@ -9,6 +9,7 @@ import { MiniMonthPickerComponent } from '../../shared/mini-month-picker/mini-mo
 import { EventDetailDialogComponent } from '../../shared/event-detail-dialog/event-detail-dialog.component';
 import { CalendarFormComponent, CalendarFormPayload } from '../../shared/calendar-form/calendar-form.component';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
+import { DayEventsDialogComponent } from '../../shared/day-events-dialog/day-events-dialog.component';
 
 @Component({
   selector: 'app-calendar',
@@ -25,6 +26,7 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
     EventDetailDialogComponent,
     CalendarFormComponent,
     ConfirmDialogComponent,
+    DayEventsDialogComponent,
   ],
   providers: [CalendarStateService],
   templateUrl: './calendar.component.html',

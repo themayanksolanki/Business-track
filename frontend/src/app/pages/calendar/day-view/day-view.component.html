@@ -1,5 +1,14 @@
+<div class="strap-row-wrap">
+  <app-event-strap-row
+    [days]="visibleDays"
+    [events]="state.strapEvents()"
+    [maxVisibleLanes]="5"
+    (eventClicked)="onStrapEventClicked($event)"
+    (moreClicked)="onMoreClicked($event)">
+  </app-event-strap-row>
+</div>
 <mwl-calendar-day-view
   [viewDate]="state.viewDate()"
-  [events]="state.mwlEvents()"
+  [events]="state.timedMwlEvents()"
   (eventClicked)="onEventClicked($event.event)">
 </mwl-calendar-day-view>

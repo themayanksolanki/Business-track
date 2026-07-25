@@ -1,0 +1,26 @@
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="closed.emit()">
+  <div class="modal-dialog modal-dialog-centered">
+    @if (open) {
+      <div class="modal-content">
+        <div class="modal-body p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0"><i class="bi bi-calendar3 me-2"></i>{{ dateLabel }}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+
+          <div class="day-events-list">
+            @for (occurrence of occurrences; track occurrence.id + ':' + occurrence.originalStart) {
+              <button type="button" class="day-event-row" (click)="eventClicked.emit(occurrence)">
+                <span class="event-color-dot" [style.background]="resolveEventColor(occurrence)"></span>
+                <span class="day-event-title">{{ occurrence.title }}</span>
+                <span class="day-event-time">{{ timeLabel(occurrence) }}</span>
+              </button>
+            } @empty {
+              <p class="text-muted mb-0">No events for this day.</p>
+            }
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+</div>

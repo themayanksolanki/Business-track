@@ -703,23 +703,48 @@ export class ProjectDetailComponent implements OnInit {
   onStartDateChange(date: string | null) {
     this.startDateStr = date;
     if (!date) this.startTimeStr = null;
+    this.clampEndToStart();
     this.saveDates();
   }
 
   onStartTimeChange(time: string | null) {
     this.startTimeStr = time;
+    this.clampEndToStart();
     this.saveDates();
   }
 
   onEndDateChange(date: string | null) {
     this.endDateStr = date;
     if (!date) this.endTimeStr = null;
+    this.clampStartToEnd();
     this.saveDates();
   }
 
   onEndTimeChange(time: string | null) {
     this.endTimeStr = time;
+    this.clampStartToEnd();
     this.saveDates();
+  }
+
+  // Keeps end >= start by moving end (date and time) up to start whenever a
+  // start-side edit pushes it past the current end — compares full
+  // date+time, not just the date.
+  private clampEndToStart() {
+    const start = this.combineDateTime(this.startDateStr, this.startTimeStr);
+    const end = this.combineDateTime(this.endDateStr, this.endTimeStr);
+    if (start && end && dayjs(start).isAfter(end)) {
+      this.endDateStr = this.startDateStr;
+      this.endTimeStr = this.startTimeStr;
+    }
+  }
+
+  private clampStartToEnd() {
+    const start = this.combineDateTime(this.startDateStr, this.startTimeStr);
+    const end = this.combineDateTime(this.endDateStr, this.endTimeStr);
+    if (start && end && dayjs(end).isBefore(start)) {
+      this.startDateStr = this.endDateStr;
+      this.startTimeStr = this.endTimeStr;
+    }
   }
 
   private saveDates() {

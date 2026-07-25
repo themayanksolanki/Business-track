@@ -1,7 +1,35 @@
 :host {
-  display: block;
+  display: flex;
+  flex-direction: column;
   height: 100%;
 }
+
+.strap-row-wrap {
+  flex-shrink: 0;
+  padding: 6px 8px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+
+mwl-calendar-week-view {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* [events] only ever carries timed, single-day events now (see
+   timedMwlEvents in CalendarStateService) — all-day/multi-day events render
+   in the app-event-strap-row above instead. Defensive insurance in case the
+   library still renders an empty row shell with zero all-day events. */
+::ng-deep .cal-week-view .cal-all-day-events {
+  display: none;
+}
+
+/* Dark-mode overrides for angular-calendar's hardcoded light theme now live
+   in src/styles.css instead — Angular's emulated view encapsulation scopes
+   everything before `::ng-deep` to this component, and [data-theme="dark"]
+   lives on <html> (never rendered by this component), so a component-
+   scoped `[data-theme="dark"] ::ng-deep ...` rule can never match. */
 
 /* Below ~700px, 7 flex-squeezed day columns become illegibly thin. Instead
    of shrinking columns further, give the header/time-grid rows a min-width
@@ -21,9 +49,6 @@
   ::ng-deep .cal-week-view .cal-time-label-column,
   ::ng-deep .cal-week-view .cal-time {
     width: 48px;
-  }
-  ::ng-deep .cal-week-view .cal-all-day-events .cal-events-row {
-    margin-left: 48px;
   }
   ::ng-deep .cal-week-view .cal-event {
     font-size: 11px;

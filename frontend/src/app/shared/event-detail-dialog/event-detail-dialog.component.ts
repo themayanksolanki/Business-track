@@ -1,10 +1,17 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { NgTemplateOutlet } from '@angular/common';
+import { HttpEventType } from '@angular/common/http';
 import dayjs from 'dayjs/esm';
+import { CKEditorModule } from '@ckeditor/ckeditor5-angular';
+import { ClassicEditor, Essentials, Paragraph, Bold, Italic, Underline, Link, List } from 'ckeditor5';
+import { environment } from '../../../environments/environment';
 import { ModalDirective } from '../modal.directive';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 import { DatePickerComponent } from '../date-picker/date-picker.component';
 import { TimePickerComponent } from '../time-picker/time-picker.component';
+import { AttachmentThumbComponent } from '../attachment-thumb/attachment-thumb.component';
+import { AttachmentViewerComponent } from '../attachment-viewer/attachment-viewer.component';
 import { EventService } from '../../core/services/event.service';
 import { CalendarCategoryService } from '../../core/services/calendar-category.service';
 import { CalendarService } from '../../core/services/calendar.service';
@@ -22,6 +29,7 @@ import {
 } from '../../models/event.model';
 import { CalendarCategory } from '../../models/calendar-category.model';
 import { Calendar } from '../../models/calendar.model';
+import { Attachment, ACCEPTED_ATTACHMENT_TYPES } from '../../models/attachment.model';
 
 export type EventDialogMode = 'create' | 'edit' | 'view';
 type RecurrenceEndType = 'never' | 'on' | 'after';
@@ -64,14 +72,32 @@ interface ReminderRow {
 @Component({
   selector: 'app-event-detail-dialog',
   standalone: true,
-  imports: [FormsModule, ModalDirective, ConfirmDialogComponent, DatePickerComponent, TimePickerComponent],
+  imports: [
+    FormsModule,
+    NgTemplateOutlet,
+    ModalDirective,
+    ConfirmDialogComponent,
+    DatePickerComponent,
+    TimePickerComponent,
+    CKEditorModule,
+    AttachmentThumbComponent,
+    AttachmentViewerComponent,
+  ],
   templateUrl: './event-detail-dialog.component.html',
   styleUrl: './event-detail-dialog.component.css',
 })
-export class EventDetailDialogComponent implements OnChanges {
+export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy {
   readonly frequencyOptions = FREQUENCY_OPTIONS;
   readonly visibilityOptions = VISIBILITY_OPTIONS;
   readonly reminderMethodOptions = REMINDER_METHOD_OPTIONS;
+  readonly acceptedFileTypes = ACCEPTED_ATTACHMENT_TYPES;
+
+  readonly DescriptionEditor = ClassicEditor;
+  readonly descriptionEditorConfig = {
+    licenseKey: environment.ckeditorLicenseKey,
+    plugins: [Essentials, Paragraph, Bold, Italic, Underline, Link, List],
+    toolbar: ['bold', 'italic', 'underline', '|', 'bulletedList', 'numberedList', '|', 'link', '|', 'undo', 'redo'],
+  };
 
   @Input() open = false;
   @Input() mode: EventDialogMode = 'view';
@@ -147,6 +173,38 @@ export class EventDetailDialogComponent implements OnChanges {
   guestNameInput = '';
   guests: GuestInput[] = [];
 
+  // Attachments — mirrors attachment-panel.component.ts's logic, keyed off
+  // loadedEvent.id instead of a project/item pair. Deliberately NOT sourced
+  // from loadedEvent.attachments (populated by EVENT_INCLUDE): for a
+  // recurring occurrence that's been individually modified, that embedded
+  // field belongs to the separate override row (always empty), not the
+  // master series' real list — always fetched fresh via getAttachments().
+  attachments: Attachment[] = [];
+  attachmentsLoading = false;
+  attachmentUploading = false;
+  attachmentUploadError = '';
+  downloadingId: number | null = null;
+  progress = 0;
+  viewerOpen = false;
+  viewerIndex = 0;
+
+  addLinkOpen = false;
+  linkUrlInput = '';
+  linkLabelInput = '';
+  addLinkLoading = false;
+  addLinkError = '';
+
+  // Presentation-only clock the countdown badges read from — the actual
+  // deletion is driven server-side off pendingDeleteAt, this just ticks the
+  // displayed "Xs" down each second.
+  private now = Date.now();
+  private tickHandle?: ReturnType<typeof setInterval>;
+  private pollHandle?: ReturnType<typeof setInterval>;
+  // Matches the backend's countdown (see PENDING_DELETE_MS in
+  // attachmentController.ts) — frequent enough that the list catches up
+  // shortly after the badge hits 0, without polling constantly.
+  private readonly POLL_MS = 2000;
+
   constructor(
     private eventService: EventService,
     private categoryService: CalendarCategoryService,
@@ -201,6 +259,15 @@ export class EventDetailDialogComponent implements OnChanges {
     return base;
   }
 
+  ngOnInit() {
+    this.tickHandle = setInterval(() => (this.now = Date.now()), 1000);
+  }
+
+  ngOnDestroy() {
+    if (this.tickHandle) clearInterval(this.tickHandle);
+    this.stopPolling();
+  }
+
   ngOnChanges(changes: SimpleChanges) {
     if (changes['open'] && this.open) {
       this.error = '';
@@ -219,6 +286,7 @@ export class EventDetailDialogComponent implements OnChanges {
       if (this.mode === 'create') {
         this.internalMode = 'create';
         this.loadedEvent = null;
+        this.attachments = [];
         this.resetFormForCreate();
       } else if (this.eventId !== null) {
         this.internalMode = this.mode;
@@ -227,6 +295,8 @@ export class EventDetailDialogComponent implements OnChanges {
       }
     } else if (changes['open'] && !this.open) {
       this.loadedEvent = null;
+      this.attachments = [];
+      this.stopPolling();
       this.scopeChoiceOpen = false;
       this.scopeChoiceKind = null;
       this.pendingPayload = null;
@@ -241,6 +311,7 @@ export class EventDetailDialogComponent implements OnChanges {
         this.loadedEvent = event;
         this.populateForm(event);
         this.loading = false;
+        this.loadAttachments();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to load event';
@@ -257,6 +328,7 @@ export class EventDetailDialogComponent implements OnChanges {
         this.loadedEvent = event;
         this.populateForm(event);
         this.loading = false;
+        this.loadAttachments();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to load event';
@@ -374,6 +446,50 @@ export class EventDetailDialogComponent implements OnChanges {
     if (!date) return dayjs().toISOString();
     if (this.allDay) return dayjs(date, 'YYYY-MM-DD').startOf('day').toISOString();
     return dayjs(`${date} ${time || '00:00'}`, 'YYYY-MM-DD HH:mm').toISOString();
+  }
+
+  onStartDateChange(date: string | null) {
+    this.startDate = date;
+    this.clampEndToStart();
+  }
+
+  onStartTimeChange(time: string | null) {
+    this.startTime = time;
+    this.clampEndToStart();
+  }
+
+  onEndDateChange(date: string | null) {
+    this.endDate = date;
+    this.clampStartToEnd();
+  }
+
+  onEndTimeChange(time: string | null) {
+    this.endTime = time;
+    this.clampStartToEnd();
+  }
+
+  // Keeps end >= start by moving end (date and time) up to start whenever a
+  // start-side edit pushes it past the current end — compares full
+  // date+time (via combineDateTime, which already folds in allDay), not
+  // just the date.
+  private clampEndToStart() {
+    if (!this.startDate || !this.endDate) return;
+    const start = this.combineDateTime(this.startDate, this.startTime);
+    const end = this.combineDateTime(this.endDate, this.endTime);
+    if (dayjs(start).isAfter(end)) {
+      this.endDate = this.startDate;
+      this.endTime = this.startTime;
+    }
+  }
+
+  private clampStartToEnd() {
+    if (!this.startDate || !this.endDate) return;
+    const start = this.combineDateTime(this.startDate, this.startTime);
+    const end = this.combineDateTime(this.endDate, this.endTime);
+    if (dayjs(end).isBefore(start)) {
+      this.startDate = this.endDate;
+      this.startTime = this.endTime;
+    }
   }
 
   private buildPayload(): CreateEventPayload | UpdateEventPayload {
@@ -566,5 +682,156 @@ export class EventDetailDialogComponent implements OnChanges {
         this.confirmDeleteOpen = false;
       },
     });
+  }
+
+  isPending(a: Attachment): boolean {
+    return !!a.pendingDeleteAt && new Date(a.pendingDeleteAt).getTime() > this.now;
+  }
+
+  remainingSeconds(a: Attachment): number {
+    if (!a.pendingDeleteAt) return 0;
+    return Math.max(0, Math.ceil((new Date(a.pendingDeleteAt).getTime() - this.now) / 1000));
+  }
+
+  // silent=true skips the loading spinner — used by the background poll so
+  // a countdown reaching 0 doesn't flash "Loading…" over the list.
+  loadAttachments(silent = false) {
+    if (!this.loadedEvent) return;
+    if (!silent) this.attachmentsLoading = true;
+    this.eventService.getAttachments(this.loadedEvent.id).subscribe({
+      next: (list) => {
+        this.attachments = list;
+        this.attachmentsLoading = false;
+        this.syncPolling();
+      },
+      error: () => (this.attachmentsLoading = false),
+    });
+  }
+
+  // Keeps polling while a countdown is in flight so the list picks up the
+  // permanent delete as soon as the sweep on the server processes it,
+  // without the user having to refresh.
+  private syncPolling() {
+    const hasPending = this.attachments.some((a) => a.pendingDeleteAt);
+    if (hasPending && !this.pollHandle) {
+      this.pollHandle = setInterval(() => this.loadAttachments(true), this.POLL_MS);
+    } else if (!hasPending) {
+      this.stopPolling();
+    }
+  }
+
+  private stopPolling() {
+    if (this.pollHandle) {
+      clearInterval(this.pollHandle);
+      this.pollHandle = undefined;
+    }
+  }
+
+  onFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !this.loadedEvent) return;
+
+    this.attachmentUploading = true;
+    this.attachmentUploadError = '';
+    this.eventService.uploadAttachment(this.loadedEvent.id, file).subscribe({
+      next: (res) => {
+        switch (res.type) {
+          case HttpEventType.UploadProgress:
+            if (res.total) {
+              this.progress = Math.round((100 * res.loaded) / res.total);
+            }
+            break;
+          case HttpEventType.Response:
+            this.attachments = [res.body.attachment, ...this.attachments];
+            this.attachmentUploading = false;
+            input.value = '';
+            break;
+        }
+      },
+      error: (err) => {
+        this.attachmentUploadError = err.error?.message || 'Failed to upload file';
+        this.attachmentUploading = false;
+        input.value = '';
+      },
+    });
+  }
+
+  toggleAddLink() {
+    this.addLinkOpen = !this.addLinkOpen;
+    this.addLinkError = '';
+    if (!this.addLinkOpen) {
+      this.linkUrlInput = '';
+      this.linkLabelInput = '';
+    }
+  }
+
+  submitLink() {
+    const url = this.linkUrlInput.trim();
+    if (!url || !this.loadedEvent) return;
+    this.addLinkLoading = true;
+    this.addLinkError = '';
+    this.eventService
+      .addLinkAttachment(this.loadedEvent.id, { url, fileName: this.linkLabelInput.trim() })
+      .subscribe({
+        next: (res) => {
+          this.attachments = [res.attachment, ...this.attachments];
+          this.addLinkLoading = false;
+          this.addLinkOpen = false;
+          this.linkUrlInput = '';
+          this.linkLabelInput = '';
+        },
+        error: (err) => {
+          this.addLinkError = err.error?.message || 'Failed to add link';
+          this.addLinkLoading = false;
+        },
+      });
+  }
+
+  download(attachment: Attachment) {
+    if (!this.loadedEvent) return;
+    this.downloadingId = attachment.id;
+    this.eventService.downloadAttachment(this.loadedEvent.id, attachment.id).subscribe({
+      next: (info) => {
+        window.open(info.downloadUrl, '_blank');
+        this.downloadingId = null;
+      },
+      error: () => (this.downloadingId = null),
+    });
+  }
+
+  deleteAttachment(attachment: Attachment) {
+    if (!this.loadedEvent) return;
+    this.eventService.deleteAttachment(this.loadedEvent.id, attachment.id).subscribe({
+      next: (res) => {
+        this.attachments = this.attachments.map((a) => (a.id === res.attachment.id ? res.attachment : a));
+        this.syncPolling();
+      },
+    });
+  }
+
+  undoDeleteAttachment(attachment: Attachment) {
+    if (!this.loadedEvent) return;
+    this.eventService.undoDeleteAttachment(this.loadedEvent.id, attachment.id).subscribe({
+      next: (res) => {
+        this.attachments = this.attachments.map((a) => (a.id === res.attachment.id ? res.attachment : a));
+        this.syncPolling();
+      },
+    });
+  }
+
+  getAttachmentFileInfo = (attachment: Attachment) =>
+    this.eventService.downloadAttachment(this.loadedEvent!.id, attachment.id);
+
+  openViewer(attachment: Attachment) {
+    const index = this.attachments.findIndex((a) => a.id === attachment.id);
+    this.viewerIndex = index >= 0 ? index : 0;
+    this.viewerOpen = true;
+  }
+
+  formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 }

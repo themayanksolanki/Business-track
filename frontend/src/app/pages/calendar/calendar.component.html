@@ -108,3 +108,11 @@
   (confirmed)="deleteCalendar()"
   (cancelled)="cancelDeleteCalendar()">
 </app-confirm-dialog>
+
+<app-day-events-dialog
+  [open]="state.dayEventsPopupOpen()"
+  [date]="state.dayEventsPopupDate()"
+  [occurrences]="state.dayEventsPopupOccurrences()"
+  (closed)="state.closeDayEventsPopup()"
+  (eventClicked)="state.openEventFromDayPopup($event)">
+</app-day-events-dialog>

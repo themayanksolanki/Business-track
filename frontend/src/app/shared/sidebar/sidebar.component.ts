@@ -1,5 +1,6 @@
-import { Component, OnDestroy, inject } from '@angular/core';
+import { Component, ElementRef, OnDestroy, ViewChild, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
 import { AuthService } from '../../core/services/auth.service';
 import { ChatService } from '../../core/services/chat.service';
 import { ProjectsViewMode, ProjectsViewService } from '../../core/services/projects-view.service';
@@ -16,7 +17,7 @@ import { NotificationBellComponent } from '../notification-bell/notification-bel
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, IconComponent, NotificationBellComponent],
+  imports: [RouterLink, RouterLinkActive, IconComponent, NotificationBellComponent, NgbDropdownModule],
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.css',
 })
@@ -27,6 +28,31 @@ export class SidebarComponent implements OnDestroy {
   readonly projectsView = inject(ProjectsViewService);
   readonly appearance = inject(SidebarAppearanceService);
   private readonly router = inject(Router);
+
+  @ViewChild('sidebarEl') private sidebarEl?: ElementRef<HTMLElement>;
+
+  // Flyout submenus (Projects/Metrics) render into <body> via ngbDropdown's
+  // container:'body' config so they aren't clipped by .sidebar-nav's
+  // overflow-x:hidden — but that also takes them out of .app-sidebar's
+  // subtree, so they stop inheriting its per-theme --sb-* custom properties.
+  // Copy the live resolved values on as they open.
+  private readonly submenuThemeVars = [
+    '--sb-submenu-bg',
+    '--sb-text',
+    '--sb-text-hover',
+    '--sb-text-override',
+    '--sb-overlay-1',
+    '--sb-overlay-2',
+    '--sb-active-bg',
+  ];
+
+  syncSubmenuTheme(menuEl: HTMLElement) {
+    if (!this.sidebarEl) return;
+    const computed = getComputedStyle(this.sidebarEl.nativeElement);
+    for (const name of this.submenuThemeVars) {
+      menuEl.style.setProperty(name, computed.getPropertyValue(name));
+    }
+  }
 
   private dragStartX = 0;
   private dragStartWidth = 0;

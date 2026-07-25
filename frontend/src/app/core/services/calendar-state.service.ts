@@ -19,11 +19,10 @@ import { CalendarEvent as MwlCalendarEvent } from 'angular-calendar';
 import { EventService } from './event.service';
 import { CalendarService } from './calendar.service';
 import { CalendarOccurrence } from '../../models/event.model';
+import { isAllDayOrMultiDay, resolveEventColor } from './calendar-layout.util';
 
 export type CalendarViewMode = 'day' | 'week' | 'month';
 export type EventDialogMode = 'create' | 'edit' | 'view';
-
-const DEFAULT_EVENT_COLOR = '#3b82f6';
 
 // Provided per-instance in CalendarComponent (not providedIn:'root') so it's
 // scoped to the /calendar feature and shared between the shell (toolbar/
@@ -51,6 +50,10 @@ export class CalendarStateService {
   private readonly _dialogMode = signal<EventDialogMode>('view');
   private readonly _createRangeStart = signal<Date | null>(null);
   private readonly _createRangeEnd = signal<Date | null>(null);
+  // Which day's "+N more" popup is open — null means closed. Hoisted into
+  // CalendarComponent's template the same way the other dialog state is.
+  private readonly _dayEventsPopupDate = signal<Date | null>(null);
+  private readonly _dayEventsPopupOccurrences = signal<CalendarOccurrence[]>([]);
 
   readonly viewDate = this._viewDate.asReadonly();
   readonly viewMode = this._viewMode.asReadonly();
@@ -63,6 +66,9 @@ export class CalendarStateService {
   readonly createRangeStart = this._createRangeStart.asReadonly();
   readonly createRangeEnd = this._createRangeEnd.asReadonly();
   readonly dialogOpen = computed(() => this._dialogMode() === 'create' || this._selectedEventId() !== null);
+  readonly dayEventsPopupDate = this._dayEventsPopupDate.asReadonly();
+  readonly dayEventsPopupOccurrences = this._dayEventsPopupOccurrences.asReadonly();
+  readonly dayEventsPopupOpen = computed(() => this._dayEventsPopupDate() !== null);
 
   // Calendars the user has toggled off (see CalendarService.calendars'
   // isEnabled) are hidden from the grid without re-fetching — filtered
@@ -71,14 +77,24 @@ export class CalendarStateService {
     () => new Set(this.calendarService.calendars().filter((c) => c.isEnabled).map((c) => c.id))
   );
 
+  // Raw occurrences filtered down to enabled calendars — the shared base
+  // that mwlEvents/timedGridEvents/strapEvents all build on.
+  readonly enabledEvents = computed(() =>
+    this._events().filter((e) => this.enabledCalendarIds().has(e.calendar.id))
+  );
+
   // Converted to the shape mwl-calendar-*-view expects — computed so all
   // three view components can just bind `[events]="state.mwlEvents()"`
   // without each doing their own mapping.
-  readonly mwlEvents = computed(() =>
-    this._events()
-      .filter((e) => this.enabledCalendarIds().has(e.calendar.id))
-      .map((e) => this.toMwlEvent(e))
-  );
+  readonly mwlEvents = computed(() => this.enabledEvents().map((e) => this.toMwlEvent(e)));
+
+  // Split for week/day view: timed (single-day, non-all-day) events still
+  // go through the library's hourly grid, while all-day/multi-day events
+  // are rendered by the custom EventStrapRowComponent instead — never both,
+  // so an event never appears twice.
+  readonly timedGridEvents = computed(() => this.enabledEvents().filter((e) => !isAllDayOrMultiDay(e)));
+  readonly strapEvents = computed(() => this.enabledEvents().filter((e) => isAllDayOrMultiDay(e)));
+  readonly timedMwlEvents = computed(() => this.timedGridEvents().map((e) => this.toMwlEvent(e)));
 
   readonly rangeLabel = computed(() => {
     const d = this._viewDate();
@@ -197,6 +213,24 @@ export class CalendarStateService {
     this._createRangeEnd.set(null);
   }
 
+  openDayEventsPopup(date: Date, occurrences: CalendarOccurrence[]) {
+    this._dayEventsPopupDate.set(date);
+    this._dayEventsPopupOccurrences.set(occurrences);
+  }
+
+  closeDayEventsPopup() {
+    this._dayEventsPopupDate.set(null);
+    this._dayEventsPopupOccurrences.set([]);
+  }
+
+  // Hands off from the day-events popup to the existing event-detail dialog
+  // — same isRecurring/originalStart handling every view's onEventClicked
+  // already does when calling openEventDetail directly.
+  openEventFromDayPopup(occurrence: CalendarOccurrence) {
+    this.closeDayEventsPopup();
+    this.openEventDetail(occurrence.id, occurrence.isRecurring ? occurrence.originalStart : undefined);
+  }
+
   private loadEvents(mode: CalendarViewMode, date: Date) {
     const { start, end } = this.visibleRange(mode, date);
     this._eventsLoading.set(true);
@@ -228,7 +262,7 @@ export class CalendarStateService {
   }
 
   private toMwlEvent(event: CalendarOccurrence): MwlCalendarEvent {
-    const primary = event.color || event.category?.color || event.calendar?.color || DEFAULT_EVENT_COLOR;
+    const primary = resolveEventColor(event);
     return {
       // One recurring master can now produce many occurrences in the same
       // response — angular-calendar needs a unique id per grid item, not

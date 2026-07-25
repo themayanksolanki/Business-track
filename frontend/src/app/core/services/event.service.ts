@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEvent } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import {
   CalendarEventModel,
@@ -9,6 +9,8 @@ import {
   EventListFilters,
   PaginatedEvents,
 } from '../../models/event.model';
+import { Attachment, DownloadInfo } from '../../models/attachment.model';
+import { Observable } from 'rxjs';
 
 // Only 4 backend routes exist (GET/POST /events, PUT/DELETE /events/:id) —
 // searchEvents()/getEventsBetween() are thin convenience wrappers over the
@@ -109,6 +111,46 @@ export class EventService {
         : null,
     };
     return this.createEvent(payload);
+  }
+
+  // Attachments — file upload or a pasted link, with a 10s undo-able pending
+  // delete, mirroring ProjectService's item-attachment methods.
+  getAttachments(eventId: number | string) {
+    return this.http.get<Attachment[]>(`${this.api}/${eventId}/attachments`);
+  }
+
+  uploadAttachment(eventId: number | string, file: File): Observable<HttpEvent<any>> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post(`${this.api}/${eventId}/attachments`, formData, {
+      reportProgress: true,
+      observe: 'events',
+    });
+  }
+
+  addLinkAttachment(eventId: number | string, payload: { url: string; fileName?: string }) {
+    return this.http.post<{ message: string; attachment: Attachment }>(
+      `${this.api}/${eventId}/attachments/link`,
+      payload
+    );
+  }
+
+  downloadAttachment(eventId: number | string, attachmentId: number) {
+    return this.http.get<DownloadInfo>(`${this.api}/${eventId}/attachments/${attachmentId}/download`);
+  }
+
+  // Starts the 10s server-side countdown; doesn't delete anything itself.
+  deleteAttachment(eventId: number | string, attachmentId: number) {
+    return this.http.delete<{ message: string; attachment: Attachment }>(
+      `${this.api}/${eventId}/attachments/${attachmentId}`
+    );
+  }
+
+  undoDeleteAttachment(eventId: number | string, attachmentId: number) {
+    return this.http.post<{ message: string; attachment: Attachment }>(
+      `${this.api}/${eventId}/attachments/${attachmentId}/undo`,
+      {}
+    );
   }
 
   private buildParams(filters: EventListFilters): Record<string, string | number> {

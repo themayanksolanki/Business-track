@@ -78,11 +78,11 @@
           <div class="row">
             <div class="col-md-6 mb-3">
               <label class="field-label">Start date</label>
-              <app-date-picker [value]="startDate" (valueChange)="startDate = $event"></app-date-picker>
+              <app-date-picker [value]="startDate" (valueChange)="onStartDateChange($event)"></app-date-picker>
             </div>
             <div class="col-md-6 mb-3">
               <label class="field-label">Due date</label>
-              <app-date-picker [value]="dueDate" [min]="startDate" (valueChange)="dueDate = $event"></app-date-picker>
+              <app-date-picker [value]="dueDate" [min]="startDate" (valueChange)="onDueDateChange($event)"></app-date-picker>
             </div>
           </div>
 

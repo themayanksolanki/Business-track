@@ -13,6 +13,7 @@
 </button>
 
 <aside
+  #sidebarEl
   class="app-sidebar"
   [class.collapsed]="svc.collapsed()"
   [class.dragging]="svc.dragging()"
@@ -65,7 +66,15 @@
         <span class="nav-label">TODOs</span>
       }
     </a>
-    <div class="nav-item-group">
+    <div
+      class="nav-item-group"
+      ngbDropdown
+      #projectsDd="ngbDropdown"
+      [autoClose]="true"
+      placement="right-start"
+      (mouseenter)="syncSubmenuTheme(projectsMenu); projectsDd.open()"
+      (mouseleave)="projectsDd.close()"
+    >
       <a
         routerLink="/projects"
         class="nav-item"
@@ -78,7 +87,18 @@
           <span class="nav-label">Projects</span>
         }
       </a>
-      <div class="nav-submenu">
+      @if (labelsVisible()) {
+        <button
+          type="button"
+          class="nav-submenu-toggle"
+          ngbDropdownToggle
+          (click)="syncSubmenuTheme(projectsMenu)"
+          aria-label="Toggle Projects view options"
+        >
+          <span class="nav-submenu-toggle-icon"><app-icon name="chevron-left" [size]="12" /></span>
+        </button>
+      }
+      <div class="nav-submenu" ngbDropdownMenu #projectsMenu>
         <button
           type="button"
           class="nav-submenu-item"
@@ -132,7 +152,15 @@
         <span class="nav-label">Calendar</span>
       }
     </a>
-    <div class="nav-item-group">
+    <div
+      class="nav-item-group"
+      ngbDropdown
+      #metricsDd="ngbDropdown"
+      [autoClose]="true"
+      placement="right-start"
+      (mouseenter)="syncSubmenuTheme(metricsMenu); metricsDd.open()"
+      (mouseleave)="metricsDd.close()"
+    >
       <a
         routerLink="/metrics"
         class="nav-item"
@@ -146,7 +174,18 @@
           <span class="nav-label">Metrics</span>
         }
       </a>
-      <div class="nav-submenu">
+      @if (labelsVisible()) {
+        <button
+          type="button"
+          class="nav-submenu-toggle"
+          ngbDropdownToggle
+          (click)="syncSubmenuTheme(metricsMenu)"
+          aria-label="Toggle Metrics view options"
+        >
+          <span class="nav-submenu-toggle-icon"><app-icon name="chevron-left" [size]="12" /></span>
+        </button>
+      }
+      <div class="nav-submenu" ngbDropdownMenu #metricsMenu>
         <a routerLink="/metrics" [routerLinkActiveOptions]="{ exact: true }" routerLinkActive="active" class="nav-submenu-item" (click)="closeMobile()">
           <i class="bi bi-list-ul"></i>
           <span>List</span>

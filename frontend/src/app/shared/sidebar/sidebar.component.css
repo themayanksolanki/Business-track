@@ -165,17 +165,20 @@
   text-align: center;
 }
 
-/* ── Projects nav flyout (view-mode submenu, shown on hover) ── */
+/* ── Projects/Metrics nav flyout (view-mode submenu) ──
+   Opens on hover (mouseenter/leave calling the ngbDropdown instance) and via
+   the .nav-submenu-toggle button for touch/keyboard. Rendered into <body> by
+   ngbDropdown's app-wide container:'body' config so it isn't clipped by
+   .sidebar-nav's overflow-x:hidden — see app.config.ts's NgbDropdownConfig. */
 .nav-item-group {
   position: relative;
 }
 
+.app-sidebar:not(.collapsed) .nav-item-group .nav-item {
+  padding-right: 32px;
+}
+
 .nav-submenu {
-  display: none;
-  position: absolute;
-  top: 0;
-  left: 100%;
-  margin-left: 6px;
   min-width: 140px;
   padding: 6px;
   border-radius: 10px;
@@ -183,14 +186,37 @@
   border: 1px solid var(--sb-overlay-1, rgba(255, 255, 255, 0.08));
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   z-index: 1031;
+  display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-@media (hover: hover) {
-  .nav-item-group:hover .nav-submenu {
-    display: flex;
-  }
+.nav-submenu-toggle {
+  position: absolute;
+  top: 0;
+  right: 4px;
+  width: 24px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--sb-text-override, var(--sb-text, #94a3b8));
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.nav-submenu-toggle:hover,
+.nav-submenu-toggle[aria-expanded='true'] {
+  color: var(--sb-text-hover, #fff);
+  background: var(--sb-overlay-2, rgba(255, 255, 255, 0.07));
+}
+
+.nav-submenu-toggle-icon {
+  display: inline-flex;
+  transform: rotate(180deg);
 }
 
 .nav-submenu-item {

@@ -1,0 +1,24 @@
+<div class="strap-row" [style.grid-template-columns]="'repeat(' + days.length + ', 1fr)'">
+  @for (placement of rowLayout.placements; track trackByPlacement($index, placement)) {
+    <div
+      class="strap-bar"
+      [style.grid-column]="(placement.startCol + 1) + ' / span ' + placement.span"
+      [style.grid-row]="placement.lane + 1"
+      [style.background]="resolveEventColor(placement.event)"
+      [title]="formatStrapLabel(placement.event)"
+      (click)="eventClicked.emit(placement.event)">
+      {{ formatStrapLabel(placement.event) }}
+    </div>
+  }
+  @for (day of days; track day.getTime(); let i = $index) {
+    @if (rowLayout.hiddenCountByDay[i] > 0) {
+      <div
+        class="strap-more-chip"
+        [style.grid-column]="i + 1"
+        [style.grid-row]="rowLayout.visibleLanes + 1"
+        (click)="moreClicked.emit(day)">
+        +{{ rowLayout.hiddenCountByDay[i] }} more
+      </div>
+    }
+  }
+</div>

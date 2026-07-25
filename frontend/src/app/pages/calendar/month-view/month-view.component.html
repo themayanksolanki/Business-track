@@ -1,6 +1,7 @@
-<mwl-calendar-month-view
+<app-month-grid
   [viewDate]="state.viewDate()"
-  [events]="state.mwlEvents()"
-  (dayClicked)="onDayClicked($event.day)"
-  (eventClicked)="onEventClicked($event.event)">
-</mwl-calendar-month-view>
+  [events]="state.enabledEvents()"
+  (dayClicked)="onDayClicked($event)"
+  (eventClicked)="onStrapEventClicked($event)"
+  (moreClicked)="onMoreClicked($event)">
+</app-month-grid>

@@ -64,6 +64,16 @@ export class TaskEditModalComponent implements OnChanges {
     this.form.get('status')?.setValue(status);
   }
 
+  onStartDateChange(date: string | null) {
+    this.startDate = date;
+    if (date && this.dueDate && date > this.dueDate) this.dueDate = date;
+  }
+
+  onDueDateChange(date: string | null) {
+    this.dueDate = date;
+    if (date && this.startDate && date < this.startDate) this.startDate = date;
+  }
+
   onTagsChange(tags: TagLite[]) {
     this.selectedTags = tags;
   }

@@ -73,6 +73,47 @@ export class ProjectFormComponent implements OnChanges {
     return dayjs(`${date} ${time || '00:00'}`, 'YYYY-MM-DD HH:mm').toISOString();
   }
 
+  onStartDateChange(date: string | null) {
+    this.startDate = date;
+    this.clampEndToStart();
+  }
+
+  onStartTimeChange(time: string | null) {
+    this.startTime = time;
+    this.clampEndToStart();
+  }
+
+  onEndDateChange(date: string | null) {
+    this.endDate = date;
+    this.clampStartToEnd();
+  }
+
+  onEndTimeChange(time: string | null) {
+    this.endTime = time;
+    this.clampStartToEnd();
+  }
+
+  // Keeps end >= start by moving end (date and time) up to start whenever a
+  // start-side edit pushes it past the current end — compares full
+  // date+time, not just the date, since both fields carry a time-of-day.
+  private clampEndToStart() {
+    const start = this.combineDateTime(this.startDate, this.startTime);
+    const end = this.combineDateTime(this.endDate, this.endTime);
+    if (start && end && dayjs(start).isAfter(end)) {
+      this.endDate = this.startDate;
+      this.endTime = this.startTime;
+    }
+  }
+
+  private clampStartToEnd() {
+    const start = this.combineDateTime(this.startDate, this.startTime);
+    const end = this.combineDateTime(this.endDate, this.endTime);
+    if (start && end && dayjs(end).isBefore(start)) {
+      this.startDate = this.endDate;
+      this.startTime = this.endTime;
+    }
+  }
+
   submit() {
     if (this.form.invalid) {
       this.form.markAllAsTouched();

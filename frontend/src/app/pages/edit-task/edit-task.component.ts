@@ -56,6 +56,16 @@ export class EditTaskComponent implements OnInit {
     });
   }
 
+  onStartDateChange(date: string | null) {
+    this.startDate = date;
+    if (date && this.dueDate && date > this.dueDate) this.dueDate = date;
+  }
+
+  onDueDateChange(date: string | null) {
+    this.dueDate = date;
+    if (date && this.startDate && date < this.startDate) this.startDate = date;
+  }
+
   get selectedStatusLabel() {
     return this.form.get('status')?.value === 'completed' ? 'Completed' : 'Pending';
   }
