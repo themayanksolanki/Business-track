@@ -104,11 +104,17 @@ export class CalendarStateService {
     // Runs once immediately (loading the current month) and again whenever
     // viewDate/viewMode change — reading both signals here is what makes
     // this effect re-fire on either changing.
-    effect(() => {
-      const mode = this._viewMode();
-      const date = this._viewDate();
-      this.loadEvents(mode, date);
-    });
+    effect(
+      () => {
+        const mode = this._viewMode();
+        const date = this._viewDate();
+        this.loadEvents(mode, date);
+      },
+      // loadEvents sets _eventsLoading/_eventsError/_events, none of which
+      // this effect reads — safe from feedback loops, just needs the flag
+      // since those writes happen synchronously inside the effect.
+      { allowSignalWrites: true }
+    );
 
     // Kicked off alongside the first event load so enabledCalendarIds is
     // populated by the time mwlEvents first computes (a brief empty flash

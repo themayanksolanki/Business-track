@@ -530,4 +530,134 @@ export const validateTrackingDiff = (req, res, next) => {
     }
     next();
 };
+export const validateEventId = validateParamId('eventId');
+const VALID_EVENT_VISIBILITY = ['standard', 'private', 'public'];
+const VALID_EVENT_BUSY_STATUS = ['busy', 'free'];
+const VALID_REMINDER_METHODS = ['notification', 'email'];
+const VALID_RECURRENCE_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'];
+export const validateEvent = (req, res, next) => {
+    const { title, description, location, start, end, color, categoryId, calendarId, meetingLinkUrl, meetingLinkTitle, visibility, busyStatus, guests, reminders, recurrence, } = req.body;
+    if (req.method === 'POST') {
+        if (!title || !title.trim())
+            return next(new AppError('Title is required', 400));
+        if (!start || !isValidDateValue(start))
+            return next(new AppError('start is required and must be a valid date', 400));
+        if (!end || !isValidDateValue(end))
+            return next(new AppError('end is required and must be a valid date', 400));
+    }
+    else {
+        if (title !== undefined && !title.trim())
+            return next(new AppError('Title cannot be empty', 400));
+        if (start !== undefined && !isValidDateValue(start))
+            return next(new AppError('start is not a valid date', 400));
+        if (end !== undefined && !isValidDateValue(end))
+            return next(new AppError('end is not a valid date', 400));
+    }
+    if (start && end && new Date(end).getTime() < new Date(start).getTime())
+        return next(new AppError('end must be on or after start', 400));
+    if (description !== undefined && typeof description !== 'string')
+        return next(new AppError('description must be a string', 400));
+    if (location !== undefined && location !== null && typeof location !== 'string')
+        return next(new AppError('location must be a string', 400));
+    if (color !== undefined && color !== null && !HEX_COLOR_REGEX.test(color))
+        return next(new AppError('color must be a valid hex color', 400));
+    if (categoryId != null && !isValidId(categoryId))
+        return next(new AppError('categoryId is not a valid ID', 400));
+    if (calendarId != null && !isValidId(calendarId))
+        return next(new AppError('calendarId is not a valid ID', 400));
+    if (visibility !== undefined && !VALID_EVENT_VISIBILITY.includes(visibility))
+        return next(new AppError(`visibility must be one of: ${VALID_EVENT_VISIBILITY.join(', ')}`, 400));
+    if (busyStatus !== undefined && !VALID_EVENT_BUSY_STATUS.includes(busyStatus))
+        return next(new AppError(`busyStatus must be one of: ${VALID_EVENT_BUSY_STATUS.join(', ')}`, 400));
+    // Only validated when actually setting a link — null/'' clears it.
+    if (meetingLinkUrl) {
+        try {
+            const parsed = new URL(meetingLinkUrl);
+            if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')
+                return next(new AppError('meetingLinkUrl must use http or https', 400));
+        }
+        catch {
+            return next(new AppError('meetingLinkUrl must be a valid URL', 400));
+        }
+        if (meetingLinkTitle !== undefined && meetingLinkTitle !== null && typeof meetingLinkTitle !== 'string')
+            return next(new AppError('meetingLinkTitle must be a string', 400));
+    }
+    if (guests !== undefined) {
+        if (!Array.isArray(guests))
+            return next(new AppError('guests must be an array', 400));
+        for (const g of guests) {
+            if (!g || typeof g !== 'object')
+                return next(new AppError('Each guest must be an object', 400));
+            if (!g.email || !EMAIL_REGEX.test(g.email))
+                return next(new AppError('Each guest needs a valid email', 400));
+            if (g.userId !== undefined && g.userId !== null && !isValidId(g.userId))
+                return next(new AppError('guest userId is not a valid ID', 400));
+        }
+    }
+    if (reminders !== undefined) {
+        if (!Array.isArray(reminders))
+            return next(new AppError('reminders must be an array', 400));
+        for (const r of reminders) {
+            if (!r || typeof r !== 'object')
+                return next(new AppError('Each reminder must be an object', 400));
+            if (r.method !== undefined && !VALID_REMINDER_METHODS.includes(r.method))
+                return next(new AppError(`reminder method must be one of: ${VALID_REMINDER_METHODS.join(', ')}`, 400));
+            if (r.minutesBefore !== undefined && (!Number.isInteger(r.minutesBefore) || r.minutesBefore < 0))
+                return next(new AppError('reminder minutesBefore must be a non-negative integer', 400));
+        }
+    }
+    if (recurrence !== undefined && recurrence !== null) {
+        if (typeof recurrence !== 'object' || Array.isArray(recurrence))
+            return next(new AppError('recurrence must be an object', 400));
+        if (!VALID_RECURRENCE_FREQUENCIES.includes(recurrence.frequency))
+            return next(new AppError(`recurrence.frequency must be one of: ${VALID_RECURRENCE_FREQUENCIES.join(', ')}`, 400));
+        if (recurrence.interval !== undefined && (!Number.isInteger(recurrence.interval) || recurrence.interval < 1))
+            return next(new AppError('recurrence.interval must be a positive integer', 400));
+        if (recurrence.byWeekday !== undefined) {
+            const validWeekdays = Array.isArray(recurrence.byWeekday) &&
+                recurrence.byWeekday.every((d) => Number.isInteger(d) && d >= 0 && d <= 6);
+            if (!validWeekdays)
+                return next(new AppError('recurrence.byWeekday must be an array of integers 0-6', 400));
+        }
+        if (recurrence.count !== undefined && recurrence.count !== null && (!Number.isInteger(recurrence.count) || recurrence.count < 1))
+            return next(new AppError('recurrence.count must be a positive integer', 400));
+        if (recurrence.until !== undefined && recurrence.until !== null && !isValidDateValue(recurrence.until))
+            return next(new AppError('recurrence.until must be a valid date', 400));
+    }
+    next();
+};
+export const validateCalendarCategoryId = validateParamId('id');
+export const validateCalendarCategory = (req, res, next) => {
+    const { name, color } = req.body;
+    if (req.method === 'POST' && (!name || !name.trim()))
+        return next(new AppError('Name is required', 400));
+    if (name !== undefined && !name.trim())
+        return next(new AppError('Name cannot be empty', 400));
+    if (color !== undefined && color !== null && !HEX_COLOR_REGEX.test(color))
+        return next(new AppError('color must be a valid hex color', 400));
+    next();
+};
+export const validateCalendarId = validateParamId('id');
+// `originalStart` identifies which generated occurrence slot a request
+// targets (see EventException/backend/utils/recurrence.ts) — it's a date,
+// not an id, so it needs its own param validator rather than validateParamId.
+export const validateOccurrenceParams = (req, res, next) => {
+    if (!isValidId(req.params.eventId))
+        return next(new AppError(`Invalid ID: ${req.params.eventId}`, 400));
+    if (!isValidDateValue(req.params.originalStart))
+        return next(new AppError(`Invalid originalStart: ${req.params.originalStart}`, 400));
+    next();
+};
+export const validateCalendar = (req, res, next) => {
+    const { name, color, isEnabled } = req.body;
+    if (req.method === 'POST' && (!name || !name.trim()))
+        return next(new AppError('Name is required', 400));
+    if (name !== undefined && !name.trim())
+        return next(new AppError('Name cannot be empty', 400));
+    if (color !== undefined && color !== null && !HEX_COLOR_REGEX.test(color))
+        return next(new AppError('color must be a valid hex color', 400));
+    if (isEnabled !== undefined && typeof isEnabled !== 'boolean')
+        return next(new AppError('isEnabled must be a boolean', 400));
+    next();
+};
 //# sourceMappingURL=validate.js.map
