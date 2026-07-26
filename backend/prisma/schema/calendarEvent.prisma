@@ -27,31 +27,6 @@ model Calendar {
   @@map("calendars")
 }
 
-// Flat (non-hierarchical) event taxonomy — deliberately separate from the
-// existing `Category` model (used for Project/Metric), since event
-// categories are a different concept (e.g. "Meeting", "Personal", "Holiday")
-// and don't need Category's parent/child tree.
-model CalendarCategory {
-  id             Int      @id @default(autoincrement())
-  name           String
-  color          String   @default("#3b82f6")
-  organizationId Int?
-  createdById    Int
-  updatedById    Int?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  organization Organization? @relation(fields: [organizationId], references: [id])
-  createdBy    User          @relation("CalendarCategoryCreatedBy", fields: [createdById], references: [id])
-  updatedBy    User?         @relation("CalendarCategoryUpdatedBy", fields: [updatedById], references: [id])
-
-  events CalendarEvent[]
-
-  @@unique([organizationId, name])
-  @@index([organizationId])
-  @@map("calendar_categories")
-}
-
 enum RecurrenceFrequency {
   daily
   weekly
@@ -154,6 +129,10 @@ model CalendarEvent {
   // in the UI when null, same "override else inherit" idea as
   // User.sidebarTextColor falling back to the active theme's default.
   color          String?
+  // Shared with Project/Metric — the org's own Department/Category taxonomy,
+  // not a calendar-specific one (see git history for the earlier separate
+  // CalendarCategory model this replaced).
+  departmentId   Int?
   categoryId     Int?
   ownerId        Int
   calendarId     Int
@@ -171,7 +150,8 @@ model CalendarEvent {
   updatedAt      DateTime         @updatedAt
 
   organization Organization?     @relation(fields: [organizationId], references: [id])
-  category     CalendarCategory? @relation(fields: [categoryId], references: [id])
+  department   Department?       @relation(fields: [departmentId], references: [id])
+  category     Category?         @relation(fields: [categoryId], references: [id])
   owner        User              @relation("CalendarEventOwner", fields: [ownerId], references: [id])
   calendar     Calendar          @relation(fields: [calendarId], references: [id], onDelete: Cascade)
   recurrence   RecurringRule?    @relation(fields: [recurrenceId], references: [id])
@@ -192,6 +172,8 @@ model CalendarEvent {
 
   @@index([organizationId])
   @@index([calendarId])
+  @@index([departmentId])
+  @@index([categoryId])
   @@index([ownerId, start])
   @@unique([organizationId, sequenceId])
   @@map("calendar_events")

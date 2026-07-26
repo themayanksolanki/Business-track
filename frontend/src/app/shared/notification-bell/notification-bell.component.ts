@@ -1,4 +1,4 @@
-import { Component, Input, inject } from '@angular/core';
+import { Component, ElementRef, Input, ViewChild, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
 import { NotificationsFeedService } from '../../core/services/notifications-feed.service';
@@ -20,6 +20,35 @@ export class NotificationBellComponent {
 
   readonly svc = inject(NotificationsFeedService);
   private readonly router = inject(Router);
+  private readonly elementRef: ElementRef<HTMLElement> = inject(ElementRef);
+
+  @ViewChild('notificationMenu') private notificationMenuRef?: ElementRef<HTMLElement>;
+
+  // Same problem/fix as sidebar.component.ts's syncSubmenuTheme: the panel
+  // is teleported out to <body> by ngbDropdown's container:'body' config
+  // once open, which takes it out of .app-sidebar's subtree, so it stops
+  // inheriting its per-theme --sb-* custom properties. No-ops when this
+  // component isn't mounted inside a themed sidebar (e.g. used elsewhere).
+  private readonly themeVars = [
+    '--sb-submenu-bg',
+    '--sb-text',
+    '--sb-text-hover',
+    '--sb-heading',
+    '--sb-overlay-1',
+    '--sb-overlay-2',
+    '--sb-active-bg',
+  ];
+
+  onOpenChange(open: boolean) {
+    if (!open || !this.notificationMenuRef) return;
+    const sidebarEl = this.elementRef.nativeElement.closest<HTMLElement>('.app-sidebar');
+    if (!sidebarEl) return;
+    const computed = getComputedStyle(sidebarEl);
+    const menuEl = this.notificationMenuRef.nativeElement;
+    for (const name of this.themeVars) {
+      menuEl.style.setProperty(name, computed.getPropertyValue(name));
+    }
+  }
 
   open(n: AppNotification) {
     this.svc.markAsRead(n.id);

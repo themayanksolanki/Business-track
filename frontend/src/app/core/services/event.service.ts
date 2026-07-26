@@ -92,6 +92,7 @@ export class EventService {
       end: event.end,
       allDay: event.allDay,
       color: event.color,
+      departmentId: event.department?.id ?? null,
       categoryId: event.category?.id ?? null,
       calendarId: event.calendar.id,
       meetingLinkUrl: event.meetingLinkUrl,
@@ -159,6 +160,7 @@ export class EventService {
     if (filters.end) params['end'] = filters.end;
     if (filters.search) params['search'] = filters.search;
     if (filters.calendarId) params['calendarId'] = filters.calendarId;
+    if (filters.departmentId) params['departmentId'] = filters.departmentId;
     if (filters.categoryId) params['categoryId'] = filters.categoryId;
     if (filters.page) params['page'] = filters.page;
     if (filters.limit) params['limit'] = filters.limit;

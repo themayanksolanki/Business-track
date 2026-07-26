@@ -101,6 +101,7 @@ const VALID_LANDING_PAGES = [
     'organization',
 ];
 const VALID_SIDEBAR_THEMES = ['MIDNIGHT', 'CHARCOAL', 'OCEAN', 'FOREST', 'PLUM', 'DAYLIGHT', 'ROSE', 'SKY', 'SAND', 'LEMON'];
+const VALID_SIDEBAR_LOGOS = ['CHECK', 'ROCKET', 'BOLT', 'STAR', 'SHIELD', 'DIAMOND'];
 const VALID_CURRENCIES = ['USD', 'EUR', 'JPY', 'GBP', 'CNY', 'INR'];
 const VALID_MEASUREMENT_UNITS = ['KG', 'LB', 'LTR'];
 // Fields are all independently optional — this endpoint is shared by the
@@ -108,7 +109,7 @@ const VALID_MEASUREMENT_UNITS = ['KG', 'LB', 'LTR'];
 // landing-page pickers, and a request from one shouldn't need to (or
 // accidentally) touch the others' fields.
 export const validateUpdateProfile = (req, res, next) => {
-    const { phoneCountry, phoneNumber, dateFormat, timeFormat, defaultLandingPage, sidebarTheme, sidebarTextColor, currency, unit, decimalPoints, } = req.body;
+    const { phoneCountry, phoneNumber, dateFormat, timeFormat, defaultLandingPage, sidebarTheme, sidebarTextColor, sidebarLogo, currency, unit, decimalPoints, } = req.body;
     // Both null/empty clears the phone number; otherwise both must be present
     // and valid — a country code with no number (or vice versa) isn't useful.
     if (phoneCountry || phoneNumber) {
@@ -128,6 +129,8 @@ export const validateUpdateProfile = (req, res, next) => {
     // null clears the override back to the active theme's own default text color.
     if (sidebarTextColor !== undefined && sidebarTextColor !== null && !HEX_COLOR_REGEX.test(sidebarTextColor))
         return next(new AppError('sidebarTextColor must be a valid hex color', 400));
+    if (sidebarLogo !== undefined && !VALID_SIDEBAR_LOGOS.includes(sidebarLogo))
+        return next(new AppError(`sidebarLogo must be one of: ${VALID_SIDEBAR_LOGOS.join(', ')}`, 400));
     if (currency !== undefined && !VALID_CURRENCIES.includes(currency))
         return next(new AppError(`currency must be one of: ${VALID_CURRENCIES.join(', ')}`, 400));
     if (unit !== undefined && !VALID_MEASUREMENT_UNITS.includes(unit))
@@ -536,7 +539,7 @@ const VALID_EVENT_BUSY_STATUS = ['busy', 'free'];
 const VALID_REMINDER_METHODS = ['notification', 'email'];
 const VALID_RECURRENCE_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'];
 export const validateEvent = (req, res, next) => {
-    const { title, description, location, start, end, color, categoryId, calendarId, meetingLinkUrl, meetingLinkTitle, visibility, busyStatus, guests, reminders, recurrence, } = req.body;
+    const { title, description, location, start, end, color, departmentId, categoryId, calendarId, meetingLinkUrl, meetingLinkTitle, visibility, busyStatus, guests, reminders, recurrence, } = req.body;
     if (req.method === 'POST') {
         if (!title || !title.trim())
             return next(new AppError('Title is required', 400));
@@ -561,6 +564,8 @@ export const validateEvent = (req, res, next) => {
         return next(new AppError('location must be a string', 400));
     if (color !== undefined && color !== null && !HEX_COLOR_REGEX.test(color))
         return next(new AppError('color must be a valid hex color', 400));
+    if (departmentId != null && !isValidId(departmentId))
+        return next(new AppError('departmentId is not a valid ID', 400));
     if (categoryId != null && !isValidId(categoryId))
         return next(new AppError('categoryId is not a valid ID', 400));
     if (calendarId != null && !isValidId(calendarId))
@@ -624,17 +629,6 @@ export const validateEvent = (req, res, next) => {
         if (recurrence.until !== undefined && recurrence.until !== null && !isValidDateValue(recurrence.until))
             return next(new AppError('recurrence.until must be a valid date', 400));
     }
-    next();
-};
-export const validateCalendarCategoryId = validateParamId('id');
-export const validateCalendarCategory = (req, res, next) => {
-    const { name, color } = req.body;
-    if (req.method === 'POST' && (!name || !name.trim()))
-        return next(new AppError('Name is required', 400));
-    if (name !== undefined && !name.trim())
-        return next(new AppError('Name cannot be empty', 400));
-    if (color !== undefined && color !== null && !HEX_COLOR_REGEX.test(color))
-        return next(new AppError('color must be a valid hex color', 400));
     next();
 };
 export const validateCalendarId = validateParamId('id');

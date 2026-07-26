@@ -125,7 +125,7 @@
 }
 
 .calendar-sidebar {
-  flex: 0 0 240px;
+  flex: 0 0 250px;
   border-right: 1px solid var(--border);
   background: var(--bg-card);
   padding: 12px;

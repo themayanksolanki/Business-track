@@ -19,10 +19,11 @@ model Department {
   createdBy    User          @relation("DepartmentCreatedBy", fields: [createdById], references: [id])
   updatedBy    User?         @relation("DepartmentUpdatedBy", fields: [updatedById], references: [id])
 
-  users    User[]    @relation("UserDepartments")
-  projects Project[]
-  metrics  Metric[]
-  invites  Invite[]  @relation("InviteDepartments")
+  users          User[]          @relation("UserDepartments")
+  projects       Project[]
+  metrics        Metric[]
+  invites        Invite[]        @relation("InviteDepartments")
+  calendarEvents CalendarEvent[]
 
   @@index([parentId, order])
   @@index([organizationId])

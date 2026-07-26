@@ -23,6 +23,15 @@ enum SidebarTheme {
   LEMON
 }
 
+enum SidebarLogo {
+  CHECK
+  ROCKET
+  BOLT
+  STAR
+  SHIELD
+  DIAMOND
+}
+
 enum Currency {
   USD
   EUR
@@ -73,6 +82,7 @@ model User {
   // theme's own default text color" rather than a stored override.
   sidebarTheme     SidebarTheme @default(MIDNIGHT)
   sidebarTextColor String?
+  sidebarLogo      SidebarLogo  @default(CHECK)
   // Display currency (Settings > General) — same cross-device-persisted
   // treatment as dateFormat/timeFormat.
   currency         Currency     @default(USD)
@@ -142,8 +152,6 @@ model User {
   ownedCalendars           Calendar[]         @relation("CalendarOwner")
   createdCalendars         Calendar[]         @relation("CalendarCreatedBy")
   updatedCalendars         Calendar[]         @relation("CalendarUpdatedBy")
-  createdCalendarCategories CalendarCategory[] @relation("CalendarCategoryCreatedBy")
-  updatedCalendarCategories CalendarCategory[] @relation("CalendarCategoryUpdatedBy")
   ownedCalendarEvents      CalendarEvent[]    @relation("CalendarEventOwner")
   createdCalendarEvents    CalendarEvent[]    @relation("CalendarEventCreatedBy")
   updatedCalendarEvents    CalendarEvent[]    @relation("CalendarEventUpdatedBy")

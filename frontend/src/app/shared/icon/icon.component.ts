@@ -2,6 +2,11 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 export type IconName =
   | 'brand'
+  | 'rocket'
+  | 'bolt'
+  | 'star'
+  | 'shield'
+  | 'diamond'
   | 'dashboard'
   | 'tasks'
   | 'projects'
@@ -39,6 +44,28 @@ export type IconName =
       @switch (name) {
         @case ('brand') {
           <path d="M5 13l4 4L19 7" stroke-width="2.4" />
+        }
+        @case ('rocket') {
+          <path d="M12 2c3 2.2 5 6.2 5 10.2 0 2.1-.9 4-2 5.2l-3 2.9-3-2.9c-1.1-1.2-2-3.1-2-5.2 0-4 2-8 5-10.2z" />
+          <circle cx="12" cy="10.5" r="1.6" fill="currentColor" stroke="none" />
+          <path d="M8.3 15.2l-2.8 2.8.8 3 3-2.8M15.7 15.2l2.8 2.8-.8 3-3-2.8" />
+        }
+        @case ('bolt') {
+          <path d="M13 2 4.5 14h6l-1 8 9-12h-6l1-8z" stroke-linejoin="round" />
+        }
+        @case ('star') {
+          <path
+            d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z"
+            stroke-linejoin="round"
+          />
+        }
+        @case ('shield') {
+          <path d="M12 3l7 3v5c0 5-3 8.5-7 10-4-1.5-7-5-7-10V6z" stroke-linejoin="round" />
+          <path d="M9 12l2 2 4-4" />
+        }
+        @case ('diamond') {
+          <path d="M3 9l4-6h10l4 6-9 12z" stroke-linejoin="round" />
+          <path d="M3 9h18M8.5 3L7 9l5 12 5-12-1.5-6" />
         }
         @case ('dashboard') {
           <rect x="3" y="3" width="8" height="8" rx="2" />

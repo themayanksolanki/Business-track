@@ -3,6 +3,7 @@ import AppError from '../utils/AppError.js';
 import { destroyBlob, cloudinaryDownloadUrl } from '../utils/blobStorage.js';
 import { getS3DownloadUrl } from '../lib/s3.js';
 import { canAccessProject, canEditProject } from './projectController.js';
+import { canAccessEvent, canEditEvent } from './eventController.js';
 import { getTaskAccessLevel } from '../utils/access.js';
 // Relaying the file through this server (fetch from the provider, then
 // re-stream to the client) was timing out on real-world PDFs — a slow
@@ -137,6 +138,22 @@ const purgeExpiredForItem = async (projectItemId) => {
     for (const attachment of expired) {
         await permanentlyDeleteAttachment(attachment);
     }
+};
+const purgeExpiredForEvent = async (calendarEventId) => {
+    const expired = await prisma.attachment.findMany({
+        where: { calendarEventId, pendingDeleteAt: { lte: new Date() } },
+    });
+    for (const attachment of expired) {
+        await permanentlyDeleteAttachment(attachment);
+    }
+};
+// Matches eventController.ts's EventForAccess shape — enough to run
+// canAccessEvent/canEditEvent without pulling in the full EVENT_INCLUDE join.
+const EVENT_ACCESS_SELECT = {
+    organizationId: true,
+    ownerId: true,
+    visibility: true,
+    guests: { select: { userId: true } },
 };
 const canAccessTask = async (task, user) => (await getTaskAccessLevel(task, user)) === 'edit';
 export const getAttachments = async (req, res, next) => {
@@ -449,6 +466,181 @@ export const undoItemAttachment = async (req, res, next) => {
             return next(new AppError('You have view-only access to this project', 403));
         const attachment = await prisma.attachment.findFirst({
             where: { id: Number(req.params.attachmentId), projectItemId: Number(req.params.itemId) },
+        });
+        if (!attachment)
+            return next(new AppError('Attachment not found', 404));
+        if (!attachment.pendingDeleteAt || attachment.pendingDeleteAt <= new Date())
+            return next(new AppError('Attachment is not pending deletion', 400));
+        const updated = await prisma.attachment.update({
+            where: { id: attachment.id },
+            data: { pendingDeleteAt: null },
+            include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
+        });
+        res.status(200).json({ message: 'Deletion undone', attachment: updated });
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const getEventAttachments = async (req, res, next) => {
+    try {
+        const event = await prisma.calendarEvent.findUnique({
+            where: { id: Number(req.params.eventId) },
+            select: EVENT_ACCESS_SELECT,
+        });
+        if (!event)
+            return next(new AppError('Event not found', 404));
+        if (!canAccessEvent(req.user, event))
+            return next(new AppError('You do not have access to this event', 403));
+        // Catch up any attachment whose countdown expired while nobody was
+        // looking (page closed, sweep hasn't ticked yet) before returning the list.
+        await purgeExpiredForEvent(Number(req.params.eventId));
+        const attachments = await prisma.attachment.findMany({
+            where: { calendarEventId: Number(req.params.eventId) },
+            include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.status(200).json(attachments);
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const uploadEventAttachment = async (req, res, next) => {
+    try {
+        const event = await prisma.calendarEvent.findUnique({
+            where: { id: Number(req.params.eventId) },
+            select: EVENT_ACCESS_SELECT,
+        });
+        if (!event)
+            return next(new AppError('Event not found', 404));
+        if (!canAccessEvent(req.user, event))
+            return next(new AppError('You do not have access to this event', 403));
+        if (!canEditEvent(req.user, event))
+            return next(new AppError('You have view-only access to this event', 403));
+        if (!req.file)
+            return next(new AppError('No file uploaded', 400));
+        const attachment = await prisma.attachment.create({
+            data: {
+                calendarEventId: Number(req.params.eventId),
+                fileName: req.file.originalname,
+                url: req.file.path,
+                publicId: req.file.filename,
+                storage: 's3',
+                mimeType: req.file.mimetype,
+                size: req.file.size,
+                uploadedById: req.user.id,
+            },
+            include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
+        });
+        res.status(201).json({ message: 'File uploaded', attachment });
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const addEventAttachmentLink = async (req, res, next) => {
+    try {
+        const event = await prisma.calendarEvent.findUnique({
+            where: { id: Number(req.params.eventId) },
+            select: EVENT_ACCESS_SELECT,
+        });
+        if (!event)
+            return next(new AppError('Event not found', 404));
+        if (!canAccessEvent(req.user, event))
+            return next(new AppError('You do not have access to this event', 403));
+        if (!canEditEvent(req.user, event))
+            return next(new AppError('You have view-only access to this event', 403));
+        const url = req.body.url.trim();
+        const fileName = (req.body.fileName || '').trim() || url;
+        const attachment = await prisma.attachment.create({
+            data: {
+                calendarEventId: Number(req.params.eventId),
+                fileName,
+                url,
+                publicId: null,
+                storage: 's3',
+                kind: 'link',
+                mimeType: guessMimeTypeFromUrl(url),
+                size: 0,
+                uploadedById: req.user.id,
+            },
+            include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
+        });
+        res.status(201).json({ message: 'Link added', attachment });
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const downloadEventAttachment = async (req, res, next) => {
+    try {
+        const event = await prisma.calendarEvent.findUnique({
+            where: { id: Number(req.params.eventId) },
+            select: EVENT_ACCESS_SELECT,
+        });
+        if (!event)
+            return next(new AppError('Event not found', 404));
+        if (!canAccessEvent(req.user, event))
+            return next(new AppError('You do not have access to this event', 403));
+        const attachment = await prisma.attachment.findFirst({
+            where: { id: Number(req.params.attachmentId), calendarEventId: Number(req.params.eventId) },
+        });
+        if (!attachment)
+            return next(new AppError('Attachment not found', 404));
+        res.status(200).json(await getAttachmentDownloadInfo(attachment));
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const deleteEventAttachment = async (req, res, next) => {
+    try {
+        const event = await prisma.calendarEvent.findUnique({
+            where: { id: Number(req.params.eventId) },
+            select: EVENT_ACCESS_SELECT,
+        });
+        if (!event)
+            return next(new AppError('Event not found', 404));
+        if (!canAccessEvent(req.user, event))
+            return next(new AppError('You do not have access to this event', 403));
+        if (!canEditEvent(req.user, event))
+            return next(new AppError('You have view-only access to this event', 403));
+        const attachment = await prisma.attachment.findFirst({
+            where: { id: Number(req.params.attachmentId), calendarEventId: Number(req.params.eventId) },
+        });
+        if (!attachment)
+            return next(new AppError('Attachment not found', 404));
+        // Already counting down — return its current state rather than resetting
+        // the clock, so a double-click doesn't grant extra time.
+        if (attachment.pendingDeleteAt && attachment.pendingDeleteAt > new Date()) {
+            return res.status(200).json({ message: 'Attachment already pending deletion', attachment });
+        }
+        const updated = await prisma.attachment.update({
+            where: { id: attachment.id },
+            data: { pendingDeleteAt: new Date(Date.now() + PENDING_DELETE_MS) },
+            include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
+        });
+        res.status(200).json({ message: 'Attachment scheduled for deletion', attachment: updated });
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const undoEventAttachment = async (req, res, next) => {
+    try {
+        const event = await prisma.calendarEvent.findUnique({
+            where: { id: Number(req.params.eventId) },
+            select: EVENT_ACCESS_SELECT,
+        });
+        if (!event)
+            return next(new AppError('Event not found', 404));
+        if (!canAccessEvent(req.user, event))
+            return next(new AppError('You do not have access to this event', 403));
+        if (!canEditEvent(req.user, event))
+            return next(new AppError('You have view-only access to this event', 403));
+        const attachment = await prisma.attachment.findFirst({
+            where: { id: Number(req.params.attachmentId), calendarEventId: Number(req.params.eventId) },
         });
         if (!attachment)
             return next(new AppError('Attachment not found', 404));

@@ -15,6 +15,7 @@ export type SidebarTheme =
   | 'SKY'
   | 'SAND'
   | 'LEMON';
+export type SidebarLogo = 'CHECK' | 'ROCKET' | 'BOLT' | 'STAR' | 'SHIELD' | 'DIAMOND';
 export type Currency = 'USD' | 'EUR' | 'JPY' | 'GBP' | 'CNY' | 'INR';
 export type MeasurementUnit = 'KG' | 'LB' | 'LTR';
 
@@ -75,6 +76,7 @@ export interface User {
   defaultLandingPage?: LandingPage;
   sidebarTheme?: SidebarTheme;
   sidebarTextColor?: string | null;
+  sidebarLogo?: SidebarLogo;
   currency?: Currency;
   unit?: MeasurementUnit;
   decimalPoints?: number;

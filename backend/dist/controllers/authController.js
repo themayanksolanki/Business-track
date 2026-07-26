@@ -41,6 +41,7 @@ export const toUserShape = (user) => ({
     defaultLandingPage: user.defaultLandingPage,
     sidebarTheme: user.sidebarTheme,
     sidebarTextColor: user.sidebarTextColor ?? null,
+    sidebarLogo: user.sidebarLogo,
     currency: user.currency,
     unit: user.unit,
     decimalPoints: user.decimalPoints,
@@ -215,7 +216,7 @@ export const updateAvatar = async (req, res, next) => {
 };
 export const updateProfile = async (req, res, next) => {
     try {
-        const { phoneCountry, phoneNumber, dateFormat, timeFormat, defaultLandingPage, sidebarTheme, sidebarTextColor, currency, unit, decimalPoints, } = req.body;
+        const { phoneCountry, phoneNumber, dateFormat, timeFormat, defaultLandingPage, sidebarTheme, sidebarTextColor, sidebarLogo, currency, unit, decimalPoints, } = req.body;
         // Partial update — this endpoint is shared by the Profile page's phone
         // editor and Settings > General's date/time-format/landing-page pickers,
         // so a request from one must not clobber fields the others own (e.g.
@@ -235,6 +236,8 @@ export const updateProfile = async (req, res, next) => {
             data.sidebarTheme = sidebarTheme;
         if (sidebarTextColor !== undefined)
             data.sidebarTextColor = sidebarTextColor || null;
+        if (sidebarLogo !== undefined)
+            data.sidebarLogo = sidebarLogo;
         if (currency !== undefined)
             data.currency = currency;
         if (unit !== undefined)

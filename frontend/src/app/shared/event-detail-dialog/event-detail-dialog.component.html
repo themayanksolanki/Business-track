@@ -24,6 +24,13 @@
             <div class="event-panel">
               <div class="event-panel-header">Event Details</div>
 
+              @if (loadedEvent?.department) {
+                <p class="event-view-row">
+                  <span class="event-color-dot" [style.background]="loadedEvent!.department!.color"></span>
+                  {{ loadedEvent!.department!.name }}
+                </p>
+              }
+
               @if (loadedEvent?.category) {
                 <p class="event-view-row">
                   <span class="event-color-dot" [style.background]="loadedEvent!.category!.color"></span>
@@ -120,10 +127,20 @@
                 </div>
 
                 <div class="event-field">
+                  <label class="field-label">Department</label>
+                  <select class="form-select field-input" [(ngModel)]="departmentId" name="departmentId">
+                    <option [ngValue]="null">No department</option>
+                    @for (dept of departmentService.departments(); track dept.id) {
+                      <option [ngValue]="dept.id">{{ dept.name }}</option>
+                    }
+                  </select>
+                </div>
+
+                <div class="event-field">
                   <label class="field-label">Category</label>
                   <select class="form-select field-input" [(ngModel)]="categoryId" name="categoryId">
                     <option [ngValue]="null">No category</option>
-                    @for (cat of categories; track cat.id) {
+                    @for (cat of categoryService.categories(); track cat.id) {
                       <option [ngValue]="cat.id">{{ cat.name }}</option>
                     }
                   </select>
@@ -264,10 +281,10 @@
                         <input type="number" min="0" class="form-control field-input" [(ngModel)]="r.minutesBefore" [name]="'reminderMinutes' + $index" />
                         <span class="input-group-text">min before</span>
                       </div>
-                      <button type="button" class="btn btn-link text-danger p-0" (click)="removeReminder($index)"><i class="bi bi-x-lg"></i></button>
+                      <button type="button" class="btn btn-link text-danger p-0" (click)="removeReminder($index)"><i class="bi bi-trash3"></i></button>
                     </div>
                   }
-                  <button type="button" class="btn btn-sm btn-light" (click)="addReminder()"><i class="bi bi-plus-lg me-1"></i>Add reminder</button>
+                  <button type="button" class="btn" (click)="addReminder()"><i class="bi bi-plus me-1"></i>Add reminder</button>
                 </div>
 
                 <div class="event-field-row">

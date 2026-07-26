@@ -6,6 +6,7 @@ import { nextSequenceId } from '../utils/sequence.js';
 import { generateOccurrences, isGeneratedOccurrence } from '../utils/recurrence.js';
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
 const EVENT_INCLUDE = {
+    department: { select: { id: true, name: true, color: true } },
     category: { select: { id: true, name: true, color: true } },
     owner: { select: USER_SELECT },
     calendar: { select: { id: true, name: true, color: true } },
@@ -21,6 +22,7 @@ const EVENT_INCLUDE = {
 // joins aren't needed to paint a month/week/day grid, mirroring how
 // metricController.ts keeps METRIC_LIST_INCLUDE separate from METRIC_INCLUDE.
 const EVENT_LIST_INCLUDE = {
+    department: { select: { id: true, name: true, color: true } },
     category: { select: { id: true, name: true, color: true } },
     owner: { select: USER_SELECT },
     calendar: { select: { id: true, name: true, color: true } },
@@ -152,7 +154,7 @@ export const getEvents = async (req, res, next) => {
         const page = Math.max(1, parseInt(req.query.page, 10) || 1);
         const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 100));
         const skip = (page - 1) * limit;
-        const { start, end, search, calendarId, categoryId } = req.query;
+        const { start, end, search, calendarId, departmentId, categoryId } = req.query;
         const rangeStart = start ? new Date(start) : null;
         const rangeEnd = end ? new Date(end) : null;
         // Each condition lives in its own AND-slot rather than sharing one
@@ -180,6 +182,8 @@ export const getEvents = async (req, res, next) => {
         }
         if (calendarId)
             and.push({ calendarId: Number(calendarId) });
+        if (departmentId)
+            and.push({ departmentId: Number(departmentId) });
         if (categoryId)
             and.push({ categoryId: Number(categoryId) });
         // Override rows (an occurrence's edited-instance data — see
@@ -259,7 +263,7 @@ export const getEvents = async (req, res, next) => {
 };
 export const createEvent = async (req, res, next) => {
     try {
-        const { title, description, location, start, end, allDay, color, categoryId, calendarId, meetingLinkUrl, meetingLinkTitle, visibility, busyStatus, guests, reminders, recurrence, } = req.body;
+        const { title, description, location, start, end, allDay, color, departmentId, categoryId, calendarId, meetingLinkUrl, meetingLinkTitle, visibility, busyStatus, guests, reminders, recurrence, } = req.body;
         let calendar = null;
         if (calendarId) {
             calendar = await prisma.calendar.findUnique({ where: { id: Number(calendarId) } });
@@ -288,6 +292,7 @@ export const createEvent = async (req, res, next) => {
                     end: new Date(end),
                     allDay: !!allDay,
                     color: color || null,
+                    departmentId: departmentId ? Number(departmentId) : null,
                     categoryId: categoryId ? Number(categoryId) : null,
                     ownerId: req.user.id,
                     calendarId: resolvedCalendar.id,
@@ -346,7 +351,7 @@ export const updateEvent = async (req, res, next) => {
             return next(new AppError('You do not have access to this event', 403));
         if (!canEditEvent(req.user, event))
             return next(new AppError('You do not have permission to update this event', 403));
-        const { title, description, location, start, end, allDay, color, categoryId, calendarId, meetingLinkUrl, meetingLinkTitle, visibility, busyStatus, guests, reminders, recurrence, } = req.body;
+        const { title, description, location, start, end, allDay, color, departmentId, categoryId, calendarId, meetingLinkUrl, meetingLinkTitle, visibility, busyStatus, guests, reminders, recurrence, } = req.body;
         if (calendarId !== undefined) {
             const calendar = await prisma.calendar.findUnique({ where: { id: Number(calendarId) } });
             if (!calendar)
@@ -369,6 +374,8 @@ export const updateEvent = async (req, res, next) => {
             data.allDay = !!allDay;
         if (color !== undefined)
             data.color = color || null;
+        if (departmentId !== undefined)
+            data.departmentId = departmentId ? Number(departmentId) : null;
         if (categoryId !== undefined)
             data.categoryId = categoryId ? Number(categoryId) : null;
         if (calendarId !== undefined)
@@ -580,7 +587,7 @@ export const updateOccurrence = async (req, res, next) => {
         const recurrence = event.recurrence;
         if (!isGeneratedOccurrence(recurrence, event.start, event.end, originalStart))
             return next(new AppError('This is not a valid occurrence of this event', 404));
-        const { title, description, location, start, end, allDay, color, categoryId, meetingLinkUrl, meetingLinkTitle, visibility, busyStatus, guests, reminders, } = req.body;
+        const { title, description, location, start, end, allDay, color, departmentId, categoryId, meetingLinkUrl, meetingLinkTitle, visibility, busyStatus, guests, reminders, } = req.body;
         const existing = await prisma.eventException.findUnique({
             where: { eventId_originalStart: { eventId: event.id, originalStart } },
         });
@@ -594,6 +601,7 @@ export const updateOccurrence = async (req, res, next) => {
                 end: end !== undefined ? new Date(end) : new Date(originalStart.getTime() + duration),
                 allDay: allDay !== undefined ? !!allDay : event.allDay,
                 color: color !== undefined ? color || null : event.color,
+                departmentId: departmentId !== undefined ? (departmentId ? Number(departmentId) : null) : event.departmentId,
                 categoryId: categoryId !== undefined ? (categoryId ? Number(categoryId) : null) : event.categoryId,
                 ownerId: event.ownerId,
                 calendarId: event.calendarId,

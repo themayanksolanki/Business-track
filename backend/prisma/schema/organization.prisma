@@ -21,7 +21,6 @@ model Organization {
   projectItems ProjectItem[]
   metrics      Metric[]
   calendars           Calendar[]
-  calendarCategories  CalendarCategory[]
   calendarEvents      CalendarEvent[]
   sequences    OrgSequence[]
 

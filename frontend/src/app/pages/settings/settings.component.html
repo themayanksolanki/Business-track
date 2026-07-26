@@ -4,7 +4,7 @@
     <p class="text-muted mb-0 small">Manage organization-wide configuration.</p>
   </div>
 
-  <app-tab-strip [tabs]="tabs" [activeKey]="activeTab" (tabChange)="activeTab = $event"></app-tab-strip>
+  <app-tab-strip [tabs]="tabs" [activeKey]="activeTab" (tabChange)="setActiveTab($event)"></app-tab-strip>
 
   @if (activeTab === 'general') {
     <app-general-settings></app-general-settings>

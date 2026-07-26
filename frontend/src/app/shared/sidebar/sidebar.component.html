@@ -24,7 +24,7 @@
 >
   <div class="sidebar-top">
     <a class="sidebar-brand" routerLink="/dashboard" (click)="closeMobile()">
-      <span class="brand-mark"><app-icon name="brand" [size]="16" /></span>
+      <span class="brand-mark"><app-icon [name]="brandIcon()" [size]="16" /></span>
       @if (labelsVisible()) {
         <span class="brand-text">Business Tracker</span>
       }
@@ -42,6 +42,7 @@
   </div>
 
   <nav class="sidebar-nav">
+    <app-notification-bell [showLabel]="labelsVisible()" />
     <a
       routerLink="/dashboard"
       class="nav-item"
@@ -63,7 +64,19 @@
     >
       <span class="nav-icon"><app-icon name="tasks" [size]="18" /></span>
       @if (labelsVisible()) {
-        <span class="nav-label">TODOs</span>
+        <span class="nav-label">Todos</span>
+      }
+    </a>
+        <a
+      routerLink="/drafts"
+      class="nav-item"
+      routerLinkActive="active"
+      [title]="labelsVisible() ? '' : 'Drafts'"
+      (click)="closeMobile()"
+    >
+      <span class="nav-icon"><app-icon name="draft" [size]="18" /></span>
+      @if (labelsVisible()) {
+        <span class="nav-label">Drafts</span>
       }
     </a>
     <div
@@ -71,9 +84,9 @@
       ngbDropdown
       #projectsDd="ngbDropdown"
       [autoClose]="true"
-      placement="right-start"
-      (mouseenter)="syncSubmenuTheme(projectsMenu); projectsDd.open()"
-      (mouseleave)="projectsDd.close()"
+      placement="right-top"
+      (mouseenter)="onMouseEnter(projectsDd, projectsMenu)"
+      (mouseleave)="onMouseLeave(projectsDd)"
     >
       <a
         routerLink="/projects"
@@ -98,7 +111,13 @@
           <span class="nav-submenu-toggle-icon"><app-icon name="chevron-left" [size]="12" /></span>
         </button>
       }
-      <div class="nav-submenu" ngbDropdownMenu #projectsMenu>
+      <div
+        class="nav-submenu"
+        ngbDropdownMenu
+        #projectsMenu
+        (mouseenter)="onMouseEnter(projectsDd, projectsMenu)"
+        (mouseleave)="onMouseLeave(projectsDd)"
+      >
         <button
           type="button"
           class="nav-submenu-item"
@@ -129,18 +148,6 @@
       </div>
     </div>
     <a
-      routerLink="/drafts"
-      class="nav-item"
-      routerLinkActive="active"
-      [title]="labelsVisible() ? '' : 'Drafts'"
-      (click)="closeMobile()"
-    >
-      <span class="nav-icon"><app-icon name="draft" [size]="18" /></span>
-      @if (labelsVisible()) {
-        <span class="nav-label">Drafts</span>
-      }
-    </a>
-    <a
       routerLink="/calendar"
       class="nav-item"
       routerLinkActive="active"
@@ -157,9 +164,9 @@
       ngbDropdown
       #metricsDd="ngbDropdown"
       [autoClose]="true"
-      placement="right-start"
-      (mouseenter)="syncSubmenuTheme(metricsMenu); metricsDd.open()"
-      (mouseleave)="metricsDd.close()"
+      placement="right-top"
+      (mouseenter)="onMouseEnter(metricsDd, metricsMenu)"
+      (mouseleave)="onMouseLeave(metricsDd)"
     >
       <a
         routerLink="/metrics"
@@ -185,7 +192,13 @@
           <span class="nav-submenu-toggle-icon"><app-icon name="chevron-left" [size]="12" /></span>
         </button>
       }
-      <div class="nav-submenu" ngbDropdownMenu #metricsMenu>
+      <div
+        class="nav-submenu"
+        ngbDropdownMenu
+        #metricsMenu
+        (mouseenter)="onMouseEnter(metricsDd, metricsMenu)"
+        (mouseleave)="onMouseLeave(metricsDd)"
+      >
         <a routerLink="/metrics" [routerLinkActiveOptions]="{ exact: true }" routerLinkActive="active" class="nav-submenu-item" (click)="closeMobile()">
           <i class="bi bi-list-ul"></i>
           <span>List</span>
@@ -213,7 +226,6 @@
         <span class="nav-label">Chat</span>
       }
     </a>
-    <app-notification-bell [showLabel]="labelsVisible()" />
     @if (auth.getUser()?.role === 'Admin' || auth.getUser()?.role === 'Manager') {
       <a
         routerLink="/users"

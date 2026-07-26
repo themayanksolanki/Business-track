@@ -123,6 +123,7 @@ const VALID_LANDING_PAGES = [
   'organization',
 ];
 const VALID_SIDEBAR_THEMES = ['MIDNIGHT', 'CHARCOAL', 'OCEAN', 'FOREST', 'PLUM', 'DAYLIGHT', 'ROSE', 'SKY', 'SAND', 'LEMON'];
+const VALID_SIDEBAR_LOGOS = ['CHECK', 'ROCKET', 'BOLT', 'STAR', 'SHIELD', 'DIAMOND'];
 const VALID_CURRENCIES = ['USD', 'EUR', 'JPY', 'GBP', 'CNY', 'INR'];
 const VALID_MEASUREMENT_UNITS = ['KG', 'LB', 'LTR'];
 
@@ -139,6 +140,7 @@ export const validateUpdateProfile = (req: Request, res: Response, next: NextFun
     defaultLandingPage,
     sidebarTheme,
     sidebarTextColor,
+    sidebarLogo,
     currency,
     unit,
     decimalPoints,
@@ -169,6 +171,9 @@ export const validateUpdateProfile = (req: Request, res: Response, next: NextFun
   // null clears the override back to the active theme's own default text color.
   if (sidebarTextColor !== undefined && sidebarTextColor !== null && !HEX_COLOR_REGEX.test(sidebarTextColor))
     return next(new AppError('sidebarTextColor must be a valid hex color', 400));
+
+  if (sidebarLogo !== undefined && !VALID_SIDEBAR_LOGOS.includes(sidebarLogo))
+    return next(new AppError(`sidebarLogo must be one of: ${VALID_SIDEBAR_LOGOS.join(', ')}`, 400));
 
   if (currency !== undefined && !VALID_CURRENCIES.includes(currency))
     return next(new AppError(`currency must be one of: ${VALID_CURRENCIES.join(', ')}`, 400));
@@ -725,6 +730,7 @@ export const validateEvent = (req: Request, res: Response, next: NextFunction) =
     start,
     end,
     color,
+    departmentId,
     categoryId,
     calendarId,
     meetingLinkUrl,
@@ -757,6 +763,9 @@ export const validateEvent = (req: Request, res: Response, next: NextFunction) =
 
   if (color !== undefined && color !== null && !HEX_COLOR_REGEX.test(color))
     return next(new AppError('color must be a valid hex color', 400));
+
+  if (departmentId != null && !isValidId(departmentId))
+    return next(new AppError('departmentId is not a valid ID', 400));
 
   if (categoryId != null && !isValidId(categoryId))
     return next(new AppError('categoryId is not a valid ID', 400));
@@ -822,19 +831,6 @@ export const validateEvent = (req: Request, res: Response, next: NextFunction) =
     if (recurrence.until !== undefined && recurrence.until !== null && !isValidDateValue(recurrence.until))
       return next(new AppError('recurrence.until must be a valid date', 400));
   }
-
-  next();
-};
-
-export const validateCalendarCategoryId = validateParamId('id');
-
-export const validateCalendarCategory = (req: Request, res: Response, next: NextFunction) => {
-  const { name, color } = req.body;
-
-  if (req.method === 'POST' && (!name || !name.trim())) return next(new AppError('Name is required', 400));
-  if (name !== undefined && !name.trim()) return next(new AppError('Name cannot be empty', 400));
-  if (color !== undefined && color !== null && !HEX_COLOR_REGEX.test(color))
-    return next(new AppError('color must be a valid hex color', 400));
 
   next();
 };

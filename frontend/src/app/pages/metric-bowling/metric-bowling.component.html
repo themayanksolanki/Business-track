@@ -47,14 +47,20 @@
     @for (row of rows; track row.item.id; let rowIndex = $index) {
       <div class="bowling-row">
         <div class="bowling-info-col">
-          <div class="bowling-metric-name">{{ row.item.title }}</div>
-          <div class="bowling-metric-dept">
-            <span class="dept-dot" [style.background]="row.item.department.color"></span>{{ row.item.department.name }}
-          </div>
-          <div class="bowling-metric-owner">{{ row.item.owner.username }}</div>
-          @if (row.error) {
-            <div class="bowling-row-error">{{ row.error }}</div>
+          @if (auth.avatarUrl(row.item.owner)) {
+            <img class="bowling-owner-avatar" [src]="auth.avatarUrl(row.item.owner)!" [alt]="row.item.owner.username" [title]="row.item.owner.username" />
+          } @else {
+            <span class="bowling-owner-avatar bowling-owner-avatar-fallback" [title]="row.item.owner.username">{{ row.item.owner.username[0].toUpperCase() }}</span>
           }
+          <div class="bowling-info-text">
+            <div class="bowling-metric-name" (click)="openEdit(rowIndex)">{{ row.item.title }}</div>
+            <div class="bowling-metric-dept">
+              <span class="dept-dot" [style.background]="row.item.department.color"></span>{{ row.item.department.name }}
+            </div>
+            @if (row.error) {
+              <div class="bowling-row-error">{{ row.error }}</div>
+            }
+          </div>
         </div>
 
         <div class="bowling-days-col bowling-days-scroll">
@@ -103,3 +109,19 @@
     }
   </div>
 }
+
+<app-metric-form-modal
+  [open]="formOpen"
+  [mode]="formMode"
+  [initial]="formInitial"
+  [departments]="departmentService.departments()"
+  [categories]="categoryService.categories()"
+  [users]="userService.users()"
+  [parentOptions]="parentOptions"
+  [loading]="formLoading"
+  [error]="formError"
+  [deleteLoading]="deleteLoading"
+  (closed)="closeForm()"
+  (submitted)="submitForm($event)"
+  (deleteConfirmed)="onDeleteConfirmed()">
+</app-metric-form-modal>

@@ -6,17 +6,19 @@ import { AuthService } from '../../core/services/auth.service';
 import { TaskService } from '../../core/services/task.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { SidebarAppearanceService } from '../../core/services/sidebar-appearance.service';
-import { User, SidebarTheme } from '../../models/user.model';
+import { User, SidebarTheme, SidebarLogo } from '../../models/user.model';
 import { Task } from '../../models/task.model';
 import { COUNTRIES, DEFAULT_COUNTRY_ISO2, flagEmoji } from '../../models/country.model';
 import { DateFormatService } from '../../core/services/date-format.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
+import { IconComponent } from '../../shared/icon/icon.component';
 import { SIDEBAR_THEMES } from '../../shared/sidebar-theme-data';
+import { SIDEBAR_LOGOS } from '../../shared/sidebar-logo-data';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, ConfirmDialogComponent],
+  imports: [CommonModule, FormsModule, RouterLink, ConfirmDialogComponent, IconComponent],
   templateUrl: './profile.component.html',
   styleUrl: './profile.component.css',
 })
@@ -46,6 +48,9 @@ export class ProfileComponent implements OnInit {
   savingSidebarTheme: SidebarTheme | null = null;
   savingSidebarTextColor = false;
   sidebarTextColorError = '';
+
+  readonly sidebarLogos = SIDEBAR_LOGOS;
+  savingSidebarLogo: SidebarLogo | null = null;
 
   constructor(
     public auth: AuthService,
@@ -228,6 +233,18 @@ export class ProfileComponent implements OnInit {
         this.savingSidebarTheme = null;
       },
       error: () => (this.savingSidebarTheme = null),
+    });
+  }
+
+  selectSidebarLogo(logo: SidebarLogo) {
+    if (this.savingSidebarLogo || logo === (this.profile?.sidebarLogo ?? 'CHECK')) return;
+    this.savingSidebarLogo = logo;
+    this.auth.updateProfile({ sidebarLogo: logo }).subscribe({
+      next: (res) => {
+        this.profile = this.profile ? { ...this.profile, sidebarLogo: res.user.sidebarLogo } : res.user;
+        this.savingSidebarLogo = null;
+      },
+      error: () => (this.savingSidebarLogo = null),
     });
   }
 

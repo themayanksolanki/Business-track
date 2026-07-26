@@ -16,7 +16,7 @@
   gap: 12px;
   padding: 9px 10px;
   border-radius: 9px;
-  color: #94a3b8;
+  color: var(--sb-text-override, var(--sb-text, #94a3b8));
   text-decoration: none;
   font-size: 0.875rem;
   white-space: nowrap;
@@ -27,8 +27,8 @@
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
-.nav-item:hover { color: #fff; background: rgba(255, 255, 255, 0.07); }
-.nav-item.show { color: #fff; background: rgba(255, 255, 255, 0.07); }
+.nav-item:hover { color: var(--sb-text-hover, #fff); background: var(--sb-overlay-2, rgba(255, 255, 255, 0.07)); }
+.nav-item.show { color: var(--sb-text-hover, #fff); background: var(--sb-overlay-2, rgba(255, 255, 255, 0.07)); }
 
 .nav-icon {
   display: inline-flex;
@@ -62,8 +62,8 @@
   max-width: 360px;
   padding: 0;
   border-radius: 12px;
-  background: #16213a;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--sb-submenu-bg, #16213a);
+  border: 1px solid var(--sb-overlay-1, rgba(255, 255, 255, 0.08));
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
   overflow: hidden;
 }
@@ -74,13 +74,13 @@
   justify-content: space-between;
   gap: 10px;
   padding: 12px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--sb-overlay-1, rgba(255, 255, 255, 0.08));
 }
 
 .notification-panel-title {
   font-size: 0.85rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--sb-heading, #fff);
 }
 
 .notification-mark-all {
@@ -104,7 +104,7 @@
   margin: 0;
   padding: 20px 10px;
   text-align: center;
-  color: #94a3b8;
+  color: var(--sb-text, #94a3b8);
   font-size: 0.825rem;
 }
 
@@ -121,7 +121,7 @@
   cursor: pointer;
   transition: background 0.15s;
 }
-.notification-item:hover { background: rgba(255, 255, 255, 0.06); }
+.notification-item:hover { background: var(--sb-overlay-2, rgba(255, 255, 255, 0.06)); }
 .notification-item + .notification-item { margin-top: 2px; }
 
 .notification-dot {
@@ -144,19 +144,19 @@
 .notification-item-title {
   font-size: 0.8rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--sb-heading, #fff);
 }
 
 .notification-item.unread .notification-item-title { color: #93c5fd; }
 
 .notification-item-message {
   font-size: 0.78rem;
-  color: #cbd5e1;
+  color: var(--sb-text, #cbd5e1);
   white-space: normal;
   word-break: break-word;
 }
 
 .notification-item-time {
   font-size: 0.7rem;
-  color: #64748b;
+  color: var(--sb-muted, #64748b);
 }

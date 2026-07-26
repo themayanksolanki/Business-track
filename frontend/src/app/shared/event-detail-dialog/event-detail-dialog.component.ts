@@ -4,7 +4,21 @@ import { NgTemplateOutlet } from '@angular/common';
 import { HttpEventType } from '@angular/common/http';
 import dayjs from 'dayjs/esm';
 import { CKEditorModule } from '@ckeditor/ckeditor5-angular';
-import { ClassicEditor, Essentials, Paragraph, Bold, Italic, Underline, Link, List } from 'ckeditor5';
+import {
+  ClassicEditor,
+  Essentials,
+  Paragraph,
+  Heading,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+  Link,
+  List,
+  BlockQuote,
+  Indent,
+  IndentBlock,
+} from 'ckeditor5';
 import { environment } from '../../../environments/environment';
 import { ModalDirective } from '../modal.directive';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
@@ -13,7 +27,8 @@ import { TimePickerComponent } from '../time-picker/time-picker.component';
 import { AttachmentThumbComponent } from '../attachment-thumb/attachment-thumb.component';
 import { AttachmentViewerComponent } from '../attachment-viewer/attachment-viewer.component';
 import { EventService } from '../../core/services/event.service';
-import { CalendarCategoryService } from '../../core/services/calendar-category.service';
+import { DepartmentService } from '../../core/services/department.service';
+import { CategoryService } from '../../core/services/category.service';
 import { CalendarService } from '../../core/services/calendar.service';
 import { AuthService } from '../../core/services/auth.service';
 import { DateFormatService } from '../../core/services/date-format.service';
@@ -27,7 +42,6 @@ import {
   RecurrenceFrequency,
   GuestInput,
 } from '../../models/event.model';
-import { CalendarCategory } from '../../models/calendar-category.model';
 import { Calendar } from '../../models/calendar.model';
 import { Attachment, ACCEPTED_ATTACHMENT_TYPES } from '../../models/attachment.model';
 
@@ -95,8 +109,15 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
   readonly DescriptionEditor = ClassicEditor;
   readonly descriptionEditorConfig = {
     licenseKey: environment.ckeditorLicenseKey,
-    plugins: [Essentials, Paragraph, Bold, Italic, Underline, Link, List],
-    toolbar: ['bold', 'italic', 'underline', '|', 'bulletedList', 'numberedList', '|', 'link', '|', 'undo', 'redo'],
+    plugins: [Essentials, Paragraph, Heading, Bold, Italic, Underline, Strikethrough, Link, List, BlockQuote, Indent, IndentBlock],
+    toolbar: [
+      'heading', '|',
+      'bold', 'italic', 'underline', 'strikethrough', '|',
+      'bulletedList', 'numberedList', '|',
+      'outdent', 'indent', '|',
+      'link', 'blockQuote', '|',
+      'undo', 'redo',
+    ],
   };
 
   @Input() open = false;
@@ -121,7 +142,6 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
   internalMode: EventDialogMode = 'view';
 
   loadedEvent: CalendarEventModel | null = null;
-  categories: CalendarCategory[] = [];
   calendars: Calendar[] = [];
   loading = false;
   saving = false;
@@ -153,6 +173,7 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
   endTime: string | null = null;
   allDay = false;
   color = '#3b82f6';
+  departmentId: number | null = null;
   categoryId: number | null = null;
   calendarId: number | null = null;
   meetingLinkUrl = '';
@@ -207,7 +228,8 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
 
   constructor(
     private eventService: EventService,
-    private categoryService: CalendarCategoryService,
+    public departmentService: DepartmentService,
+    public categoryService: CategoryService,
     private calendarService: CalendarService,
     public auth: AuthService,
     public dateFormat: DateFormatService
@@ -272,7 +294,8 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
     if (changes['open'] && this.open) {
       this.error = '';
       this.confirmDeleteOpen = false;
-      this.categoryService.getCategories().subscribe({ next: (cats) => (this.categories = cats) });
+      this.departmentService.ensureDepartmentsLoaded();
+      this.categoryService.ensureCategoriesLoaded();
       this.calendarService.getCalendars().subscribe({
         next: (cals) => {
           this.calendars = cals;
@@ -350,6 +373,7 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
     this.endTime = dayjs(end).format('HH:mm');
     this.allDay = false;
     this.color = '#3b82f6';
+    this.departmentId = null;
     this.categoryId = null;
     this.calendarId = null;
     this.meetingLinkUrl = '';
@@ -381,6 +405,7 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
     this.endTime = end.format('HH:mm');
     this.allDay = event.allDay;
     this.color = event.color || '#3b82f6';
+    this.departmentId = event.department?.id ?? null;
     this.categoryId = event.category?.id ?? null;
     this.calendarId = event.calendar.id;
     this.meetingLinkUrl = event.meetingLinkUrl || '';
@@ -501,6 +526,7 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
       end: this.combineDateTime(this.endDate, this.endTime),
       allDay: this.allDay,
       color: this.color,
+      departmentId: this.departmentId,
       categoryId: this.categoryId,
       calendarId: this.calendarId ?? undefined,
       meetingLinkUrl: this.meetingLinkUrl.trim() || null,

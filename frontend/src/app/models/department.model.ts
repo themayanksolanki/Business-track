@@ -1,5 +1,23 @@
 import { User } from './user.model';
 import { Project } from './project.model';
+import { MetricDataType, MetricStatus } from './metric.model';
+
+export interface DepartmentMetricLite {
+  id: number;
+  sequenceId?: number | null;
+  title: string;
+  dataType: MetricDataType;
+  status: MetricStatus;
+}
+
+export interface DepartmentEventLite {
+  id: number;
+  sequenceId?: number | null;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+}
 
 export interface Department {
   id: number;
@@ -16,6 +34,8 @@ export interface Department {
   userCount?: number;
   projectCount?: number;
   childCount?: number;
+  metricCount?: number;
+  eventCount?: number;
 }
 
 export interface DepartmentDetail {
@@ -23,6 +43,8 @@ export interface DepartmentDetail {
   children: Department[];
   users: User[];
   projects: Project[];
+  metrics: DepartmentMetricLite[];
+  events: DepartmentEventLite[];
 }
 
 export interface CreateDepartmentPayload {

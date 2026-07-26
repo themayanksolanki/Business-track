@@ -1,6 +1,6 @@
 import { Component, ElementRef, OnDestroy, ViewChild, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
-import { NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
+import { NgbDropdown, NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
 import { AuthService } from '../../core/services/auth.service';
 import { ChatService } from '../../core/services/chat.service';
 import { ProjectsViewMode, ProjectsViewService } from '../../core/services/projects-view.service';
@@ -11,13 +11,20 @@ import {
   SIDEBAR_RAIL_WIDTH,
   SidebarService,
 } from '../../core/services/sidebar.service';
-import { IconComponent } from '../icon/icon.component';
+import { IconComponent, IconName } from '../icon/icon.component';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
+import { SIDEBAR_LOGOS } from '../sidebar-logo-data';
 
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, IconComponent, NotificationBellComponent, NgbDropdownModule],
+  imports: [
+    RouterLink,
+    RouterLinkActive,
+    IconComponent,
+    NotificationBellComponent,
+    NgbDropdownModule,
+  ],
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.css',
 })
@@ -30,6 +37,11 @@ export class SidebarComponent implements OnDestroy {
   private readonly router = inject(Router);
 
   @ViewChild('sidebarEl') private sidebarEl?: ElementRef<HTMLElement>;
+
+  brandIcon(): IconName {
+    const key = this.auth.currentUser()?.sidebarLogo ?? 'CHECK';
+    return SIDEBAR_LOGOS.find((l) => l.key === key)?.icon ?? 'brand';
+  }
 
   // Flyout submenus (Projects/Metrics) render into <body> via ngbDropdown's
   // container:'body' config so they aren't clipped by .sidebar-nav's
@@ -54,11 +66,48 @@ export class SidebarComponent implements OnDestroy {
     }
   }
 
+  private readonly closeTimers = new Map<NgbDropdown, ReturnType<typeof setTimeout>>();
+
+  // The flyout (.nav-submenu) is teleported out to <body> by ngbDropdown's
+  // container:'body' config once open, so it's no longer a DOM descendant of
+  // .nav-item-group — moving the cursor from the nav item onto the flyout
+  // crosses out of .nav-item-group's bounding box and would otherwise fire
+  // mouseleave instantly. Both the trigger and the flyout call these same
+  // two methods so hovering either cancels/reschedules the same close timer.
+  onMouseEnter(dd: NgbDropdown, menu: HTMLElement) {
+    this.syncSubmenuTheme(menu);
+    this.clearCloseTimer(dd);
+    if (!dd.isOpen()) {
+      dd.open();
+    }
+  }
+
+  onMouseLeave(dd: NgbDropdown) {
+    this.clearCloseTimer(dd);
+    this.closeTimers.set(
+      dd,
+      setTimeout(() => {
+        this.closeTimers.delete(dd);
+        dd.close();
+      }, 150),
+    );
+  }
+
+  private clearCloseTimer(dd: NgbDropdown) {
+    const timer = this.closeTimers.get(dd);
+    if (timer) {
+      clearTimeout(timer);
+      this.closeTimers.delete(dd);
+    }
+  }
+
   private dragStartX = 0;
   private dragStartWidth = 0;
-  private readonly collapseSnapPoint = (SIDEBAR_MIN_WIDTH + SIDEBAR_RAIL_WIDTH) / 2;
+  private readonly collapseSnapPoint =
+    (SIDEBAR_MIN_WIDTH + SIDEBAR_RAIL_WIDTH) / 2;
 
-  private readonly onPointerMove = (event: PointerEvent) => this.handlePointerMove(event);
+  private readonly onPointerMove = (event: PointerEvent) =>
+    this.handlePointerMove(event);
   private readonly onPointerUp = () => this.stopDrag();
 
   onDragStart(event: PointerEvent) {
@@ -96,6 +145,9 @@ export class SidebarComponent implements OnDestroy {
 
   ngOnDestroy() {
     this.stopDrag();
+    for (const timer of this.closeTimers.values()) {
+      clearTimeout(timer);
+    }
   }
 
   private handlePointerMove(event: PointerEvent) {
@@ -107,7 +159,9 @@ export class SidebarComponent implements OnDestroy {
     }
 
     this.svc.setCollapsed(false);
-    this.svc.setExpandedWidth(Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, proposed)));
+    this.svc.setExpandedWidth(
+      Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, proposed)),
+    );
   }
 
   private stopDrag() {

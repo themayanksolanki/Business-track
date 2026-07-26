@@ -19,8 +19,9 @@ model Category {
   createdBy    User          @relation("CategoryCreatedBy", fields: [createdById], references: [id])
   updatedBy    User?         @relation("CategoryUpdatedBy", fields: [updatedById], references: [id])
 
-  projects Project[]
-  metrics  Metric[]
+  projects       Project[]
+  metrics        Metric[]
+  calendarEvents CalendarEvent[]
 
   @@index([parentId, order])
   @@index([organizationId])

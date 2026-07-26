@@ -24,6 +24,12 @@ export interface EventCategoryLite {
   color: string;
 }
 
+export interface EventDepartmentLite {
+  id: number;
+  name: string;
+  color: string;
+}
+
 export interface RecurringRule {
   id: number;
   frequency: RecurrenceFrequency;
@@ -60,6 +66,7 @@ export interface CalendarEventModel {
   end: string;
   allDay: boolean;
   color: string | null;
+  department: EventDepartmentLite | null;
   category: EventCategoryLite | null;
   owner: User;
   calendar: EventCalendarLite;
@@ -125,6 +132,7 @@ export interface CreateEventPayload {
   location?: string | null;
   allDay?: boolean;
   color?: string | null;
+  departmentId?: number | null;
   categoryId?: number | null;
   calendarId?: number;
   meetingLinkUrl?: string | null;
@@ -143,6 +151,7 @@ export interface EventListFilters {
   end?: string;
   search?: string;
   calendarId?: number;
+  departmentId?: number;
   categoryId?: number;
   page?: number;
   limit?: number;

@@ -1,4 +1,4 @@
-<div class="nav-item-group dropdown" ngbDropdown container="body">
+<div class="nav-item-group dropdown" ngbDropdown container="body" (openChange)="onOpenChange($event)">
   <a
     href="javascript:void(0)"
     class="nav-item"
@@ -16,7 +16,7 @@
     }
   </a>
 
-  <div class="notification-panel shadow-sm" ngbDropdownMenu>
+  <div class="notification-panel shadow-sm" ngbDropdownMenu #notificationMenu>
     <div class="notification-panel-header">
       <span class="notification-panel-title">Notifications</span>
       @if (svc.unreadCount() > 0) {

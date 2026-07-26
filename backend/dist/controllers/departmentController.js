@@ -5,13 +5,20 @@ const USER_SELECT = { id: true, username: true, email: true, role: true };
 const DEPARTMENT_INCLUDE = {
     createdBy: { select: USER_SELECT },
     updatedBy: { select: USER_SELECT },
-    _count: { select: { users: true, projects: true, children: true } },
+    _count: { select: { users: true, projects: true, children: true, metrics: true, calendarEvents: true } },
 };
 // Flattens Prisma's relation _count into the flat userCount/projectCount/
-// childCount shape the frontend expects.
+// childCount/metricCount/eventCount shape the frontend expects.
 const withCounts = (d) => {
     const { _count, ...rest } = d;
-    return { ...rest, userCount: _count.users, projectCount: _count.projects, childCount: _count.children };
+    return {
+        ...rest,
+        userCount: _count.users,
+        projectCount: _count.projects,
+        childCount: _count.children,
+        metricCount: _count.metrics,
+        eventCount: _count.calendarEvents,
+    };
 };
 // Admins and Managers see every department in the organization; Team Leads
 // and Users are scoped to their assigned subtree. This is deliberately wider
@@ -121,7 +128,7 @@ export const getDepartmentById = async (req, res, next) => {
         const accessibleIds = await getViewableDepartmentIds(req.user);
         if (!canAccessDepartment(accessibleIds, department.id))
             return next(new AppError('You do not have access to this department', 403));
-        const [children, users, projects] = await Promise.all([
+        const [children, users, projects, metrics, events] = await Promise.all([
             prisma.department.findMany({ where: { parentId: department.id }, orderBy: { order: 'asc' } }),
             prisma.user.findMany({
                 where: { departments: { some: { id: department.id } } },
@@ -134,8 +141,18 @@ export const getDepartmentById = async (req, res, next) => {
                     owner: { select: USER_SELECT },
                 },
             }),
+            prisma.metric.findMany({
+                where: { departmentId: department.id },
+                select: { id: true, sequenceId: true, title: true, dataType: true, status: true },
+                orderBy: { title: 'asc' },
+            }),
+            prisma.calendarEvent.findMany({
+                where: { departmentId: department.id },
+                select: { id: true, sequenceId: true, title: true, start: true, end: true, allDay: true },
+                orderBy: { start: 'asc' },
+            }),
         ]);
-        res.status(200).json({ department: withCounts(department), children, users, projects });
+        res.status(200).json({ department: withCounts(department), children, users, projects, metrics, events });
     }
     catch (err) {
         next(err);

@@ -61,7 +61,7 @@
 .brand-text {
   font-size: 1.05rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--sb-heading, #fff);
   white-space: nowrap;
   letter-spacing: -0.02em;
 }
@@ -179,6 +179,7 @@
 }
 
 .nav-submenu {
+  display: none;
   min-width: 140px;
   padding: 6px;
   border-radius: 10px;
@@ -186,9 +187,16 @@
   border: 1px solid var(--sb-overlay-1, rgba(255, 255, 255, 0.08));
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   z-index: 1031;
-  display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.nav-submenu.show {
+  display: flex;
+}
+
+.nav-submenu-toggle::after {
+  display: none;
 }
 
 .nav-submenu-toggle {

@@ -44,30 +44,28 @@
 }
 
 .bowling-info-col {
-  flex: 0 0 220px;
-  padding: 12px 16px;
+  flex: 0 0 240px;
+  padding: 12px 18px;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
+  align-items: center;
+  gap: 12px;
   border-right: 1px solid var(--border);
 }
 
 .bowling-days-col {
   flex: 1 1 auto;
-  padding: 10px 12px;
+  padding: 10px 0;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .bowling-total-col {
   flex: 0 0 110px;
-  padding: 12px 10px;
+  padding: 10px 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 6px;
   border-left: 1px solid var(--border);
-  text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
@@ -81,12 +79,19 @@
   background: var(--bg-card-alt, var(--bg-muted));
 }
 
+.bowling-header-row .bowling-total-col {
+  padding: 12px 16px;
+  justify-content: center;
+  align-items: flex-end;
+}
+
 .bowling-window-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 8px;
+  padding: 0 12px;
 }
 
 .bowling-nav-btn {
@@ -117,21 +122,54 @@
 .bowling-day-cells,
 .bowling-values-row {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  padding: 0 12px;
 }
 
 .bowling-day-cell {
-  flex: 0 0 44px;
+  flex: 1 1 0;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--border-strong);
   text-align: center;
 }
 
 /* ── Metric rows ── */
+.bowling-owner-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.bowling-owner-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.bowling-info-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
 .bowling-metric-name {
   font-weight: 700;
   font-size: 0.9rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
+}
+.bowling-metric-name:hover {
+  text-decoration: underline;
 }
 
 .bowling-metric-dept {
@@ -149,11 +187,6 @@
   flex-shrink: 0;
 }
 
-.bowling-metric-owner {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-
 .bowling-row-error {
   font-size: 0.72rem;
   color: #ef4444;
@@ -165,25 +198,39 @@
   align-items: center;
   height: 64px;
   color: var(--text-muted);
+  padding: 0 12px;
 }
 
-.bowling-values-row + .bowling-values-row {
-  margin-top: 6px;
+/* Each Actual/Target line is a full-width flat band — the alternating
+   shade (nth-of-type 1 = Actual, 2 = Target) is what separates the two
+   rows, sitting flush against each other (no gap) so together they read
+   as one continuous grid block per metric. The matching .bowling-total-value
+   bands (below) line up with these via the shared 32px height so the
+   shading runs unbroken across the Total-column divider. */
+.bowling-values-row {
+  height: 32px;
+}
+.bowling-values-row:nth-of-type(1) {
+  background: var(--bg-card);
+}
+.bowling-values-row:nth-of-type(2) {
+  background: var(--bg-muted);
 }
 
 .bowling-row-label {
-  flex: 0 0 52px;
+  flex: 0 0 56px;
+  margin-right: 8px;
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--text-muted);
-  display: flex;
-  align-items: center;
 }
 
 .bowling-cell {
-  flex: 0 0 44px;
-  height: 30px;
-  border-radius: 6px;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border-strong);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -221,6 +268,19 @@
 }
 
 .bowling-total-value {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 32px;
+  box-sizing: border-box;
+  border: 1px solid var(--border-strong);
+  padding: 0 16px;
   font-size: 0.9rem;
   font-weight: 700;
+}
+.bowling-total-value:nth-of-type(1) {
+  background: var(--bg-card);
+}
+.bowling-total-value:nth-of-type(2) {
+  background: var(--bg-muted);
 }

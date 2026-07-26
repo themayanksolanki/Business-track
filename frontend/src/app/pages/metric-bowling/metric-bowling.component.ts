@@ -5,9 +5,20 @@ import { groupBy, mergeMap, debounceTime, concatMap, tap, catchError } from 'rxj
 import { cloneDeep, transform, isEqual } from 'lodash-es';
 import { MetricService } from '../../core/services/metric.service';
 import { AuthService } from '../../core/services/auth.service';
-import { MetricListItem, MetricDataType } from '../../models/metric.model';
+import { DepartmentService } from '../../core/services/department.service';
+import { CategoryService } from '../../core/services/category.service';
+import { UserService } from '../../core/services/user.service';
+import {
+  Metric,
+  MetricListItem,
+  MetricDataType,
+  MetricParentLite,
+  CreateMetricPayload,
+  UpdateMetricPayload,
+} from '../../models/metric.model';
 import { PeriodMap, PeriodValue, TrackingDiff } from '../../models/metric-tracking.model';
 import { CURRENCY_SYMBOLS, MEASUREMENT_UNIT_SYMBOLS } from '../../models/user.model';
+import { MetricFormModalComponent, MetricFormMode } from '../../shared/metric-form-modal/metric-form-modal.component';
 
 const DEFAULT_DECIMAL_POINTS = 2;
 
@@ -37,7 +48,7 @@ const WINDOW_SIZE = 15;
 @Component({
   selector: 'app-metric-bowling',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, MetricFormModalComponent],
   templateUrl: './metric-bowling.component.html',
   styleUrl: './metric-bowling.component.css',
 })
@@ -47,6 +58,20 @@ export class MetricBowlingComponent implements OnInit {
   rows: BowlingRow[] = [];
   loading = false;
   error = '';
+
+  // Flat list of {id, title} for the edit form's "Parent metric" picker —
+  // derived from the same active-metrics fetch loadMetrics() already makes,
+  // no separate request needed (mirrors MetricsComponent's parentOptions,
+  // just sourced from the list this page already loads).
+  parentOptions: MetricParentLite[] = [];
+
+  formOpen = false;
+  formMode: MetricFormMode = 'edit';
+  editingRowIndex: number | null = null;
+  formInitial: Metric | null = null;
+  formLoading = false;
+  formError = '';
+  deleteLoading = false;
 
   // 'YYYY-MM', bound directly to <input type="month">.
   selectedMonthStr = this.defaultMonthStr();
@@ -64,7 +89,10 @@ export class MetricBowlingComponent implements OnInit {
 
   constructor(
     private metricService: MetricService,
-    public auth: AuthService
+    public auth: AuthService,
+    public departmentService: DepartmentService,
+    public categoryService: CategoryService,
+    public userService: UserService
   ) {}
 
   // The unit/currency/decimal-places actually shown come from the VIEWING
@@ -82,6 +110,9 @@ export class MetricBowlingComponent implements OnInit {
       )
       .subscribe();
 
+    this.departmentService.ensureDepartmentsLoaded();
+    this.categoryService.ensureCategoriesLoaded();
+    this.userService.ensureUsersLoaded();
     this.loadMetrics();
   }
 
@@ -130,6 +161,74 @@ export class MetricBowlingComponent implements OnInit {
     if (this.windowIndex < this.totalWindows - 1) this.windowIndex++;
   }
 
+  openEdit(rowIndex: number) {
+    this.editingRowIndex = rowIndex;
+    this.formError = '';
+    this.metricService.getMetricById(this.rows[rowIndex].item.id).subscribe({
+      next: (metric) => {
+        this.formMode = 'edit';
+        this.formInitial = metric;
+        this.formOpen = true;
+      },
+      error: (err) => (this.error = err.error?.message || 'Failed to load metric'),
+    });
+  }
+
+  closeForm() {
+    this.formOpen = false;
+    this.formError = '';
+  }
+
+  submitForm(payload: CreateMetricPayload | UpdateMetricPayload) {
+    if (this.editingRowIndex === null) return;
+    const rowIndex = this.editingRowIndex;
+    this.formLoading = true;
+    this.formError = '';
+    this.metricService.updateMetric(this.rows[rowIndex].item.id, payload as UpdateMetricPayload).subscribe({
+      next: (res) => {
+        this.formLoading = false;
+        this.closeForm();
+        if (res.metric.status !== 'active') {
+          // No longer active — this view only shows active metrics.
+          this.rows.splice(rowIndex, 1);
+        } else {
+          this.rows[rowIndex].item = {
+            id: res.metric.id,
+            sequenceId: res.metric.sequenceId,
+            title: res.metric.title,
+            department: res.metric.department,
+            owner: res.metric.owner,
+            status: res.metric.status,
+            dataType: res.metric.dataType,
+          };
+        }
+        this.parentOptions = this.rows.map((r) => ({ id: r.item.id, title: r.item.title }));
+      },
+      error: (err) => {
+        this.formError = err.error?.message || 'Failed to save metric';
+        this.formLoading = false;
+      },
+    });
+  }
+
+  onDeleteConfirmed() {
+    if (this.editingRowIndex === null) return;
+    const rowIndex = this.editingRowIndex;
+    this.deleteLoading = true;
+    this.metricService.updateMetric(this.rows[rowIndex].item.id, { status: 'deleted' }).subscribe({
+      next: () => {
+        this.deleteLoading = false;
+        this.closeForm();
+        this.rows.splice(rowIndex, 1);
+        this.parentOptions = this.rows.map((r) => ({ id: r.item.id, title: r.item.title }));
+      },
+      error: (err) => {
+        this.deleteLoading = false;
+        this.formError = err.error?.message || 'Failed to delete metric';
+      },
+    });
+  }
+
   private loadMetrics() {
     this.loading = true;
     this.error = '';
@@ -145,6 +244,7 @@ export class MetricBowlingComponent implements OnInit {
           saving: false,
           error: '',
         }));
+        this.parentOptions = res.metrics.map((m) => ({ id: m.id, title: m.title }));
         this.loading = false;
         this.loadAllTracking();
       },

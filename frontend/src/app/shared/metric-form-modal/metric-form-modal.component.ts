@@ -2,7 +2,21 @@ import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CKEditorModule } from '@ckeditor/ckeditor5-angular';
-import { ClassicEditor, Essentials, Paragraph, Bold, Italic, Underline, Link, List } from 'ckeditor5';
+import {
+  ClassicEditor,
+  Essentials,
+  Paragraph,
+  Heading,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+  Link,
+  List,
+  BlockQuote,
+  Indent,
+  IndentBlock,
+} from 'ckeditor5';
 import { environment } from '../../../environments/environment';
 import { ModalDirective } from '../modal.directive';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
@@ -60,8 +74,15 @@ export class MetricFormModalComponent implements OnChanges {
   readonly NotesEditor = ClassicEditor;
   readonly notesEditorConfig = {
     licenseKey: environment.ckeditorLicenseKey,
-    plugins: [Essentials, Paragraph, Bold, Italic, Underline, Link, List],
-    toolbar: ['bold', 'italic', 'underline', '|', 'bulletedList', 'numberedList', '|', 'link', '|', 'undo', 'redo'],
+    plugins: [Essentials, Paragraph, Heading, Bold, Italic, Underline, Strikethrough, Link, List, BlockQuote, Indent, IndentBlock],
+    toolbar: [
+      'heading', '|',
+      'bold', 'italic', 'underline', 'strikethrough', '|',
+      'bulletedList', 'numberedList', '|',
+      'outdent', 'indent', '|',
+      'link', 'blockQuote', '|',
+      'undo', 'redo',
+    ],
   };
 
   title = '';

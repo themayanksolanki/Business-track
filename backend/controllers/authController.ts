@@ -56,6 +56,7 @@ export const toUserShape = (user: UserForShape) => ({
   defaultLandingPage: user.defaultLandingPage,
   sidebarTheme: user.sidebarTheme,
   sidebarTextColor: user.sidebarTextColor ?? null,
+  sidebarLogo: user.sidebarLogo,
   currency: user.currency,
   unit: user.unit,
   decimalPoints: user.decimalPoints,
@@ -259,6 +260,7 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
       defaultLandingPage,
       sidebarTheme,
       sidebarTextColor,
+      sidebarLogo,
       currency,
       unit,
       decimalPoints,
@@ -276,6 +278,7 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
     if (defaultLandingPage !== undefined) data.defaultLandingPage = defaultLandingPage;
     if (sidebarTheme !== undefined) data.sidebarTheme = sidebarTheme;
     if (sidebarTextColor !== undefined) data.sidebarTextColor = sidebarTextColor || null;
+    if (sidebarLogo !== undefined) data.sidebarLogo = sidebarLogo;
     if (currency !== undefined) data.currency = currency;
     if (unit !== undefined) data.unit = unit;
     if (decimalPoints !== undefined) data.decimalPoints = decimalPoints;

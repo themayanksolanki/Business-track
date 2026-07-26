@@ -12,7 +12,7 @@ const router = Router();
 
 // No allowRoles gate — a Calendar is personal (ownerId-scoped), so
 // authorization is the per-row owner-or-Admin check inside the controller
-// (canAccessCalendar), not a role gate like calendarCategoryRoutes.ts.
+// (canAccessCalendar), not a role gate like departmentRoutes.ts/categoryRoutes.ts.
 router.get('/', protect, getCalendars);
 router.post('/', protect, validateCalendar, createCalendar);
 router.put('/:id', protect, validateCalendarId, validateCalendar, updateCalendar);

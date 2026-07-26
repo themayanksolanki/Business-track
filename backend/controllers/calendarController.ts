@@ -6,9 +6,9 @@ import { nextSequenceId } from '../utils/sequence.js';
 import { canAccessCalendar, type AuthUser } from './eventController.js';
 
 // Personal (ownerId-scoped) container a user files events under — unlike
-// CalendarCategory (org-wide taxonomy, role-gated writes), a Calendar is only
-// ever managed by its owner (or an Admin), so listing/writes are scoped by
-// ownership here rather than by role.
+// the org-wide Department/Category taxonomy (role-gated writes), a Calendar
+// is only ever managed by its owner (or an Admin), so listing/writes are
+// scoped by ownership here rather than by role.
 export const getCalendars = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const calendars = await prisma.calendar.findMany({

@@ -336,6 +336,29 @@
           </div>
         </div>
 
+        <h6 class="section-label mb-3 mt-4">Sidebar Logo</h6>
+        <div class="info-card">
+          <p class="appear-desc">Pick the icon shown in the brand mark at the top of your sidebar.</p>
+          <div class="sidebar-logo-grid">
+            @for (l of sidebarLogos; track l.key) {
+              <button type="button" class="sidebar-logo-opt"
+                      [class.sidebar-logo-opt-active]="(profile?.sidebarLogo ?? 'CHECK') === l.key"
+                      [disabled]="!!savingSidebarLogo"
+                      (click)="selectSidebarLogo(l.key)">
+                <span class="sidebar-logo-preview">
+                  <app-icon [name]="l.icon" [size]="18" />
+                </span>
+                <span class="sidebar-logo-label">{{ l.name }}</span>
+                @if (savingSidebarLogo === l.key) {
+                  <span class="spinner-border spinner-border-sm sidebar-logo-spinner"></span>
+                } @else if ((profile?.sidebarLogo ?? 'CHECK') === l.key) {
+                  <i class="bi bi-check-circle-fill sidebar-logo-check"></i>
+                }
+              </button>
+            }
+          </div>
+        </div>
+
         <h6 class="section-label mb-3 mt-4">Sidebar Menu Text Color</h6>
         <div class="info-card">
           <p class="appear-desc">Customize the text color of sidebar menu items, or leave it to match the theme.</p>

@@ -10,6 +10,7 @@ import { generateOccurrences, isGeneratedOccurrence } from '../utils/recurrence.
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
 
 const EVENT_INCLUDE = {
+  department: { select: { id: true, name: true, color: true } },
   category: { select: { id: true, name: true, color: true } },
   owner: { select: USER_SELECT },
   calendar: { select: { id: true, name: true, color: true } },
@@ -26,6 +27,7 @@ const EVENT_INCLUDE = {
 // joins aren't needed to paint a month/week/day grid, mirroring how
 // metricController.ts keeps METRIC_LIST_INCLUDE separate from METRIC_INCLUDE.
 const EVENT_LIST_INCLUDE = {
+  department: { select: { id: true, name: true, color: true } },
   category: { select: { id: true, name: true, color: true } },
   owner: { select: USER_SELECT },
   calendar: { select: { id: true, name: true, color: true } },
@@ -207,7 +209,7 @@ export const getEvents = async (req: Request, res: Response, next: NextFunction)
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string, 10) || 100));
     const skip = (page - 1) * limit;
 
-    const { start, end, search, calendarId, categoryId } = req.query;
+    const { start, end, search, calendarId, departmentId, categoryId } = req.query;
     const rangeStart = start ? new Date(start as string) : null;
     const rangeEnd = end ? new Date(end as string) : null;
 
@@ -238,6 +240,7 @@ export const getEvents = async (req: Request, res: Response, next: NextFunction)
     }
 
     if (calendarId) and.push({ calendarId: Number(calendarId) });
+    if (departmentId) and.push({ departmentId: Number(departmentId) });
     if (categoryId) and.push({ categoryId: Number(categoryId) });
 
     // Override rows (an occurrence's edited-instance data — see
@@ -326,6 +329,7 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
       end,
       allDay,
       color,
+      departmentId,
       categoryId,
       calendarId,
       meetingLinkUrl,
@@ -367,6 +371,7 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
           end: new Date(end),
           allDay: !!allDay,
           color: color || null,
+          departmentId: departmentId ? Number(departmentId) : null,
           categoryId: categoryId ? Number(categoryId) : null,
           ownerId: req.user!.id,
           calendarId: resolvedCalendar.id,
@@ -436,6 +441,7 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
       end,
       allDay,
       color,
+      departmentId,
       categoryId,
       calendarId,
       meetingLinkUrl,
@@ -462,6 +468,7 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
     if (end !== undefined) data.end = new Date(end);
     if (allDay !== undefined) data.allDay = !!allDay;
     if (color !== undefined) data.color = color || null;
+    if (departmentId !== undefined) data.departmentId = departmentId ? Number(departmentId) : null;
     if (categoryId !== undefined) data.categoryId = categoryId ? Number(categoryId) : null;
     if (calendarId !== undefined) data.calendarId = Number(calendarId);
     if (visibility !== undefined) data.visibility = visibility;
@@ -692,6 +699,7 @@ export const updateOccurrence = async (req: Request, res: Response, next: NextFu
       end,
       allDay,
       color,
+      departmentId,
       categoryId,
       meetingLinkUrl,
       meetingLinkTitle,
@@ -715,6 +723,7 @@ export const updateOccurrence = async (req: Request, res: Response, next: NextFu
         end: end !== undefined ? new Date(end) : new Date(originalStart.getTime() + duration),
         allDay: allDay !== undefined ? !!allDay : event.allDay,
         color: color !== undefined ? color || null : event.color,
+        departmentId: departmentId !== undefined ? (departmentId ? Number(departmentId) : null) : event.departmentId,
         categoryId: categoryId !== undefined ? (categoryId ? Number(categoryId) : null) : event.categoryId,
         ownerId: event.ownerId,
         calendarId: event.calendarId,

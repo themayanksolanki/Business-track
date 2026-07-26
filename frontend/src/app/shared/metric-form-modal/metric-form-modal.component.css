@@ -42,6 +42,65 @@
   min-height: 140px;
 }
 
+/* CKEditor derives every internal border (toolbar, panels, dropdowns) from
+   its own --ck-color-base-border custom property, which defaults to a fixed
+   light gray (#ccced1) — overriding just border-color on individual pieces
+   below doesn't reliably catch all of them, so override the source
+   variable itself here to follow the app's dark/light theme. */
+.metric-notes-editor {
+  --ck-color-base-border: var(--border-strong);
+  --ck-color-toolbar-border: var(--border-strong);
+  --ck-color-panel-border: var(--border-strong);
+  --ck-color-dropdown-panel-border: var(--border-strong);
+  /* CKEditor's stylesheet only assigns these background/text vars once,
+     at :root, as `var(--ck-color-base-...)` — custom properties inherit
+     their already-resolved computed value, not a live reference, so that
+     assignment freezes to the light-theme default before it ever reaches
+     our override further down the tree. Overriding just the base var
+     therefore has no effect; each derived leaf var has to be set directly. */
+  --ck-color-base-background: var(--bg-input);
+  --ck-color-base-foreground: var(--bg-input);
+  --ck-color-base-text: var(--text-primary);
+  --ck-color-text: var(--text-primary);
+  --ck-color-input-background: var(--bg-input);
+  --ck-color-input-text: var(--text-primary);
+  --ck-color-list-background: var(--bg-input);
+  --ck-color-panel-background: var(--bg-input);
+  --ck-color-dropdown-panel-background: var(--bg-input);
+  --ck-color-toolbar-background: var(--bg-input);
+  --ck-color-button-default-hover-background: var(--bg-hover);
+  --ck-color-button-default-active-background: var(--bg-hover);
+  --ck-color-list-button-hover-background: var(--bg-hover);
+}
+
+.metric-notes-editor ::ng-deep .ck.ck-editor__main > .ck-content {
+  background: var(--bg-input);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.metric-notes-editor ::ng-deep .ck.ck-toolbar {
+  background: var(--bg-input);
+  border-color: var(--border-strong);
+}
+
+.metric-notes-editor ::ng-deep .ck.ck-editor__editable_inline:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.metric-notes-editor ::ng-deep .ck.ck-button,
+.metric-notes-editor ::ng-deep .ck.ck-toolbar .ck.ck-icon,
+.metric-notes-editor ::ng-deep .ck.ck-heading-dropdown .ck-button__label {
+  color: var(--text-primary);
+}
+
+.metric-notes-editor ::ng-deep .ck.ck-button:not(.ck-disabled):hover,
+.metric-notes-editor ::ng-deep .ck.ck-button.ck-on {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 .modal-submit-btn {
   min-width: 96px;
 }
