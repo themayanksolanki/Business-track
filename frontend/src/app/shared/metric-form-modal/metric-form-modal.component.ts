@@ -21,6 +21,7 @@ import { environment } from '../../../environments/environment';
 import { ModalDirective } from '../modal.directive';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 import { DatePickerComponent } from '../date-picker/date-picker.component';
+import { TabStripComponent, TabDef } from '../tab-strip/tab-strip.component';
 import { Department } from '../../models/department.model';
 import { Category } from '../../models/category.model';
 import { User } from '../../models/user.model';
@@ -43,12 +44,18 @@ const DATA_TYPE_OPTIONS: DataTypeOption[] = [
 @Component({
   selector: 'app-metric-form-modal',
   standalone: true,
-  imports: [FormsModule, RouterLink, ModalDirective, ConfirmDialogComponent, DatePickerComponent, CKEditorModule],
+  imports: [FormsModule, RouterLink, ModalDirective, ConfirmDialogComponent, DatePickerComponent, CKEditorModule, TabStripComponent],
   templateUrl: './metric-form-modal.component.html',
   styleUrl: './metric-form-modal.component.css',
 })
 export class MetricFormModalComponent implements OnChanges {
   readonly dataTypeOptions = DATA_TYPE_OPTIONS;
+  readonly tabs: TabDef[] = [
+    { key: 'details', label: 'Details', icon: 'bi-info-circle' },
+    { key: 'notes', label: 'Notes', icon: 'bi-journal-text' },
+    { key: 'attachments', label: 'Attachments', icon: 'bi-paperclip' },
+  ];
+  activeTab = 'details';
 
   @Input() open = false;
   @Input() mode: MetricFormMode = 'create';
@@ -125,7 +132,12 @@ export class MetricFormModalComponent implements OnChanges {
       this.dataType = this.initial?.dataType ?? 'number';
       this.localError = '';
       this.confirmDeleteOpen = false;
+      this.activeTab = 'details';
     }
+  }
+
+  setActiveTab(tab: string) {
+    this.activeTab = tab;
   }
 
   onStartDateChange(date: string | null) {

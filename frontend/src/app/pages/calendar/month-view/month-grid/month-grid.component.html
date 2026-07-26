@@ -12,7 +12,7 @@
             class="month-day-cell"
             [class.today]="isToday(day)"
             [class.out-month]="isOutOfMonth(day)"
-            (click)="dayClicked.emit(day)">
+            (click)="onCellClick(day)">
             <span class="month-day-number">{{ dayNumber(day) }}</span>
           </div>
         }

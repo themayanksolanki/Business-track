@@ -1,4 +1,11 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  Output,
+  SimpleChanges,
+} from '@angular/core';
 import {
   eachDayOfInterval,
   endOfMonth,
@@ -59,5 +66,9 @@ export class MonthGridComponent implements OnChanges {
 
   dayNumber(day: Date): string {
     return format(day, 'd');
+  }
+
+  onCellClick(day: Date) {
+    this.dayClicked.emit(day);
   }
 }

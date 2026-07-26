@@ -132,6 +132,7 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
   // "now, +1h" when omitted.
   @Input() initialStart: Date | null = null;
   @Input() initialEnd: Date | null = null;
+  @Input() initialAllDay = false;
 
   @Output() closed = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
@@ -371,7 +372,7 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
     this.startTime = dayjs(start).format('HH:mm');
     this.endDate = dayjs(end).format('YYYY-MM-DD');
     this.endTime = dayjs(end).format('HH:mm');
-    this.allDay = false;
+    this.allDay = this.initialAllDay;
     this.color = '#3b82f6';
     this.departmentId = null;
     this.categoryId = null;

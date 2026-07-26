@@ -35,6 +35,7 @@
           </button>
         </div>
         <div class="bowling-day-cells">
+          <span class="mx-1">{{ selectedMonthStr}}</span>
           @for (day of visibleDays; track day) {
             <span class="bowling-day-cell">{{ day }}</span>
           }

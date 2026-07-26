@@ -50,6 +50,7 @@ export class CalendarStateService {
   private readonly _dialogMode = signal<EventDialogMode>('view');
   private readonly _createRangeStart = signal<Date | null>(null);
   private readonly _createRangeEnd = signal<Date | null>(null);
+  private readonly _createAllDay = signal(false);
   // Which day's "+N more" popup is open — null means closed. Hoisted into
   // CalendarComponent's template the same way the other dialog state is.
   private readonly _dayEventsPopupDate = signal<Date | null>(null);
@@ -65,6 +66,7 @@ export class CalendarStateService {
   readonly dialogMode = this._dialogMode.asReadonly();
   readonly createRangeStart = this._createRangeStart.asReadonly();
   readonly createRangeEnd = this._createRangeEnd.asReadonly();
+  readonly createAllDay = this._createAllDay.asReadonly();
   readonly dialogOpen = computed(() => this._dialogMode() === 'create' || this._selectedEventId() !== null);
   readonly dayEventsPopupDate = this._dayEventsPopupDate.asReadonly();
   readonly dayEventsPopupOccurrences = this._dayEventsPopupOccurrences.asReadonly();
@@ -197,9 +199,10 @@ export class CalendarStateService {
     this._selectedOriginalStart.set(originalStart ?? null);
   }
 
-  openCreateEvent(range?: { start: Date; end: Date }) {
+  openCreateEvent(range?: { start: Date; end: Date }, allDay = false) {
     this._createRangeStart.set(range?.start ?? null);
     this._createRangeEnd.set(range?.end ?? null);
+    this._createAllDay.set(allDay);
     this._dialogMode.set('create');
     this._selectedEventId.set(null);
     this._selectedOriginalStart.set(null);
@@ -211,6 +214,7 @@ export class CalendarStateService {
     this._dialogMode.set('view');
     this._createRangeStart.set(null);
     this._createRangeEnd.set(null);
+    this._createAllDay.set(false);
   }
 
   openDayEventsPopup(date: Date, occurrences: CalendarOccurrence[]) {

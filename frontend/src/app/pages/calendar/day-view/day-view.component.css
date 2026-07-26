@@ -5,10 +5,31 @@
 }
 
 .strap-row-wrap {
+  position: relative;
   flex-shrink: 0;
   padding: 6px 8px;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border);
+}
+
+/* Invisible click target sitting behind the strap row — the strap row's
+   host has pointer-events:none (see event-strap-row.component.css) so
+   clicks on blank space between/below its bars fall through to the day-cell
+   underneath, same mechanism month-grid relies on for its day-cell clicks. */
+.strap-row-day-cells {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  z-index: 0;
+}
+
+.strap-row-day-cell {
+  cursor: pointer;
+}
+
+app-event-strap-row {
+  position: relative;
+  z-index: 1;
 }
 
 mwl-calendar-day-view {

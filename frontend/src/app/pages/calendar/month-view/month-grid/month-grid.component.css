@@ -98,6 +98,13 @@
   right: 0;
   top: 26px;
   bottom: 0;
+  /* app-event-strap-row's own :host is pointer-events:none too, but it only
+     sizes to its actual content (however many lanes are in use) — on rows
+     stretched taller than that by the row's flex-grow, the leftover space
+     is still inside this wrapper. Without pointer-events:none here too,
+     that leftover space (plain auto by default) sits on top of the day
+     cell and swallows clicks instead of letting them fall through. */
+  pointer-events: none;
 }
 
 @media (max-width: 768px) {

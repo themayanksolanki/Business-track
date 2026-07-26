@@ -3,6 +3,43 @@
   border: none;
   background: var(--bg-card);
   color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+}
+
+/* Header/error/tabs stay fixed size; only .metric-modal-scroll below grows
+   or scrolls, so the Notes tab's editor can claim all the leftover height
+   instead of sitting in a short box with dead space below it. */
+.metric-modal-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.metric-modal-header {
+  flex-shrink: 0;
+}
+
+.metric-modal-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.metric-modal-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-modal-footer {
+  flex-shrink: 0;
+  padding-top: 16px;
 }
 
 .field-label {
@@ -38,8 +75,34 @@
   text-decoration: underline;
 }
 
-.metric-notes-editor ::ng-deep .ck-editor__editable {
+/* Drag the bottom-right corner to resize — CKEditor has no natural height
+   cap of its own, so the wrapper owns the resize handle and the editor
+   stretches to fill whatever height the wrapper ends up at. */
+.metric-notes-resizable {
+  display: flex;
+  flex-direction: column;
+  height: 260px;
   min-height: 140px;
+  resize: vertical;
+  overflow: auto;
+}
+
+.metric-notes-resizable .metric-notes-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.metric-notes-resizable .metric-notes-editor ::ng-deep .ck-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.metric-notes-editor ::ng-deep .ck-editor__editable {
+  flex: 1;
+  min-height: 0;
 }
 
 /* CKEditor derives every internal border (toolbar, panels, dropdowns) from
@@ -77,6 +140,7 @@
   background: var(--bg-input);
   border-color: var(--border-strong);
   color: var(--text-primary);
+  min-height: 200px;
 }
 
 .metric-notes-editor ::ng-deep .ck.ck-toolbar {

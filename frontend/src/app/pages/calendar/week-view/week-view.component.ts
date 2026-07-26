@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CalendarModule, CalendarEvent } from 'angular-calendar';
-import { eachDayOfInterval, endOfDay, endOfWeek, startOfDay, startOfWeek } from 'date-fns';
+import { addHours, eachDayOfInterval, endOfDay, endOfWeek, startOfDay, startOfWeek } from 'date-fns';
 import { CalendarStateService } from '../../../core/services/calendar-state.service';
 import { CalendarOccurrence } from '../../../models/event.model';
 import { overlapsRange } from '../../../core/services/calendar-layout.util';
@@ -37,5 +37,16 @@ export class WeekViewComponent implements OnInit {
   onMoreClicked(day: Date) {
     const dayEvents = this.state.events().filter((e) => overlapsRange(e, startOfDay(day), endOfDay(day)));
     this.state.openDayEventsPopup(day, dayEvents);
+  }
+
+  onDayCellClicked(day: Date) {
+    this.state.openCreateEvent({ start: startOfDay(day), end: endOfDay(day) }, true);
+  }
+
+  // Blank hour-grid cell click — prefill with the exact clicked time rather
+  // than the whole day, since this is a timed slot (unlike the all-day
+  // strap row above, whose blank-cell click defaults to an all-day event).
+  onHourSegmentClicked(segment: { date: Date }) {
+    this.state.openCreateEvent({ start: segment.date, end: addHours(segment.date, 1) });
   }
 }

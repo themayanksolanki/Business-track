@@ -1,4 +1,9 @@
 <div class="strap-row-wrap">
+  <div class="strap-row-day-cells" [style.grid-template-columns]="'repeat(' + visibleDays.length + ', 1fr)'">
+    @for (day of visibleDays; track day.getTime()) {
+      <div class="strap-row-day-cell" (click)="onDayCellClicked(day)"></div>
+    }
+  </div>
   <app-event-strap-row
     [days]="visibleDays"
     [events]="state.strapEvents()"
@@ -10,5 +15,6 @@
 <mwl-calendar-day-view
   [viewDate]="state.viewDate()"
   [events]="state.timedMwlEvents()"
-  (eventClicked)="onEventClicked($event.event)">
+  (eventClicked)="onEventClicked($event.event)"
+  (hourSegmentClicked)="onHourSegmentClicked($event)">
 </mwl-calendar-day-view>

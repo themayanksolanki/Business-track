@@ -19,11 +19,10 @@ export class MonthViewComponent implements OnInit {
     this.state.setViewMode('month');
   }
 
-  // Clicking an empty day cell jumps the shared viewDate there without
-  // leaving month view (matches how clicking a date in most calendar apps'
-  // month grid just re-centers, rather than forcing a switch to day view).
+  // Clicking an empty day cell opens the create-event popup for that day,
+  // defaulting to an all-day event since the click carries no time-of-day.
   onDayClicked(day: Date) {
-    this.state.setViewDate(day);
+    this.state.openCreateEvent({ start: startOfDay(day), end: endOfDay(day) }, true);
   }
 
   onStrapEventClicked(occurrence: CalendarOccurrence) {
