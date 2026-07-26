@@ -1,0 +1,9 @@
+<div class="tree-chart-wrap">
+  @if (trees.length === 0) {
+    <div class="tree-chart-empty text-muted text-center py-5">
+      <i class="bi bi-diagram-3 display-5 d-block mb-3"></i>
+      <p class="mb-0">{{ emptyMessage }}</p>
+    </div>
+  }
+  <div #chartHost class="tree-chart-host" [class.d-none]="trees.length === 0"></div>
+</div>

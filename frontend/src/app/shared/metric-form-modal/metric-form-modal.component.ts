@@ -51,6 +51,7 @@ const DATA_TYPE_OPTIONS: DataTypeOption[] = [
 export class MetricFormModalComponent implements OnChanges {
   readonly dataTypeOptions = DATA_TYPE_OPTIONS;
   readonly tabs: TabDef[] = [
+    { key: 'statistics', label: 'Statistics', icon: 'bi-bar-chart' },
     { key: 'details', label: 'Details', icon: 'bi-info-circle' },
     { key: 'notes', label: 'Notes', icon: 'bi-journal-text' },
     { key: 'attachments', label: 'Attachments', icon: 'bi-paperclip' },
