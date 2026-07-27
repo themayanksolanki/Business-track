@@ -129,3 +129,8 @@ body { background: var(--bg-page); }
 .cursor-pointer {
   cursor: pointer;
 }
+
+.cal-week-view .cal-time {
+  font-size: 14px;
+  font-weight: 400;
+}
