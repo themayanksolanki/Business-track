@@ -7,13 +7,15 @@ import { Department, DepartmentDetail } from '../../../models/department.model';
 import { User } from '../../../models/user.model';
 import { DepartmentFormComponent, DepartmentFormMode, DepartmentFormPayload } from '../../../shared/department-form/department-form.component';
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
+import { TreeChartComponent, TreeChartNode } from '../../../shared/tree-chart/tree-chart.component';
 
 type FormMode = DepartmentFormMode;
+type DeptView = 'list' | 'tree';
 
 @Component({
   selector: 'app-departments',
   standalone: true,
-  imports: [RouterLink, DepartmentFormComponent, ConfirmDialogComponent],
+  imports: [RouterLink, DepartmentFormComponent, ConfirmDialogComponent, TreeChartComponent],
   templateUrl: './departments.component.html',
   styleUrl: './departments.component.css',
 })
@@ -24,6 +26,15 @@ export class DepartmentsComponent implements OnInit {
   ordered: Department[] = [];
   collapsedIds = new Set<number>();
   private parentMap = new Map<number, number | null>();
+
+  // Tree view renders the whole org at once (unlike the paginated list
+  // above), so it fetches the full flat list separately and lazily — no
+  // point paying for it until the user actually switches views.
+  view: DeptView = 'list';
+  private allDepartments: Department[] = [];
+  private treeLoaded = false;
+  treeLoading = false;
+  treeError = '';
 
   loading = false;
   error = '';
@@ -73,6 +84,70 @@ export class DepartmentsComponent implements OnInit {
 
   ngOnInit() {
     this.loadPage(1);
+  }
+
+  setView(view: DeptView) {
+    this.view = view;
+    if (view === 'tree' && !this.treeLoaded) this.loadTreeData();
+  }
+
+  // One reload control for both tabs — refreshes whichever view is
+  // currently showing without switching the user back to the other one.
+  reload() {
+    if (this.view === 'tree') this.loadTreeData();
+    else this.loadPage(this.currentPage);
+  }
+
+  private loadTreeData() {
+    this.treeLoading = true;
+    this.treeError = '';
+    this.departmentService.getDepartments().subscribe({
+      next: (departments) => {
+        this.allDepartments = departments;
+        this.treeLoaded = true;
+        this.treeLoading = false;
+      },
+      error: (err) => {
+        this.treeError = err.error?.message || 'Failed to load department tree';
+        this.treeLoading = false;
+      },
+    });
+  }
+
+  // Built on demand from the flat list rather than cached, since the list
+  // is small (department counts, not project/task volumes) and this keeps
+  // it trivially correct after any create/edit/delete without separately
+  // tracking a nested-tree cache in sync with `allDepartments`.
+  get treeChartData(): TreeChartNode[] {
+    const byParent = new Map<number | 'root', Department[]>();
+    for (const d of this.allDepartments) {
+      const key = d.parentId ?? 'root';
+      if (!byParent.has(key)) byParent.set(key, []);
+      byParent.get(key)!.push(d);
+    }
+    for (const list of byParent.values()) list.sort((a, b) => a.order - b.order);
+
+    const buildNode = (dept: Department): TreeChartNode => ({
+      id: dept.id,
+      name: dept.name,
+      color: dept.color,
+      stats: [
+        { label: 'Users', value: dept.userCount ?? 0 },
+        { label: 'Projects', value: dept.projectCount ?? 0 },
+        { label: 'Metrics', value: dept.metricCount ?? 0 },
+        { label: 'Events', value: dept.eventCount ?? 0 },
+      ],
+      children: (byParent.get(dept.id) ?? []).map(buildNode),
+    });
+
+    return (byParent.get('root') ?? []).map(buildNode);
+  }
+
+  onTreeNodeClicked(node: TreeChartNode) {
+    const dept = this.allDepartments.find((d) => d.id === node.id);
+    if (!dept) return;
+    this.view = 'list';
+    this.selectDepartment(dept);
   }
 
   loadPage(page: number) {
@@ -261,6 +336,10 @@ export class DepartmentsComponent implements OnInit {
         // without those pages needing a full reload.
         this.departmentService.refreshDepartments().subscribe();
         if (this.formMode === 'edit' && this.selectedId === this.editingId) this.reloadDetail();
+        // Invalidate rather than eagerly reload — cheap either way, but
+        // most edits happen while looking at the list, not the tree.
+        this.treeLoaded = false;
+        if (this.view === 'tree') this.loadTreeData();
       },
       error: (err) => {
         this.formError = err.error?.message || 'Failed to save department';
@@ -293,6 +372,8 @@ export class DepartmentsComponent implements OnInit {
         this.closeConfirm();
         this.loadPage(this.currentPage);
         this.departmentService.refreshDepartments().subscribe();
+        this.treeLoaded = false;
+        if (this.view === 'tree') this.loadTreeData();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to delete department';

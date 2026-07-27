@@ -1,4 +1,45 @@
-<div class="dept-layout">
+<div class="d-flex justify-content-end align-items-center gap-2 mb-3">
+  <button type="button" class="btn btn-sm dept-reload-btn" (click)="reload()" title="Reload">
+    <i class="bi bi-arrow-clockwise" [class.spin]="view === 'tree' ? treeLoading : loading"></i>
+  </button>
+  <div class="btn-group btn-group-sm dept-view-switcher" role="group">
+    <button type="button" class="btn" [class.active]="view === 'list'" (click)="setView('list')" title="List view">
+      <i class="bi bi-list-ul me-1"></i>List
+    </button>
+    <button type="button" class="btn" [class.active]="view === 'tree'" (click)="setView('tree')" title="Tree view">
+      <i class="bi bi-diagram-3 me-1"></i>Tree
+    </button>
+  </div>
+</div>
+
+@if (view === 'tree') {
+  <div class="dept-tree-chart-panel">
+    @if (treeLoading) {
+      <div class="text-center py-5 text-muted">
+        <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+      </div>
+    } @else if (treeError) {
+      <div class="alert alert-danger py-2">{{ treeError }}</div>
+    } @else {
+      <!-- ECharts is a heavy dependency only this view needs — deferring it
+           keeps it out of the Settings bundle entirely until someone
+           actually switches to Tree view. -->
+      @defer (when view === 'tree') {
+        <app-tree-chart
+          [trees]="treeChartData"
+          emptyMessage="No departments yet."
+          (nodeClicked)="onTreeNodeClicked($event)">
+        </app-tree-chart>
+      } @loading {
+        <div class="text-center py-5 text-muted">
+          <span class="spinner-border spinner-border-sm me-2"></span>Loading chart…
+        </div>
+      }
+    }
+  </div>
+}
+
+<div class="dept-layout" [class.d-none]="view !== 'list'">
   <div class="dept-tree-panel">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h6 class="mb-0 text-muted">Departments</h6>
