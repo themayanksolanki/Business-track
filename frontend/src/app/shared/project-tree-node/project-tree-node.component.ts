@@ -338,7 +338,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
     }
     if (this.canAddChild)
       items.push({
-        label: 'Add Child',
+        label: this.node.type === 'task' || this.node.type === 'subtask' ? 'Add SubTask' : 'Add Task',
         icon: 'bi-plus-lg',
         action: 'add-child',
       });
