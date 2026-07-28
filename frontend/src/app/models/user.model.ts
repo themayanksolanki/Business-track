@@ -17,7 +17,7 @@ export type SidebarTheme =
   | 'LEMON';
 export type SidebarLogo = 'CHECK' | 'ROCKET' | 'BOLT' | 'STAR' | 'SHIELD' | 'DIAMOND';
 export type Currency = 'USD' | 'EUR' | 'JPY' | 'GBP' | 'CNY' | 'INR';
-export type MeasurementUnit = 'KG' | 'LB' | 'LTR';
+export type MeasurementUnit = 'KG' | 'LB';
 
 // Single source of truth for display symbols — reused by Settings > General
 // (the picker) and the Metrics Bowling View (read-mode value decoration).
@@ -33,7 +33,6 @@ export const CURRENCY_SYMBOLS: Record<Currency, string> = {
 export const MEASUREMENT_UNIT_SYMBOLS: Record<MeasurementUnit, string> = {
   KG: 'kg',
   LB: 'lb',
-  LTR: 'L',
 };
 export type LandingPage =
   | 'dashboard'

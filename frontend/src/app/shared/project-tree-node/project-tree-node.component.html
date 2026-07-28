@@ -219,6 +219,17 @@
       <i class="bi bi-card-text"></i>
     </button>
 
+    <!-- Shown on both Task and Group rows (unlike attachments/description
+         above, which don't apply to groups) — approvers can be assigned to
+         either. -->
+    <button type="button" class="tree-icon-btn tree-icon-btn-approval" [class.active]="approvalOpen || (node.pendingApproverCount ?? 0) > 0"
+            (click)="$event.stopPropagation(); toggleApproval()" title="Task Approval">
+      <i class="bi bi-hand-thumbs-up"></i>
+      @if ((node.pendingApproverCount ?? 0) > 0) {
+        <span class="tree-icon-count">{{ node.pendingApproverCount }}</span>
+      }
+    </button>
+
     <button type="button" class="tree-icon-btn" (click)="openContextMenu($event)" title="More actions">
       <i class="bi bi-three-dots"></i>
     </button>
@@ -249,6 +260,15 @@
       </div>
     </div>
   }
+
+  <app-task-approval-modal
+    [open]="approvalOpen"
+    [projectId]="projectId"
+    [item]="node"
+    [members]="users"
+    [canEdit]="canEdit"
+    (closed)="approvalOpen = false">
+  </app-task-approval-modal>
 
   @if (addChildOpen && canEdit) {
     <div class="tree-add-child-row form" [style.padding-left]="'calc(' + (node.depth + 1) + ' * var(--tree-indent-unit, 22px) + 40px)'">

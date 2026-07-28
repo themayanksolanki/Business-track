@@ -1,0 +1,80 @@
+enum MeetingStatus {
+  scheduled
+  live
+  ended
+  cancelled
+}
+
+enum MeetingParticipantRole {
+  host
+  coHost
+  attendee
+}
+
+// A hosted in-app meeting room (Google Meet-style), independent of any single
+// calendar event, project, or chat conversation — those links are additive
+// nullable FKs for later phases, not modeled here yet. `roomCode` is the
+// short shareable code (e.g. "abc-defg-hij") used in the `/meet/:roomCode`
+// deep link. Reuses the existing CallType enum (message.prisma) instead of
+// a new one, since a meeting is just a video/audio call with N participants.
+model Meeting {
+  id             Int           @id @default(autoincrement())
+  sequenceId     Int?
+  roomCode       String        @unique
+  title          String?
+  hostId         Int
+  organizationId Int?
+  callType       CallType      @default(video)
+  status         MeetingStatus @default(scheduled)
+  scheduledStart DateTime?
+  scheduledEnd   DateTime?
+  startedAt      DateTime?
+  endedAt        DateTime?
+  createdById    Int
+  updatedById    Int?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  host         User          @relation("MeetingHost", fields: [hostId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  createdBy    User          @relation("MeetingCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?         @relation("MeetingUpdatedBy", fields: [updatedById], references: [id])
+
+  participants MeetingParticipant[]
+  settings     MeetingSettings?
+
+  @@index([organizationId])
+  @@index([hostId])
+  @@unique([organizationId, sequenceId])
+  @@map("meetings")
+}
+
+model MeetingParticipant {
+  id        Int                    @id @default(autoincrement())
+  meetingId Int
+  userId    Int
+  role      MeetingParticipantRole @default(attendee)
+  invited   Boolean                @default(true)
+  joinedAt  DateTime?
+  leftAt    DateTime?
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([meetingId, userId])
+  @@index([meetingId])
+  @@map("meeting_participants")
+}
+
+model MeetingSettings {
+  id                 Int     @id @default(autoincrement())
+  meetingId          Int     @unique
+  waitingRoomEnabled Boolean @default(false)
+  allowGuestJoin     Boolean @default(true)
+  muteOnEntry        Boolean @default(false)
+  recordingEnabled   Boolean @default(false)
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@map("meeting_settings")
+}

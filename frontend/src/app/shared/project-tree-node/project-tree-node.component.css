@@ -2,7 +2,7 @@
 
 .tree-row-main {
   display: grid;
-  grid-template-columns: var(--col-id) var(--col-icon) var(--col-assignee) minmax(160px, 1fr) var(--col-status) var(--col-due) var(--col-priority) var(--col-icon) var(--col-icon) var(--col-icon);
+  grid-template-columns: var(--col-id) var(--col-icon) var(--col-assignee) minmax(160px, 1fr) var(--col-status) var(--col-due) var(--col-priority) var(--col-icon) var(--col-icon) var(--col-icon) var(--col-icon);
   column-gap: 8px;
   align-items: center;
   padding: 6px 10px;
@@ -467,7 +467,8 @@
    drops the grid entirely in favor of wrapping. ── */
 @media (max-width: 860px) {
   .tree-icon-btn-attachments,
-  .tree-icon-btn-description {
+  .tree-icon-btn-description,
+  .tree-icon-btn-approval {
     display: none;
   }
 

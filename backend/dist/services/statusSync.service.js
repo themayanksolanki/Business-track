@@ -1,4 +1,5 @@
 import prisma from '../lib/prisma.js';
+import { isApprovalCompleteForItem } from '../utils/approval.js';
 export const MAX_DEPTH = 4; // depths 0-4 => 5 levels total
 export const typeForDepth = (depth) => depth === 0 ? 'group' : depth === 1 ? 'task' : 'subtask';
 export async function recomputeAncestorStatuses(parentId) {
@@ -12,11 +13,19 @@ export async function recomputeAncestorStatuses(parentId) {
     const children = await prisma.projectItem.findMany({ where: { parentId: parent.id } });
     if (children.length === 0)
         return;
-    const computed = children.every((c) => c.status === 'completed')
+    let computed = children.every((c) => c.status === 'completed')
         ? 'completed'
         : children.some((c) => c.status === 'doing' || c.status === 'completed')
             ? 'doing'
             : 'todo';
+    // A parent whose own children are all done still can't roll up to
+    // 'completed' if the parent itself has pending/changes-requested
+    // approvers — falls back to 'doing' rather than blocking the update
+    // outright, since this runs as a side effect of a child's status change,
+    // not a direct user action to reject.
+    if (computed === 'completed' && !(await isApprovalCompleteForItem(parent.id))) {
+        computed = 'doing';
+    }
     if (computed !== parent.status) {
         await prisma.projectItem.update({ where: { id: parent.id }, data: { status: computed } });
         await recomputeAncestorStatuses(parent.parentId);

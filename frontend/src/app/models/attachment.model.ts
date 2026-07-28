@@ -1,3 +1,5 @@
+import { HttpEvent } from '@angular/common/http';
+import { Observable } from 'rxjs';
 import { User } from './user.model';
 
 // Kept in sync with backend/middleware/attachmentUpload.js's ALLOWED_MIME_TYPES.
@@ -34,4 +36,22 @@ export interface DownloadInfo {
   downloadUrl: string;
   mimeType: string;
   fileName: string;
+}
+
+// Drives the shared <app-attachments> component (shared/attachments) — one
+// small object of bound service calls per entity type (task/project/item/
+// event/metric), so the component itself never needs to know which backend
+// endpoints it's talking to. `undoDelete`/`addLink` are optional because not
+// every entity's backend supports them (project-level attachments are
+// immediate-delete only, task-level has no "add link" endpoint) — their
+// presence/absence is what the component uses to decide which UI to show.
+export interface AttachmentsAdapter {
+  list(): Observable<Attachment[]>;
+  upload(file: File): Observable<HttpEvent<{ message: string; attachment: Attachment }>>;
+  download(attachment: Attachment): Observable<DownloadInfo>;
+  // Soft-delete backends resolve with the updated (now-pending) row; the
+  // immediate-delete (project-level) backend resolves with just a message.
+  delete(attachment: Attachment): Observable<{ message: string; attachment?: Attachment }>;
+  undoDelete?(attachment: Attachment): Observable<{ message: string; attachment: Attachment }>;
+  addLink?(payload: { url: string; fileName?: string }): Observable<{ message: string; attachment: Attachment }>;
 }

@@ -46,15 +46,16 @@
             </div>
 
             <div class="mb-3">
-              <label class="field-label">Data Type <span class="text-danger">*</span></label>
+              <label class="field-label">Unit <span class="text-danger">*</span></label>
               <select class="form-select field-input" [(ngModel)]="dataType" name="dataType">
                 @for (opt of dataTypeOptions; track opt.value) {
                   <option [ngValue]="opt.value">{{ opt.label }}</option>
                 }
               </select>
               <p class="field-hint">
-                Decides how values look in the Bowling View — Weight/Currency show the unit from your own
-                <a routerLink="/settings">Settings &gt; General</a> preference; Percentage adds %.
+                Decides how values look in the Bowling View (read mode only, never while editing a cell) —
+                Weight/Currency show the unit from your own <a routerLink="/settings">Settings &gt; General</a>
+                preference, using that same preference's decimal points; Percentage adds %; Default shows a plain number.
               </p>
             </div>
 
@@ -114,6 +115,17 @@
                 <ckeditor class="metric-notes-editor" [editor]="NotesEditor" [config]="notesEditorConfig" [(ngModel)]="notes" name="notes"></ckeditor>
               </div>
             </div>
+          }
+
+          @if (activeTab === 'attachments') {
+            @if (mode === 'edit' && initial) {
+              <app-attachments
+                [adapter]="metricSvc.attachmentsAdapter(initial.id)"
+                [reloadKey]="initial.id">
+              </app-attachments>
+            } @else {
+              <p class="text-muted small">Save the metric first to add attachments.</p>
+            }
           }
           </div>
 

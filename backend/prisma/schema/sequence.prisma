@@ -12,6 +12,7 @@ enum SequenceEntity {
   metric
   calendar
   calendarEvent
+  meeting
 }
 
 model OrgSequence {

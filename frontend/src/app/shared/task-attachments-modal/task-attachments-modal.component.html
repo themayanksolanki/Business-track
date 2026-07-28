@@ -13,70 +13,12 @@
       </div>
 
       <div class="modal-body p-4">
-        @if (error) {
-          <div class="alert alert-danger py-2 small mb-3">{{ error }}</div>
-        }
-
-        @if (loading) {
-          <div class="text-center py-4 text-muted">
-            <span class="spinner-border spinner-border-sm me-2"></span>Loading files…
-          </div>
-        } @else if (attachments.length === 0) {
-          <p class="text-muted small mb-4">No files uploaded yet.</p>
-        } @else {
-          <div class="att-grid mb-4">
-            @for (a of attachments; track a.id) {
-              <div class="att-tile" [class.att-tile-pending]="isPending(a)">
-                <div class="att-tile-thumb" (click)="!isPending(a) && viewRequested.emit(a)">
-                  <app-attachment-thumb [attachment]="a" [getFileInfo]="getFileInfo"></app-attachment-thumb>
-                  @if (isPending(a)) {
-                    <div class="att-tile-overlay att-tile-overlay-pending">
-                      <span class="att-tile-countdown">{{ remainingSeconds(a) }}s</span>
-                      <button type="button" class="att-tile-action btn btn-success btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); undoRequested.emit(a)" title="Undo">
-                        <i class="bi bi-arrow-counterclockwise"></i>
-                      </button>
-                    </div>
-                  } @else {
-                    <div class="att-tile-overlay">
-                      <button type="button" class="att-tile-action btn btn-light btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); viewRequested.emit(a)" title="Preview">
-                        <i class="bi bi-eye"></i>
-                      </button>
-                      <button type="button" class="att-tile-action btn btn-light btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); download.emit(a)" [disabled]="downloadingId === a.id" title="Download">
-                        @if (downloadingId === a.id) {
-                          <span class="spinner-border spinner-border-sm"></span>
-                        } @else {
-                          <i class="bi bi-download"></i>
-                        }
-                      </button>
-                      <button type="button" class="att-tile-action btn btn-danger btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); deleteRequested.emit(a)" title="Delete">
-                        <i class="bi bi-trash"></i>
-                      </button>
-                    </div>
-                  }
-                </div>
-                <div class="att-tile-info">
-                  <span class="att-tile-name text-truncate" [class.att-tile-name-pending]="isPending(a)" [title]="a.fileName">{{ a.fileName }}</span>
-                  <span class="att-tile-meta" [title]="formatUploadedAt(a.createdAt)">
-                    @if (isPending(a)) { Deleting… } @else { {{ formatSize(a.size) }} }
-                  </span>
-                </div>
-              </div>
-            }
-          </div>
-        }
-
-        <div class="attachment-upload-row">
-          <label class="attachment-upload-btn" [class.disabled]="uploading">
-            @if (uploading) {
-              <span class="spinner-border spinner-border-sm me-2"></span>Uploading…
-            } @else {
-              <i class="bi bi-cloud-arrow-up me-2"></i>Upload File
-            }
-            <input #fileInput type="file" hidden [accept]="acceptedFileTypes" (change)="onFileSelected($event)" [disabled]="uploading" />
-          </label>
-        </div>
-        @if (uploadError) {
-          <div class="field-error mt-2">{{ uploadError }}</div>
+        @if (task) {
+          <app-attachments
+            [adapter]="attachmentService.attachmentsAdapter(task.id)"
+            [reloadKey]="task.id"
+            (attachmentsChange)="onAttachmentsChange($event)">
+          </app-attachments>
         }
       </div>
     </div>

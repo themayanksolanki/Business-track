@@ -6,6 +6,9 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
           <h5 class="mb-0">
             <i class="bi bi-calendar-event me-2"></i>{{ dialogTitle }}
+            @if (isViewing && loadedEvent?.status === 'cancelled') {
+              <span class="event-cancelled-badge ms-2">Cancelled</span>
+            }
           </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
@@ -116,19 +119,19 @@
           </div>
         } @else {
           <!-- CREATE / EDIT MODE: same two-panel grouping, editable -->
-          <form (ngSubmit)="submit()">
+          <form [formGroup]="form" (ngSubmit)="submit()">
             <div class="event-detail-grid">
               <div class="event-panel">
                 <div class="event-panel-header">Event Details</div>
 
                 <div class="event-field">
                   <label class="field-label">Title <span class="text-danger">*</span></label>
-                  <input type="text" class="form-control field-input" [(ngModel)]="title" name="title" placeholder="Event title" />
+                  <input #titleInput type="text" class="form-control field-input" formControlName="title" placeholder="Event title" />
                 </div>
 
                 <div class="event-field">
                   <label class="field-label">Department</label>
-                  <select class="form-select field-input" [(ngModel)]="departmentId" name="departmentId">
+                  <select class="form-select field-input" formControlName="departmentId">
                     <option [ngValue]="null">No department</option>
                     @for (dept of departmentService.departments(); track dept.id) {
                       <option [ngValue]="dept.id">{{ dept.name }}</option>
@@ -138,7 +141,7 @@
 
                 <div class="event-field">
                   <label class="field-label">Category</label>
-                  <select class="form-select field-input" [(ngModel)]="categoryId" name="categoryId">
+                  <select class="form-select field-input" formControlName="categoryId">
                     <option [ngValue]="null">No category</option>
                     @for (cat of categoryService.categories(); track cat.id) {
                       <option [ngValue]="cat.id">{{ cat.name }}</option>
@@ -148,7 +151,7 @@
 
                 <div class="event-field">
                   <label class="field-label">Calendar</label>
-                  <select class="form-select field-input" [(ngModel)]="calendarId" name="calendarId">
+                  <select class="form-select field-input" formControlName="calendarId">
                     @for (cal of calendars; track cal.id) {
                       <option [ngValue]="cal.id">{{ cal.name }}</option>
                     }
@@ -158,14 +161,14 @@
                 <div class="event-field">
                   <label class="field-label">Color</label>
                   <div class="d-flex align-items-center gap-2">
-                    <input type="color" class="event-color-input" [(ngModel)]="color" name="color" />
-                    <input type="text" class="form-control field-input" [(ngModel)]="color" name="colorHex" />
+                    <input type="color" class="event-color-input" formControlName="color" />
+                    <input type="text" class="form-control field-input" [formControl]="$any(form.controls['color'])" />
                   </div>
                 </div>
 
                 <div class="event-field">
                   <label class="field-label">Description</label>
-                  <ckeditor class="event-description-editor" [editor]="DescriptionEditor" [config]="descriptionEditorConfig" [(ngModel)]="description" name="description"></ckeditor>
+                  <ckeditor class="event-description-editor" [editor]="DescriptionEditor" [config]="descriptionEditorConfig" formControlName="description"></ckeditor>
                 </div>
 
                 @if (internalMode !== 'create') {
@@ -179,16 +182,16 @@
                 <div class="event-panel-header">Date &amp; Guests</div>
 
                 <div class="form-check event-field">
-                  <input type="checkbox" class="form-check-input" id="event-all-day" [(ngModel)]="allDay" name="allDay" />
+                  <input type="checkbox" class="form-check-input" id="event-all-day" formControlName="allDay" />
                   <label class="form-check-label" for="event-all-day">All day</label>
                 </div>
 
                 <div class="event-field">
                   <label class="field-label">Start <span class="text-danger">*</span></label>
                   <div class="d-flex gap-2">
-                    <app-date-picker class="flex-grow-1" [value]="startDate" (valueChange)="onStartDateChange($event)"></app-date-picker>
-                    @if (!allDay) {
-                      <app-time-picker [value]="startTime" (valueChange)="onStartTimeChange($event)"></app-time-picker>
+                    <app-date-picker class="flex-grow-1" formControlName="startDate" (valueChange)="clampEndToStart()"></app-date-picker>
+                    @if (!form.value.allDay) {
+                      <app-time-picker formControlName="startTime" (valueChange)="clampEndToStart()"></app-time-picker>
                     }
                   </div>
                 </div>
@@ -196,39 +199,39 @@
                 <div class="event-field">
                   <label class="field-label">End <span class="text-danger">*</span></label>
                   <div class="d-flex gap-2">
-                    <app-date-picker class="flex-grow-1" [value]="endDate" [min]="startDate" (valueChange)="onEndDateChange($event)"></app-date-picker>
-                    @if (!allDay) {
-                      <app-time-picker [value]="endTime" (valueChange)="onEndTimeChange($event)"></app-time-picker>
+                    <app-date-picker class="flex-grow-1" formControlName="endDate" [min]="form.value.startDate" (valueChange)="clampStartToEnd()"></app-date-picker>
+                    @if (!form.value.allDay) {
+                      <app-time-picker formControlName="endTime" (valueChange)="clampStartToEnd()"></app-time-picker>
                     }
                   </div>
                 </div>
 
                 <div class="event-field">
                   <label class="field-label">Location</label>
-                  <input type="text" class="form-control field-input" [(ngModel)]="location" name="location" placeholder="Optional location" />
+                  <input type="text" class="form-control field-input" formControlName="location" placeholder="Optional location" />
                 </div>
 
                 <div class="event-field">
                   <label class="field-label">Meeting link</label>
-                  <input type="text" class="form-control field-input" [(ngModel)]="meetingLinkUrl" name="meetingLinkUrl" placeholder="https://..." />
+                  <input type="text" class="form-control field-input" formControlName="meetingLinkUrl" placeholder="https://..." />
                 </div>
 
                 <div class="event-field">
                   <label class="field-label">Meeting link title</label>
-                  <input type="text" class="form-control field-input" [(ngModel)]="meetingLinkTitle" name="meetingLinkTitle" placeholder="Optional" [disabled]="!meetingLinkUrl.trim()" />
+                  <input type="text" class="form-control field-input" formControlName="meetingLinkTitle" placeholder="Optional" />
                 </div>
 
                 <!-- Repeat -->
                 <div class="event-field event-subsection">
                   <div class="form-check mb-2">
-                    <input type="checkbox" class="form-check-input" id="event-repeats" [(ngModel)]="repeats" name="repeats" />
+                    <input type="checkbox" class="form-check-input" id="event-repeats" formControlName="repeats" />
                     <label class="form-check-label" for="event-repeats">Repeat</label>
                   </div>
-                  @if (repeats) {
+                  @if (form.value.repeats) {
                     <div class="event-field-row">
                       <div class="flex-grow-1">
                         <label class="field-label">Frequency</label>
-                        <select class="form-select field-input" [(ngModel)]="recurrenceFrequency" name="recurrenceFrequency">
+                        <select class="form-select field-input" formControlName="recurrenceFrequency">
                           @for (opt of frequencyOptions; track opt.value) {
                             <option [ngValue]="opt.value">{{ opt.label }}</option>
                           }
@@ -236,30 +239,30 @@
                       </div>
                       <div class="flex-grow-1">
                         <label class="field-label">Every</label>
-                        <input type="number" min="1" class="form-control field-input" [(ngModel)]="recurrenceInterval" name="recurrenceInterval" />
+                        <input type="number" min="1" class="form-control field-input" formControlName="recurrenceInterval" />
                       </div>
                     </div>
                     <div class="mt-2">
                       <div class="form-check">
-                        <input type="radio" class="form-check-input" id="rec-end-never" name="recurrenceEndType" [(ngModel)]="recurrenceEndType" value="never" />
+                        <input type="radio" class="form-check-input" id="rec-end-never" formControlName="recurrenceEndType" value="never" />
                         <label class="form-check-label" for="rec-end-never">Never ends</label>
                       </div>
                       <div class="form-check">
-                        <input type="radio" class="form-check-input" id="rec-end-on" name="recurrenceEndType" [(ngModel)]="recurrenceEndType" value="on" />
+                        <input type="radio" class="form-check-input" id="rec-end-on" formControlName="recurrenceEndType" value="on" />
                         <label class="form-check-label" for="rec-end-on">Ends on</label>
                       </div>
                       <div class="form-check">
-                        <input type="radio" class="form-check-input" id="rec-end-after" name="recurrenceEndType" [(ngModel)]="recurrenceEndType" value="after" />
+                        <input type="radio" class="form-check-input" id="rec-end-after" formControlName="recurrenceEndType" value="after" />
                         <label class="form-check-label" for="rec-end-after">Ends after</label>
                       </div>
-                      @if (recurrenceEndType === 'on') {
+                      @if (form.value.recurrenceEndType === 'on') {
                         <div class="mt-2">
-                          <app-date-picker [value]="recurrenceUntil" [min]="startDate" (valueChange)="recurrenceUntil = $event"></app-date-picker>
+                          <app-date-picker formControlName="recurrenceUntil" [min]="form.value.startDate"></app-date-picker>
                         </div>
                       }
-                      @if (recurrenceEndType === 'after') {
+                      @if (form.value.recurrenceEndType === 'after') {
                         <div class="input-group mt-2">
-                          <input type="number" min="1" class="form-control field-input" [(ngModel)]="recurrenceCount" name="recurrenceCount" />
+                          <input type="number" min="1" class="form-control field-input" formControlName="recurrenceCount" />
                           <span class="input-group-text">occurrences</span>
                         </div>
                       }
@@ -268,29 +271,29 @@
                 </div>
 
                 <!-- Reminders -->
-                <div class="event-field event-subsection">
+                <div class="event-field event-subsection" formArrayName="reminders">
                   <label class="field-label">Reminders</label>
-                  @for (r of reminders; track $index) {
-                    <div class="d-flex gap-2 align-items-center mb-2">
-                      <select class="form-select field-input reminder-method-select" [(ngModel)]="r.method" [name]="'reminderMethod' + $index">
+                  @for (r of remindersArray.controls; track $index; let i = $index) {
+                    <div class="d-flex gap-2 align-items-center mb-2" [formGroupName]="i">
+                      <select class="form-select field-input reminder-method-select" formControlName="method">
                         @for (opt of reminderMethodOptions; track opt.value) {
                           <option [ngValue]="opt.value">{{ opt.label }}</option>
                         }
                       </select>
                       <div class="input-group reminder-minutes-group">
-                        <input type="number" min="0" class="form-control field-input" [(ngModel)]="r.minutesBefore" [name]="'reminderMinutes' + $index" />
+                        <input type="number" min="0" class="form-control field-input" formControlName="minutesBefore" />
                         <span class="input-group-text">min before</span>
                       </div>
-                      <button type="button" class="btn btn-link text-danger p-0" (click)="removeReminder($index)"><i class="bi bi-trash3"></i></button>
+                      <button type="button" class="btn btn-link text-danger p-0" (click)="removeReminder(i)"><i class="bi bi-trash3"></i></button>
                     </div>
                   }
-                  <button type="button" class="btn" (click)="addReminder()"><i class="bi bi-plus me-1"></i>Add reminder</button>
+                  <button type="button" class="btn btn-outline-primary btn-sm" (click)="addReminder()"><i class="bi bi-plus-lg me-1"></i>Add reminder</button>
                 </div>
 
                 <div class="event-field-row">
                   <div class="flex-grow-1">
                     <label class="field-label">Visibility</label>
-                    <select class="form-select field-input" [(ngModel)]="visibility" name="visibility">
+                    <select class="form-select field-input" formControlName="visibility">
                       @for (opt of visibilityOptions; track opt.value) {
                         <option [ngValue]="opt.value">{{ opt.label }}</option>
                       }
@@ -299,8 +302,8 @@
                   <div class="flex-grow-1">
                     <label class="field-label">Busy / Free</label>
                     <div class="btn-group w-100" role="group">
-                      <button type="button" class="btn btn-outline-secondary" [class.active]="busyStatus === 'busy'" (click)="busyStatus = 'busy'">Busy</button>
-                      <button type="button" class="btn btn-outline-secondary" [class.active]="busyStatus === 'free'" (click)="busyStatus = 'free'">Free</button>
+                      <button type="button" class="btn btn-outline-secondary" [class.active]="form.value.busyStatus === 'busy'" (click)="form.patchValue({busyStatus: 'busy'})">Busy</button>
+                      <button type="button" class="btn btn-outline-secondary" [class.active]="form.value.busyStatus === 'free'" (click)="form.patchValue({busyStatus: 'free'})">Free</button>
                     </div>
                   </div>
                 </div>
@@ -308,19 +311,19 @@
                 <!-- Guests -->
                 <div class="event-field">
                   <label class="field-label">Guests</label>
-                  @if (guests.length) {
+                  @if (guestsArray.length) {
                     <div class="d-flex flex-wrap gap-2 mb-2">
-                      @for (g of guests; track g.email; let i = $index) {
+                      @for (g of guestsArray.controls; track $index; let i = $index) {
                         <span class="guest-pill">
-                          {{ g.name || g.email }}
+                          {{ g.value.name || g.value.email }}
                           <i class="bi bi-x-lg ms-1" (click)="removeGuest(i)"></i>
                         </span>
                       }
                     </div>
                   }
-                  <div class="d-flex gap-2">
-                    <input type="email" class="form-control field-input" [(ngModel)]="guestEmailInput" name="guestEmailInput" placeholder="Email" (keydown.enter)="$event.preventDefault(); addGuest()" />
-                    <input type="text" class="form-control field-input" [(ngModel)]="guestNameInput" name="guestNameInput" placeholder="Name (optional)" (keydown.enter)="$event.preventDefault(); addGuest()" />
+                  <div class="d-flex gap-2" formGroupName="guestComposer">
+                    <input type="email" class="form-control field-input" formControlName="email" placeholder="Email" (keydown.enter)="$event.preventDefault(); addGuest()" />
+                    <input type="text" class="form-control field-input" formControlName="name" placeholder="Name (optional)" (keydown.enter)="$event.preventDefault(); addGuest()" />
                     <button type="button" class="btn btn-light" (click)="addGuest()">Add</button>
                   </div>
                 </div>
@@ -357,105 +360,20 @@
 <ng-template #attachmentsBlock>
   <div class="subtask-header">
     <i class="bi bi-paperclip me-1"></i>Attachments
-    @if (attachments.length > 0) { <span class="subtask-count">{{ attachments.length }}</span> }
+    @if (attachmentsCount > 0) { <span class="subtask-count">{{ attachmentsCount }}</span> }
   </div>
 
-  @if (attachmentsLoading) {
-    <div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</div>
-  } @else if (attachments.length === 0) {
-    <p class="text-muted small mb-2">No files uploaded yet.</p>
+  @if (loadedEvent) {
+    <app-attachments
+      [adapter]="eventService.attachmentsAdapter(loadedEvent.id)"
+      [reloadKey]="loadedEvent.id"
+      [canEdit]="internalMode === 'edit'"
+      (attachmentsChange)="attachmentsCount = $event.length">
+    </app-attachments>
   } @else {
-    <div class="att-grid mb-2">
-      @for (a of attachments; track a.id) {
-        <div class="att-tile" [class.att-tile-pending]="isPending(a)">
-          <div class="att-tile-thumb" (click)="!isPending(a) && openViewer(a)">
-            <app-attachment-thumb [attachment]="a" [getFileInfo]="getAttachmentFileInfo"></app-attachment-thumb>
-            @if (isPending(a)) {
-              <div class="att-tile-overlay att-tile-overlay-pending">
-                <span class="att-tile-countdown">{{ remainingSeconds(a) }}s</span>
-                @if (internalMode === 'edit') {
-                  <button type="button" class="att-tile-action btn btn-success btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); undoDeleteAttachment(a)" title="Undo">
-                    <i class="bi bi-arrow-counterclockwise"></i>
-                  </button>
-                }
-              </div>
-            } @else {
-              <div class="att-tile-overlay">
-                <button type="button" class="att-tile-action btn btn-light btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); openViewer(a)" title="Preview">
-                  <i class="bi bi-eye"></i>
-                </button>
-                <button type="button" class="att-tile-action btn btn-light btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); download(a)" [disabled]="downloadingId === a.id" [title]="a.kind === 'link' ? 'Open' : 'Download'">
-                  @if (downloadingId === a.id) {
-                    <span class="spinner-border spinner-border-sm"></span>
-                  } @else {
-                    <i class="bi" [class.bi-download]="a.kind !== 'link'" [class.bi-box-arrow-up-right]="a.kind === 'link'"></i>
-                  }
-                </button>
-                @if (internalMode === 'edit') {
-                  <button type="button" class="att-tile-action btn btn-danger btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); deleteAttachment(a)" title="Delete">
-                    <i class="bi bi-trash3"></i>
-                  </button>
-                }
-              </div>
-            }
-          </div>
-          <div class="att-tile-info">
-            <span class="att-tile-name text-truncate" [class.att-tile-name-pending]="isPending(a)" [title]="a.fileName">{{ a.fileName }}</span>
-            <span class="att-tile-meta">
-              @if (isPending(a)) { Deleting… } @else if (a.kind === 'link') { Link } @else { {{ formatSize(a.size) }} }
-            </span>
-          </div>
-        </div>
-      }
-    </div>
-  }
-
-  @if (internalMode === 'edit') {
-    <div class="attachment-upload-row">
-      <label class="attachment-upload-btn" [class.disabled]="attachmentUploading">
-        @if (attachmentUploading) {
-          <span class="spinner-border spinner-border-sm me-2"></span>Uploading…
-        } @else {
-          <i class="bi bi-cloud-arrow-up me-2"></i>Upload File
-        }
-        <input type="file" hidden [accept]="acceptedFileTypes" (change)="onFileSelected($event)" [disabled]="attachmentUploading" />
-      </label>
-      <button type="button" class="attachment-upload-btn" (click)="toggleAddLink()">
-        <i class="bi bi-link-45deg me-2"></i>Add Link
-      </button>
-    </div>
-    @if (attachmentUploadError) {
-      <div class="field-error mt-2">{{ attachmentUploadError }}</div>
-    }
-    @if (addLinkOpen) {
-      <div class="add-link-row">
-        <input type="url" class="add-link-input" placeholder="https://…" [(ngModel)]="linkUrlInput"
-               [ngModelOptions]="{standalone: true}" (keydown.enter)="submitLink()" />
-        <input type="text" class="add-link-input" placeholder="Label (optional)" [(ngModel)]="linkLabelInput"
-               [ngModelOptions]="{standalone: true}" (keydown.enter)="submitLink()" />
-        <button type="button" class="add-link-submit-btn btn btn-primary d-inline-flex align-items-center justify-content-center p-0" (click)="submitLink()" [disabled]="addLinkLoading || !linkUrlInput.trim()" title="Add">
-          @if (addLinkLoading) {
-            <span class="spinner-border spinner-border-sm"></span>
-          } @else {
-            <i class="bi bi-check-lg"></i>
-          }
-        </button>
-      </div>
-      @if (addLinkError) {
-        <div class="field-error mt-2">{{ addLinkError }}</div>
-      }
-    }
+    <p class="text-muted small mb-2">Save the event first to add attachments.</p>
   }
 </ng-template>
-
-<app-attachment-viewer
-  [open]="viewerOpen"
-  [attachments]="attachments"
-  [startIndex]="viewerIndex"
-  [getFileInfo]="getAttachmentFileInfo"
-  (closed)="viewerOpen = false"
-  (download)="download($event)">
-</app-attachment-viewer>
 
 <app-confirm-dialog
   [open]="confirmDeleteOpen"

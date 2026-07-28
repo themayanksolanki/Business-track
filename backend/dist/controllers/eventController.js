@@ -55,8 +55,11 @@ export const canEditEvent = (user, event) => user.role === 'Admin' || event.owne
 // user's first Calendar the first time they create an event without
 // specifying one, so createEvent doesn't hard-depend on a separate feature
 // that hasn't been built. Must run inside the same transaction as the event
-// create so the two commit/rollback together.
-async function getOrCreateDefaultCalendar(tx, user) {
+// create so the two commit/rollback together. Exported for
+// meetingLinkCalendarSync.service.ts, which resolves a *different* user's
+// (the task's assignee/creator, not the caller's) default calendar — hence
+// the narrower param type below instead of the full AuthUser shape.
+export async function getOrCreateDefaultCalendar(tx, user) {
     const existing = await tx.calendar.findFirst({ where: { ownerId: user.id }, orderBy: { id: 'asc' } });
     if (existing)
         return existing;

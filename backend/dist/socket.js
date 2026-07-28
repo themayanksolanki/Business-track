@@ -2,6 +2,11 @@ import { Server } from 'socket.io';
 import { randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
 import prisma from './lib/prisma.js';
+import { verifyRoomToken } from './utils/meetingToken.js';
+// Native mesh WebRTC scales poorly past a handful of participants (each
+// client uploads N-1 streams) — capped here until an SFU is worth building.
+const MEETING_ROOM_CAPACITY = 4;
+const meetingRoom = (meetingId) => `meeting:${meetingId}`;
 const SENDER_RECEIVER_SELECT = { id: true, username: true, profileImage: true };
 const MESSAGE_INCLUDE = {
     sender: { select: SENDER_RECEIVER_SELECT },
@@ -14,11 +19,16 @@ const MESSAGE_INCLUDE = {
             sender: { select: { id: true, username: true } },
         },
     },
+    reactions: { select: { userId: true, emoji: true } },
 };
 const DELETE_FOR_ALL_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
 const onlineUsers = new Map(); // userId  → Set<socketId>
 const activeCalls = new Map(); // callId  → session
 const callStartTimes = new Map(); // callId → Date.now() when state became 'active'
+// socketId → which meeting room it's in, so disconnect can clean it up.
+// Socket.IO's own room membership (io.sockets.adapter.rooms) is otherwise
+// authoritative for "who's currently in the room".
+const meetingSocketUsers = new Map();
 // Set once setupSocket() runs; other modules (notification triggers in
 // controllers) import emitToUser rather than reaching into this directly.
 let io;
@@ -129,7 +139,7 @@ export function setupSocket(server) {
                     },
                     include: MESSAGE_INCLUDE,
                 });
-                socket.emit('message:sent', msg);
+                emitToUser(userId, 'message:sent', msg);
                 emitToUser(to, 'message:receive', msg);
                 if (onlineUsers.has(String(to))) {
                     await prisma.message.update({ where: { id: msg.id }, data: { delivered: true } });
@@ -212,6 +222,39 @@ export function setupSocket(server) {
                 socket.emit('message:error', err.message);
             }
         });
+        // One reaction per user per message: same emoji again removes it, a
+        // different emoji replaces it (mirrors the @@unique([messageId, userId])
+        // constraint on MessageReaction).
+        socket.on('message:react', async ({ messageId, emoji }) => {
+            try {
+                const msg = await prisma.message.findUnique({ where: { id: Number(messageId) } });
+                if (!msg)
+                    return;
+                if (![msg.senderId, msg.receiverId].includes(myId))
+                    return;
+                const existing = await prisma.messageReaction.findUnique({
+                    where: { messageId_userId: { messageId: msg.id, userId: myId } },
+                });
+                if (existing && existing.emoji === emoji) {
+                    await prisma.messageReaction.delete({ where: { id: existing.id } });
+                }
+                else if (existing) {
+                    await prisma.messageReaction.update({ where: { id: existing.id }, data: { emoji } });
+                }
+                else {
+                    await prisma.messageReaction.create({ data: { messageId: msg.id, userId: myId, emoji } });
+                }
+                const reactions = await prisma.messageReaction.findMany({
+                    where: { messageId: msg.id },
+                    select: { userId: true, emoji: true },
+                });
+                emitToUser(msg.senderId, 'message:reaction', { messageId: msg.id, reactions });
+                emitToUser(msg.receiverId, 'message:reaction', { messageId: msg.id, reactions });
+            }
+            catch (err) {
+                socket.emit('message:error', err.message);
+            }
+        });
         // ── Call signaling ─────────────────────────────────────────────
         const otherParty = (callId) => {
             const s = activeCalls.get(callId);
@@ -266,6 +309,68 @@ export function setupSocket(server) {
             emitToUser(o, 'call:ice-candidate', { candidate, callId }); });
         socket.on('call:mute', ({ callId, muted }) => { const o = otherParty(callId); if (o)
             emitToUser(o, 'call:mute', { muted, callId }); });
+        // ── Meeting room signaling (N-way mesh) ─────────────────────────
+        // First use of native Socket.IO rooms in this codebase — 1:1 calls above
+        // route by userId via emitToUser instead. A meeting room needs broadcast
+        // to an arbitrary number of members, which rooms give for free.
+        const leaveMeetingRoom = (meetingId) => {
+            const room = meetingRoom(meetingId);
+            socket.leave(room);
+            meetingSocketUsers.delete(socket.id);
+            socket.to(room).emit('meeting:participant-left', { socketId: socket.id });
+        };
+        socket.on('meeting:join', ({ roomToken }) => {
+            let payload;
+            try {
+                payload = verifyRoomToken(roomToken);
+            }
+            catch {
+                socket.emit('meeting:join-error', { message: 'Invalid or expired room token' });
+                return;
+            }
+            if (payload.userId !== myId) {
+                socket.emit('meeting:join-error', { message: 'Room token does not match this session' });
+                return;
+            }
+            const room = meetingRoom(payload.meetingId);
+            const existingSocketIds = Array.from(io.sockets.adapter.rooms.get(room) ?? []);
+            if (existingSocketIds.length >= MEETING_ROOM_CAPACITY) {
+                socket.emit('meeting:room-full');
+                return;
+            }
+            const members = existingSocketIds
+                .map((sid) => {
+                const m = meetingSocketUsers.get(sid);
+                return m ? { socketId: sid, userId: m.userId } : null;
+            })
+                .filter((m) => !!m);
+            socket.join(room);
+            meetingSocketUsers.set(socket.id, { meetingId: payload.meetingId, userId: myId });
+            socket.emit('meeting:joined', { members });
+            socket.to(room).emit('meeting:participant-joined', { socketId: socket.id, userId: myId });
+        });
+        socket.on('meeting:leave', ({ meetingId }) => {
+            if (!socket.rooms.has(meetingRoom(meetingId)))
+                return;
+            leaveMeetingRoom(meetingId);
+        });
+        socket.on('meeting:signal', ({ meetingId, toSocketId, sdp, candidate }) => {
+            if (!socket.rooms.has(meetingRoom(meetingId)))
+                return;
+            io.to(toSocketId).emit('meeting:signal', { fromSocketId: socket.id, sdp, candidate });
+        });
+        socket.on('meeting:mute', ({ meetingId, muted }) => {
+            const room = meetingRoom(meetingId);
+            if (!socket.rooms.has(room))
+                return;
+            socket.to(room).emit('meeting:mute', { socketId: socket.id, muted });
+        });
+        socket.on('meeting:video-toggle', ({ meetingId, off }) => {
+            const room = meetingRoom(meetingId);
+            if (!socket.rooms.has(room))
+                return;
+            socket.to(room).emit('meeting:video-toggle', { socketId: socket.id, off });
+        });
         // ── Read receipts ─────────────────────────────────────────────
         socket.on('message:seen', async ({ from }) => {
             try {
@@ -277,8 +382,14 @@ export function setupSocket(server) {
             }
             catch { /* non-critical */ }
         });
+        // ── Typing indicator (ephemeral relay, no persistence) ─────────
+        socket.on('typing:start', ({ to }) => emitToUser(to, 'typing:update', { from: userId, isTyping: true }));
+        socket.on('typing:stop', ({ to }) => emitToUser(to, 'typing:update', { from: userId, isTyping: false }));
         // ── Disconnect ────────────────────────────────────────────────
         socket.on('disconnect', () => {
+            const meetingMembership = meetingSocketUsers.get(socket.id);
+            if (meetingMembership)
+                leaveMeetingRoom(meetingMembership.meetingId);
             for (const [callId, session] of activeCalls) {
                 if (session.caller === userId || session.callee === userId) {
                     const other = session.caller === userId ? session.callee : session.caller;

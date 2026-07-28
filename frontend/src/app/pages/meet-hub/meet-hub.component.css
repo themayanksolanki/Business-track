@@ -1,0 +1,114 @@
+.meet-hub-page {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.meet-hub-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 32px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+}
+
+.meet-hub-hero h1 { margin: 0; font-size: 1.6rem; }
+.meet-hub-hero p { margin: 0 0 8px; color: var(--text-muted); }
+
+.meet-hub-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.join-code-group {
+  display: flex;
+  gap: 8px;
+}
+
+.join-code-group input {
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-muted);
+  color: var(--text-primary, inherit);
+  min-width: 160px;
+}
+
+.secondary-btn {
+  padding: 10px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.secondary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.meet-hub-error {
+  color: #ef4444;
+  font-size: 0.9rem;
+}
+
+.upcoming-section h2 {
+  font-size: 1.1rem;
+  margin: 0 0 12px;
+}
+
+.upcoming-loading, .upcoming-empty {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.upcoming-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upcoming-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-card);
+  cursor: pointer;
+  text-align: left;
+}
+
+.upcoming-item:hover { background: var(--bg-muted); }
+
+.upcoming-item-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.upcoming-title { font-weight: 600; }
+.upcoming-time { font-size: 0.8rem; color: var(--text-muted); }

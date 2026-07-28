@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
 import { io, Socket } from 'socket.io-client';
 import { environment } from '../../../environments/environment';
-import { Message } from '../../models/message.model';
+import { Message, MessageReaction } from '../../models/message.model';
 import { AppNotification } from '../../models/notification.model';
 
 export interface IncomingCall {
@@ -24,6 +24,8 @@ export class SocketService {
   readonly messageEdited$      = new Subject<Message>();
   readonly messageDeleted$     = new Subject<{ messageId: string; forAll: boolean }>();
   readonly messagePinned$      = new Subject<{ messageId: string; pinned: boolean }>();
+  readonly messageReaction$    = new Subject<{ messageId: number; reactions: MessageReaction[] }>();
+  readonly typing$             = new Subject<{ from: string; isTyping: boolean }>();
 
   readonly callSession$   = new Subject<{ callId: string }>();
   readonly callIncoming$  = new Subject<IncomingCall>();
@@ -36,6 +38,15 @@ export class SocketService {
   readonly iceCandidate$  = new Subject<{ candidate: RTCIceCandidateInit; callId: string }>();
   readonly remoteMuted$   = new Subject<boolean>();
   readonly callLogged$    = new Subject<Message>();
+
+  readonly meetingJoined$            = new Subject<{ members: { socketId: string; userId: number }[] }>();
+  readonly meetingJoinError$         = new Subject<{ message: string }>();
+  readonly meetingRoomFull$          = new Subject<void>();
+  readonly meetingParticipantJoined$ = new Subject<{ socketId: string; userId: number }>();
+  readonly meetingParticipantLeft$   = new Subject<{ socketId: string }>();
+  readonly meetingSignal$            = new Subject<{ fromSocketId: string; sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit }>();
+  readonly meetingMute$              = new Subject<{ socketId: string; muted: boolean }>();
+  readonly meetingVideoToggle$       = new Subject<{ socketId: string; off: boolean }>();
 
   readonly notification$ = new Subject<AppNotification>();
   // Fires on every reconnect (not the first connect) so listeners can re-sync
@@ -64,6 +75,8 @@ export class SocketService {
     this.socket.on('message:edited',    (m: Message)                                    => this.messageEdited$.next(m));
     this.socket.on('message:deleted',   (d: { messageId: string; forAll: boolean })      => this.messageDeleted$.next(d));
     this.socket.on('message:pinned',    (d: { messageId: string; pinned: boolean })      => this.messagePinned$.next(d));
+    this.socket.on('message:reaction',  (d: { messageId: number; reactions: MessageReaction[] }) => this.messageReaction$.next(d));
+    this.socket.on('typing:update',     (d: { from: string; isTyping: boolean })          => this.typing$.next(d));
 
     this.socket.on('call:session',      (d: { callId: string })                                     => this.callSession$.next(d));
     this.socket.on('call:incoming',     (d: IncomingCall)                                           => this.callIncoming$.next(d));
@@ -76,6 +89,15 @@ export class SocketService {
     this.socket.on('call:ice-candidate',(d: { candidate: RTCIceCandidateInit; callId: string })     => this.iceCandidate$.next(d));
     this.socket.on('call:mute',         (d: { muted: boolean })                                     => this.remoteMuted$.next(d.muted));
     this.socket.on('call:logged',       (m: Message)                                                 => this.callLogged$.next(m));
+
+    this.socket.on('meeting:joined',              (d: { members: { socketId: string; userId: number }[] })                       => this.meetingJoined$.next(d));
+    this.socket.on('meeting:join-error',          (d: { message: string })                                                       => this.meetingJoinError$.next(d));
+    this.socket.on('meeting:room-full',           ()                                                                              => this.meetingRoomFull$.next());
+    this.socket.on('meeting:participant-joined',  (d: { socketId: string; userId: number })                                      => this.meetingParticipantJoined$.next(d));
+    this.socket.on('meeting:participant-left',    (d: { socketId: string })                                                      => this.meetingParticipantLeft$.next(d));
+    this.socket.on('meeting:signal',              (d: { fromSocketId: string; sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit }) => this.meetingSignal$.next(d));
+    this.socket.on('meeting:mute',                (d: { socketId: string; muted: boolean })                                      => this.meetingMute$.next(d));
+    this.socket.on('meeting:video-toggle',        (d: { socketId: string; off: boolean })                                        => this.meetingVideoToggle$.next(d));
   }
 
   disconnect() {
@@ -97,6 +119,14 @@ export class SocketService {
 
   pinMessage(messageId: string, pinned: boolean) {
     this.socket?.emit('message:pin', { messageId, pinned });
+  }
+
+  reactToMessage(messageId: string, emoji: string) {
+    this.socket?.emit('message:react', { messageId, emoji });
+  }
+
+  sendTyping(to: string, isTyping: boolean) {
+    this.socket?.emit(isTyping ? 'typing:start' : 'typing:stop', { to });
   }
 
   requestCall(to: string, fromName: string, callType: 'audio' | 'video') {
@@ -123,5 +153,29 @@ export class SocketService {
 
   markSeen(from: string) {
     this.socket?.emit('message:seen', { from });
+  }
+
+  joinMeetingRoom(roomToken: string) {
+    this.socket?.emit('meeting:join', { roomToken });
+  }
+
+  leaveMeetingRoom(meetingId: number) {
+    this.socket?.emit('meeting:leave', { meetingId });
+  }
+
+  sendMeetingSignal(
+    meetingId: number,
+    toSocketId: string,
+    payload: { sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit }
+  ) {
+    this.socket?.emit('meeting:signal', { meetingId, toSocketId, ...payload });
+  }
+
+  sendMeetingMute(meetingId: number, muted: boolean) {
+    this.socket?.emit('meeting:mute', { meetingId, muted });
+  }
+
+  sendMeetingVideoToggle(meetingId: number, off: boolean) {
+    this.socket?.emit('meeting:video-toggle', { meetingId, off });
   }
 }

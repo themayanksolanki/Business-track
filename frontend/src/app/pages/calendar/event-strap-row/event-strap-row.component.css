@@ -38,6 +38,14 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
 }
 
+/* Auto-cancelled meeting event (see calendar-state.service.ts's toMwlEvent
+   for the timed-event equivalent) — same muted + line-through idiom used
+   elsewhere for a "done but still shown" state. */
+.strap-bar-cancelled {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
 .strap-more-chip {
   color: var(--text-muted);
   background: var(--bg-hover);

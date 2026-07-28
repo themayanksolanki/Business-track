@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { HttpClient, HttpEvent } from '@angular/common/http';
+import { tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
   Project,
@@ -9,7 +10,7 @@ import {
   UpdateProjectPayload,
   PaginatedProjects,
 } from '../../models/project.model';
-import { Attachment, DownloadInfo } from '../../models/attachment.model';
+import { Attachment, AttachmentsAdapter, DownloadInfo } from '../../models/attachment.model';
 import {
   ProjectItem,
   CreateProjectItemPayload,
@@ -25,7 +26,35 @@ import { Observable } from 'rxjs';
 export class ProjectService {
   private readonly api = `${environment.apiUrl}/projects`;
 
+  // Shared, unfiltered/unpaginated project-list cache — distinct from the
+  // Projects/Drafts pages' own paginated per-view state (which only ever
+  // holds one page or an accumulating cards buffer, never the full list).
+  // Consumers (e.g. the Project Detail page's overlay sidebar) read this
+  // instead of firing their own request; kept in sync by create/update/
+  // delete below and by whoever calls ensureProjectListLoaded/refreshProjectList.
+  private readonly _projectList = signal<Project[]>([]);
+  readonly projectList = this._projectList.asReadonly();
+  private projectListLoaded = false;
+
   constructor(private http: HttpClient) {}
+
+  ensureProjectListLoaded() {
+    if (this.projectListLoaded) return;
+    this.projectListLoaded = true;
+    this.getProjects(1, 200, 'all', true).subscribe({
+      next: (res) => this._projectList.set(res.projects),
+      error: () => (this.projectListLoaded = false),
+    });
+  }
+
+  refreshProjectList() {
+    return this.getProjects(1, 200, 'all', true).pipe(
+      tap((res) => {
+        this._projectList.set(res.projects);
+        this.projectListLoaded = true;
+      })
+    );
+  }
 
   // The /download endpoints hand back a viewUrl (inline disposition, for
   // direct <img>/<video>/<iframe> src) and a downloadUrl (attachment
@@ -59,15 +88,23 @@ export class ProjectService {
   }
 
   createProject(payload: CreateProjectPayload) {
-    return this.http.post<{ message: string; project: Project }>(this.api, payload);
+    return this.http.post<{ message: string; project: Project }>(this.api, payload).pipe(
+      tap((res) => this._projectList.set([res.project, ...this._projectList()]))
+    );
   }
 
   updateProject(projectId: string, payload: UpdateProjectPayload) {
-    return this.http.put<{ message: string; project: Project }>(`${this.api}/${projectId}`, payload);
+    return this.http.put<{ message: string; project: Project }>(`${this.api}/${projectId}`, payload).pipe(
+      tap((res) =>
+        this._projectList.set(this._projectList().map((p) => (p.id === res.project.id ? res.project : p)))
+      )
+    );
   }
 
   deleteProject(projectId: string) {
-    return this.http.delete<{ message: string }>(`${this.api}/${projectId}`);
+    return this.http.delete<{ message: string }>(`${this.api}/${projectId}`).pipe(
+      tap(() => this._projectList.set(this._projectList().filter((p) => p.id !== Number(projectId))))
+    );
   }
 
   // Resolves the "Copy Project Link" reference (org + per-org sequence
@@ -268,6 +305,30 @@ export class ProjectService {
 
   deleteProjectAttachment(projectId: string, attachmentId: number) {
     return this.http.delete<{ message: string }>(`${this.api}/${projectId}/attachments/${attachmentId}`);
+  }
+
+  // Adapters for the shared <app-attachments> component (see AttachmentsAdapter) —
+  // thin wiring only, the HTTP methods above are unchanged.
+  attachmentsAdapterForItem(projectId: string, itemId: number): AttachmentsAdapter {
+    return {
+      list: () => this.getAttachments(projectId, itemId),
+      upload: (file) => this.uploadAttachment(projectId, itemId, file),
+      download: (a) => this.downloadAttachment(projectId, itemId, a.id),
+      delete: (a) => this.deleteAttachment(projectId, itemId, a.id),
+      undoDelete: (a) => this.undoDeleteAttachment(projectId, itemId, a.id),
+      addLink: (payload) => this.addLinkAttachment(projectId, itemId, payload),
+    };
+  }
+
+  attachmentsAdapterForProject(projectId: string): AttachmentsAdapter {
+    return {
+      list: () => this.getProjectAttachments(projectId),
+      upload: (file) => this.uploadProjectAttachment(projectId, file),
+      download: (a) => this.downloadProjectAttachment(projectId, a.id),
+      delete: (a) => this.deleteProjectAttachment(projectId, a.id),
+      // No undoDelete/addLink — project-level attachments are immediate-delete
+      // only and have no "paste a link" endpoint.
+    };
   }
 
   // Project plan (Details tab)

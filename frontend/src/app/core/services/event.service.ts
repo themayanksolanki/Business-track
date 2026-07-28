@@ -9,7 +9,7 @@ import {
   EventListFilters,
   PaginatedEvents,
 } from '../../models/event.model';
-import { Attachment, DownloadInfo } from '../../models/attachment.model';
+import { Attachment, AttachmentsAdapter, DownloadInfo } from '../../models/attachment.model';
 import { Observable } from 'rxjs';
 
 // Only 4 backend routes exist (GET/POST /events, PUT/DELETE /events/:id) —
@@ -152,6 +152,18 @@ export class EventService {
       `${this.api}/${eventId}/attachments/${attachmentId}/undo`,
       {}
     );
+  }
+
+  // Adapter for the shared <app-attachments> component.
+  attachmentsAdapter(eventId: number | string): AttachmentsAdapter {
+    return {
+      list: () => this.getAttachments(eventId),
+      upload: (file) => this.uploadAttachment(eventId, file),
+      download: (a) => this.downloadAttachment(eventId, a.id),
+      delete: (a) => this.deleteAttachment(eventId, a.id),
+      undoDelete: (a) => this.undoDeleteAttachment(eventId, a.id),
+      addLink: (payload) => this.addLinkAttachment(eventId, payload),
+    };
   }
 
   private buildParams(filters: EventListFilters): Record<string, string | number> {

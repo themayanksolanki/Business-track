@@ -15,7 +15,7 @@ enum AttachmentKind {
   link
 }
 
-// Exactly one of task/projectItem/project/calendarEvent must be set —
+// Exactly one of task/projectItem/project/calendarEvent/metric must be set —
 // enforced at the application layer (mirrors the old Mongoose pre('validate')
 // hook), since Prisma's schema DSL has no arbitrary CHECK constraint syntax.
 model Attachment {
@@ -24,6 +24,7 @@ model Attachment {
   projectItemId   Int?
   projectId       Int?
   calendarEventId Int?
+  metricId        Int?
   fileName        String
   url             String
   publicId        String?
@@ -43,12 +44,14 @@ model Attachment {
   projectItem   ProjectItem?   @relation(fields: [projectItemId], references: [id], onDelete: Cascade)
   project       Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   calendarEvent CalendarEvent? @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
+  metric        Metric?        @relation(fields: [metricId], references: [id], onDelete: Cascade)
   uploadedBy    User           @relation("AttachmentUploadedBy", fields: [uploadedById], references: [id])
 
   @@index([taskId])
   @@index([projectItemId])
   @@index([projectId])
   @@index([calendarEventId])
+  @@index([metricId])
   @@index([pendingDeleteAt])
   @@map("attachments")
 }

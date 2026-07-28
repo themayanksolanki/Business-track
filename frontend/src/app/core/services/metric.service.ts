@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { Metric, MetricStatus, CreateMetricPayload, UpdateMetricPayload, PaginatedMetrics } from '../../models/metric.model';
 import { MetricFrequency, MetricTrackingData, TrackingDiff } from '../../models/metric-tracking.model';
+import { Attachment, AttachmentsAdapter, DownloadInfo } from '../../models/attachment.model';
 
 @Injectable({ providedIn: 'root' })
 export class MetricService {
@@ -48,5 +49,58 @@ export class MetricService {
       { diff },
       { params: { year, month } }
     );
+  }
+
+  // Attachments — file upload or a pasted link, with a 10s undo-able pending
+  // delete, mirroring EventService's attachment methods.
+  getAttachments(metricId: number | string) {
+    return this.http.get<Attachment[]>(`${this.api}/${metricId}/attachments`);
+  }
+
+  uploadAttachment(metricId: number | string, file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<{ message: string; attachment: Attachment }>(
+      `${this.api}/${metricId}/attachments`,
+      formData,
+      { reportProgress: true, observe: 'events' }
+    );
+  }
+
+  addLinkAttachment(metricId: number | string, payload: { url: string; fileName?: string }) {
+    return this.http.post<{ message: string; attachment: Attachment }>(
+      `${this.api}/${metricId}/attachments/link`,
+      payload
+    );
+  }
+
+  downloadAttachment(metricId: number | string, attachmentId: number) {
+    return this.http.get<DownloadInfo>(`${this.api}/${metricId}/attachments/${attachmentId}/download`);
+  }
+
+  // Starts the 10s server-side countdown; doesn't delete anything itself.
+  deleteAttachment(metricId: number | string, attachmentId: number) {
+    return this.http.delete<{ message: string; attachment: Attachment }>(
+      `${this.api}/${metricId}/attachments/${attachmentId}`
+    );
+  }
+
+  undoDeleteAttachment(metricId: number | string, attachmentId: number) {
+    return this.http.post<{ message: string; attachment: Attachment }>(
+      `${this.api}/${metricId}/attachments/${attachmentId}/undo`,
+      {}
+    );
+  }
+
+  // Adapter for the shared <app-attachments> component.
+  attachmentsAdapter(metricId: number | string): AttachmentsAdapter {
+    return {
+      list: () => this.getAttachments(metricId),
+      upload: (file) => this.uploadAttachment(metricId, file),
+      download: (a) => this.downloadAttachment(metricId, a.id),
+      delete: (a) => this.deleteAttachment(metricId, a.id),
+      undoDelete: (a) => this.undoDeleteAttachment(metricId, a.id),
+      addLink: (payload) => this.addLinkAttachment(metricId, payload),
+    };
   }
 }

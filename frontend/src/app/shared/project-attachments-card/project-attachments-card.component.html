@@ -1,75 +1,8 @@
 <div class="card project-tasks-card shadow-sm details-card">
   <h6 class="text-muted mb-3 text-uppercase small fw-bold"><i class="bi bi-paperclip me-1"></i>Attachments</h6>
 
-  @if (attachmentsError) {
-    <div class="alert alert-danger py-2">{{ attachmentsError }}</div>
-  }
-
-  @if (attachmentsLoading) {
-    <div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</div>
-  } @else if (attachments.length === 0) {
-    <p class="text-muted small mb-3">No files uploaded yet.</p>
-  } @else {
-    <div class="att-grid mb-3">
-      @for (a of attachments; track a.id) {
-        <div class="att-tile">
-          <div class="att-tile-thumb" (click)="openViewer(a)">
-            <app-attachment-thumb [attachment]="a" [getFileInfo]="getAttachmentFileInfo"></app-attachment-thumb>
-            <div class="att-tile-overlay">
-              <button type="button" class="att-tile-action btn btn-light btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); openViewer(a)" title="Preview">
-                <i class="bi bi-eye"></i>
-              </button>
-              <button type="button" class="att-tile-action btn btn-light btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); download(a)" [disabled]="downloadingId === a.id" title="Download">
-                @if (downloadingId === a.id) {
-                  <span class="spinner-border spinner-border-sm"></span>
-                } @else {
-                  <i class="bi bi-download"></i>
-                }
-              </button>
-              <button type="button" class="att-tile-action btn btn-danger btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); deleteAttachment(a)" title="Delete">
-                <i class="bi bi-trash3"></i>
-              </button>
-            </div>
-          </div>
-          <div class="att-tile-info">
-            <span class="att-tile-name text-truncate" [title]="a.fileName">{{ a.fileName }}</span>
-            <span class="att-tile-meta">{{ formatSize(a.size) }}</span>
-          </div>
-        </div>
-      }
-    </div>
-  }
-
-  @if (uploading) {
-    <div class="progress mb-2" style="height:1rem;">
-      <div class="progress-bar progress-bar-striped progress-bar-animated"
-           role="progressbar" [style.width.%]="progress"
-           [attr.aria-valuenow]="progress" aria-valuemin="0" aria-valuemax="100">
-        {{ progress }}%
-      </div>
-    </div>
-  }
-
-  <div class="attachment-upload-row">
-    <label class="attachment-upload-btn" [class.disabled]="uploading">
-      @if (uploading) {
-        <span class="spinner-border spinner-border-sm me-2"></span>Uploading…
-      } @else {
-        <i class="bi bi-cloud-arrow-up me-2"></i>Upload File
-      }
-      <input type="file" hidden [accept]="acceptedFileTypes" (change)="onFileSelected($event)" [disabled]="uploading" />
-    </label>
-  </div>
-  @if (uploadError) {
-    <div class="field-error mt-2">{{ uploadError }}</div>
-  }
+  <app-attachments
+    [adapter]="projectService.attachmentsAdapterForProject(projectId)"
+    [reloadKey]="projectId">
+  </app-attachments>
 </div>
-
-<app-attachment-viewer
-  [open]="viewerOpen"
-  [attachments]="attachments"
-  [startIndex]="viewerIndex"
-  [getFileInfo]="getAttachmentFileInfo"
-  (closed)="viewerOpen = false"
-  (download)="download($event)">
-</app-attachment-viewer>

@@ -105,6 +105,49 @@
   overflow-x: hidden;
 }
 
+/* Shown only on the Project Detail page — toggles the slide-in project
+   list overlay (see project-list-overlay.component.css). Styled to match
+   .nav-item below rather than .collapse-btn, since it sits in the nav flow
+   as its own row, not the compact top-bar corner button. */
+.project-list-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  margin: 0 8px 8px;
+  border-radius: 9px;
+  color: var(--sb-text-override, var(--sb-text, #94a3b8));
+  font-size: 0.875rem;
+  white-space: nowrap;
+  border: none;
+  background: transparent;
+  width: calc(100% - 16px);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.project-list-toggle-btn:hover {
+  color: var(--sb-text-hover, #fff);
+  background: var(--sb-overlay-2, rgba(255, 255, 255, 0.07));
+}
+
+.project-list-toggle-btn.active {
+  color: var(--sb-text-hover, #fff);
+  background: var(--sb-active-bg, rgba(59, 130, 246, 0.18));
+}
+
+.app-sidebar.collapsed .project-list-toggle-btn {
+  justify-content: center;
+  padding: 10px;
+  margin: 0 8px 8px;
+  width: calc(100% - 16px);
+}
+
+.project-list-toggle-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .nav-item {
   display: flex;
   align-items: center;

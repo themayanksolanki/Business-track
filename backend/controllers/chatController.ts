@@ -40,7 +40,7 @@ export const getContacts = async (req: Request, res: Response, next: NextFunctio
       prisma.user.findMany({ where: { blockedUsers: { some: { id: myId } } }, select: { id: true } }),
       prisma.user.findMany({
         where: { id: { not: myId }, isActive: true },
-        select: { id: true, username: true, profileImage: true, role: true },
+        select: { id: true, username: true, email: true, profileImage: true, role: true },
       }),
       // Ordered newest-first so the first message we see per contact while
       // grouping below is necessarily their most recent one.
@@ -128,6 +128,7 @@ export const getMessages = async (req: Request, res: Response, next: NextFunctio
             sender: { select: { id: true, username: true } },
           },
         },
+        reactions: { select: { userId: true, emoji: true } },
       },
     });
 

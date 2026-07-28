@@ -4,6 +4,7 @@ import { destroyBlob, cloudinaryDownloadUrl } from '../utils/blobStorage.js';
 import { getS3DownloadUrl } from '../lib/s3.js';
 import { canAccessProject, canEditProject } from './projectController.js';
 import { canAccessEvent, canEditEvent } from './eventController.js';
+import { canAccessMetric } from './metricController.js';
 import { getTaskAccessLevel } from '../utils/access.js';
 // Relaying the file through this server (fetch from the provider, then
 // re-stream to the client) was timing out on real-world PDFs — a slow
@@ -147,6 +148,14 @@ const purgeExpiredForEvent = async (calendarEventId) => {
         await permanentlyDeleteAttachment(attachment);
     }
 };
+const purgeExpiredForMetric = async (metricId) => {
+    const expired = await prisma.attachment.findMany({
+        where: { metricId, pendingDeleteAt: { lte: new Date() } },
+    });
+    for (const attachment of expired) {
+        await permanentlyDeleteAttachment(attachment);
+    }
+};
 // Matches eventController.ts's EventForAccess shape — enough to run
 // canAccessEvent/canEditEvent without pulling in the full EVENT_INCLUDE join.
 const EVENT_ACCESS_SELECT = {
@@ -155,6 +164,9 @@ const EVENT_ACCESS_SELECT = {
     visibility: true,
     guests: { select: { userId: true } },
 };
+// Matches metricController.ts's MetricForAccess shape — enough to run
+// canAccessMetric without pulling in the full METRIC_INCLUDE join.
+const METRIC_ACCESS_SELECT = { organizationId: true, departmentId: true };
 const canAccessTask = async (task, user) => (await getTaskAccessLevel(task, user)) === 'edit';
 export const getAttachments = async (req, res, next) => {
     try {
@@ -748,6 +760,173 @@ export const deleteProjectAttachment = async (req, res, next) => {
         await destroyBlob(attachment);
         await prisma.attachment.delete({ where: { id: attachment.id } });
         res.status(200).json({ message: 'Attachment deleted' });
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const getMetricAttachments = async (req, res, next) => {
+    try {
+        const metric = await prisma.metric.findUnique({
+            where: { id: Number(req.params.metricId) },
+            select: METRIC_ACCESS_SELECT,
+        });
+        if (!metric)
+            return next(new AppError('Metric not found', 404));
+        if (!(await canAccessMetric(req.user, metric)))
+            return next(new AppError('You do not have access to this metric', 403));
+        // Catch up any attachment whose countdown expired while nobody was
+        // looking (page closed, sweep hasn't ticked yet) before returning the list.
+        await purgeExpiredForMetric(Number(req.params.metricId));
+        const attachments = await prisma.attachment.findMany({
+            where: { metricId: Number(req.params.metricId) },
+            include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.status(200).json(attachments);
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const uploadMetricAttachment = async (req, res, next) => {
+    try {
+        const metric = await prisma.metric.findUnique({
+            where: { id: Number(req.params.metricId) },
+            select: METRIC_ACCESS_SELECT,
+        });
+        if (!metric)
+            return next(new AppError('Metric not found', 404));
+        if (!(await canAccessMetric(req.user, metric)))
+            return next(new AppError('You do not have access to this metric', 403));
+        if (!req.file)
+            return next(new AppError('No file uploaded', 400));
+        const attachment = await prisma.attachment.create({
+            data: {
+                metricId: Number(req.params.metricId),
+                fileName: req.file.originalname,
+                url: req.file.path,
+                publicId: req.file.filename,
+                storage: 's3',
+                mimeType: req.file.mimetype,
+                size: req.file.size,
+                uploadedById: req.user.id,
+            },
+            include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
+        });
+        res.status(201).json({ message: 'File uploaded', attachment });
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const addMetricAttachmentLink = async (req, res, next) => {
+    try {
+        const metric = await prisma.metric.findUnique({
+            where: { id: Number(req.params.metricId) },
+            select: METRIC_ACCESS_SELECT,
+        });
+        if (!metric)
+            return next(new AppError('Metric not found', 404));
+        if (!(await canAccessMetric(req.user, metric)))
+            return next(new AppError('You do not have access to this metric', 403));
+        const url = req.body.url.trim();
+        const fileName = (req.body.fileName || '').trim() || url;
+        const attachment = await prisma.attachment.create({
+            data: {
+                metricId: Number(req.params.metricId),
+                fileName,
+                url,
+                publicId: null,
+                storage: 's3',
+                kind: 'link',
+                mimeType: guessMimeTypeFromUrl(url),
+                size: 0,
+                uploadedById: req.user.id,
+            },
+            include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
+        });
+        res.status(201).json({ message: 'Link added', attachment });
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const downloadMetricAttachment = async (req, res, next) => {
+    try {
+        const metric = await prisma.metric.findUnique({
+            where: { id: Number(req.params.metricId) },
+            select: METRIC_ACCESS_SELECT,
+        });
+        if (!metric)
+            return next(new AppError('Metric not found', 404));
+        if (!(await canAccessMetric(req.user, metric)))
+            return next(new AppError('You do not have access to this metric', 403));
+        const attachment = await prisma.attachment.findFirst({
+            where: { id: Number(req.params.attachmentId), metricId: Number(req.params.metricId) },
+        });
+        if (!attachment)
+            return next(new AppError('Attachment not found', 404));
+        res.status(200).json(await getAttachmentDownloadInfo(attachment));
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const deleteMetricAttachment = async (req, res, next) => {
+    try {
+        const metric = await prisma.metric.findUnique({
+            where: { id: Number(req.params.metricId) },
+            select: METRIC_ACCESS_SELECT,
+        });
+        if (!metric)
+            return next(new AppError('Metric not found', 404));
+        if (!(await canAccessMetric(req.user, metric)))
+            return next(new AppError('You do not have access to this metric', 403));
+        const attachment = await prisma.attachment.findFirst({
+            where: { id: Number(req.params.attachmentId), metricId: Number(req.params.metricId) },
+        });
+        if (!attachment)
+            return next(new AppError('Attachment not found', 404));
+        // Already counting down — return its current state rather than resetting
+        // the clock, so a double-click doesn't grant extra time.
+        if (attachment.pendingDeleteAt && attachment.pendingDeleteAt > new Date()) {
+            return res.status(200).json({ message: 'Attachment already pending deletion', attachment });
+        }
+        const updated = await prisma.attachment.update({
+            where: { id: attachment.id },
+            data: { pendingDeleteAt: new Date(Date.now() + PENDING_DELETE_MS) },
+            include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
+        });
+        res.status(200).json({ message: 'Attachment scheduled for deletion', attachment: updated });
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const undoMetricAttachment = async (req, res, next) => {
+    try {
+        const metric = await prisma.metric.findUnique({
+            where: { id: Number(req.params.metricId) },
+            select: METRIC_ACCESS_SELECT,
+        });
+        if (!metric)
+            return next(new AppError('Metric not found', 404));
+        if (!(await canAccessMetric(req.user, metric)))
+            return next(new AppError('You do not have access to this metric', 403));
+        const attachment = await prisma.attachment.findFirst({
+            where: { id: Number(req.params.attachmentId), metricId: Number(req.params.metricId) },
+        });
+        if (!attachment)
+            return next(new AppError('Attachment not found', 404));
+        if (!attachment.pendingDeleteAt || attachment.pendingDeleteAt <= new Date())
+            return next(new AppError('Attachment is not pending deletion', 400));
+        const updated = await prisma.attachment.update({
+            where: { id: attachment.id },
+            data: { pendingDeleteAt: null },
+            include: { uploadedBy: { select: UPLOADED_BY_SELECT } },
+        });
+        res.status(200).json({ message: 'Deletion undone', attachment: updated });
     }
     catch (err) {
         next(err);

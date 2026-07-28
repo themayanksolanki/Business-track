@@ -20,6 +20,8 @@ import {
   validateUpdateMemberRole,
   validateMemberId,
   validateProjectDetailsLayout,
+  validateApproverAssignment,
+  validateApproverUserId,
 } from '../middleware/validate.js';
 import {
   getProjects,
@@ -55,6 +57,19 @@ import {
   updateComment,
   deleteComment,
 } from '../controllers/projectCommentController.js';
+import {
+  getApprovers,
+  assignApprovers,
+  removeApprover,
+  approveItem,
+  requestChanges,
+  reRequestApproval,
+  getApprovalHistory,
+  getApprovalComments,
+  createApprovalComment,
+  updateApprovalComment,
+  deleteApprovalComment,
+} from '../controllers/taskApprovalController.js';
 import {
   getMembers,
   getMemberCandidates,
@@ -230,6 +245,79 @@ router.delete(
   validateItemId,
   validateCommentId,
   deleteComment
+);
+
+router.get('/:projectId/items/:itemId/approvers', protect, validateProjectId, validateItemId, getApprovers);
+router.post(
+  '/:projectId/items/:itemId/approvers',
+  protect,
+  validateProjectId,
+  validateItemId,
+  validateApproverAssignment,
+  assignApprovers
+);
+router.delete(
+  '/:projectId/items/:itemId/approvers/:userId',
+  protect,
+  validateProjectId,
+  validateItemId,
+  validateApproverUserId,
+  removeApprover
+);
+router.post('/:projectId/items/:itemId/approve', protect, validateProjectId, validateItemId, approveItem);
+router.post(
+  '/:projectId/items/:itemId/request-changes',
+  protect,
+  validateProjectId,
+  validateItemId,
+  requestChanges
+);
+router.post(
+  '/:projectId/items/:itemId/re-request',
+  protect,
+  validateProjectId,
+  validateItemId,
+  reRequestApproval
+);
+router.get(
+  '/:projectId/items/:itemId/approval-history',
+  protect,
+  validateProjectId,
+  validateItemId,
+  getApprovalHistory
+);
+
+router.get(
+  '/:projectId/items/:itemId/approval-comments',
+  protect,
+  validateProjectId,
+  validateItemId,
+  getApprovalComments
+);
+router.post(
+  '/:projectId/items/:itemId/approval-comments',
+  protect,
+  validateProjectId,
+  validateItemId,
+  validateComment,
+  createApprovalComment
+);
+router.patch(
+  '/:projectId/items/:itemId/approval-comments/:commentId',
+  protect,
+  validateProjectId,
+  validateItemId,
+  validateCommentId,
+  validateComment,
+  updateApprovalComment
+);
+router.delete(
+  '/:projectId/items/:itemId/approval-comments/:commentId',
+  protect,
+  validateProjectId,
+  validateItemId,
+  validateCommentId,
+  deleteApprovalComment
 );
 
 router.get(

@@ -1,0 +1,7 @@
+<div class="video-tile">
+  <video #video [muted]="muted" playsinline autoplay [class.hidden]="camOff"></video>
+  <div class="tile-placeholder" *ngIf="camOff">
+    <i class="bi bi-camera-video-off-fill"></i>
+  </div>
+  <span class="tile-label">{{ label }}</span>
+</div>

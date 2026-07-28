@@ -1,5 +1,5 @@
-import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges, ElementRef, ViewChild } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges, ElementRef, ViewChild, forwardRef } from '@angular/core';
+import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { NgbDatepickerModule, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
 import dayjs from 'dayjs/esm';
 import { DateFormatService } from '../../core/services/date-format.service';
@@ -25,8 +25,11 @@ function structToIso(s: NgbDateStruct): string {
   imports: [FormsModule, NgbDatepickerModule],
   templateUrl: './date-picker.component.html',
   styleUrl: './date-picker.component.css',
+  providers: [
+    { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => DatePickerComponent), multi: true },
+  ],
 })
-export class DatePickerComponent implements OnChanges, OnDestroy {
+export class DatePickerComponent implements ControlValueAccessor, OnChanges, OnDestroy {
   @Input() value: string | null = null; // 'YYYY-MM-DD'
   // '' means "use the user's configured date format as the placeholder"
   // (see effectivePlaceholder) — pass an explicit string (e.g. "None") to override.
@@ -57,11 +60,44 @@ export class DatePickerComponent implements OnChanges, OnDestroy {
   panelRight: number | null = null;
 
   private readonly reposition = () => this.updatePanelPosition();
+  private onChange: (value: string | null) => void = () => {};
+  private onTouched: () => void = () => {};
 
   constructor(private dateFormat: DateFormatService) {}
 
   ngOnDestroy() {
     this.removePositionListeners();
+  }
+
+  // ControlValueAccessor — additive: lets this component be bound via
+  // [formControl]/formControlName as an alternative to its existing plain
+  // [value]/(valueChange) @Input/@Output pair, which stays exactly as-is for
+  // every other (template-driven) usage across the app.
+  writeValue(value: string | null): void {
+    this.value = value;
+    this.ngbModel = this.value ? isoToStruct(this.value) : null;
+    this.syncInputText();
+  }
+
+  registerOnChange(fn: (value: string | null) => void): void {
+    this.onChange = fn;
+  }
+
+  registerOnTouched(fn: () => void): void {
+    this.onTouched = fn;
+  }
+
+  setDisabledState(isDisabled: boolean): void {
+    this.disabled = isDisabled;
+  }
+
+  // onChange (the ControlValueAccessor callback, when bound via
+  // formControlName) runs before the plain valueChange @Output — a
+  // template's (valueChange) handler (e.g. clamping a paired end-date) may
+  // read the FormControl's value synchronously and needs it already updated.
+  private emit(value: string | null) {
+    this.onChange(value);
+    this.valueChange.emit(value);
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -103,6 +139,7 @@ export class DatePickerComponent implements OnChanges, OnDestroy {
 
   onBlur() {
     this.commitInput();
+    this.onTouched();
   }
 
   // Parses inputText against the user's configured date format (strict, so
@@ -116,7 +153,7 @@ export class DatePickerComponent implements OnChanges, OnDestroy {
 
     if (!text) {
       this.clearError();
-      if (this.value !== null) this.valueChange.emit(null);
+      if (this.value !== null) this.emit(null);
       return true;
     }
 
@@ -133,7 +170,7 @@ export class DatePickerComponent implements OnChanges, OnDestroy {
     }
 
     this.clearError();
-    if (iso !== this.value) this.valueChange.emit(iso);
+    if (iso !== this.value) this.emit(iso);
     else this.syncInputText();
     return true;
   }
@@ -167,22 +204,23 @@ export class DatePickerComponent implements OnChanges, OnDestroy {
 
   close() {
     this.open = false;
+    this.onTouched();
     if (this.error) this.updatePanelPosition();
     else this.removePositionListeners();
   }
 
   onDateSelect(date: NgbDateStruct) {
-    this.valueChange.emit(structToIso(date));
+    this.emit(structToIso(date));
     this.close();
   }
 
   selectToday() {
-    this.valueChange.emit(dayjs().format('YYYY-MM-DD'));
+    this.emit(dayjs().format('YYYY-MM-DD'));
     this.close();
   }
 
   clear() {
-    this.valueChange.emit(null);
+    this.emit(null);
     this.inputText = '';
     this.clearError();
     this.close();

@@ -3,6 +3,10 @@ import { Attachment } from './attachment.model';
 
 export type EventVisibility = 'standard' | 'private' | 'public';
 export type EventBusyStatus = 'busy' | 'free';
+// 'cancelled' is set (never deleted) when this event was auto-created from a
+// ProjectItem's meeting link and that link was later removed — see
+// backend/services/meetingLinkCalendarSync.service.ts.
+export type CalendarEventStatus = 'confirmed' | 'cancelled';
 export type ReminderMethod = 'notification' | 'email';
 export type GuestRsvpStatus = 'pending' | 'accepted' | 'declined' | 'tentative';
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -75,6 +79,7 @@ export interface CalendarEventModel {
   meetingLinkPlatform: MeetingPlatform | null;
   visibility: EventVisibility;
   busyStatus: EventBusyStatus;
+  status: CalendarEventStatus;
   recurrence: RecurringRule | null;
   guests: Guest[];
   reminders: EventReminder[];

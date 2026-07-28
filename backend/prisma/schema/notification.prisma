@@ -14,6 +14,12 @@ enum NotificationType {
   projectItemUpdated
   mentioned
   userDeactivated
+  taskApprovalRequested
+  taskApproved
+  taskChangesRequested
+  taskApprovalReRequested
+  taskFullyApproved
+  taskApprovalCommentAdded
 }
 
 // actorId is who triggered it (assigner, updater, commenter) — null for

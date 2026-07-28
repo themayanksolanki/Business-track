@@ -46,6 +46,9 @@ model ProjectItem {
   meetingLinkTitle    String?
   meetingLinkPlatform MeetingPlatform?
   meetingLinkAt       DateTime?
+  // Back-relation only — FK (sourceProjectItemId) lives on CalendarEvent,
+  // same shape as RecurringRule.event on CalendarEvent.recurrenceId.
+  meetingCalendarEvent CalendarEvent?
   assignedToId   Int?
   createdById    Int
   updatedById    Int?
@@ -76,6 +79,9 @@ model ProjectItem {
   comments      Comment[]
   attachments   Attachment[]
   notifications Notification[]
+  approvers        TaskApprover[]
+  approvalHistory  ApprovalHistory[]
+  approvalComments ApprovalComment[]
 
   @@index([projectId, parentId, order])
   @@unique([organizationId, sequenceId])

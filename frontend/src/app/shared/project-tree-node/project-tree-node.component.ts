@@ -16,6 +16,7 @@ import { ContextMenuComponent, ContextMenuItem } from '../context-menu/context-m
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 import { DatePickerComponent } from '../date-picker/date-picker.component';
 import { AttachmentPanelComponent } from '../attachment-panel/attachment-panel.component';
+import { TaskApprovalModalComponent } from '../task-approval-modal/task-approval-modal.component';
 import { CommonModule } from '@angular/common';
 import { NotificationService } from '../notification.service';
 import { AutoGrowDirective } from '../auto-grow.directive';
@@ -34,6 +35,7 @@ import { DropListRegistryService } from '../drop-list-registry.service';
     ConfirmDialogComponent,
     DatePickerComponent,
     AttachmentPanelComponent,
+    TaskApprovalModalComponent,
     ProjectTreeNodeComponent,
     CommonModule,
     AutoGrowDirective,
@@ -74,6 +76,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
   expanded = false;
   attachmentsOpen = false;
   descriptionOpen = false;
+  approvalOpen = false;
   description = '';
 
   addChildOpen = false;
@@ -324,6 +327,12 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
         ];
   }
 
+  // Present for Groups too, unlike attachmentsAndDescriptionMenuItems above —
+  // mirrors the dedicated icon-button's Task+Group visibility.
+  private get approvalMenuItem(): ContextMenuItem[] {
+    return [{ label: 'Task Approval', icon: 'bi-hand-thumbs-up', action: 'approval' }];
+  }
+
   get menuItems(): ContextMenuItem[] {
     const items: ContextMenuItem[] = [];
     // View-only users only ever get "View Details" (+ copy link) —
@@ -332,6 +341,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
       items.push(
         { label: 'View Details', icon: 'bi-eye', action: 'view' },
         ...this.attachmentsAndDescriptionMenuItems,
+        ...this.approvalMenuItem,
         ...this.copyTaskLinkMenuItem
       );
       return items;
@@ -344,6 +354,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
       });
     items.push({ label: 'View Details', icon: 'bi-eye', action: 'view' });
     items.push(...this.attachmentsAndDescriptionMenuItems);
+    items.push(...this.approvalMenuItem);
     items.push(...this.copyTaskLinkMenuItem);
     if (this.node.type === 'task')
       items.push({
@@ -404,6 +415,12 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
     this.descriptionOpen = !this.descriptionOpen;
   }
 
+  // Unlike attachments/description, approvers apply to Groups too — no
+  // isGroup guard here.
+  toggleApproval() {
+    this.approvalOpen = !this.approvalOpen;
+  }
+
   saveDescription() {
     if (this.description === this.node.description) return;
     this.projectService
@@ -439,6 +456,7 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
     else if (action === 'view') this.openDetail.emit(this.node);
     else if (action === 'attachments') this.toggleAttachments();
     else if (action === 'description') this.toggleDescription();
+    else if (action === 'approval') this.toggleApproval();
     else if (action === 'copy-task-link') this.copyTaskLinkRequested.emit(this.node);
     else if (action === 'move-to-group') this.moveToGroupRequested.emit(this.node);
     else if (action === 'move-to-project') this.moveToProjectRequested.emit(this.node);

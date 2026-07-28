@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { Dropdown } from 'bootstrap';
 import dayjs from 'dayjs/esm';
@@ -6,14 +6,11 @@ import { TaskService } from '../../core/services/task.service';
 import { DatePickerComponent } from '../../shared/date-picker/date-picker.component';
 import { UserService } from '../../core/services/user.service';
 import { AuthService } from '../../core/services/auth.service';
-import { AttachmentService } from '../../core/services/attachment.service';
 import { Task, TaskStatus, CreateTaskPayload, UpdateTaskPayload } from '../../models/task.model';
 import { User } from '../../models/user.model';
 import { Tag } from '../../models/tag.model';
-import { Attachment } from '../../models/attachment.model';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 import { NotificationService } from '../../shared/notification.service';
-import { AttachmentViewerComponent } from '../../shared/attachment-viewer/attachment-viewer.component';
 import { TaskFormModalComponent } from '../../shared/task-form-modal/task-form-modal.component';
 import { TaskDetailModalComponent } from '../../shared/task-detail-modal/task-detail-modal.component';
 import { TaskEditModalComponent, TaskEditInitial } from '../../shared/task-edit-modal/task-edit-modal.component';
@@ -28,7 +25,6 @@ import { HelpTipComponent } from '../../shared/help-tip/help-tip.component';
   imports: [
     DatePipe,
     ConfirmDialogComponent,
-    AttachmentViewerComponent,
     TaskFormModalComponent,
     TaskDetailModalComponent,
     TaskEditModalComponent,
@@ -40,7 +36,7 @@ import { HelpTipComponent } from '../../shared/help-tip/help-tip.component';
   templateUrl: './task-list.component.html',
   styleUrl: './task-list.component.css',
 })
-export class TaskListComponent implements OnInit, OnDestroy {
+export class TaskListComponent implements OnInit {
   tasks: Task[] = [];
   error = '';
 
@@ -146,19 +142,10 @@ export class TaskListComponent implements OnInit, OnDestroy {
 
   attachmentTaskId: number | null = null;
   attachmentTask: Task | null = null;
-  attachments: Attachment[] = [];
-  attachmentsLoading = false;
-  attachmentsError = '';
-  attachmentUploading = false;
-  attachmentUploadError = '';
-  downloadingId: number | null = null;
-  viewerOpen = false;
-  viewerIndex = 0;
 
   constructor(
     private taskService: TaskService,
     private userService: UserService,
-    private attachmentService: AttachmentService,
     private tagService: TagService,
     private notifications: NotificationService,
     public auth: AuthService
@@ -172,10 +159,6 @@ export class TaskListComponent implements OnInit, OnDestroy {
       this.userService.getTeamMembers().subscribe({ next: (u) => (this.teamCreateAssignees = u) });
     }
     this.tagService.ensureTagsLoaded();
-  }
-
-  ngOnDestroy() {
-    this.stopAttachmentsPolling();
   }
 
   load() {
@@ -445,150 +428,13 @@ export class TaskListComponent implements OnInit, OnDestroy {
     });
   }
 
-  private attachmentsPollTimer?: ReturnType<typeof setInterval>;
-  // Matches the backend's countdown (see PENDING_DELETE_MS in
-  // attachmentController.js) — frequent enough that the list catches up
-  // shortly after the badge hits 0, without polling constantly.
-  private readonly ATTACHMENTS_POLL_MS = 2000;
-
   openAttachments(task: Task) {
     this.attachmentTaskId = task.id;
     this.attachmentTask = task;
-    this.attachments = [];
-    this.attachmentsError = '';
-    this.attachmentUploadError = '';
-    this.loadAttachments(task.id);
   }
 
   closeAttachments() {
     this.attachmentTaskId = null;
     this.attachmentTask = null;
-    this.attachments = [];
-    this.stopAttachmentsPolling();
-  }
-
-  // silent=true skips the loading spinner — used by the background poll so
-  // a countdown reaching 0 doesn't flash "Loading files…" over the list.
-  loadAttachments(taskId: number, silent = false) {
-    if (!silent) {
-      this.attachmentsLoading = true;
-      this.attachmentsError = '';
-    }
-    this.attachmentService.getAttachments(taskId).subscribe({
-      next: (list) => {
-        // A pending attachment that dropped out of the fresh list was
-        // permanently deleted server-side (by the sweep) since the last
-        // load — reflect that in the task's count now rather than waiting
-        // for a full task reload.
-        const permanentlyDeleted = this.attachments.filter(
-          (a) => a.pendingDeleteAt && !list.some((l) => l.id === a.id)
-        ).length;
-        this.attachments = list;
-        this.attachmentsLoading = false;
-        if (permanentlyDeleted > 0) {
-          const current = this.attachmentTask?.attachmentCount ?? permanentlyDeleted;
-          this.setTaskAttachmentCount(taskId, Math.max(0, current - permanentlyDeleted));
-        }
-        this.syncAttachmentPolling();
-      },
-      error: (err) => {
-        if (!silent) this.attachmentsError = err.error?.message || 'Failed to load attachments';
-        this.attachmentsLoading = false;
-      },
-    });
-  }
-
-  // Keeps polling while a countdown is in flight so the list — and the
-  // task's attachmentCount — pick up the permanent delete as soon as the
-  // sweep on the server processes it, without the user having to refresh.
-  private syncAttachmentPolling() {
-    const hasPending = this.attachments.some((a) => a.pendingDeleteAt);
-    if (hasPending && !this.attachmentsPollTimer) {
-      this.attachmentsPollTimer = setInterval(() => {
-        if (this.attachmentTaskId) this.loadAttachments(this.attachmentTaskId, true);
-      }, this.ATTACHMENTS_POLL_MS);
-    } else if (!hasPending) {
-      this.stopAttachmentsPolling();
-    }
-  }
-
-  private stopAttachmentsPolling() {
-    if (this.attachmentsPollTimer) {
-      clearInterval(this.attachmentsPollTimer);
-      this.attachmentsPollTimer = undefined;
-    }
-  }
-
-  private setTaskAttachmentCount(taskId: number, count: number) {
-    if (this.attachmentTask?.id === taskId) this.attachmentTask = { ...this.attachmentTask, attachmentCount: count };
-    const task = this.tasks.find((t) => t.id === taskId);
-    if (task) task.attachmentCount = count;
-  }
-
-  onFileSelected(file: File) {
-    if (!this.attachmentTaskId) return;
-
-    this.attachmentUploading = true;
-    this.attachmentUploadError = '';
-    this.attachmentService.uploadAttachment(this.attachmentTaskId, file).subscribe({
-      next: (res) => {
-        this.attachments = [res.attachment, ...this.attachments];
-        this.attachmentUploading = false;
-        this.setTaskAttachmentCount(this.attachmentTaskId!, (this.attachmentTask?.attachmentCount ?? 0) + 1);
-      },
-      error: (err) => {
-        this.attachmentUploadError = err.error?.message || 'Failed to upload file';
-        this.attachmentUploading = false;
-      },
-    });
-  }
-
-  deleteAttachment(attachment: Attachment) {
-    if (!this.attachmentTaskId) return;
-    this.attachmentService.deleteAttachment(this.attachmentTaskId, attachment.id).subscribe({
-      next: (res) => {
-        this.attachments = this.attachments.map((a) => (a.id === res.attachment.id ? res.attachment : a));
-        this.syncAttachmentPolling();
-      },
-      error: (err) => {
-        this.notifications.error(err.error?.message || 'Failed to delete attachment');
-      },
-    });
-  }
-
-  undoDeleteAttachment(attachment: Attachment) {
-    if (!this.attachmentTaskId) return;
-    this.attachmentService.undoDeleteAttachment(this.attachmentTaskId, attachment.id).subscribe({
-      next: (res) => {
-        this.attachments = this.attachments.map((a) => (a.id === res.attachment.id ? res.attachment : a));
-        this.syncAttachmentPolling();
-      },
-      error: (err) => {
-        this.notifications.error(err.error?.message || 'Failed to undo deletion');
-      },
-    });
-  }
-
-  download(attachment: Attachment) {
-    if (!this.attachmentTaskId) return;
-    this.downloadingId = attachment.id;
-    this.attachmentService.downloadAttachment(this.attachmentTaskId, attachment.id).subscribe({
-      next: (info) => {
-        window.open(info.downloadUrl, '_blank');
-        this.downloadingId = null;
-      },
-      error: () => {
-        this.downloadingId = null;
-      },
-    });
-  }
-
-  getAttachmentFileInfo = (attachment: Attachment) =>
-    this.attachmentService.downloadAttachment(this.attachmentTaskId!, attachment.id);
-
-  openViewer(attachment: Attachment) {
-    const index = this.attachments.findIndex((a) => a.id === attachment.id);
-    this.viewerIndex = index >= 0 ? index : 0;
-    this.viewerOpen = true;
   }
 }

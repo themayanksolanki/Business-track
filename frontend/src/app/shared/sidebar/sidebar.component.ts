@@ -38,6 +38,17 @@ export class SidebarComponent implements OnDestroy {
 
   @ViewChild('sidebarEl') private sidebarEl?: ElementRef<HTMLElement>;
 
+  // Only the numeric-id project detail route — not the bare list page
+  // (/projects) and not the shared-link route (/projects/shared/...),
+  // which doesn't match \d+ right after /projects/ anyway.
+  get isOnProjectDetail(): boolean {
+    return /^\/projects\/\d+/.test(this.router.url);
+  }
+
+  toggleProjectListOverlay() {
+    this.svc.toggleProjectListOverlay();
+  }
+
   brandIcon(): IconName {
     const key = this.auth.currentUser()?.sidebarLogo ?? 'CHECK';
     return SIDEBAR_LOGOS.find((l) => l.key === key)?.icon ?? 'brand';

@@ -1,0 +1,33 @@
+<div class="meeting-room">
+  <div class="room-banner" *ngIf="roomFull">This meeting is full (max 4 participants).</div>
+  <div class="room-banner room-banner-error" *ngIf="joinError">{{ joinError }}</div>
+
+  <div class="tile-grid">
+    <app-video-tile
+      [stream]="localStream"
+      [label]="myUsername + ' (You)'"
+      [muted]="true"
+      [camOff]="isCamOff"
+    ></app-video-tile>
+
+    <app-video-tile
+      *ngFor="let tile of remoteTiles"
+      [stream]="tile.stream"
+      [label]="'Participant ' + tile.userId"
+      [muted]="false"
+      [camOff]="isPeerCamOff(tile.socketId)"
+    ></app-video-tile>
+  </div>
+
+  <div class="room-controls">
+    <button class="ctrl-btn" [class.active]="isMuted" (click)="toggleMute()">
+      <i class="bi" [class.bi-mic-fill]="!isMuted" [class.bi-mic-mute-fill]="isMuted"></i>
+    </button>
+    <button class="ctrl-btn" [class.active]="isCamOff" (click)="toggleCamera()">
+      <i class="bi" [class.bi-camera-video-fill]="!isCamOff" [class.bi-camera-video-off-fill]="isCamOff"></i>
+    </button>
+    <button class="ctrl-btn ctrl-btn-leave" (click)="leaveMeeting()">
+      <i class="bi bi-telephone-fill"></i> Leave
+    </button>
+  </div>
+</div>
