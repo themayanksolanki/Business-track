@@ -1,8 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
-import { forkJoin } from 'rxjs';
+import { forkJoin, Subscription } from 'rxjs';
 import dayjs from 'dayjs/esm';
 import { CKEditorModule } from '@ckeditor/ckeditor5-angular';
 import {
@@ -54,6 +54,7 @@ import { HelpTipComponent } from '../../shared/help-tip/help-tip.component';
 import { NgbPopover, NgbTooltip } from '@ng-bootstrap/ng-bootstrap';
 import { ProjectTeamsComponent } from '../../shared/project-teams/project-teams.component';
 import { CardResizeDirective, CardResizeEvent } from '../../shared/card-resize.directive';
+import { ProjectListOverlayComponent } from '../../shared/project-list-overlay/project-list-overlay.component';
 
 @Component({
   selector: 'app-project-detail',
@@ -81,13 +82,14 @@ import { CardResizeDirective, CardResizeEvent } from '../../shared/card-resize.d
     NgbTooltip,
     ProjectTeamsComponent,
     CardResizeDirective,
-    NgbPopover
+    NgbPopover,
+    ProjectListOverlayComponent
   ],
   providers: [DropListRegistryService],
   templateUrl: './project-detail.component.html',
   styleUrl: './project-detail.component.css',
 })
-export class ProjectDetailComponent implements OnInit {
+export class ProjectDetailComponent implements OnInit, OnDestroy {
   projectId = '';
   project: Project | null = null;
   loading = false;
@@ -217,34 +219,57 @@ export class ProjectDetailComponent implements OnInit {
     public auth: AuthService,
   ) {}
 
+  private routeParamSub?: Subscription;
+
   ngOnInit() {
-    const tab = this.route.snapshot.queryParamMap.get('tab');
-    if (tab === 'detail' || tab === 'tasks' || tab === 'kanban' || tab === 'teams') this.activeTab = tab;
-    const itemParam = this.route.snapshot.queryParamMap.get('item');
-    this.pendingOpenItemId = itemParam ? Number(itemParam) : null;
-    const commentParam = this.route.snapshot.queryParamMap.get('comment');
-    this.highlightCommentId = commentParam ? Number(commentParam) : null;
-    // "Copy Task Link" (see copyTaskLink()) references a task by its
-    // sequenceId, not the raw numeric id — resolved client-side against
-    // whichever item list ends up loading (normal or shared), same as
-    // pendingOpenItemId but keyed differently.
-    const taskSeqParam = this.route.snapshot.queryParamMap.get('taskSeq');
-    this.pendingOpenItemSequenceId = taskSeqParam ? Number(taskSeqParam) : null;
+    // Subscribed, not a one-time snapshot read: Angular reuses this same
+    // component instance when navigating between two /projects/:id routes
+    // that only differ by the id (e.g. clicking a different project in the
+    // new project-list overlay) — a snapshot-only read would never notice
+    // and would keep showing the previous project.
+    this.routeParamSub = this.route.paramMap.subscribe((params) => {
+      const orgIdParam = params.get('organizationId');
+      const seqIdParam = params.get('sequenceId');
+      if (orgIdParam && seqIdParam) {
+        this.loadSharedProject(Number(orgIdParam), Number(seqIdParam));
+        return;
+      }
 
-    const orgIdParam = this.route.snapshot.paramMap.get('organizationId');
-    const seqIdParam = this.route.snapshot.paramMap.get('sequenceId');
-    if (orgIdParam && seqIdParam) {
-      this.loadSharedProject(Number(orgIdParam), Number(seqIdParam));
-      return;
-    }
+      const idParam = params.get('id') || '';
+      // Same project — e.g. only a query param changed. Don't re-trigger a
+      // full reload for that.
+      if (idParam === this.projectId) return;
+      this.projectId = idParam;
 
-    this.projectId = this.route.snapshot.paramMap.get('id') || '';
-    this.loadProject();
-    this.loadItems();
+      const tab = this.route.snapshot.queryParamMap.get('tab');
+      this.activeTab = tab === 'detail' || tab === 'tasks' || tab === 'kanban' || tab === 'teams' ? tab : 'tasks';
+      const itemParam = this.route.snapshot.queryParamMap.get('item');
+      this.pendingOpenItemId = itemParam ? Number(itemParam) : null;
+      const commentParam = this.route.snapshot.queryParamMap.get('comment');
+      this.highlightCommentId = commentParam ? Number(commentParam) : null;
+      // "Copy Task Link" (see copyTaskLink()) references a task by its
+      // sequenceId, not the raw numeric id — resolved client-side against
+      // whichever item list ends up loading (normal or shared), same as
+      // pendingOpenItemId but keyed differently.
+      const taskSeqParam = this.route.snapshot.queryParamMap.get('taskSeq');
+      this.pendingOpenItemSequenceId = taskSeqParam ? Number(taskSeqParam) : null;
+
+      this.loadProject();
+      this.loadItems();
+    });
+
     this.userService.ensureUsersLoaded();
     this.departmentService.ensureDepartmentsLoaded();
     this.categoryService.ensureCategoriesLoaded();
     this.tagService.ensureTagsLoaded();
+    // Project List overlay (see project-list-overlay.component.ts) reads
+    // this cache directly — warms it on a direct deep link if the Projects
+    // list page was never visited this session; a no-op otherwise.
+    this.projectService.ensureProjectListLoaded();
+  }
+
+  ngOnDestroy() {
+    this.routeParamSub?.unsubscribe();
   }
 
   // Entry point for "Copy Project Link" (see copyProjectLink()) — resolves

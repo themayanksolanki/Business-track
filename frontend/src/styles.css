@@ -134,3 +134,14 @@ body { background: var(--bg-page); }
   font-size: 14px;
   font-weight: 400;
 }
+
+/* Auto-cancelled meeting events (see calendar-state.service.ts's toMwlEvent
+   and event-strap-row for the month-view "strap" equivalent) — same
+   line-through + muted idiom used elsewhere for a "done but still shown"
+   state (.subtask-done, .att-tile-name-pending). */
+.cal-event-cancelled {
+  opacity: 0.55;
+}
+.cal-event-cancelled .cal-event-title {
+  text-decoration: line-through;
+}

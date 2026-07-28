@@ -41,6 +41,21 @@
     </button>
   </div>
 
+  @if (isOnProjectDetail) {
+    <button
+      type="button"
+      class="project-list-toggle-btn"
+      [class.active]="svc.projectListOverlayOpen()"
+      (click)="toggleProjectListOverlay()"
+      [attr.aria-label]="svc.projectListOverlayOpen() ? 'Hide project list' : 'Show project list'"
+    >
+      <app-icon name="menu" [size]="16" />
+      @if (labelsVisible()) {
+        <span class="project-list-toggle-label">{{ svc.projectListOverlayOpen() ? 'Hide' : 'Show' }} Project List</span>
+      }
+    </button>
+  }
+
   <nav class="sidebar-nav">
     <app-notification-bell [showLabel]="labelsVisible()" />
     <a

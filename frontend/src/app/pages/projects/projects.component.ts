@@ -258,6 +258,11 @@ export class ProjectsComponent implements OnInit, OnDestroy {
     this.categoryService.ensureCategoriesLoaded();
     this.tagService.ensureTagsLoaded();
     this.userService.ensureUsersLoaded();
+    // Keeps the shared project-list cache (see ProjectService.projectList,
+    // consumed by the Project Detail page's overlay sidebar) in sync
+    // whenever this page loads/reloads — on top of, not instead of, this
+    // page's own paginated/filtered fetches below.
+    this.projectService.refreshProjectList().subscribe();
   }
 
   visibleTags(project: Project) {

@@ -26,6 +26,7 @@ import dashboardRoutes from './routes/dashboardRoutes.js';
 import metricRoutes from './routes/metricRoutes.js';
 import eventRoutes from './routes/eventRoutes.js';
 import calendarRoutes from './routes/calendarRoutes.js';
+import meetingRoutes from './routes/meetingRoutes.js';
 import errorMiddleware from './middleware/errorMiddleware.js';
 import { authLimiter, globalLimiter } from './utils/utils.js';
 import { setupSocket } from './socket.js';
@@ -105,6 +106,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/metrics', metricRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/calendars', calendarRoutes);
+app.use('/api/meetings', meetingRoutes);
 
 app.use(errorMiddleware);
 

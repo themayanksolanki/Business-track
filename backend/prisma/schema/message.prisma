@@ -40,9 +40,27 @@ model Message {
   replyTo  Message?  @relation("MessageReplyTo", fields: [replyToId], references: [id])
   replies  Message[] @relation("MessageReplyTo")
 
-  deletedFor User[] @relation("MessageDeletedFor")
+  deletedFor User[]            @relation("MessageDeletedFor")
+  reactions  MessageReaction[]
 
   @@index([senderId, receiverId])
   @@index([receiverId, read])
   @@map("messages")
+}
+
+// One reaction per user per message — reacting again with a different emoji
+// replaces it, reacting with the same emoji again removes it (toggle).
+model MessageReaction {
+  id        Int      @id @default(autoincrement())
+  messageId Int
+  userId    Int
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation("MessageReactionUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@map("message_reactions")
 }

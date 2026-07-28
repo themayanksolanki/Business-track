@@ -1,0 +1,248 @@
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="closed.emit()">
+  <div class="modal-dialog modal-dialog-centered tasklist-dialog tasklist-dialog-lg">
+  @if (open) {
+    <div class="modal-content tasklist-modal-content shadow-lg">
+      <div class="modal-header modal-form-header">
+        <div class="d-flex justify-content-between align-items-center flex-grow-1">
+          <h5 class="mb-0 fw-bold">
+            <i class="bi bi-hand-thumbs-up me-2 text-primary"></i>Task Approval
+            @if (item) { <span class="text-muted fw-normal">— {{ item.title }}</span> }
+          </h5>
+          <button type="button" class="detail-x" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+        </div>
+      </div>
+
+      <div class="modal-tabs">
+        <button type="button" class="modal-tab-btn" [class.active]="activeSection === 'approvers'" (click)="setSection('approvers')">
+          <i class="bi bi-people me-1"></i>Approvers
+        </button>
+        <button type="button" class="modal-tab-btn" [class.active]="activeSection === 'comments'" (click)="setSection('comments')">
+          <i class="bi bi-chat-left-text me-1"></i>Comments
+          @if (comments.length > 0) { <span class="modal-tab-count">{{ comments.length }}</span> }
+        </button>
+        <button type="button" class="modal-tab-btn" [class.active]="activeSection === 'history'" (click)="setSection('history')">
+          <i class="bi bi-clock-history me-1"></i>History
+        </button>
+      </div>
+
+      <div class="modal-body p-4">
+        @if (error) {
+          <div class="alert alert-danger py-2 small mb-3">{{ error }}</div>
+        }
+
+        @if (activeSection === 'approvers') {
+        @if (loading) {
+          <div class="text-center py-4 text-muted">
+            <span class="spinner-border spinner-border-sm me-2"></span>Loading approvers…
+          </div>
+        } @else {
+          @if (actionError) {
+            <div class="alert alert-danger py-2 small mb-3">{{ actionError }}</div>
+          }
+
+          <div class="progress-cell mb-3">
+            <div class="progress-track">
+              <div class="progress-fill" [style.width.%]="progress.total ? (progress.approved / progress.total) * 100 : 0"></div>
+            </div>
+            <span class="progress-frac">Approved: {{ progress.approved }}/{{ progress.total }}</span>
+          </div>
+
+          <div class="approver-section mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="text-muted mb-0 text-uppercase small fw-bold">Approvers</h6>
+              @if (canManage) {
+                <button type="button" class="btn btn-sm btn-outline-primary" (click)="togglePicker()">
+                  <i class="bi bi-plus-lg me-1"></i>Add Approver
+                </button>
+              }
+            </div>
+
+            @if (pickerOpen) {
+              <div class="approver-picker mb-2">
+                <input type="text" class="form-control form-control-sm mb-2" placeholder="Search project members…"
+                       [(ngModel)]="pickerQuery" />
+                <div class="approver-picker-list">
+                  @for (m of availableMembers; track m.id) {
+                    <button type="button" class="approver-picker-item" [disabled]="addingUserId === m.id" (click)="addApprover(m)">
+                      {{ m.username }}
+                      @if (addingUserId === m.id) { <span class="spinner-border spinner-border-sm ms-2"></span> }
+                    </button>
+                  }
+                  @if (availableMembers.length === 0) {
+                    <div class="text-muted small px-2 py-1">No matching members.</div>
+                  }
+                </div>
+              </div>
+            }
+
+            @if (approvers.length === 0) {
+              <p class="text-muted small mb-0">No approvers assigned yet.</p>
+            } @else {
+              <ul class="approver-list list-unstyled mb-0">
+                @for (a of approvers; track a.id) {
+                  <li class="approver-row">
+                    <span class="approver-name">{{ a.user.username }}</span>
+                    <span class="approver-status" [class]="'status-' + a.status">{{ statusLabel(a.status) }}</span>
+                    @if (canManage) {
+                      <button type="button" class="approver-remove-btn" title="Remove approver" (click)="removeApprover(a)">
+                        <i class="bi bi-x-lg"></i>
+                      </button>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+
+          @if (myApprover && (myApprover.status === 'pending' || myApprover.status === 'changesRequested')) {
+            <div class="my-decision-section mb-3">
+              <h6 class="text-muted mb-2 text-uppercase small fw-bold">Your Decision</h6>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-success btn-sm" [disabled]="actionLoading" (click)="approve()">
+                  <i class="bi bi-hand-thumbs-up me-1"></i>Approve
+                </button>
+                <button type="button" class="btn btn-outline-danger btn-sm" [disabled]="actionLoading" (click)="toggleRequestChanges()">
+                  <i class="bi bi-chat-left-text me-1"></i>Request Changes
+                </button>
+              </div>
+
+              @if (requestChangesOpen) {
+                <div class="request-changes-box mt-2">
+                  <textarea class="form-control form-control-sm" rows="3" placeholder="Describe the changes needed…"
+                            [(ngModel)]="requestChangesComment"></textarea>
+                  @if (requestChangesError) {
+                    <div class="field-error mt-1">{{ requestChangesError }}</div>
+                  }
+                  <button type="button" class="btn btn-danger btn-sm mt-2" [disabled]="requestChangesSubmitting" (click)="submitRequestChanges()">
+                    @if (requestChangesSubmitting) {
+                      <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Submit
+                  </button>
+                </div>
+              }
+            </div>
+          }
+
+          @if (canManage && hasChangesRequested) {
+            <button type="button" class="btn btn-outline-primary btn-sm" [disabled]="actionLoading" (click)="reRequestApproval()">
+              <i class="bi bi-arrow-repeat me-1"></i>Re-request Approval
+            </button>
+          }
+        }
+        }
+
+        @if (activeSection === 'comments') {
+          @if (commentsLoading) {
+            <div class="text-center py-4 text-muted">
+              <span class="spinner-border spinner-border-sm me-2"></span>Loading comments…
+            </div>
+          } @else {
+            @if (comments.length === 0) {
+              <p class="text-muted small mb-3">No discussion yet.</p>
+            } @else {
+              <ul class="approval-comment-list list-unstyled mb-3">
+                @for (c of comments; track c.id) {
+                  <li class="approval-comment-item">
+                    @if (editingCommentId === c.id) {
+                      <div class="edit-comment-row">
+                        <input class="form-control form-control-sm" type="text" [(ngModel)]="editCommentBody"
+                               [ngModelOptions]="{standalone: true}" maxlength="2000"
+                               (keydown.enter)="submitEditComment()" (keydown.escape)="cancelEditComment()" />
+                        <button class="add-subtask-btn" (click)="submitEditComment()" [disabled]="editCommentSubmitting || !editCommentBody.trim()" title="Save">
+                          @if (editCommentSubmitting) {
+                            <span class="spinner-border spinner-border-sm"></span>
+                          } @else {
+                            <i class="bi bi-check-lg"></i>
+                          }
+                        </button>
+                        <button class="subtask-del-btn" (click)="cancelEditComment()" title="Cancel">
+                          <i class="bi bi-x"></i>
+                        </button>
+                      </div>
+                    } @else {
+                      @if (replyTarget(c); as parent) {
+                        <div class="quoted-reply">
+                          <span class="quoted-sender">{{ parent.author.username }}</span>
+                          <span class="quoted-text">{{ parent.body | slice:0:60 }}</span>
+                        </div>
+                      }
+                      <div class="approval-comment-header">
+                        <span class="approval-comment-author">{{ c.author.username }}</span>
+                        @if (c.isEdited) { <span class="edited-badge">edited</span> }
+                        <span class="approval-comment-time">{{ c.createdAt | appDate }} {{ c.createdAt | appTime }}</span>
+                      </div>
+                      <div class="approval-comment-body">{{ c.body }}</div>
+                      <div class="approval-comment-actions">
+                        @if (canEdit) {
+                          <button class="comment-action-btn" (click)="startReply(c)" title="Reply">
+                            <i class="bi bi-reply"></i>Reply
+                          </button>
+                        }
+                        @if (isOwnComment(c)) {
+                          <button class="comment-action-btn" (click)="startEditComment(c)" title="Edit">
+                            <i class="bi bi-pencil"></i>Edit
+                          </button>
+                          <button class="comment-action-btn" (click)="deleteComment(c)" title="Delete">
+                            <i class="bi bi-x-lg"></i>Delete
+                          </button>
+                        }
+                      </div>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+
+            @if (canEdit) {
+              @if (replyingTo) {
+                <div class="reply-preview-bar">
+                  <i class="bi bi-reply-fill reply-preview-icon"></i>
+                  <div class="reply-preview-body">
+                    <div class="reply-preview-sender">Replying to {{ replyingTo.author.username }}</div>
+                    <div class="reply-preview-text">{{ replyingTo.body | slice:0:80 }}</div>
+                  </div>
+                  <button class="reply-preview-close" (click)="cancelReply()"><i class="bi bi-x-lg"></i></button>
+                </div>
+              }
+              <div class="add-subtask-row">
+                <input class="add-subtask-input" type="text" [(ngModel)]="commentBody"
+                       [ngModelOptions]="{standalone: true}"
+                       placeholder="Add a comment…" (keydown.enter)="addComment()" maxlength="2000" />
+                <button class="add-subtask-btn" (click)="addComment()" [disabled]="commentSubmitting || !commentBody.trim()">
+                  @if (commentSubmitting) {
+                    <span class="spinner-border spinner-border-sm"></span>
+                  } @else {
+                    <i class="bi bi-send"></i>
+                  }
+                </button>
+              </div>
+            }
+          }
+        }
+
+        @if (activeSection === 'history') {
+          @if (historyLoading) {
+            <div class="text-center py-4 text-muted">
+              <span class="spinner-border spinner-border-sm me-2"></span>Loading history…
+            </div>
+          } @else if (history.length === 0) {
+            <p class="text-muted small mb-0">No activity recorded yet.</p>
+          } @else {
+            <ul class="approval-history-list list-unstyled mb-0">
+              @for (h of history; track h.id) {
+                <li class="approval-history-item">
+                  <span class="approval-history-author">{{ h.user.username }}</span>
+                  <span class="approval-history-action">{{ historyLabel(h) }}</span>
+                  @if (h.detail) { <span class="approval-history-detail">— {{ h.detail }}</span> }
+                  <span class="approval-history-time">{{ h.createdAt | appDate }} {{ h.createdAt | appTime }}</span>
+                </li>
+              }
+            </ul>
+          }
+        }
+      </div>
+    </div>
+  }
+  </div>
+</div>

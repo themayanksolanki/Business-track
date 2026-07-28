@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import type { Prisma } from '@prisma/client';
+import type { Prisma, ProjectStatus, ProjectPriority } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
 import { destroyBlob, cloudinaryDownloadUrl } from '../utils/blobStorage.js';
@@ -146,6 +146,41 @@ export const canApproveDraft = (user: AuthUser, project: ProjectForSettings) =>
   user.role === 'Admin' || project.createdById === user.id;
 
 const VALID_PROJECT_STATUSES = ['active', 'archived', 'completed', 'draft'];
+const VALID_PROJECT_PRIORITIES = ['low', 'medium', 'high'];
+
+// Comma-joined query params (see ProjectService.getProjects' `extra` map and
+// ProjectsComponent.buildQueryParams) — one shared parser for the id lists
+// (departmentIds/categoryIds/tagIds) and the enum-value lists
+// (statuses/priorities/efforts), the latter additionally filtered against a
+// known-valid allowlist so a bogus value can't reach Prisma's `in` filter.
+const parseCsvNumbers = (v: unknown): number[] =>
+  typeof v === 'string' && v ? v.split(',').map(Number).filter((n) => !Number.isNaN(n)) : [];
+const parseCsvEnum = (v: unknown, valid: string[]): string[] =>
+  typeof v === 'string' && v ? v.split(',').filter((s) => valid.includes(s)) : [];
+
+// Maps the Projects table's sortable column keys onto Prisma orderBy clauses
+// — relation columns (owner/department/category) sort by their display name
+// rather than the FK id. Falls back to the pre-existing default (newest
+// first) for an unrecognized/absent key, so plain page loads are unaffected.
+const PROJECT_SORT_FIELDS: Record<string, (dir: 'asc' | 'desc') => Prisma.ProjectOrderByWithRelationInput> = {
+  sequenceId: (dir) => ({ sequenceId: dir }),
+  name: (dir) => ({ name: dir }),
+  owner: (dir) => ({ owner: { username: dir } }),
+  department: (dir) => ({ department: { name: dir } }),
+  category: (dir) => ({ category: { name: dir } }),
+  priority: (dir) => ({ priority: dir }),
+  status: (dir) => ({ status: dir }),
+  effort: (dir) => ({ effort: dir }),
+  startDate: (dir) => ({ startDate: dir }),
+  endDate: (dir) => ({ endDate: dir }),
+  createdAt: (dir) => ({ createdAt: dir }),
+};
+
+const buildProjectOrderBy = (sortBy: unknown, sortDir: unknown): Prisma.ProjectOrderByWithRelationInput => {
+  const dir: 'asc' | 'desc' = sortDir === 'asc' ? 'asc' : 'desc';
+  const field = typeof sortBy === 'string' ? PROJECT_SORT_FIELDS[sortBy] : undefined;
+  return field ? field(dir) : { createdAt: 'desc' };
+};
 
 export const getProjects = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -155,10 +190,15 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
 
     const where: Prisma.ProjectWhereInput = { organizationId: req.user!.organizationId };
 
-    // No explicit status filter means "All" from the frontend's perspective
-    // — drafts are excluded from that by default (they're managed from their
-    // own Drafts screen) unless the caller opts in.
-    if (VALID_PROJECT_STATUSES.includes(req.query.status as string)) {
+    // The Status column's multiselect (`statuses`) is authoritative over the
+    // status tabs (`status`/`includeDrafts`) when present — same fallback
+    // chain as before otherwise: no explicit status filter means "All",
+    // which excludes drafts by default (they're managed from their own
+    // Drafts screen) unless the caller opts in.
+    const statuses = parseCsvEnum(req.query.statuses, VALID_PROJECT_STATUSES);
+    if (statuses.length) {
+      where.status = { in: statuses as ProjectStatus[] };
+    } else if (VALID_PROJECT_STATUSES.includes(req.query.status as string)) {
       where.status = req.query.status as any;
     } else if (req.query.includeDrafts !== 'true') {
       where.status = { not: 'draft' };
@@ -174,11 +214,42 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
       ];
     }
 
+    const search = (req.query.search as string)?.trim();
+    if (search) where.name = { contains: search, mode: 'insensitive' };
+
+    const departmentIds = parseCsvNumbers(req.query.departmentIds);
+    if (departmentIds.length) where.departmentId = { in: departmentIds };
+
+    const categoryIds = parseCsvNumbers(req.query.categoryIds);
+    if (categoryIds.length) where.categoryId = { in: categoryIds };
+
+    const tagIds = parseCsvNumbers(req.query.tagIds);
+    if (tagIds.length) where.tags = { some: { id: { in: tagIds } } };
+
+    const priorities = parseCsvEnum(req.query.priorities, VALID_PROJECT_PRIORITIES);
+    if (priorities.length) where.priority = { in: priorities as ProjectPriority[] };
+
+    const efforts = parseCsvEnum(req.query.efforts, VALID_PROJECT_PRIORITIES);
+    if (efforts.length) where.effort = { in: efforts as ProjectPriority[] };
+
+    const applyDateRange = (fromParam: string, toParam: string, field: 'startDate' | 'endDate' | 'createdAt') => {
+      const from = req.query[fromParam] as string | undefined;
+      const to = req.query[toParam] as string | undefined;
+      if (!from && !to) return;
+      where[field] = {
+        ...(from ? { gte: new Date(from) } : {}),
+        ...(to ? { lte: new Date(to) } : {}),
+      };
+    };
+    applyDateRange('startDateFrom', 'startDateTo', 'startDate');
+    applyDateRange('endDateFrom', 'endDateTo', 'endDate');
+    applyDateRange('createdAtFrom', 'createdAtTo', 'createdAt');
+
     const [projects, total] = await Promise.all([
       prisma.project.findMany({
         where,
         include: PROJECT_INCLUDE,
-        orderBy: { createdAt: 'desc' },
+        orderBy: buildProjectOrderBy(req.query.sortBy, req.query.sortDir),
         skip,
         take: limit,
       }),

@@ -1,4 +1,6 @@
 <div class="page">
+  <app-project-list-overlay [currentProjectId]="project?.id ?? null"></app-project-list-overlay>
+
   <nav class="page-breadcrumb mb-3">
     <a routerLink="/projects" class="breadcrumb-item">Projects</a>
     <span class="breadcrumb-separator"><i class="bi bi-chevron-right"></i></span>

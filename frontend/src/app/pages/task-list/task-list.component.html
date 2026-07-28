@@ -244,19 +244,7 @@
 <app-task-attachments-modal
   [open]="!!attachmentTaskId"
   [task]="attachmentTask"
-  [attachments]="attachments"
-  [loading]="attachmentsLoading"
-  [error]="attachmentsError"
-  [uploading]="attachmentUploading"
-  [uploadError]="attachmentUploadError"
-  [downloadingId]="downloadingId"
-  [getFileInfo]="getAttachmentFileInfo"
-  (closed)="closeAttachments()"
-  (fileSelected)="onFileSelected($event)"
-  (download)="download($event)"
-  (viewRequested)="openViewer($event)"
-  (deleteRequested)="deleteAttachment($event)"
-  (undoRequested)="undoDeleteAttachment($event)">
+  (closed)="closeAttachments()">
 </app-task-attachments-modal>
 
 <!-- Delete confirmation dialog -->
@@ -268,12 +256,3 @@
   (confirmed)="confirmDelete()"
   (cancelled)="cancelConfirm()">
 </app-confirm-dialog>
-
-<app-attachment-viewer
-  [open]="viewerOpen"
-  [attachments]="attachments"
-  [startIndex]="viewerIndex"
-  [getFileInfo]="getAttachmentFileInfo"
-  (closed)="viewerOpen = false"
-  (download)="download($event)">
-</app-attachment-viewer>

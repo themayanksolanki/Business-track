@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEvent } from '@angular/common/http';
+import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Attachment, DownloadInfo } from '../../models/attachment.model';
+import { Attachment, AttachmentsAdapter, DownloadInfo } from '../../models/attachment.model';
 
 @Injectable({ providedIn: 'root' })
 export class AttachmentService {
@@ -13,12 +14,16 @@ export class AttachmentService {
     return this.http.get<Attachment[]>(`${this.api}/${taskId}/attachments`);
   }
 
-  uploadAttachment(taskId: number, file: File) {
+  // reportProgress/observe:'events' matches ProjectService's/EventService's
+  // upload methods, so the shared <app-attachments> component's progress bar
+  // works uniformly across every entity.
+  uploadAttachment(taskId: number, file: File): Observable<HttpEvent<{ message: string; attachment: Attachment }>> {
     const formData = new FormData();
     formData.append('file', file);
     return this.http.post<{ message: string; attachment: Attachment }>(
       `${this.api}/${taskId}/attachments`,
-      formData
+      formData,
+      { reportProgress: true, observe: 'events' }
     );
   }
 
@@ -41,5 +46,17 @@ export class AttachmentService {
       `${this.api}/${taskId}/attachments/${attachmentId}/undo`,
       {}
     );
+  }
+
+  // Adapter for the shared <app-attachments> component — no addLink, since
+  // the task-level backend has no "paste a link" endpoint.
+  attachmentsAdapter(taskId: number): AttachmentsAdapter {
+    return {
+      list: () => this.getAttachments(taskId),
+      upload: (file) => this.uploadAttachment(taskId, file),
+      download: (a) => this.downloadAttachment(taskId, a.id),
+      delete: (a) => this.deleteAttachment(taskId, a.id),
+      undoDelete: (a) => this.undoDeleteAttachment(taskId, a.id),
+    };
   }
 }

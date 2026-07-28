@@ -125,7 +125,7 @@ const VALID_LANDING_PAGES = [
 const VALID_SIDEBAR_THEMES = ['MIDNIGHT', 'CHARCOAL', 'OCEAN', 'FOREST', 'PLUM', 'DAYLIGHT', 'ROSE', 'SKY', 'SAND', 'LEMON'];
 const VALID_SIDEBAR_LOGOS = ['CHECK', 'ROCKET', 'BOLT', 'STAR', 'SHIELD', 'DIAMOND'];
 const VALID_CURRENCIES = ['USD', 'EUR', 'JPY', 'GBP', 'CNY', 'INR'];
-const VALID_MEASUREMENT_UNITS = ['KG', 'LB', 'LTR'];
+const VALID_MEASUREMENT_UNITS = ['KG', 'LB'];
 
 // Fields are all independently optional — this endpoint is shared by the
 // Profile page's phone editor and Settings > General's date/time-format/
@@ -495,6 +495,16 @@ export const validateComment = (req: Request, res: Response, next: NextFunction)
 
   next();
 };
+
+export const validateApproverAssignment = (req: Request, res: Response, next: NextFunction) => {
+  const { userIds } = req.body;
+  if (!Array.isArray(userIds) || userIds.length === 0)
+    return next(new AppError('userIds must be a non-empty array', 400));
+
+  next();
+};
+
+export const validateApproverUserId = validateParamId('userId');
 
 export const validateAttachmentLink = (req: Request, res: Response, next: NextFunction) => {
   const { url } = req.body;

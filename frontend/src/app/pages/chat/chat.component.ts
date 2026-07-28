@@ -7,6 +7,7 @@ import { Subscription } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ChatService } from '../../core/services/chat.service';
 import { SocketService, IncomingCall } from '../../core/services/socket.service';
+import { WebrtcPeerService } from '../../core/services/webrtc-peer.service';
 import { DateFormatService } from '../../core/services/date-format.service';
 import { ContactData, Message } from '../../models/message.model';
 import { User } from '../../models/user.model';
@@ -23,9 +24,10 @@ import { EMOJI_CATEGORIES } from '../../shared/emoji-data';
   styleUrl: './chat.component.css',
 })
 export class ChatComponent implements OnInit, OnDestroy {
-  @ViewChild('msgEnd')      msgEnd!:      ElementRef;
+  @ViewChild('messagesArea') messagesArea!: ElementRef<HTMLDivElement>;
   @ViewChild('localVideo')  localVideo!:  ElementRef<HTMLVideoElement>;
   @ViewChild('remoteVideo') remoteVideo!: ElementRef<HTMLVideoElement>;
+  @ViewChild('callOverlay') callOverlay?: ElementRef<HTMLDivElement>;
   @ViewChild('imageInput')  imageInput!:  ElementRef<HTMLInputElement>;
   @ViewChild('chatInput')   chatInput!:   ElementRef<HTMLTextAreaElement>;
   @ViewChild('chatSearchInput') chatSearchInput!: ElementRef<HTMLInputElement>;
@@ -33,6 +35,10 @@ export class ChatComponent implements OnInit, OnDestroy {
   contacts: ContactData[] = [];
   selected: ContactData | null = null;
   messages: Message[] = [];
+  /* Newest-first mirror of `messages`, kept in sync by syncReversed() — the
+     template renders this inside a column-reverse container so the chat opens
+     pinned to the latest message like WhatsApp/Telegram. */
+  reversedMessages: Message[] = [];
   messageText = '';
 
   // ── Contact search ───────────────────────────────────────────
@@ -62,6 +68,12 @@ export class ChatComponent implements OnInit, OnDestroy {
   replyingTo: Message | null = null;
   editingMessage: Message | null = null;
 
+  // ── Typing indicator ──────────────────────────────────────────
+  otherTyping = false;
+  private isTypingSent = false;
+  private typingStopTimer: any;
+  private typingIndicatorTimeout: any;
+
   showConfirm = false;
   confirmTitle = 'Confirm';
   confirmMessage = 'This action cannot be undone.';
@@ -86,22 +98,22 @@ export class ChatComponent implements OnInit, OnDestroy {
   incomingCall: IncomingCall | null = null;
 
   private callId:     string | null = null;
-  private iceServers: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
+
+  // Fixed key into WebrtcPeerService — chat only ever has one active peer at a time.
+  private readonly PEER_ID = 'chat';
 
   isMuted      = false;
   isCamOff     = false;
   remoteMuted  = false;
+  pipSwapped   = false;
+  isFullscreen = false;
 
   // ── Call timer ────────────────────────────────────────────────
   callElapsed = 0;
   private callTimerInterval: any = null;
   private callStartTime: number | null = null;
 
-  private localStream:  MediaStream | null = null;
   private remoteStream: MediaStream | null = null;
-  private pc: RTCPeerConnection | null = null;
-  private pendingCandidates: RTCIceCandidateInit[] = [];
-  private remoteDescSet = false;
   private pendingOffer: { from: string; offer: RTCSessionDescriptionInit; callId: string } | null = null;
   private callTimeout: any;
 
@@ -116,6 +128,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     private auth: AuthService,
     private chatSvc: ChatService,
     public  socketSvc: SocketService,
+    private webrtcSvc: WebrtcPeerService,
     private cdr: ChangeDetectorRef,
     private dateFormat: DateFormatService,
   ) {}
@@ -124,16 +137,25 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.me = this.auth.getUser();
 
     this.chatSvc.getIceServers().subscribe({
-      next: ({ iceServers }) => { this.iceServers = iceServers; },
+      next: ({ iceServers }) => { this.webrtcSvc.setIceServers(iceServers); },
     });
     this.loadContacts();
     this.subscribeToSocket();
+    document.addEventListener('fullscreenchange', this.onFullscreenChange);
   }
 
   ngOnDestroy() {
     this.subs.unsubscribe();
     this.cleanupCall();
+    this.stopTyping();
+    clearTimeout(this.typingIndicatorTimeout);
+    document.removeEventListener('fullscreenchange', this.onFullscreenChange);
   }
+
+  private onFullscreenChange = () => {
+    this.isFullscreen = !!document.fullscreenElement;
+    this.cdr.detectChanges();
+  };
 
   @HostListener('document:click')
   onDocumentClick() {
@@ -143,6 +165,10 @@ export class ChatComponent implements OnInit, OnDestroy {
     }
     if (this.menuVisible) {
       this.closeMenu();
+    }
+    if (this.reactionPickerForId !== null) {
+      this.reactionPickerForId = null;
+      this.cdr.detectChanges();
     }
     this.unlockAudio();
   }
@@ -207,9 +233,15 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   selectContact(c: ContactData) {
+    this.stopTyping();
     this.selected = c;
     this.mobileShowChat  = true;
     this.showProfileCard = false;
+    this.replyingTo = null;
+    this.editingMessage = null;
+    this.messageText = '';
+    this.otherTyping = false;
+    clearTimeout(this.typingIndicatorTimeout);
     this.closeChatSearch();
     this.chatSvc.totalUnread.update(n => Math.max(0, n - (c.unreadCount || 0)));
     c.unreadCount = 0;
@@ -219,10 +251,15 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.chatSvc.getMessages(uid).subscribe({
       next: (msgs) => {
         this.messages = msgs;
+        this.syncReversed();
         this.messagesLoading = false;
         this.scrollToBottom();
       },
     });
+  }
+
+  private syncReversed() {
+    this.reversedMessages = [...this.messages].reverse();
   }
 
   get myId(): number {
@@ -276,6 +313,63 @@ export class ChatComponent implements OnInit, OnDestroy {
       this.replyingTo = null;
     }
     this.messageText = '';
+    this.stopTyping();
+  }
+
+  // ── Typing indicator ──────────────────────────────────────────
+  onMessageInput() {
+    if (!this.selected || this.isChatBlocked) {
+      this.stopTyping();
+      return;
+    }
+    if (!this.messageText.trim()) {
+      this.stopTyping();
+      return;
+    }
+    if (!this.isTypingSent) {
+      this.socketSvc.sendTyping(this.contactId(this.selected), true);
+      this.isTypingSent = true;
+    }
+    clearTimeout(this.typingStopTimer);
+    // Debounced stop: treat a 2s pause with no keystrokes as "done typing"
+    // in case the user never sends (switches tab, walks away, etc.).
+    this.typingStopTimer = setTimeout(() => this.stopTyping(), 2000);
+  }
+
+  private stopTyping() {
+    clearTimeout(this.typingStopTimer);
+    if (this.isTypingSent && this.selected) {
+      this.socketSvc.sendTyping(this.contactId(this.selected), false);
+    }
+    this.isTypingSent = false;
+  }
+
+  // ── Reactions ─────────────────────────────────────────────────
+  reactionPickerForId: number | null = null;
+  readonly quickReactions = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+
+  openReactionPicker(event: MouseEvent, msg: Message) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.reactionPickerForId = this.reactionPickerForId === msg.id ? null : msg.id;
+  }
+
+  react(event: MouseEvent, msg: Message, emoji: string) {
+    event.stopPropagation();
+    this.socketSvc.reactToMessage(String(msg.id), emoji);
+    this.reactionPickerForId = null;
+  }
+
+  groupedReactions(msg: Message): { emoji: string; count: number; mine: boolean }[] {
+    if (!msg.reactions?.length) return [];
+    const map = new Map<string, { emoji: string; count: number; mine: boolean }>();
+    for (const r of msg.reactions) {
+      const g = map.get(r.emoji) ?? { emoji: r.emoji, count: 0, mine: false };
+      g.count++;
+      if (r.userId === this.myId) g.mine = true;
+      map.set(r.emoji, g);
+    }
+    return [...map.values()];
   }
 
   cancelReply() {
@@ -470,6 +564,7 @@ export class ChatComponent implements OnInit, OnDestroy {
         c.lastMessage = null;
         if (this.selected && this.contactId(this.selected) === this.contactId(c)) {
           this.messages = [];
+          this.syncReversed();
         }
         this.cdr.detectChanges();
       },
@@ -548,7 +643,12 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   private scrollToBottom() {
-    setTimeout(() => this.msgEnd?.nativeElement?.scrollIntoView({ behavior: 'smooth' }), 50);
+    // messages-area is flex-direction: column-reverse, so scrollTop 0 is the
+    // bottom (latest message) — no animated scrollIntoView flash needed.
+    setTimeout(() => {
+      const el = this.messagesArea?.nativeElement;
+      if (el) el.scrollTop = 0;
+    });
   }
 
   // ── In-chat message search ──────────────────────────────────────
@@ -624,6 +724,7 @@ export class ChatComponent implements OnInit, OnDestroy {
         const senderId = String(msg.sender?.id ?? '');
         if (this.selected && senderId === this.contactId(this.selected)) {
           this.messages.push(msg);
+          this.syncReversed();
           this.socketSvc.markSeen(senderId);
           this.scrollToBottom();
         } else {
@@ -664,12 +765,14 @@ export class ChatComponent implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketSvc.messageSent$.subscribe((msg) => {
-        this.messages.push(msg);
-        if (this.selected) {
-          const c = this.contacts.find((c) => this.contactId(c) === this.contactId(this.selected!));
-          if (c) c.lastMessage = msg;
+        const receiverId = String(msg.receiver?.id ?? '');
+        const c = this.contacts.find((c) => this.contactId(c) === receiverId);
+        if (c) c.lastMessage = msg;
+        if (this.selected && receiverId === this.contactId(this.selected)) {
+          this.messages.push(msg);
+          this.syncReversed();
+          this.scrollToBottom();
         }
-        this.scrollToBottom();
         this.cdr.detectChanges();
       })
     );
@@ -684,7 +787,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.subs.add(
       this.socketSvc.messageEdited$.subscribe((msg) => {
         const idx = this.messages.findIndex((m) => m.id === msg.id);
-        if (idx >= 0) this.messages[idx] = msg;
+        if (idx >= 0) { this.messages[idx] = msg; this.syncReversed(); }
         if (this.selected) {
           const otherId = this.isMine(msg) ? String(msg.receiver?.id) : String(msg.sender?.id);
           const c = this.contacts.find((c) => this.contactId(c) === otherId);
@@ -702,6 +805,7 @@ export class ChatComponent implements OnInit, OnDestroy {
           if (msg) { msg.isDeleted = true; msg.content = ''; msg.fileUrl = null; }
         } else {
           this.messages = this.messages.filter((m) => m.id !== id);
+          this.syncReversed();
         }
         this.cdr.detectChanges();
       })
@@ -711,6 +815,31 @@ export class ChatComponent implements OnInit, OnDestroy {
       this.socketSvc.messagePinned$.subscribe(({ messageId, pinned }) => {
         const msg = this.messages.find((m) => m.id === Number(messageId));
         if (msg) msg.isPinned = pinned;
+        this.cdr.detectChanges();
+      })
+    );
+
+    this.subs.add(
+      this.socketSvc.messageReaction$.subscribe(({ messageId, reactions }) => {
+        const msg = this.messages.find((m) => m.id === messageId);
+        if (msg) msg.reactions = reactions;
+        this.cdr.detectChanges();
+      })
+    );
+
+    this.subs.add(
+      this.socketSvc.typing$.subscribe(({ from, isTyping }) => {
+        if (!this.selected || from !== this.contactId(this.selected)) return;
+        this.otherTyping = isTyping;
+        clearTimeout(this.typingIndicatorTimeout);
+        if (isTyping) {
+          // Safety net if a typing:stop event is ever missed (e.g. the tab
+          // closes without a clean disconnect) — auto-clear after a pause.
+          this.typingIndicatorTimeout = setTimeout(() => {
+            this.otherTyping = false;
+            this.cdr.detectChanges();
+          }, 4000);
+        }
         this.cdr.detectChanges();
       })
     );
@@ -727,12 +856,30 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.subs.add(this.socketSvc.iceCandidate$.subscribe((d) => this.onIceCandidate(d)));
     this.subs.add(this.socketSvc.remoteMuted$.subscribe((m) => { this.remoteMuted = m; this.cdr.detectChanges(); }));
 
+    // WebrtcPeerService events for the single chat-call peer
+    this.subs.add(
+      this.webrtcSvc.iceCandidateReady$.subscribe(({ peerId, candidate }) => {
+        if (peerId === this.PEER_ID && this.callId) {
+          this.socketSvc.sendIceCandidate(this.callId, candidate);
+        }
+      })
+    );
+    this.subs.add(
+      this.webrtcSvc.remoteStreamAdded$.subscribe(({ peerId, stream }) => {
+        if (peerId !== this.PEER_ID) return;
+        this.remoteStream = stream;
+        this.attachRemote();
+        this.cdr.detectChanges();
+      })
+    );
+
     // Call log — push into current conversation and call history
     this.subs.add(
       this.socketSvc.callLogged$.subscribe((msg) => {
         const otherId = this.isMine(msg) ? String(msg.receiver?.id) : String(msg.sender?.id);
         if (this.selected && this.contactId(this.selected) === otherId) {
           this.messages.push(msg);
+          this.syncReversed();
           this.scrollToBottom();
         }
         if (this.sidebarTab === 'calls') {
@@ -775,12 +922,12 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.callState = 'calling';
 
     try {
-      this.localStream = await navigator.mediaDevices.getUserMedia({
+      await this.webrtcSvc.getLocalStream({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         video: type === 'video',
       });
       this.attachLocal();
-      this.createPeerConnection();
+      this.webrtcSvc.createPeer(this.PEER_ID);
       this.socketSvc.requestCall(
         this.callWith,
         this.me?.username ?? 'Someone',
@@ -826,11 +973,11 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
 
     try {
-      this.localStream = await navigator.mediaDevices.getUserMedia({
+      await this.webrtcSvc.getLocalStream({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         video: this.callType === 'video',
       });
-      this.createPeerConnection();
+      this.webrtcSvc.createPeer(this.PEER_ID);
       this.attachLocal();
       this.socketSvc.acceptCall(this.callId);
 
@@ -867,9 +1014,8 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.startCallTimer();
     this.cdr.detectChanges();
     this.attachLocal();
-    if (!this.pc || !this.callId) return;
-    const offer = await this.pc.createOffer();
-    await this.pc.setLocalDescription(offer);
+    if (!this.webrtcSvc.hasPeer(this.PEER_ID) || !this.callId) return;
+    const offer = await this.webrtcSvc.createOffer(this.PEER_ID);
     this.socketSvc.sendOffer(this.callId, offer);
     this.cdr.detectChanges();
   }
@@ -894,7 +1040,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   private async onCallOffer(data: { from: string; offer: RTCSessionDescriptionInit; callId: string }) {
-    if (!this.pc) {
+    if (!this.webrtcSvc.hasPeer(this.PEER_ID)) {
       this.pendingOffer = data;
       return;
     }
@@ -903,73 +1049,32 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   private async answerOffer(data: { from: string; offer: RTCSessionDescriptionInit; callId: string }) {
-    if (!this.pc) {
+    if (!this.webrtcSvc.hasPeer(this.PEER_ID)) {
       this.pendingOffer = data;
       return;
     }
 
-    await this.pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-    await this.processPendingCandidates();
-    const answer = await this.pc.createAnswer();
-    await this.pc.setLocalDescription(answer);
+    const answer = await this.webrtcSvc.createAnswer(this.PEER_ID, data.offer);
     this.socketSvc.sendAnswer(data.callId, answer);
   }
 
   private async onCallAnswer(data: { answer: RTCSessionDescriptionInit }) {
-    if (!this.pc) return;
-    await this.pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-    await this.processPendingCandidates();
+    if (!this.webrtcSvc.hasPeer(this.PEER_ID)) return;
+    await this.webrtcSvc.setRemoteAnswer(this.PEER_ID, data.answer);
   }
 
   private async onIceCandidate(data: { candidate: RTCIceCandidateInit }) {
-    if (this.pc && this.remoteDescSet) {
-      await this.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-    } else {
-      this.pendingCandidates.push(data.candidate);
-    }
-  }
-
-  private async processPendingCandidates() {
-    this.remoteDescSet = true;
-    for (const c of this.pendingCandidates) {
-      await this.pc?.addIceCandidate(new RTCIceCandidate(c));
-    }
-    this.pendingCandidates = [];
+    await this.webrtcSvc.addIceCandidate(this.PEER_ID, data.candidate);
   }
 
   // ── Call helpers ──────────────────────────────────────────────
-  private createPeerConnection() {
-    this.pc?.close();
-    this.remoteDescSet = false;
-    this.pc = new RTCPeerConnection({ iceServers: this.iceServers });
-
-    const pc = this.pc;
-    this.localStream?.getTracks().forEach((track) => pc.addTrack(track, this.localStream!));
-
-    pc.onicecandidate = (e) => {
-      if (e.candidate && this.callId) {
-        this.socketSvc.sendIceCandidate(this.callId, e.candidate);
-      }
-    };
-
-    pc.ontrack = (e) => {
-      if (e.streams[0]) {
-        this.remoteStream = e.streams[0];
-      } else {
-        this.remoteStream ??= new MediaStream();
-        this.remoteStream.addTrack(e.track);
-      }
-      this.attachRemote();
-      this.cdr.detectChanges();
-    };
-  }
-
   private attachLocal() {
     setTimeout(() => {
       const video = this.localVideo?.nativeElement;
-      if (video && this.localStream && video.srcObject !== this.localStream) {
+      const stream = this.webrtcSvc.getCurrentLocalStream();
+      if (video && stream && video.srcObject !== stream) {
         video.muted = true;
-        video.srcObject = this.localStream;
+        video.srcObject = stream;
         void video.play().catch(() => {});
       }
     });
@@ -993,13 +1098,9 @@ export class ChatComponent implements OnInit, OnDestroy {
     clearTimeout(this.callTimeout);
     this.stopCallTimer();
     this.stopAllAudio();
-    this.localStream?.getTracks().forEach((t) => t.stop());
-    this.pc?.close();
-    this.localStream  = null;
+    this.webrtcSvc.closePeer(this.PEER_ID);
+    this.webrtcSvc.stopLocalStream();
     this.remoteStream = null;
-    this.pc           = null;
-    this.pendingCandidates = [];
-    this.remoteDescSet = false;
     this.pendingOffer = null;
     this.callState    = 'idle';
     this.callId       = null;
@@ -1008,6 +1109,25 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.isMuted      = false;
     this.isCamOff     = false;
     this.remoteMuted  = false;
+    this.pipSwapped   = false;
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+  }
+
+  toggleVideoSwap() {
+    if (this.callType !== 'video') return;
+    this.pipSwapped = !this.pipSwapped;
+  }
+
+  async toggleFullscreen() {
+    const el = this.callOverlay?.nativeElement;
+    if (!el) return;
+    try {
+      if (!document.fullscreenElement) {
+        await el.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch { /* fullscreen unavailable or denied — ignore */ }
   }
 
   private showCallNotice(message: string) {
@@ -1018,13 +1138,13 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   toggleMute() {
     this.isMuted = !this.isMuted;
-    this.localStream?.getAudioTracks().forEach((t) => (t.enabled = !this.isMuted));
+    this.webrtcSvc.setMuted(this.isMuted);
     if (this.callId) this.socketSvc.sendMuteState(this.callId, this.isMuted);
   }
 
   toggleCamera() {
     this.isCamOff = !this.isCamOff;
-    this.localStream?.getVideoTracks().forEach((t) => (t.enabled = !this.isCamOff));
+    this.webrtcSvc.setCameraOff(this.isCamOff);
   }
 
   // ── Utilities ─────────────────────────────────────────────────
@@ -1049,11 +1169,13 @@ export class ChatComponent implements OnInit, OnDestroy {
     return m > 0 ? `${m}m ${s}s` : `${s}s`;
   }
 
-  showDateSeparator(messages: Message[], index: number): boolean {
-    if (index === 0) return true;
-    const prev = new Date(messages[index - 1].createdAt).toDateString();
-    const curr = new Date(messages[index].createdAt).toDateString();
-    return prev !== curr;
+  // reversedMsgs is newest-first, so the chronologically-preceding message
+  // sits at index + 1; the oldest message (last index) always starts a separator.
+  showDateSeparatorReversed(reversedMsgs: Message[], index: number): boolean {
+    if (index === reversedMsgs.length - 1) return true;
+    const curr = new Date(reversedMsgs[index].createdAt).toDateString();
+    const prevInTime = new Date(reversedMsgs[index + 1].createdAt).toDateString();
+    return curr !== prevInTime;
   }
 
   callStatusLabel(msg: Message): string {

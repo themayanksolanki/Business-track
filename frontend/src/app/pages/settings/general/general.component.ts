@@ -86,7 +86,6 @@ export class GeneralSettingsComponent {
   readonly measurementUnits: MeasurementUnitOption[] = [
     { value: 'KG', name: 'Kilograms', symbol: MEASUREMENT_UNIT_SYMBOLS.KG },
     { value: 'LB', name: 'Pounds', symbol: MEASUREMENT_UNIT_SYMBOLS.LB },
-    { value: 'LTR', name: 'Liters', symbol: MEASUREMENT_UNIT_SYMBOLS.LTR },
   ];
 
   // 0-7 — matches the backend's validated range (validate.ts).

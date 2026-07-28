@@ -2,6 +2,7 @@
   @for (placement of rowLayout.placements; track trackByPlacement($index, placement)) {
     <div
       class="strap-bar"
+      [class.strap-bar-cancelled]="placement.event.status === 'cancelled'"
       [style.grid-column]="(placement.startCol + 1) + ' / span ' + placement.span"
       [style.grid-row]="placement.lane + 1"
       [style.background]="resolveEventColor(placement.event)"

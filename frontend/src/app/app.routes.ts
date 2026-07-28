@@ -120,6 +120,19 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/settings/settings.component').then((m) => m.SettingsComponent),
   },
   {
+    path: 'meet-hub',
+    canActivate: [authGuard],
+    loadChildren: () => import('./pages/meet-hub/meet-hub.routes').then((m) => m.MEET_HUB_ROUTES),
+  },
+  {
+    // Shareable meeting deep link — "New meeting"'s share link and
+    // "Join with code" both resolve here regardless of entry point.
+    path: 'meet/:roomCode',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/meet-hub/meeting-lobby/meeting-lobby.component').then((m) => m.MeetingLobbyComponent),
+  },
+  {
     path: '**',
     redirectTo: 'dashboard',
   }

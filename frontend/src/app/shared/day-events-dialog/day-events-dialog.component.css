@@ -43,3 +43,20 @@
   font-size: 0.82rem;
   color: var(--text-muted);
 }
+
+.day-event-row-cancelled .day-event-title {
+  text-decoration: line-through;
+  color: var(--text-dim);
+}
+
+.event-cancelled-tag {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: #fee2e2;
+  color: #991b1b;
+}

@@ -278,6 +278,7 @@ export class CalendarStateService {
       title: event.title,
       allDay: event.allDay,
       color: { primary, secondary: `${primary}22` },
+      cssClass: event.status === 'cancelled' ? 'cal-event-cancelled' : undefined,
       meta: event,
     };
   }

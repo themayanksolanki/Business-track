@@ -1,0 +1,37 @@
+<ng-container *ngIf="!joined; else roomTpl">
+  <div class="lobby-page">
+    <div class="lobby-loading" *ngIf="loading">Loading meeting…</div>
+    <div class="lobby-error" *ngIf="error">{{ error }}</div>
+
+    <div class="lobby-card" *ngIf="!loading && !error && meeting">
+      <h2>{{ meetingLabel() }}</h2>
+
+      <div class="preview-wrap">
+        <video #previewVideo class="preview-video" playsinline [class.hidden]="isCamOff"></video>
+        <div class="preview-placeholder" *ngIf="isCamOff">
+          <i class="bi bi-camera-video-off-fill"></i>
+        </div>
+
+        <div class="preview-controls">
+          <button class="ctrl-btn" [class.active]="isMuted" (click)="toggleMute()">
+            <i class="bi" [class.bi-mic-fill]="!isMuted" [class.bi-mic-mute-fill]="isMuted"></i>
+          </button>
+          <button class="ctrl-btn" [class.active]="isCamOff" (click)="toggleCamera()">
+            <i class="bi" [class.bi-camera-video-fill]="!isCamOff" [class.bi-camera-video-off-fill]="isCamOff"></i>
+          </button>
+        </div>
+      </div>
+
+      <button class="join-btn" (click)="join()">Join meeting</button>
+    </div>
+  </div>
+</ng-container>
+
+<ng-template #roomTpl>
+  <app-meeting-room
+    [meeting]="meeting!"
+    [initialMuted]="isMuted"
+    [initialCamOff]="isCamOff"
+    (left)="onLeft()"
+  ></app-meeting-room>
+</ng-template>
