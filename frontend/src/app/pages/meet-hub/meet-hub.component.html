@@ -1,0 +1,46 @@
+<div class="meet-hub-page">
+  <div class="meet-hub-hero">
+    <h1>Meet Hub</h1>
+    <p>Start an instant meeting or join one with a code.</p>
+
+    <div class="meet-hub-actions">
+      <button class="primary-btn" (click)="startNewMeeting()" [disabled]="creating">
+        <i class="bi bi-camera-video-fill"></i>
+        {{ creating ? 'Creating…' : 'New meeting' }}
+      </button>
+
+      <div class="join-code-group">
+        <input
+          type="text"
+          placeholder="Enter a code"
+          [(ngModel)]="joinCode"
+          (keydown.enter)="joinWithCode()"
+        />
+        <button class="secondary-btn" (click)="joinWithCode()" [disabled]="!joinCode.trim()">
+          Join
+        </button>
+      </div>
+    </div>
+
+    <div class="meet-hub-error" *ngIf="error">{{ error }}</div>
+  </div>
+
+  <div class="upcoming-section">
+    <h2>Upcoming meetings</h2>
+
+    <div class="upcoming-loading" *ngIf="upcomingLoading">Loading…</div>
+    <div class="upcoming-empty" *ngIf="!upcomingLoading && !upcoming.length">
+      No upcoming meetings.
+    </div>
+
+    <div class="upcoming-list" *ngIf="!upcomingLoading && upcoming.length">
+      <button class="upcoming-item" *ngFor="let m of upcoming" (click)="openMeeting(m)">
+        <i class="bi bi-camera-video"></i>
+        <div class="upcoming-item-info">
+          <span class="upcoming-title">{{ meetingLabel(m) }}</span>
+          <span class="upcoming-time" *ngIf="m.scheduledStart">{{ m.scheduledStart | date: 'medium' }}</span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>

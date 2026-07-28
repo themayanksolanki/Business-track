@@ -1,0 +1,117 @@
+.project-list-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 499;
+  background: rgba(15, 23, 42, 0.25);
+  backdrop-filter: blur(1px);
+}
+
+/* Fixed (not absolute) so this escapes ProjectDetailComponent's own layout
+   regardless of DOM nesting depth, and covers the full viewport height —
+   slides in from the left, above ordinary page content (z-index 2-20
+   elsewhere in the app) but below Bootstrap popovers/pickers (1050+) and
+   true modals/toasts (2000+). `left` here is just a fallback — the
+   template binds it to the main sidebar's currentWidth() so this panel
+   sits beside the sidebar instead of underneath it: the sidebar itself is
+   z-index 1030 (sidebar.component.css), well above this overlay, so any
+   overlap between the two would hide this panel completely regardless of
+   z-index tweaking here. Transform+transition (not just an entry keyframe)
+   so both open AND close animate, same convention as the chat sidebar's
+   own mobile show/hide transform toggle. */
+.project-list-overlay {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 320px;
+  max-width: 85vw;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+  z-index: 500;
+  transform: translateX(-100%);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="dark"] .project-list-overlay {
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.55);
+}
+
+.project-list-overlay.open {
+  transform: translateX(0);
+}
+
+.project-list-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.project-list-overlay-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.project-list-overlay-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: var(--bg-muted);
+  border-radius: 50%;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.project-list-overlay-close:hover { background: var(--border-strong); color: var(--text-primary); }
+
+.project-list-overlay-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.overlay-project-item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.overlay-project-item:hover {
+  background: var(--bg-muted);
+}
+
+.overlay-project-item.active {
+  background: var(--bg-muted);
+  box-shadow: inset 3px 0 0 #3b82f6;
+}
+
+.overlay-project-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Second row — smaller, muted, and slightly indented relative to the
+   project name above it, per spec. */
+.overlay-project-dept {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding-left: 6px;
+  margin-top: 2px;
+}

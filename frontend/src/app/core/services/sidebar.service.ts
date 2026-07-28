@@ -13,6 +13,11 @@ export class SidebarService {
   readonly collapsed = signal(this.loadCollapsed());
   readonly dragging = signal(false);
   readonly mobileOpen = signal(false);
+  // Toggled from a button at the top of the sidebar (shown only on the
+  // Project Detail page) — drives the slide-in project-list overlay
+  // mounted inside project-detail.component.html, kept here (rather than a
+  // new dedicated service) since it's just more sidebar-triggered UI state.
+  readonly projectListOverlayOpen = signal(false);
 
   readonly currentWidth = computed(() =>
     this.collapsed() ? SIDEBAR_RAIL_WIDTH : this.expandedWidth(),
@@ -43,6 +48,14 @@ export class SidebarService {
 
   toggleMobileOpen() {
     this.mobileOpen.set(!this.mobileOpen());
+  }
+
+  toggleProjectListOverlay() {
+    this.projectListOverlayOpen.update((v) => !v);
+  }
+
+  closeProjectListOverlay() {
+    this.projectListOverlayOpen.set(false);
   }
 
   private loadWidth(): number {

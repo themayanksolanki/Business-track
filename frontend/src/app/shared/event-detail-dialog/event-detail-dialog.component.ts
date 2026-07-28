@@ -1,7 +1,7 @@
-import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild } from '@angular/core';
+import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
-import { HttpEventType } from '@angular/common/http';
+import { Subscription } from 'rxjs';
 import dayjs from 'dayjs/esm';
 import { CKEditorModule } from '@ckeditor/ckeditor5-angular';
 import {
@@ -24,8 +24,7 @@ import { ModalDirective } from '../modal.directive';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 import { DatePickerComponent } from '../date-picker/date-picker.component';
 import { TimePickerComponent } from '../time-picker/time-picker.component';
-import { AttachmentThumbComponent } from '../attachment-thumb/attachment-thumb.component';
-import { AttachmentViewerComponent } from '../attachment-viewer/attachment-viewer.component';
+import { AttachmentsComponent } from '../attachments/attachments.component';
 import { EventService } from '../../core/services/event.service';
 import { DepartmentService } from '../../core/services/department.service';
 import { CategoryService } from '../../core/services/category.service';
@@ -43,7 +42,6 @@ import {
   GuestInput,
 } from '../../models/event.model';
 import { Calendar } from '../../models/calendar.model';
-import { Attachment, ACCEPTED_ATTACHMENT_TYPES } from '../../models/attachment.model';
 
 export type EventDialogMode = 'create' | 'edit' | 'view';
 type RecurrenceEndType = 'never' | 'on' | 'after';
@@ -73,11 +71,6 @@ const REMINDER_METHOD_OPTIONS: { value: ReminderMethod; label: string }[] = [
   { value: 'email', label: 'Email' },
 ];
 
-interface ReminderRow {
-  method: ReminderMethod;
-  minutesBefore: number;
-}
-
 // Single dialog covering all three modes the user asked for (Create/Edit/
 // View) rather than a separate viewer + form — 'view' renders the loaded
 // event read-only with an Edit button that flips this component's own
@@ -87,24 +80,22 @@ interface ReminderRow {
   selector: 'app-event-detail-dialog',
   standalone: true,
   imports: [
-    FormsModule,
+    ReactiveFormsModule,
     NgTemplateOutlet,
     ModalDirective,
     ConfirmDialogComponent,
     DatePickerComponent,
     TimePickerComponent,
     CKEditorModule,
-    AttachmentThumbComponent,
-    AttachmentViewerComponent,
+    AttachmentsComponent,
   ],
   templateUrl: './event-detail-dialog.component.html',
   styleUrl: './event-detail-dialog.component.css',
 })
-export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy {
+export class EventDetailDialogComponent implements OnChanges, OnDestroy {
   readonly frequencyOptions = FREQUENCY_OPTIONS;
   readonly visibilityOptions = VISIBILITY_OPTIONS;
   readonly reminderMethodOptions = REMINDER_METHOD_OPTIONS;
-  readonly acceptedFileTypes = ACCEPTED_ATTACHMENT_TYPES;
 
   readonly DescriptionEditor = ClassicEditor;
   readonly descriptionEditorConfig = {
@@ -138,6 +129,8 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
   @Output() saved = new EventEmitter<void>();
   @Output() deleted = new EventEmitter<void>();
 
+  @ViewChild('titleInput') titleInput?: ElementRef<HTMLInputElement>;
+
   // Internal, can diverge from the `mode` input (view -> edit via the Edit
   // button) without the parent needing to know or re-bind anything.
   internalMode: EventDialogMode = 'view';
@@ -162,79 +155,91 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
   scopeChoiceKind: 'save' | 'delete' | null = null;
   private pendingPayload: CreateEventPayload | UpdateEventPayload | null = null;
 
-  // Form fields — populated from loadedEvent (edit/view) or defaults
-  // (create), and kept around even in 'view' mode so switching to 'edit'
-  // needs no re-fetch.
-  title = '';
-  description = '';
-  location = '';
-  startDate: string | null = null;
-  startTime: string | null = null;
-  endDate: string | null = null;
-  endTime: string | null = null;
-  allDay = false;
-  color = '#3b82f6';
-  departmentId: number | null = null;
-  categoryId: number | null = null;
-  calendarId: number | null = null;
-  meetingLinkUrl = '';
-  meetingLinkTitle = '';
-  visibility: EventVisibility = 'standard';
-  busyStatus: EventBusyStatus = 'busy';
+  // The event form itself — reminders/guests are FormArrays; the transient
+  // "add a guest" composer bar is its own small nested group since its two
+  // fields are never part of the submitted payload directly (addGuest()
+  // reads them, appends to the guests array, then resets just this group).
+  // Built in the constructor body, not here — a field initializer runs
+  // before constructor-parameter properties (like `fb`) are assigned.
+  readonly form: FormGroup;
 
-  repeats = false;
-  recurrenceFrequency: RecurrenceFrequency = 'weekly';
-  recurrenceInterval = 1;
-  recurrenceEndType: RecurrenceEndType = 'never';
-  recurrenceUntil: string | null = null;
-  recurrenceCount = 1;
+  // Attachments — the actual list/loading/upload/delete state now lives
+  // inside the shared <app-attachments> component; this is just the count
+  // for the tab header badge, kept in sync via its (attachmentsChange)
+  // output. Deliberately NOT sourced from loadedEvent.attachments (populated
+  // by EVENT_INCLUDE): for a recurring occurrence that's been individually
+  // modified, that embedded field belongs to the separate override row
+  // (always empty), not the master series' real list.
+  attachmentsCount = 0;
 
-  reminders: ReminderRow[] = [];
-
-  guestEmailInput = '';
-  guestNameInput = '';
-  guests: GuestInput[] = [];
-
-  // Attachments — mirrors attachment-panel.component.ts's logic, keyed off
-  // loadedEvent.id instead of a project/item pair. Deliberately NOT sourced
-  // from loadedEvent.attachments (populated by EVENT_INCLUDE): for a
-  // recurring occurrence that's been individually modified, that embedded
-  // field belongs to the separate override row (always empty), not the
-  // master series' real list — always fetched fresh via getAttachments().
-  attachments: Attachment[] = [];
-  attachmentsLoading = false;
-  attachmentUploading = false;
-  attachmentUploadError = '';
-  downloadingId: number | null = null;
-  progress = 0;
-  viewerOpen = false;
-  viewerIndex = 0;
-
-  addLinkOpen = false;
-  linkUrlInput = '';
-  linkLabelInput = '';
-  addLinkLoading = false;
-  addLinkError = '';
-
-  // Presentation-only clock the countdown badges read from — the actual
-  // deletion is driven server-side off pendingDeleteAt, this just ticks the
-  // displayed "Xs" down each second.
-  private now = Date.now();
-  private tickHandle?: ReturnType<typeof setInterval>;
-  private pollHandle?: ReturnType<typeof setInterval>;
-  // Matches the backend's countdown (see PENDING_DELETE_MS in
-  // attachmentController.ts) — frequent enough that the list catches up
-  // shortly after the badge hits 0, without polling constantly.
-  private readonly POLL_MS = 2000;
+  private subs = new Subscription();
 
   constructor(
-    private eventService: EventService,
+    private fb: FormBuilder,
+    public eventService: EventService,
     public departmentService: DepartmentService,
     public categoryService: CategoryService,
     private calendarService: CalendarService,
     public auth: AuthService,
     public dateFormat: DateFormatService
-  ) {}
+  ) {
+    this.form = this.fb.group({
+      title: ['', Validators.required],
+      description: [''],
+      location: [''],
+      startDate: this.fb.control<string | null>(null, Validators.required),
+      startTime: this.fb.control<string | null>(null),
+      endDate: this.fb.control<string | null>(null, Validators.required),
+      endTime: this.fb.control<string | null>(null),
+      allDay: [false],
+      color: ['#3b82f6'],
+      departmentId: this.fb.control<number | null>(null),
+      categoryId: this.fb.control<number | null>(null),
+      calendarId: this.fb.control<number | null>(null),
+      meetingLinkUrl: [''],
+      meetingLinkTitle: [{ value: '', disabled: true }],
+      visibility: this.fb.control<EventVisibility>('standard'),
+      busyStatus: this.fb.control<EventBusyStatus>('busy'),
+      repeats: [false],
+      recurrenceFrequency: this.fb.control<RecurrenceFrequency>('weekly'),
+      recurrenceInterval: [1],
+      recurrenceEndType: this.fb.control<RecurrenceEndType>('never'),
+      recurrenceUntil: this.fb.control<string | null>(null),
+      recurrenceCount: [1],
+      reminders: this.fb.array<FormGroup>([]),
+      guests: this.fb.array<FormGroup>([]),
+      guestComposer: this.fb.group({ email: [''], name: [''] }),
+    });
+
+    // meetingLinkTitle only makes sense once a link is present — mirrors the
+    // old plain-DOM [disabled] check, done here via enable()/disable() since
+    // Angular reactive forms owns the disabled state once formControlName is
+    // in play (a template-level [disabled] binding on the same element would
+    // conflict with it).
+    this.subs.add(
+      this.form.get('meetingLinkUrl')!.valueChanges.subscribe((url: string) => {
+        const titleControl = this.form.get('meetingLinkTitle')!;
+        if (url && url.trim()) titleControl.enable({ emitEvent: false });
+        else titleControl.disable({ emitEvent: false });
+      })
+    );
+  }
+
+  ngOnDestroy() {
+    this.subs.unsubscribe();
+  }
+
+  get remindersArray(): FormArray<FormGroup> {
+    return this.form.get('reminders') as FormArray<FormGroup>;
+  }
+
+  get guestsArray(): FormArray<FormGroup> {
+    return this.form.get('guests') as FormArray<FormGroup>;
+  }
+
+  get guestComposer(): FormGroup {
+    return this.form.get('guestComposer') as FormGroup;
+  }
 
   get canManage(): boolean {
     if (!this.loadedEvent) return this.mode !== 'view';
@@ -282,15 +287,6 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
     return base;
   }
 
-  ngOnInit() {
-    this.tickHandle = setInterval(() => (this.now = Date.now()), 1000);
-  }
-
-  ngOnDestroy() {
-    if (this.tickHandle) clearInterval(this.tickHandle);
-    this.stopPolling();
-  }
-
   ngOnChanges(changes: SimpleChanges) {
     if (changes['open'] && this.open) {
       this.error = '';
@@ -300,9 +296,9 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
       this.calendarService.getCalendars().subscribe({
         next: (cals) => {
           this.calendars = cals;
-          if (this.mode === 'create' && this.calendarId === null) {
+          if (this.mode === 'create' && this.form.value.calendarId === null) {
             const firstEnabled = cals.find((c) => c.isEnabled);
-            if (firstEnabled) this.calendarId = firstEnabled.id;
+            if (firstEnabled) this.form.patchValue({ calendarId: firstEnabled.id });
           }
         },
       });
@@ -310,8 +306,12 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
       if (this.mode === 'create') {
         this.internalMode = 'create';
         this.loadedEvent = null;
-        this.attachments = [];
+        this.attachmentsCount = 0;
         this.resetFormForCreate();
+        // Deferred a tick so the title <input> exists in the DOM — the modal's
+        // @if (open) block (and the underlying Bootstrap fade-in) hasn't
+        // necessarily rendered/settled yet on this same change-detection pass.
+        setTimeout(() => this.titleInput?.nativeElement.focus());
       } else if (this.eventId !== null) {
         this.internalMode = this.mode;
         if (this.originalStart) this.loadOccurrence(this.eventId, this.originalStart);
@@ -319,8 +319,7 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
       }
     } else if (changes['open'] && !this.open) {
       this.loadedEvent = null;
-      this.attachments = [];
-      this.stopPolling();
+      this.attachmentsCount = 0;
       this.scopeChoiceOpen = false;
       this.scopeChoiceKind = null;
       this.pendingPayload = null;
@@ -335,7 +334,6 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
         this.loadedEvent = event;
         this.populateForm(event);
         this.loading = false;
-        this.loadAttachments();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to load event';
@@ -352,7 +350,6 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
         this.loadedEvent = event;
         this.populateForm(event);
         this.loading = false;
-        this.loadAttachments();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to load event';
@@ -365,67 +362,85 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
     const start = this.initialStart ?? dayjs().add(1, 'hour').startOf('hour').toDate();
     const end = this.initialEnd ?? dayjs(start).add(1, 'hour').toDate();
 
-    this.title = '';
-    this.description = '';
-    this.location = '';
-    this.startDate = dayjs(start).format('YYYY-MM-DD');
-    this.startTime = dayjs(start).format('HH:mm');
-    this.endDate = dayjs(end).format('YYYY-MM-DD');
-    this.endTime = dayjs(end).format('HH:mm');
-    this.allDay = this.initialAllDay;
-    this.color = '#3b82f6';
-    this.departmentId = null;
-    this.categoryId = null;
-    this.calendarId = null;
-    this.meetingLinkUrl = '';
-    this.meetingLinkTitle = '';
-    this.visibility = 'standard';
-    this.busyStatus = 'busy';
-    this.repeats = false;
-    this.recurrenceFrequency = 'weekly';
-    this.recurrenceInterval = 1;
-    this.recurrenceEndType = 'never';
-    this.recurrenceUntil = null;
-    this.recurrenceCount = 1;
-    this.reminders = [];
-    this.guests = [];
-    this.guestEmailInput = '';
-    this.guestNameInput = '';
+    this.form.reset({
+      title: '',
+      description: '',
+      location: '',
+      startDate: dayjs(start).format('YYYY-MM-DD'),
+      startTime: dayjs(start).format('HH:mm'),
+      endDate: dayjs(end).format('YYYY-MM-DD'),
+      endTime: dayjs(end).format('HH:mm'),
+      allDay: this.initialAllDay,
+      color: '#3b82f6',
+      departmentId: null,
+      categoryId: null,
+      calendarId: null,
+      meetingLinkUrl: '',
+      meetingLinkTitle: '',
+      visibility: 'standard',
+      busyStatus: 'busy',
+      repeats: false,
+      recurrenceFrequency: 'weekly',
+      recurrenceInterval: 1,
+      recurrenceEndType: 'never',
+      recurrenceUntil: null,
+      recurrenceCount: 1,
+      guestComposer: { email: '', name: '' },
+    });
+    this.setReminders([]);
+    this.setGuests([]);
   }
 
   private populateForm(event: CalendarEventModel) {
     const start = dayjs(event.start);
     const end = dayjs(event.end);
-
-    this.title = event.title;
-    this.description = event.description;
-    this.location = event.location || '';
-    this.startDate = start.format('YYYY-MM-DD');
-    this.startTime = start.format('HH:mm');
-    this.endDate = end.format('YYYY-MM-DD');
-    this.endTime = end.format('HH:mm');
-    this.allDay = event.allDay;
-    this.color = event.color || '#3b82f6';
-    this.departmentId = event.department?.id ?? null;
-    this.categoryId = event.category?.id ?? null;
-    this.calendarId = event.calendar.id;
-    this.meetingLinkUrl = event.meetingLinkUrl || '';
-    this.meetingLinkTitle = event.meetingLinkTitle || '';
-    this.visibility = event.visibility;
-    this.busyStatus = event.busyStatus;
-
     const r = event.recurrence;
-    this.repeats = !!r;
-    this.recurrenceFrequency = r?.frequency ?? 'weekly';
-    this.recurrenceInterval = r?.interval ?? 1;
-    this.recurrenceEndType = r?.until ? 'on' : r?.count ? 'after' : 'never';
-    this.recurrenceUntil = r?.until ? dayjs(r.until).format('YYYY-MM-DD') : null;
-    this.recurrenceCount = r?.count ?? 1;
 
-    this.reminders = event.reminders.map((rem) => ({ method: rem.method, minutesBefore: rem.minutesBefore }));
-    this.guests = event.guests.map((g) => ({ email: g.email, name: g.name, userId: g.userId }));
-    this.guestEmailInput = '';
-    this.guestNameInput = '';
+    this.form.reset({
+      title: event.title,
+      description: event.description,
+      location: event.location || '',
+      startDate: start.format('YYYY-MM-DD'),
+      startTime: start.format('HH:mm'),
+      endDate: end.format('YYYY-MM-DD'),
+      endTime: end.format('HH:mm'),
+      allDay: event.allDay,
+      color: event.color || '#3b82f6',
+      departmentId: event.department?.id ?? null,
+      categoryId: event.category?.id ?? null,
+      calendarId: event.calendar.id,
+      meetingLinkUrl: event.meetingLinkUrl || '',
+      meetingLinkTitle: event.meetingLinkTitle || '',
+      visibility: event.visibility,
+      busyStatus: event.busyStatus,
+      repeats: !!r,
+      recurrenceFrequency: r?.frequency ?? 'weekly',
+      recurrenceInterval: r?.interval ?? 1,
+      recurrenceEndType: r?.until ? 'on' : r?.count ? 'after' : 'never',
+      recurrenceUntil: r?.until ? dayjs(r.until).format('YYYY-MM-DD') : null,
+      recurrenceCount: r?.count ?? 1,
+      guestComposer: { email: '', name: '' },
+    });
+    this.setReminders(event.reminders.map((rem) => ({ method: rem.method, minutesBefore: rem.minutesBefore })));
+    this.setGuests(event.guests.map((g) => ({ email: g.email, name: g.name, userId: g.userId })));
+  }
+
+  private createReminderGroup(method: ReminderMethod = 'notification', minutesBefore = 10): FormGroup {
+    return this.fb.group({ method: [method], minutesBefore: [minutesBefore] });
+  }
+
+  private setReminders(rows: { method: ReminderMethod; minutesBefore: number }[]) {
+    this.remindersArray.clear();
+    rows.forEach((r) => this.remindersArray.push(this.createReminderGroup(r.method, r.minutesBefore)));
+  }
+
+  private createGuestGroup(g: GuestInput): FormGroup {
+    return this.fb.group({ email: [g.email], name: [g.name ?? null], userId: [g.userId ?? null] });
+  }
+
+  private setGuests(list: GuestInput[]) {
+    this.guestsArray.clear();
+    list.forEach((g) => this.guestsArray.push(this.createGuestGroup(g)));
   }
 
   startEdit() {
@@ -444,119 +459,116 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
   }
 
   addReminder() {
-    this.reminders.push({ method: 'notification', minutesBefore: 10 });
+    this.remindersArray.push(this.createReminderGroup());
   }
 
   removeReminder(index: number) {
-    this.reminders.splice(index, 1);
+    this.remindersArray.removeAt(index);
   }
 
   addGuest() {
-    const email = this.guestEmailInput.trim().toLowerCase();
+    const email = (this.guestComposer.value.email || '').trim().toLowerCase();
+    const name = (this.guestComposer.value.name || '').trim();
     if (!email) return;
-    if (this.guests.some((g) => g.email.toLowerCase() === email)) {
-      this.guestEmailInput = '';
-      this.guestNameInput = '';
-      return;
+
+    const alreadyGuest = this.guestsArray.controls.some((g) => (g.value.email || '').toLowerCase() === email);
+    if (!alreadyGuest) {
+      this.guestsArray.push(this.createGuestGroup({ email, name: name || null }));
     }
-    this.guests.push({ email, name: this.guestNameInput.trim() || null });
-    this.guestEmailInput = '';
-    this.guestNameInput = '';
+    this.guestComposer.reset({ email: '', name: '' });
   }
 
   removeGuest(index: number) {
-    this.guests.splice(index, 1);
+    this.guestsArray.removeAt(index);
   }
 
   private combineDateTime(date: string | null, time: string | null): string {
     if (!date) return dayjs().toISOString();
-    if (this.allDay) return dayjs(date, 'YYYY-MM-DD').startOf('day').toISOString();
+    if (this.form.value.allDay) return dayjs(date, 'YYYY-MM-DD').startOf('day').toISOString();
     return dayjs(`${date} ${time || '00:00'}`, 'YYYY-MM-DD HH:mm').toISOString();
-  }
-
-  onStartDateChange(date: string | null) {
-    this.startDate = date;
-    this.clampEndToStart();
-  }
-
-  onStartTimeChange(time: string | null) {
-    this.startTime = time;
-    this.clampEndToStart();
-  }
-
-  onEndDateChange(date: string | null) {
-    this.endDate = date;
-    this.clampStartToEnd();
-  }
-
-  onEndTimeChange(time: string | null) {
-    this.endTime = time;
-    this.clampStartToEnd();
   }
 
   // Keeps end >= start by moving end (date and time) up to start whenever a
   // start-side edit pushes it past the current end — compares full
   // date+time (via combineDateTime, which already folds in allDay), not
-  // just the date.
-  private clampEndToStart() {
-    if (!this.startDate || !this.endDate) return;
-    const start = this.combineDateTime(this.startDate, this.startTime);
-    const end = this.combineDateTime(this.endDate, this.endTime);
+  // just the date. Triggered by the date/time pickers' (valueChange) — by
+  // the time that fires, the paired FormControl already holds the new value
+  // (date-picker/time-picker's emit() runs onChange before valueChange).
+  clampEndToStart() {
+    const { startDate, startTime, endDate, endTime } = this.form.value;
+    if (!startDate || !endDate) return;
+    const start = this.combineDateTime(startDate, startTime);
+    const end = this.combineDateTime(endDate, endTime);
     if (dayjs(start).isAfter(end)) {
-      this.endDate = this.startDate;
-      this.endTime = this.startTime;
+      this.form.patchValue({ endDate: startDate, endTime: startTime });
     }
   }
 
-  private clampStartToEnd() {
-    if (!this.startDate || !this.endDate) return;
-    const start = this.combineDateTime(this.startDate, this.startTime);
-    const end = this.combineDateTime(this.endDate, this.endTime);
+  clampStartToEnd() {
+    const { startDate, startTime, endDate, endTime } = this.form.value;
+    if (!startDate || !endDate) return;
+    const start = this.combineDateTime(startDate, startTime);
+    const end = this.combineDateTime(endDate, endTime);
     if (dayjs(end).isBefore(start)) {
-      this.startDate = this.endDate;
-      this.startTime = this.endTime;
+      this.form.patchValue({ startDate: endDate, startTime: endTime });
     }
   }
 
   private buildPayload(): CreateEventPayload | UpdateEventPayload {
+    // getRawValue(), not .value — meetingLinkTitle is a genuinely disabled
+    // control while there's no link, and .value silently omits disabled
+    // controls entirely.
+    const v = this.form.getRawValue();
+    const guests: GuestInput[] = this.guestsArray.controls.map((g) => ({
+      email: g.value.email,
+      name: g.value.name,
+      userId: g.value.userId,
+    }));
+    const reminders = this.remindersArray.controls.map((r) => ({
+      method: r.value.method as ReminderMethod,
+      minutesBefore: r.value.minutesBefore,
+    }));
+
     return {
-      title: this.title.trim(),
-      description: this.description,
-      location: this.location.trim() || null,
-      start: this.combineDateTime(this.startDate, this.startTime),
-      end: this.combineDateTime(this.endDate, this.endTime),
-      allDay: this.allDay,
-      color: this.color,
-      departmentId: this.departmentId,
-      categoryId: this.categoryId,
-      calendarId: this.calendarId ?? undefined,
-      meetingLinkUrl: this.meetingLinkUrl.trim() || null,
-      meetingLinkTitle: this.meetingLinkUrl.trim() ? this.meetingLinkTitle.trim() || null : null,
-      visibility: this.visibility,
-      busyStatus: this.busyStatus,
-      guests: this.guests,
-      reminders: this.reminders,
-      recurrence: this.repeats
+      title: v.title.trim(),
+      description: v.description,
+      location: v.location.trim() || null,
+      start: this.combineDateTime(v.startDate, v.startTime),
+      end: this.combineDateTime(v.endDate, v.endTime),
+      allDay: v.allDay,
+      color: v.color,
+      departmentId: v.departmentId,
+      categoryId: v.categoryId,
+      calendarId: v.calendarId ?? undefined,
+      meetingLinkUrl: v.meetingLinkUrl.trim() || null,
+      meetingLinkTitle: v.meetingLinkUrl.trim() ? v.meetingLinkTitle.trim() || null : null,
+      visibility: v.visibility,
+      busyStatus: v.busyStatus,
+      guests,
+      reminders,
+      recurrence: v.repeats
         ? {
-            frequency: this.recurrenceFrequency,
-            interval: this.recurrenceInterval,
-            until: this.recurrenceEndType === 'on' ? this.combineUntil() : null,
-            count: this.recurrenceEndType === 'after' ? this.recurrenceCount : null,
+            frequency: v.recurrenceFrequency,
+            interval: v.recurrenceInterval,
+            until: v.recurrenceEndType === 'on' ? this.combineUntil() : null,
+            count: v.recurrenceEndType === 'after' ? v.recurrenceCount : null,
           }
         : null,
     };
   }
 
   private combineUntil(): string | null {
-    return this.recurrenceUntil ? dayjs(this.recurrenceUntil, 'YYYY-MM-DD').endOf('day').toISOString() : null;
+    const until = this.form.value.recurrenceUntil;
+    return until ? dayjs(until, 'YYYY-MM-DD').endOf('day').toISOString() : null;
   }
 
   submit() {
-    if (!this.title.trim()) {
+    const { title, startDate, endDate } = this.form.value;
+    if (!title.trim()) {
       this.error = 'Title is required';
       return;
     }
-    if (!this.startDate || !this.endDate) {
+    if (!startDate || !endDate) {
       this.error = 'Start and end are required';
       return;
     }
@@ -709,156 +721,5 @@ export class EventDetailDialogComponent implements OnChanges, OnInit, OnDestroy 
         this.confirmDeleteOpen = false;
       },
     });
-  }
-
-  isPending(a: Attachment): boolean {
-    return !!a.pendingDeleteAt && new Date(a.pendingDeleteAt).getTime() > this.now;
-  }
-
-  remainingSeconds(a: Attachment): number {
-    if (!a.pendingDeleteAt) return 0;
-    return Math.max(0, Math.ceil((new Date(a.pendingDeleteAt).getTime() - this.now) / 1000));
-  }
-
-  // silent=true skips the loading spinner — used by the background poll so
-  // a countdown reaching 0 doesn't flash "Loading…" over the list.
-  loadAttachments(silent = false) {
-    if (!this.loadedEvent) return;
-    if (!silent) this.attachmentsLoading = true;
-    this.eventService.getAttachments(this.loadedEvent.id).subscribe({
-      next: (list) => {
-        this.attachments = list;
-        this.attachmentsLoading = false;
-        this.syncPolling();
-      },
-      error: () => (this.attachmentsLoading = false),
-    });
-  }
-
-  // Keeps polling while a countdown is in flight so the list picks up the
-  // permanent delete as soon as the sweep on the server processes it,
-  // without the user having to refresh.
-  private syncPolling() {
-    const hasPending = this.attachments.some((a) => a.pendingDeleteAt);
-    if (hasPending && !this.pollHandle) {
-      this.pollHandle = setInterval(() => this.loadAttachments(true), this.POLL_MS);
-    } else if (!hasPending) {
-      this.stopPolling();
-    }
-  }
-
-  private stopPolling() {
-    if (this.pollHandle) {
-      clearInterval(this.pollHandle);
-      this.pollHandle = undefined;
-    }
-  }
-
-  onFileSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file || !this.loadedEvent) return;
-
-    this.attachmentUploading = true;
-    this.attachmentUploadError = '';
-    this.eventService.uploadAttachment(this.loadedEvent.id, file).subscribe({
-      next: (res) => {
-        switch (res.type) {
-          case HttpEventType.UploadProgress:
-            if (res.total) {
-              this.progress = Math.round((100 * res.loaded) / res.total);
-            }
-            break;
-          case HttpEventType.Response:
-            this.attachments = [res.body.attachment, ...this.attachments];
-            this.attachmentUploading = false;
-            input.value = '';
-            break;
-        }
-      },
-      error: (err) => {
-        this.attachmentUploadError = err.error?.message || 'Failed to upload file';
-        this.attachmentUploading = false;
-        input.value = '';
-      },
-    });
-  }
-
-  toggleAddLink() {
-    this.addLinkOpen = !this.addLinkOpen;
-    this.addLinkError = '';
-    if (!this.addLinkOpen) {
-      this.linkUrlInput = '';
-      this.linkLabelInput = '';
-    }
-  }
-
-  submitLink() {
-    const url = this.linkUrlInput.trim();
-    if (!url || !this.loadedEvent) return;
-    this.addLinkLoading = true;
-    this.addLinkError = '';
-    this.eventService
-      .addLinkAttachment(this.loadedEvent.id, { url, fileName: this.linkLabelInput.trim() })
-      .subscribe({
-        next: (res) => {
-          this.attachments = [res.attachment, ...this.attachments];
-          this.addLinkLoading = false;
-          this.addLinkOpen = false;
-          this.linkUrlInput = '';
-          this.linkLabelInput = '';
-        },
-        error: (err) => {
-          this.addLinkError = err.error?.message || 'Failed to add link';
-          this.addLinkLoading = false;
-        },
-      });
-  }
-
-  download(attachment: Attachment) {
-    if (!this.loadedEvent) return;
-    this.downloadingId = attachment.id;
-    this.eventService.downloadAttachment(this.loadedEvent.id, attachment.id).subscribe({
-      next: (info) => {
-        window.open(info.downloadUrl, '_blank');
-        this.downloadingId = null;
-      },
-      error: () => (this.downloadingId = null),
-    });
-  }
-
-  deleteAttachment(attachment: Attachment) {
-    if (!this.loadedEvent) return;
-    this.eventService.deleteAttachment(this.loadedEvent.id, attachment.id).subscribe({
-      next: (res) => {
-        this.attachments = this.attachments.map((a) => (a.id === res.attachment.id ? res.attachment : a));
-        this.syncPolling();
-      },
-    });
-  }
-
-  undoDeleteAttachment(attachment: Attachment) {
-    if (!this.loadedEvent) return;
-    this.eventService.undoDeleteAttachment(this.loadedEvent.id, attachment.id).subscribe({
-      next: (res) => {
-        this.attachments = this.attachments.map((a) => (a.id === res.attachment.id ? res.attachment : a));
-        this.syncPolling();
-      },
-    });
-  }
-
-  getAttachmentFileInfo = (attachment: Attachment) =>
-    this.eventService.downloadAttachment(this.loadedEvent!.id, attachment.id);
-
-  openViewer(attachment: Attachment) {
-    const index = this.attachments.findIndex((a) => a.id === attachment.id);
-    this.viewerIndex = index >= 0 ? index : 0;
-    this.viewerOpen = true;
-  }
-
-  formatSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 }

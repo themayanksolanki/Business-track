@@ -1,4 +1,5 @@
-import { Component, Input, Output, EventEmitter, ElementRef, ViewChild, AfterViewChecked, OnDestroy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ElementRef, ViewChild, AfterViewChecked, OnDestroy, forwardRef } from '@angular/core';
+import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import dayjs from 'dayjs/esm';
 import { DateFormatService } from '../../core/services/date-format.service';
 
@@ -16,8 +17,11 @@ const PANEL_HEIGHT_ESTIMATE = 320;
   standalone: true,
   templateUrl: './time-picker.component.html',
   styleUrl: './time-picker.component.css',
+  providers: [
+    { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => TimePickerComponent), multi: true },
+  ],
 })
-export class TimePickerComponent implements AfterViewChecked, OnDestroy {
+export class TimePickerComponent implements ControlValueAccessor, AfterViewChecked, OnDestroy {
   @Input() value: string | null = null; // 'HH:mm'
   @Input() placeholder = 'Select time';
   @Input() align: 'left' | 'right' = 'left';
@@ -43,6 +47,8 @@ export class TimePickerComponent implements AfterViewChecked, OnDestroy {
   panelRight: number | null = null;
 
   private readonly reposition = () => this.updatePanelPosition();
+  private onChange: (value: string | null) => void = () => {};
+  private onTouched: () => void = () => {};
 
   constructor(private dateFormat: DateFormatService) {
     // Built in the constructor body (not a field initializer) so the
@@ -52,6 +58,35 @@ export class TimePickerComponent implements AfterViewChecked, OnDestroy {
 
   ngOnDestroy() {
     this.removePositionListeners();
+  }
+
+  // ControlValueAccessor — additive: lets this component be bound via
+  // [formControl]/formControlName as an alternative to its existing plain
+  // [value]/(valueChange) @Input/@Output pair, which stays exactly as-is for
+  // every other (template-driven) usage across the app.
+  writeValue(value: string | null): void {
+    this.value = value;
+  }
+
+  registerOnChange(fn: (value: string | null) => void): void {
+    this.onChange = fn;
+  }
+
+  registerOnTouched(fn: () => void): void {
+    this.onTouched = fn;
+  }
+
+  setDisabledState(isDisabled: boolean): void {
+    this.disabled = isDisabled;
+  }
+
+  // onChange (the ControlValueAccessor callback, when bound via
+  // formControlName) runs before the plain valueChange @Output — a
+  // template's (valueChange) handler (e.g. clamping a paired end-date) may
+  // read the FormControl's value synchronously and needs it already updated.
+  private emit(value: string | null) {
+    this.onChange(value);
+    this.valueChange.emit(value);
   }
 
   get displayLabel(): string {
@@ -72,16 +107,17 @@ export class TimePickerComponent implements AfterViewChecked, OnDestroy {
 
   close() {
     this.open = false;
+    this.onTouched();
     this.removePositionListeners();
   }
 
   select(slot: TimeSlot) {
-    this.valueChange.emit(slot.value);
+    this.emit(slot.value);
     this.close();
   }
 
   clear() {
-    this.valueChange.emit(null);
+    this.emit(null);
     this.close();
   }
 

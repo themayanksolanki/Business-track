@@ -26,6 +26,10 @@ export interface ProjectItem {
   startDate: string | null;
   endDate: string | null;
   attachmentCount: number;
+  // Live counts of non-cancelled TaskApprover rows, merged in read-time by
+  // the backend (see attachApproverCounts in projectItemController.ts).
+  approverCount?: number;
+  pendingApproverCount?: number;
   // Shown only on the Kanban card, not the list/tree row.
   emoji?: string | null;
   // Single meeting link shown below "Created By" in the detail panel.

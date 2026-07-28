@@ -1,0 +1,35 @@
+@if (sidebarSvc.projectListOverlayOpen()) {
+  <div class="project-list-overlay-backdrop" [style.left.px]="sidebarSvc.currentWidth()" (click)="close()"></div>
+}
+
+<aside
+  class="project-list-overlay"
+  [class.open]="sidebarSvc.projectListOverlayOpen()"
+  [style.left.px]="sidebarSvc.currentWidth()"
+>
+  <div class="project-list-overlay-header">
+    <span class="project-list-overlay-title">Projects</span>
+    <button type="button" class="project-list-overlay-close" (click)="close()" title="Close">
+      <i class="bi bi-x-lg"></i>
+    </button>
+  </div>
+
+  <div class="project-list-overlay-body">
+    @if (projectService.projectList().length === 0) {
+      <p class="text-muted small px-3">No projects loaded yet.</p>
+    }
+    @for (project of projectService.projectList(); track project.id) {
+      <button
+        type="button"
+        class="overlay-project-item"
+        [class.active]="project.id === currentProjectId"
+        (click)="select(project)"
+      >
+        <span class="overlay-project-name">{{ project.name }}</span>
+        @if (project.department) {
+          <span class="overlay-project-dept">{{ project.department.name }}</span>
+        }
+      </button>
+    }
+  </div>
+</aside>

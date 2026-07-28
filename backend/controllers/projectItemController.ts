@@ -9,6 +9,8 @@ import { nextSequenceId } from '../utils/sequence.js';
 import { notifyUsers } from '../utils/notifications.js';
 import { filterValidMentions } from '../utils/mentions.js';
 import { detectMeetingPlatform } from '../utils/meetingLink.js';
+import { isApprovalCompleteForItem } from '../utils/approval.js';
+import { syncMeetingLinkCalendarEvent } from '../services/meetingLinkCalendarSync.service.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
 const ACCESS_INCLUDE = { members: { select: { userId: true } } };
@@ -123,6 +125,36 @@ const duplicateSubtree = async (
   return created;
 };
 
+// Merges live (non-cancelled) TaskApprover counts into each item — mirrors
+// getItemsSummary's read-time groupBy pattern rather than a denormalized
+// counter column, since approver mutations happen from five different
+// taskApprovalController functions instead of one.
+const attachApproverCounts = async <T extends { id: number }>(
+  items: T[]
+): Promise<(T & { approverCount: number; pendingApproverCount: number })[]> => {
+  const itemIds = items.map((i) => i.id);
+  const counts = itemIds.length
+    ? await prisma.taskApprover.groupBy({
+        by: ['projectItemId', 'status'],
+        where: { projectItemId: { in: itemIds }, status: { not: 'cancelled' } },
+        _count: { _all: true },
+      })
+    : [];
+
+  const byItem: Record<number, { approverCount: number; pendingApproverCount: number }> = {};
+  for (const { projectItemId, status, _count } of counts) {
+    if (!byItem[projectItemId]) byItem[projectItemId] = { approverCount: 0, pendingApproverCount: 0 };
+    byItem[projectItemId].approverCount += _count._all;
+    if (status === 'pending' || status === 'changesRequested') byItem[projectItemId].pendingApproverCount += _count._all;
+  }
+
+  return items.map((item) => ({
+    ...item,
+    approverCount: byItem[item.id]?.approverCount ?? 0,
+    pendingApproverCount: byItem[item.id]?.pendingApproverCount ?? 0,
+  }));
+};
+
 export const getItems = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const project = await prisma.project.findUnique({
@@ -152,7 +184,7 @@ export const getItems = async (req: Request, res: Response, next: NextFunction) 
       ]);
 
       return res.status(200).json({
-        items,
+        items: await attachApproverCounts(items),
         total,
         page,
         limit: parsedLimit,
@@ -166,7 +198,7 @@ export const getItems = async (req: Request, res: Response, next: NextFunction) 
       orderBy: [{ parentId: { sort: 'asc', nulls: 'first' } }, { order: 'asc' }],
     });
 
-    res.status(200).json(items);
+    res.status(200).json(await attachApproverCounts(items));
   } catch (err) {
     next(err);
   }
@@ -382,6 +414,8 @@ export const updateItem = async (req: Request, res: Response, next: NextFunction
       const childCount = await prisma.projectItem.count({ where: { parentId: item.id } });
       if (childCount > 0)
         return next(new AppError('Status is derived from children and cannot be set directly', 400));
+      if (status === 'completed' && !(await isApprovalCompleteForItem(item.id)))
+        return next(new AppError('This item cannot be completed until every assigned approver has approved it', 400));
       data.status = status;
     }
 
@@ -404,28 +438,36 @@ export const updateItem = async (req: Request, res: Response, next: NextFunction
     // meetingLinkUrl is the trigger field, matching validateProjectItem: a
     // truthy URL sets the link (platform is always re-derived server-side,
     // never trusted from the client), anything else clears all four fields.
+    // meetingLinkChange (same url/title/at, once computed) also drives
+    // syncMeetingLinkCalendarEvent below, which mirrors this exact change
+    // onto the item's auto-managed CalendarEvent.
+    let meetingLinkChange: { url: string | null; title: string | null; at: Date | null } | undefined;
     if (meetingLinkUrl !== undefined) {
       if (meetingLinkUrl) {
-        data.meetingLinkUrl = meetingLinkUrl;
-        data.meetingLinkTitle = meetingLinkTitle;
-        data.meetingLinkAt = new Date(meetingLinkAt);
-        data.meetingLinkPlatform = detectMeetingPlatform(meetingLinkUrl);
+        meetingLinkChange = { url: meetingLinkUrl, title: meetingLinkTitle ?? null, at: new Date(meetingLinkAt) };
       } else {
-        data.meetingLinkUrl = null;
-        data.meetingLinkTitle = null;
-        data.meetingLinkAt = null;
-        data.meetingLinkPlatform = null;
+        meetingLinkChange = { url: null, title: null, at: null };
       }
+      data.meetingLinkUrl = meetingLinkChange.url;
+      data.meetingLinkTitle = meetingLinkChange.title;
+      data.meetingLinkAt = meetingLinkChange.at;
+      data.meetingLinkPlatform = meetingLinkChange.url ? detectMeetingPlatform(meetingLinkChange.url) : null;
     }
 
     const memberIds = new Set(project.members.map((m) => m.userId));
     const validMentions = mentions !== undefined ? filterValidMentions(mentions, memberIds) : undefined;
     if (validMentions !== undefined) data.mentions = validMentions as unknown as Prisma.InputJsonValue;
 
-    const updated = await prisma.projectItem.update({
-      where: { id: item.id },
-      data,
-      include: ITEM_INCLUDE,
+    const updated = await prisma.$transaction(async (tx) => {
+      const updatedItem = await tx.projectItem.update({
+        where: { id: item.id },
+        data,
+        include: ITEM_INCLUDE,
+      });
+      if (meetingLinkChange) {
+        await syncMeetingLinkCalendarEvent(tx, updatedItem, meetingLinkChange, req.user!.id);
+      }
+      return updatedItem;
     });
 
     if (status !== undefined) await recomputeAncestorStatuses(item.parentId);

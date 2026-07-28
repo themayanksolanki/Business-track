@@ -22,10 +22,12 @@ import { ModalDirective } from '../modal.directive';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 import { DatePickerComponent } from '../date-picker/date-picker.component';
 import { TabStripComponent, TabDef } from '../tab-strip/tab-strip.component';
+import { AttachmentsComponent } from '../attachments/attachments.component';
 import { Department } from '../../models/department.model';
 import { Category } from '../../models/category.model';
 import { User } from '../../models/user.model';
 import { Metric, MetricStatus, MetricDataType, MetricParentLite, CreateMetricPayload, UpdateMetricPayload } from '../../models/metric.model';
+import { MetricService } from '../../core/services/metric.service';
 
 export type MetricFormMode = 'create' | 'edit';
 
@@ -35,7 +37,7 @@ interface DataTypeOption {
 }
 
 const DATA_TYPE_OPTIONS: DataTypeOption[] = [
-  { value: 'number', label: 'Number' },
+  { value: 'number', label: 'Default' },
   { value: 'weight', label: 'Weight' },
   { value: 'currency', label: 'Currency' },
   { value: 'percentage', label: 'Percentage' },
@@ -44,11 +46,13 @@ const DATA_TYPE_OPTIONS: DataTypeOption[] = [
 @Component({
   selector: 'app-metric-form-modal',
   standalone: true,
-  imports: [FormsModule, RouterLink, ModalDirective, ConfirmDialogComponent, DatePickerComponent, CKEditorModule, TabStripComponent],
+  imports: [FormsModule, RouterLink, ModalDirective, ConfirmDialogComponent, DatePickerComponent, CKEditorModule, TabStripComponent, AttachmentsComponent],
   templateUrl: './metric-form-modal.component.html',
   styleUrl: './metric-form-modal.component.css',
 })
 export class MetricFormModalComponent implements OnChanges {
+  constructor(public metricSvc: MetricService) {}
+
   readonly dataTypeOptions = DATA_TYPE_OPTIONS;
   readonly tabs: TabDef[] = [
     { key: 'statistics', label: 'Statistics', icon: 'bi-bar-chart' },

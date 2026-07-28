@@ -115,6 +115,14 @@ enum EventBusyStatus {
   free
 }
 
+enum CalendarEventStatus {
+  confirmed
+  // Set (never deleted) when the ProjectItem meeting link this event was
+  // auto-created from gets removed — keeps the event visible on the
+  // calendar as an explicit cancellation rather than silently disappearing.
+  cancelled
+}
+
 model CalendarEvent {
   id             Int              @id @default(autoincrement())
   sequenceId     Int?
@@ -143,7 +151,14 @@ model CalendarEvent {
   meetingLinkPlatform MeetingPlatform?
   visibility     EventVisibility  @default(standard)
   busyStatus     EventBusyStatus  @default(busy)
+  status         CalendarEventStatus @default(confirmed)
   recurrenceId   Int?             @unique
+  // Set only for events auto-created/synced from a ProjectItem's meeting
+  // link (see backend/services/meetingLinkCalendarSync.service.ts) — @unique
+  // since a given task has at most one pasted link, and therefore at most
+  // one mirrored event, at any time. Cascades so deleting the task cleans
+  // up its auto-created event rather than leaving an orphan row.
+  sourceProjectItemId Int?        @unique
   createdById    Int
   updatedById    Int?
   createdAt      DateTime         @default(now())
@@ -155,6 +170,7 @@ model CalendarEvent {
   owner        User              @relation("CalendarEventOwner", fields: [ownerId], references: [id])
   calendar     Calendar          @relation(fields: [calendarId], references: [id], onDelete: Cascade)
   recurrence   RecurringRule?    @relation(fields: [recurrenceId], references: [id])
+  sourceProjectItem ProjectItem? @relation(fields: [sourceProjectItemId], references: [id], onDelete: Cascade)
   createdBy    User              @relation("CalendarEventCreatedBy", fields: [createdById], references: [id])
   updatedBy    User?             @relation("CalendarEventUpdatedBy", fields: [updatedById], references: [id])
 

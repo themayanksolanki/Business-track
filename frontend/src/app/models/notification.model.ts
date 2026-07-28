@@ -9,7 +9,13 @@ export type NotificationType =
   | 'projectItemAssigned'
   | 'projectItemUpdated'
   | 'mentioned'
-  | 'userDeactivated';
+  | 'userDeactivated'
+  | 'taskApprovalRequested'
+  | 'taskApproved'
+  | 'taskChangesRequested'
+  | 'taskApprovalReRequested'
+  | 'taskFullyApproved'
+  | 'taskApprovalCommentAdded';
 
 export interface NotificationActor {
   id: number;

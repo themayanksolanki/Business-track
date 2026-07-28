@@ -10,9 +10,12 @@
 
           <div class="day-events-list">
             @for (occurrence of occurrences; track occurrence.id + ':' + occurrence.originalStart) {
-              <button type="button" class="day-event-row" (click)="eventClicked.emit(occurrence)">
+              <button type="button" class="day-event-row" [class.day-event-row-cancelled]="occurrence.status === 'cancelled'" (click)="eventClicked.emit(occurrence)">
                 <span class="event-color-dot" [style.background]="resolveEventColor(occurrence)"></span>
                 <span class="day-event-title">{{ occurrence.title }}</span>
+                @if (occurrence.status === 'cancelled') {
+                  <span class="event-cancelled-tag">Cancelled</span>
+                }
                 <span class="day-event-time">{{ timeLabel(occurrence) }}</span>
               </button>
             } @empty {

@@ -116,5 +116,5 @@ export function layoutRow(days: Date[], events: CalendarOccurrence[], maxVisible
 }
 
 export function formatStrapLabel(occurrence: CalendarOccurrence): string {
-  return occurrence.title;
+  return occurrence.status === 'cancelled' ? `Cancelled: ${occurrence.title}` : occurrence.title;
 }

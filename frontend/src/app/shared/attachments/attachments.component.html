@@ -1,0 +1,114 @@
+<div class="attachments-root">
+  @if (uploading) {
+    <div class="progress mb-2" style="height:1rem;">
+      <div class="progress-bar progress-bar-striped progress-bar-animated"
+           role="progressbar" [style.width.%]="progress"
+           [attr.aria-valuenow]="progress" aria-valuemin="0" aria-valuemax="100">
+        {{ progress }}%
+      </div>
+    </div>
+  }
+
+  @if (attachmentsError) {
+    <div class="alert alert-danger py-2">{{ attachmentsError }}</div>
+  }
+
+  @if (attachmentsLoading) {
+    <div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</div>
+  } @else if (attachments.length === 0) {
+    <p class="text-muted small mb-2">{{ emptyMessage }}</p>
+  } @else {
+    <div class="att-grid mb-2">
+      @for (a of attachments; track a.id) {
+        <div class="att-tile" [class.att-tile-pending]="isPending(a)">
+          <div class="att-tile-thumb" (click)="!isPending(a) && openViewer(a)">
+            <app-attachment-thumb [attachment]="a" [getFileInfo]="getAttachmentFileInfo"></app-attachment-thumb>
+            @if (isPending(a)) {
+              <div class="att-tile-overlay att-tile-overlay-pending">
+                <span class="att-tile-countdown">{{ remainingSeconds(a) }}s</span>
+                @if (canEdit && supportsUndo) {
+                  <button type="button" class="att-tile-action btn btn-success btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); undoDeleteAttachment(a)" title="Undo">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                  </button>
+                }
+              </div>
+            } @else {
+              <div class="att-tile-overlay">
+                <button type="button" class="att-tile-action btn btn-light btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); openViewer(a)" title="Preview">
+                  <i class="bi bi-eye"></i>
+                </button>
+                <button type="button" class="att-tile-action btn btn-light btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); download(a)" [disabled]="downloadingId === a.id" [title]="a.kind === 'link' ? 'Open' : 'Download'">
+                  @if (downloadingId === a.id) {
+                    <span class="spinner-border spinner-border-sm"></span>
+                  } @else {
+                    <i class="bi" [class.bi-download]="a.kind !== 'link'" [class.bi-box-arrow-up-right]="a.kind === 'link'"></i>
+                  }
+                </button>
+                @if (canEdit) {
+                  <button type="button" class="att-tile-action btn btn-danger btn-sm rounded-circle p-0" (click)="$event.stopPropagation(); deleteAttachment(a)" title="Delete">
+                    <i class="bi bi-trash3"></i>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+          <div class="att-tile-info">
+            <span class="att-tile-name text-truncate" [class.att-tile-name-pending]="isPending(a)" [title]="a.fileName">{{ a.fileName }}</span>
+            <span class="att-tile-meta">
+              @if (isPending(a)) { Deleting… } @else if (a.kind === 'link') { Link } @else { {{ formatSize(a.size) }} }
+            </span>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  @if (canEdit) {
+    <div class="attachment-upload-row">
+      <label class="attachment-upload-btn" [class.disabled]="uploading">
+        @if (uploading) {
+          <span class="spinner-border spinner-border-sm me-2"></span>Uploading…
+        } @else {
+          <i class="bi bi-cloud-arrow-up me-2"></i>Upload File
+        }
+        <input type="file" hidden [accept]="acceptedFileTypes" (change)="onFileSelected($event)" [disabled]="uploading" />
+      </label>
+      @if (supportsLink) {
+        <button type="button" class="attachment-upload-btn" (click)="toggleAddLink()">
+          <i class="bi bi-link-45deg me-2"></i>Add Link
+        </button>
+      }
+    </div>
+    @if (uploadError) {
+      <div class="field-error mt-2">{{ uploadError }}</div>
+    }
+
+    @if (supportsLink && addLinkOpen) {
+      <div class="add-link-row">
+        <input type="url" class="add-link-input" placeholder="https://…" [(ngModel)]="linkUrlInput"
+               [ngModelOptions]="{standalone: true}" (keydown.enter)="submitLink()" />
+        <input type="text" class="add-link-input" placeholder="Label (optional)" [(ngModel)]="linkLabelInput"
+               [ngModelOptions]="{standalone: true}" (keydown.enter)="submitLink()" />
+        <button type="button" class="add-link-submit-btn btn btn-primary d-inline-flex align-items-center justify-content-center p-0" (click)="submitLink()" [disabled]="addLinkLoading || !linkUrlInput.trim()" title="Add">
+          @if (addLinkLoading) {
+            <span class="spinner-border spinner-border-sm"></span>
+          } @else {
+            <i class="bi bi-check-lg"></i>
+          }
+        </button>
+      </div>
+      @if (addLinkError) {
+        <div class="field-error mt-2">{{ addLinkError }}</div>
+      }
+    }
+  }
+</div>
+
+<app-attachment-viewer
+  [open]="viewerOpen"
+  [attachments]="attachments"
+  [startIndex]="viewerIndex"
+  [getFileInfo]="getAttachmentFileInfo"
+  (closed)="viewerOpen = false"
+  (download)="download($event)">
+</app-attachment-viewer>

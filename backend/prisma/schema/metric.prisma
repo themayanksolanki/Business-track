@@ -52,6 +52,7 @@ model Metric {
   createdBy    User          @relation("MetricCreatedBy", fields: [createdById], references: [id])
   updatedBy    User?         @relation("MetricUpdatedBy", fields: [updatedById], references: [id])
   periodTotals MetricPeriodTotal[]
+  attachments  Attachment[]
 
   @@index([organizationId])
   @@index([departmentId])

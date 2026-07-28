@@ -8,6 +8,15 @@ import {
 } from '../middleware/validate.js';
 import { getMetrics, createMetric, getMetricById, updateMetric } from '../controllers/metricController.js';
 import { getPeriodData, savePeriodDiff } from '../controllers/metricTrackingController.js';
+import {
+  getMetricAttachments,
+  uploadMetricAttachment,
+  addMetricAttachmentLink,
+  downloadMetricAttachment,
+  deleteMetricAttachment,
+  undoMetricAttachment,
+} from '../controllers/attachmentController.js';
+import { attachmentUpload } from '../middleware/attachmentUpload.js';
 
 const router = Router();
 
@@ -15,6 +24,23 @@ router.get('/', protect, getMetrics);
 router.post('/', protect, validateMetric, createMetric);
 router.get('/:metricId', protect, validateMetricId, getMetricById);
 router.put('/:metricId', protect, validateMetricId, validateMetric, updateMetric);
+
+router.get('/:metricId/attachments', protect, validateMetricId, getMetricAttachments);
+router.post('/:metricId/attachments', protect, validateMetricId, attachmentUpload, uploadMetricAttachment);
+router.post('/:metricId/attachments/link', protect, validateMetricId, addMetricAttachmentLink);
+router.get(
+  '/:metricId/attachments/:attachmentId/download',
+  protect,
+  validateMetricId,
+  downloadMetricAttachment
+);
+router.delete('/:metricId/attachments/:attachmentId', protect, validateMetricId, deleteMetricAttachment);
+router.post(
+  '/:metricId/attachments/:attachmentId/undo',
+  protect,
+  validateMetricId,
+  undoMetricAttachment
+);
 
 router.get(
   '/:metricId/tracking/:frequency',

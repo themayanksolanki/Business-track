@@ -1,0 +1,88 @@
+enum ApproverStatus {
+  pending
+  approved
+  changesRequested
+  // Set (not hard-deleted) when an approver is removed mid-cycle — keeps the
+  // row for audit/history while excluding it from progress and completion
+  // gating, which only ever look at non-cancelled rows.
+  cancelled
+}
+
+// One row per (item, approver) — persists across re-request cycles; a
+// re-request resets `status`/`respondedAt` on the existing row rather than
+// creating a new one, so history stays attached to a single row per person.
+model TaskApprover {
+  id            Int            @id @default(autoincrement())
+  projectItemId Int
+  userId        Int
+  status        ApproverStatus @default(pending)
+  assignedById  Int
+  assignedAt    DateTime       @default(now())
+  respondedAt   DateTime?
+  removedAt     DateTime?
+
+  projectItem ProjectItem @relation(fields: [projectItemId], references: [id], onDelete: Cascade)
+  user        User        @relation("TaskApproverUser", fields: [userId], references: [id])
+  assignedBy  User        @relation("TaskApproverAssignedBy", fields: [assignedById], references: [id])
+
+  @@unique([projectItemId, userId])
+  @@index([projectItemId])
+  @@map("task_approvers")
+}
+
+enum ApprovalHistoryAction {
+  approverAssigned
+  approverRemoved
+  approved
+  changesRequested
+  commentAdded
+  commentEdited
+  commentDeleted
+  reRequested
+  statusChanged
+}
+
+// Append-only audit log for everything approval-related on an item — never
+// updated or deleted, only ever inserted into and read.
+model ApprovalHistory {
+  id            Int                   @id @default(autoincrement())
+  projectItemId Int
+  userId        Int
+  action        ApprovalHistoryAction
+  // Free-text summary (e.g. the target approver's name, or old->new status) —
+  // kept simple rather than a structured JSON diff, since history is only
+  // ever rendered as a flat timeline, never queried by detail content.
+  detail        String?
+  createdAt     DateTime              @default(now())
+
+  projectItem ProjectItem @relation(fields: [projectItemId], references: [id], onDelete: Cascade)
+  user        User        @relation("ApprovalHistoryUser", fields: [userId], references: [id])
+
+  @@index([projectItemId, createdAt])
+  @@map("approval_history")
+}
+
+// Deliberately separate from the generic project-item `Comment` model
+// (projectItem.prisma) rather than reusing it — keeps the already-shipped
+// comment feature untouched, and this needs isEdited/editedAt/replyToId,
+// none of which Comment has. Mirrors Message's isEdited/editedAt/replyToId
+// self-relation pattern (message.prisma) instead.
+model ApprovalComment {
+  id            Int      @id @default(autoincrement())
+  projectItemId Int
+  authorId      Int
+  body          String   @db.VarChar(2000)
+  isEdited      Boolean  @default(false)
+  editedAt      DateTime?
+  replyToId     Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  projectItem ProjectItem       @relation(fields: [projectItemId], references: [id], onDelete: Cascade)
+  author      User              @relation("ApprovalCommentAuthor", fields: [authorId], references: [id])
+  replyTo     ApprovalComment?  @relation("ApprovalCommentReplyTo", fields: [replyToId], references: [id])
+  replies     ApprovalComment[] @relation("ApprovalCommentReplyTo")
+
+  @@index([projectItemId])
+  @@map("approval_comments")
+}

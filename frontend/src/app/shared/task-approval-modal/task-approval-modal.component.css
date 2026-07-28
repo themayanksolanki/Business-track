@@ -1,0 +1,310 @@
+/* ── Modals (Bootstrap .modal/.modal-dialog/.modal-content) ── */
+.tasklist-dialog { max-width: 480px; }
+.tasklist-dialog-lg { max-width: 540px; }
+
+.tasklist-modal-content {
+  border-radius: 14px;
+  border: none;
+  background: var(--bg-card);
+}
+
+/* ── Modal form header ── */
+.modal-form-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card-alt);
+}
+
+/* ── Close button ── */
+.detail-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.06);
+  border: none;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.detail-x:hover { background: rgba(0, 0, 0, 0.12); }
+
+.field-error { font-size: 0.76rem; color: #ef4444; margin-top: 5px; }
+
+/* ── Progress ── */
+.progress-cell { display: flex; flex-direction: column; gap: 4px; }
+
+.progress-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 99px;
+  background: var(--border-strong);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: #16a34a;
+  transition: width 0.2s;
+}
+
+.progress-frac {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* ── Approver list ── */
+.approver-list { display: flex; flex-direction: column; gap: 6px; }
+
+.approver-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-card-alt);
+}
+
+.approver-name { flex: 1; font-size: 0.85rem; font-weight: 500; color: var(--text-primary); }
+
+.approver-status {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+.status-pending { background: #fef3c7; color: #92400e; }
+.status-approved { background: #dcfce7; color: #166534; }
+.status-changesRequested { background: #fee2e2; color: #991b1b; }
+.status-cancelled { background: var(--border-strong); color: var(--text-muted); }
+
+.approver-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.approver-remove-btn:hover { background: #fee2e2; color: #dc2626; }
+
+/* ── Approver picker ── */
+.approver-picker {
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 8px;
+  background: var(--bg-card-alt);
+}
+
+.approver-picker-list {
+  max-height: 160px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.approver-picker-item {
+  text-align: left;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.approver-picker-item:hover { background: var(--bg-muted); }
+.approver-picker-item:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.request-changes-box textarea { resize: vertical; }
+
+/* ── Section tabs ── */
+.modal-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card-alt);
+}
+
+.modal-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.modal-tab-btn:hover { color: var(--text-primary); }
+.modal-tab-btn.active { color: #3b82f6; border-bottom-color: #3b82f6; }
+
+.modal-tab-count {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: var(--border-strong);
+  color: var(--text-muted);
+}
+.modal-tab-btn.active .modal-tab-count { background: #3b82f6; color: #fff; }
+
+/* ── Discussion thread ── */
+.approval-comment-list { display: flex; flex-direction: column; gap: 10px; }
+
+.approval-comment-item {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-card-alt);
+}
+
+.approval-comment-header { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.approval-comment-author { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); }
+.approval-comment-time { font-size: 0.7rem; color: var(--text-dim); }
+.approval-comment-body { font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px; white-space: pre-wrap; word-break: break-word; }
+
+.edited-badge { font-size: 0.62rem; color: var(--text-dim); font-style: italic; }
+
+.approval-comment-actions { display: flex; gap: 12px; margin-top: 4px; }
+.comment-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.comment-action-btn:hover { color: #3b82f6; }
+
+.quoted-reply {
+  display: block;
+  border-left: 3px solid rgba(59, 130, 246, 0.6);
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 6px;
+  padding: 4px 8px;
+  margin-bottom: 6px;
+}
+.quoted-sender { display: block; font-weight: 700; font-size: 0.72rem; }
+.quoted-text { display: block; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.edit-comment-row { display: flex; align-items: center; gap: 6px; }
+
+.reply-preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  background: var(--bg-muted);
+}
+.reply-preview-icon { color: #3b82f6; font-size: 0.9rem; }
+.reply-preview-body { flex: 1; min-width: 0; }
+.reply-preview-sender { font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); }
+.reply-preview-text { font-size: 0.75rem; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.reply-preview-close { border: none; background: transparent; color: var(--text-muted); font-size: 0.8rem; cursor: pointer; padding: 4px; }
+.reply-preview-close:hover { color: var(--text-primary); }
+
+/* ── Approval history ── */
+.approval-history-list { display: flex; flex-direction: column; gap: 8px; }
+
+.approval-history-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--bg-card-alt);
+  font-size: 0.82rem;
+}
+.approval-history-author { font-weight: 600; color: var(--text-primary); }
+.approval-history-action { color: var(--text-secondary); }
+.approval-history-detail { color: var(--text-dim); }
+.approval-history-time { margin-left: auto; font-size: 0.7rem; color: var(--text-dim); white-space: nowrap; }
+
+@media (max-width: 860px) {
+  .modal-tabs { padding: 0 12px; overflow-x: auto; }
+  .approval-history-time { margin-left: 0; }
+}
+
+/* ── Comment composer (same look as project-item-detail's comment row) ── */
+.edit-comment-row { display: flex; gap: 6px; align-items: center; width: 100%; }
+
+.add-subtask-row { display: flex; gap: 6px; align-items: center; }
+
+.add-subtask-input {
+  flex: 1;
+  height: 36px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 0.85rem;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.add-subtask-input:focus {
+  border-color: #3b82f6;
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+.add-subtask-input::placeholder { color: var(--text-dim); }
+
+.add-subtask-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  padding: 0;
+}
+.add-subtask-btn:hover:not(:disabled) { background: #2563eb; }
+.add-subtask-btn:disabled { background: #93c5fd; cursor: not-allowed; }
+
+.subtask-del-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+  padding: 0;
+}
+.subtask-del-btn:hover { background: #fee2e2; color: #dc2626; }

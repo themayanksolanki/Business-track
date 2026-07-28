@@ -44,7 +44,6 @@ enum Currency {
 enum MeasurementUnit {
   KG
   LB
-  LTR
 }
 
 model User {
@@ -144,6 +143,7 @@ model User {
   sentMessages         Message[]       @relation("MessageSender")
   receivedMessages     Message[]       @relation("MessageReceiver")
   deletedMessagesFor   Message[]       @relation("MessageDeletedFor")
+  messageReactions     MessageReaction[] @relation("MessageReactionUser")
   notifications        Notification[] @relation("NotificationRecipient")
   triggeredNotifications Notification[] @relation("NotificationActor")
   ownedMetrics         Metric[]       @relation("MetricOwner")
@@ -156,6 +156,14 @@ model User {
   createdCalendarEvents    CalendarEvent[]    @relation("CalendarEventCreatedBy")
   updatedCalendarEvents    CalendarEvent[]    @relation("CalendarEventUpdatedBy")
   calendarGuestInvites     Guest[]            @relation("GuestUser")
+  hostedMeetings           Meeting[]          @relation("MeetingHost")
+  createdMeetings          Meeting[]          @relation("MeetingCreatedBy")
+  updatedMeetings          Meeting[]          @relation("MeetingUpdatedBy")
+  meetingParticipations    MeetingParticipant[]
+  taskApproverAssignments  TaskApprover[]     @relation("TaskApproverUser")
+  taskApproverAssignedBy   TaskApprover[]     @relation("TaskApproverAssignedBy")
+  approvalHistoryActions   ApprovalHistory[]  @relation("ApprovalHistoryUser")
+  approvalComments         ApprovalComment[]  @relation("ApprovalCommentAuthor")
 
   @@unique([organizationId, sequenceId])
   @@map("users")
