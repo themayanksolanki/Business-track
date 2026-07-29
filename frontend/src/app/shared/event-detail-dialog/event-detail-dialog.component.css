@@ -5,6 +5,32 @@
   color: var(--text-primary);
 }
 
+.event-modal-header-icon {
+  font-size: 1.15rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Borderless, auto-focused title field that replaces the plain <h5> while
+   creating/editing — reads as part of the header, not a form field, until
+   focused. */
+.event-title-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  padding: 4px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.event-title-input::placeholder { color: var(--text-dim); font-weight: 400; }
+
+.event-title-input:focus {
+  box-shadow: 0 1px 0 0 #3b82f6;
+}
+
 .event-cancelled-badge {
   display: inline-block;
   vertical-align: middle;
@@ -16,6 +42,49 @@
   border-radius: 99px;
   background: #fee2e2;
   color: #991b1b;
+}
+
+.event-tab-bar {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.event-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  margin-right: 20px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.event-tab-btn:hover { color: var(--text-primary); }
+
+.event-tab-btn-active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
+.event-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: var(--border-strong);
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
 }
 
 /* Custom width instead of Bootstrap's modal-lg/xl steps — matches
@@ -61,6 +130,14 @@
   margin-bottom: 14px;
 }
 
+/* Smaller variant of .modal-submit-btn for the Cancel/Save pair embedded in
+   the header row next to the title, instead of a full-size footer button. */
+.modal-submit-btn-sm {
+  min-width: 0;
+  padding: 4px 14px;
+  font-size: 0.78rem;
+}
+
 .event-field { margin-bottom: 18px; }
 .event-field:last-child { margin-bottom: 0; }
 
@@ -68,6 +145,8 @@
 
 .event-description-editor ::ng-deep .ck-editor__editable {
   min-height: 160px;
+  resize: vertical;
+  overflow: auto;
 }
 
 /* CKEditor derives every internal border (toolbar, panels, dropdowns) from

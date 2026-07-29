@@ -22,6 +22,7 @@ import {
   validateProjectDetailsLayout,
   validateApproverAssignment,
   validateApproverUserId,
+  validateEventId,
 } from '../middleware/validate.js';
 import {
   getProjects,
@@ -41,6 +42,8 @@ import {
   getSharedProjectItems,
   createItem,
   getItemById,
+  getItemEvents,
+  unlinkItemEvent,
   updateItem,
   deleteItem,
   duplicateItem,
@@ -159,6 +162,20 @@ router.post('/:projectId/items', protect, validateProjectId, validateProjectItem
 router.get('/:projectId/items/summary', protect, validateProjectId, getItemsSummary);
 router.patch('/:projectId/items/reorder', protect, validateProjectId, validateReorder, reorderItems);
 router.get('/:projectId/items/:itemId', protect, validateProjectId, validateItemId, getItemById);
+
+// Reverse side of the event "Tasks" tab (see eventRoutes.ts's /:eventId/tasks) —
+// the item detail modal's "Events" section (task/subtask items only). Read
+// + unlink only; linking happens from the event side's task-picker.
+router.get('/:projectId/items/:itemId/events', protect, validateProjectId, validateItemId, getItemEvents);
+router.delete(
+  '/:projectId/items/:itemId/events/:eventId',
+  protect,
+  validateProjectId,
+  validateItemId,
+  validateEventId,
+  unlinkItemEvent
+);
+
 router.patch(
   '/:projectId/items/:itemId/move',
   protect,

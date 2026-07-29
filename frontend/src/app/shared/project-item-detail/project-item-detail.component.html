@@ -237,6 +237,53 @@
               }
             }
 
+            <!-- Events (task/subtask only — reverse side of the event modal's
+                 "Tasks" tab; read + unlink only, linking happens from there) -->
+            @if (!isGroup) {
+              @if (sharedViewOnly) {
+                <div class="detail-section">
+                  <div class="subtask-header"><i class="bi bi-calendar-event me-1"></i>Events</div>
+                  <p class="text-muted small mb-0">Not available in a shared view.</p>
+                </div>
+              } @else {
+              <div class="detail-section">
+                <div class="subtask-header">
+                  <i class="bi bi-calendar-event me-1"></i>Events
+                  @if (linkedEvents.length > 0) { <span class="subtask-count">{{ linkedEvents.length }}</span> }
+                </div>
+
+                @if (linkedEventsLoading) {
+                  <div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</div>
+                } @else if (linkedEvents.length === 0) {
+                  <p class="text-muted small mb-0">Not added to any event yet.</p>
+                } @else {
+                  <ul class="attachment-list mb-0">
+                    @for (event of linkedEvents; track event.id) {
+                      <li class="attachment-item">
+                        <div class="attachment-info">
+                          <span class="attachment-name">
+                            {{ event.title }}
+                            @if (event.status === 'cancelled') { <span class="text-danger">(Cancelled)</span> }
+                          </span>
+                          <span class="attachment-meta">{{ event.start | appDate }} {{ event.start | appTime }}</span>
+                        </div>
+                        @if (canEdit) {
+                          <button type="button" class="subtask-del-btn" [disabled]="unlinkingEventId === event.id" (click)="unlinkEvent(event)" title="Unlink event">
+                            @if (unlinkingEventId === event.id) {
+                              <span class="spinner-border spinner-border-sm"></span>
+                            } @else {
+                              <i class="bi bi-x"></i>
+                            }
+                          </button>
+                        }
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
+              }
+            }
+
             <!-- Comments -->
             @if (sharedViewOnly) {
               <div class="detail-section">
@@ -465,6 +512,11 @@
                       <app-date-picker [value]="meetingLinkDateStr" (valueChange)="meetingLinkDateStr = $event"></app-date-picker>
                       <app-time-picker [value]="meetingLinkTimeStr" (valueChange)="meetingLinkTimeStr = $event"></app-time-picker>
                     </div>
+                    <select class="meeting-link-input" [(ngModel)]="meetingLinkDurationDraft" [ngModelOptions]="{standalone: true}">
+                      @for (opt of meetingLinkDurationOptions; track opt.value) {
+                        <option [ngValue]="opt.value">{{ opt.label }}</option>
+                      }
+                    </select>
                     <div class="meeting-link-form-actions">
                       <button type="button" class="meeting-link-save-btn" (click)="submitMeetingLink()" [disabled]="meetingLinkSaving">
                         @if (meetingLinkSaving) {

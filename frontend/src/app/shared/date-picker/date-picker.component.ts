@@ -100,6 +100,15 @@ export class DatePickerComponent implements ControlValueAccessor, OnChanges, OnD
     this.valueChange.emit(value);
   }
 
+  // Every call site below writes the new value into this component's own
+  // display state (writeValue) *before* calling emit(). Under formControlName,
+  // Angular never calls writeValue in response to this component's own
+  // onChange — that round trip only happens for template-driven [value]
+  // consumers, where the parent rebinds [value] and ngOnChanges picks it up.
+  // Without this, a formControlName-bound picker's own trigger/calendar never
+  // shows the just-picked date, even though the FormControl (and therefore
+  // whatever gets submitted) is already correct.
+
   ngOnChanges(changes: SimpleChanges) {
     if (changes['value']) {
       this.ngbModel = this.value ? isoToStruct(this.value) : null;
@@ -153,7 +162,10 @@ export class DatePickerComponent implements ControlValueAccessor, OnChanges, OnD
 
     if (!text) {
       this.clearError();
-      if (this.value !== null) this.emit(null);
+      if (this.value !== null) {
+        this.writeValue(null);
+        this.emit(null);
+      }
       return true;
     }
 
@@ -170,8 +182,12 @@ export class DatePickerComponent implements ControlValueAccessor, OnChanges, OnD
     }
 
     this.clearError();
-    if (iso !== this.value) this.emit(iso);
-    else this.syncInputText();
+    if (iso !== this.value) {
+      this.writeValue(iso);
+      this.emit(iso);
+    } else {
+      this.syncInputText();
+    }
     return true;
   }
 
@@ -210,19 +226,22 @@ export class DatePickerComponent implements ControlValueAccessor, OnChanges, OnD
   }
 
   onDateSelect(date: NgbDateStruct) {
-    this.emit(structToIso(date));
+    const iso = structToIso(date);
+    this.writeValue(iso);
+    this.emit(iso);
     this.close();
   }
 
   selectToday() {
-    this.emit(dayjs().format('YYYY-MM-DD'));
+    const iso = dayjs().format('YYYY-MM-DD');
+    this.writeValue(iso);
+    this.emit(iso);
     this.close();
   }
 
   clear() {
+    this.writeValue(null);
     this.emit(null);
-    this.inputText = '';
-    this.clearError();
     this.close();
   }
 

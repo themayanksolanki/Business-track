@@ -1,3 +1,4 @@
+import { Observable } from 'rxjs';
 import { User } from './user.model';
 import { TagLite } from './tag.model';
 
@@ -39,6 +40,7 @@ export interface ProjectItem {
   meetingLinkTitle?: string | null;
   meetingLinkPlatform?: MeetingPlatform | null;
   meetingLinkAt?: string | null;
+  meetingLinkDurationMinutes?: number | null;
   tags: TagLite[];
   createdAt: string;
   updatedAt: string;
@@ -70,11 +72,46 @@ export interface UpdateProjectItemPayload {
   meetingLinkUrl?: string | null;
   meetingLinkTitle?: string | null;
   meetingLinkAt?: string | null;
+  meetingLinkDuration?: number | null;
   tags?: number[];
   // {userId, username} pairs currently @mentioned in `description` — the
   // backend diffs this against the item's previously-stored list and only
   // notifies newly-added mentions.
   mentions?: { userId: number; username: string }[];
+}
+
+// Narrow row shape for pickers (e.g. the event "Tasks" tab's group/task
+// browser) — backed by GET /projects/:id/items?parentId=&type=, which
+// selects only these columns server-side rather than the full ITEM_INCLUDE.
+export interface ProjectItemPickerRow {
+  id: number;
+  title: string;
+  type: ProjectItemType;
+  status: ProjectItemStatus;
+}
+
+// A task linked to some other entity (event, and per a future plan, metric)
+// via the implicit CalendarEvent<->ProjectItem "linkedEvents"/"linkedTasks"
+// m2m — enough to render a row in the <app-linked-tasks> panel (title, a
+// muted project/group breadcrumb, a status pill), not the full ProjectItem.
+export interface LinkedTask {
+  id: number;
+  title: string;
+  type: ProjectItemType;
+  status: ProjectItemStatus;
+  project: { id: number; name: string };
+  parent: { id: number; title: string } | null;
+}
+
+// Generic contract for <app-linked-tasks> (mirrors AttachmentsAdapter's
+// shape in attachment.model.ts) — deliberately has no notion of "event"
+// specifically, so the same component/dialog can bind to any parent entity
+// that exposes list/link/unlink endpoints for tasks (events today, metrics
+// planned later).
+export interface LinkedTasksAdapter {
+  list(): Observable<LinkedTask[]>;
+  link(projectItemIds: number[]): Observable<{ tasks: LinkedTask[] }>;
+  unlink(projectItemId: number): Observable<{ message: string }>;
 }
 
 // Frontend-only: recursive tree built client-side from the flat ProjectItem[] response.

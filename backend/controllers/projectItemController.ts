@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import type { Prisma, ProjectItem } from '@prisma/client';
+import type { Prisma, ProjectItem, ProjectItemType } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
 import { destroyBlob } from '../utils/blobStorage.js';
@@ -165,7 +165,29 @@ export const getItems = async (req: Request, res: Response, next: NextFunction) 
     if (!(await canAccessProject(req.user!, project)))
       return next(new AppError('You do not have access to this project', 403));
 
-    const { limit } = req.query;
+    const { limit, parentId, type } = req.query;
+
+    // Narrow picker query (event "Tasks" tab: browse groups under a project,
+    // then tasks under a group) — a `select` of just enough to render a row,
+    // never the full ITEM_INCLUDE (assignee/creator/updater/tags), and no
+    // pagination since a project's group count / a group's task count is
+    // naturally small. Existing callers never pass these params, so the
+    // full-list behavior below is unaffected.
+    if (parentId !== undefined || type !== undefined) {
+      const VALID_TYPES: ProjectItemType[] = ['group', 'task', 'subtask'];
+      const where: Prisma.ProjectItemWhereInput = {
+        projectId: project.id,
+        parentId: parentId === undefined || parentId === 'null' || parentId === '' ? null : Number(parentId),
+      };
+      if (typeof type === 'string' && VALID_TYPES.includes(type as ProjectItemType)) where.type = type as ProjectItemType;
+
+      const items = await prisma.projectItem.findMany({
+        where,
+        select: { id: true, title: true, type: true, status: true },
+        orderBy: { order: 'asc' },
+      });
+      return res.status(200).json({ items });
+    }
 
     if (limit) {
       const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
@@ -370,6 +392,69 @@ export const getItemById = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
+// Narrow select for the item detail modal's "Events" section — the reverse
+// side of eventController.ts's getEventTasks (same linkedTasks/linkedEvents
+// m2m, see calendarEvent.prisma), only ever shown for task/subtask items
+// (never groups) — mirrored client-side by the isGroup gate on the section.
+const ITEM_EVENT_SELECT = { id: true, title: true, start: true, end: true, status: true };
+
+export const getItemEvents = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE,
+    });
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user!, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
+    const item = await prisma.projectItem.findFirst({
+      where: { id: Number(req.params.itemId), projectId: project.id },
+      select: { id: true },
+    });
+    if (!item) return next(new AppError('Item not found', 404));
+
+    const events = await prisma.calendarEvent.findMany({
+      where: { linkedTasks: { some: { id: item.id } } },
+      select: ITEM_EVENT_SELECT,
+      orderBy: { start: 'asc' },
+    });
+
+    res.status(200).json({ events });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const unlinkItemEvent = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      include: ACCESS_INCLUDE_WITH_ROLE,
+    });
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user!, project)))
+      return next(new AppError('You do not have access to this project', 403));
+    if (!canEditProject(req.user!, project))
+      return next(new AppError('You have view-only access to this project', 403));
+
+    const item = await prisma.projectItem.findFirst({
+      where: { id: Number(req.params.itemId), projectId: project.id },
+      select: { id: true },
+    });
+    if (!item) return next(new AppError('Item not found', 404));
+
+    await prisma.projectItem.update({
+      where: { id: item.id },
+      data: { linkedEvents: { disconnect: { id: Number(req.params.eventId) } } },
+    });
+
+    res.status(200).json({ message: 'Event unlinked' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const updateItem = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const project = await prisma.project.findUnique({
@@ -401,6 +486,7 @@ export const updateItem = async (req: Request, res: Response, next: NextFunction
       meetingLinkUrl,
       meetingLinkTitle,
       meetingLinkAt,
+      meetingLinkDuration,
     } = req.body;
     const data: Prisma.ProjectItemUncheckedUpdateInput = { updatedById: req.user!.id };
 
@@ -441,16 +527,24 @@ export const updateItem = async (req: Request, res: Response, next: NextFunction
     // meetingLinkChange (same url/title/at, once computed) also drives
     // syncMeetingLinkCalendarEvent below, which mirrors this exact change
     // onto the item's auto-managed CalendarEvent.
-    let meetingLinkChange: { url: string | null; title: string | null; at: Date | null } | undefined;
+    let meetingLinkChange:
+      | { url: string | null; title: string | null; at: Date | null; durationMinutes: number | null }
+      | undefined;
     if (meetingLinkUrl !== undefined) {
       if (meetingLinkUrl) {
-        meetingLinkChange = { url: meetingLinkUrl, title: meetingLinkTitle ?? null, at: new Date(meetingLinkAt) };
+        meetingLinkChange = {
+          url: meetingLinkUrl,
+          title: meetingLinkTitle ?? null,
+          at: new Date(meetingLinkAt),
+          durationMinutes: meetingLinkDuration ? Number(meetingLinkDuration) : null,
+        };
       } else {
-        meetingLinkChange = { url: null, title: null, at: null };
+        meetingLinkChange = { url: null, title: null, at: null, durationMinutes: null };
       }
       data.meetingLinkUrl = meetingLinkChange.url;
       data.meetingLinkTitle = meetingLinkChange.title;
       data.meetingLinkAt = meetingLinkChange.at;
+      data.meetingLinkDurationMinutes = meetingLinkChange.durationMinutes;
       data.meetingLinkPlatform = meetingLinkChange.url ? detectMeetingPlatform(meetingLinkChange.url) : null;
     }
 

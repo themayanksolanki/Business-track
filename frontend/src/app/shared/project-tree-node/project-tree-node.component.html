@@ -219,10 +219,8 @@
       <i class="bi bi-card-text"></i>
     </button>
 
-    <!-- Shown on both Task and Group rows (unlike attachments/description
-         above, which don't apply to groups) — approvers can be assigned to
-         either. -->
     <button type="button" class="tree-icon-btn tree-icon-btn-approval" [class.active]="approvalOpen || (node.pendingApproverCount ?? 0) > 0"
+            [class.tree-icon-hidden]="node.type === 'group'"
             (click)="$event.stopPropagation(); toggleApproval()" title="Task Approval">
       <i class="bi bi-hand-thumbs-up"></i>
       @if ((node.pendingApproverCount ?? 0) > 0) {
@@ -275,16 +273,13 @@
       <textarea class="tree-title-edit tree-title-edit-inline" rows="1" [(ngModel)]="addChildTitle"
                 [appAutoGrow]="addChildTitle" [placeholder]="addChildPlaceholder" maxlength="200"
                 (keydown)="onAddChildKeydown($event)"></textarea>
-      <button class="btn btn-sm btn-success add-subtask-btn" (click)="submitAddChild()" [disabled]="addChildLoading || !addChildTitle.trim()">
-        @if (addChildLoading) { <span class="spinner-border spinner-border-sm"></span> } @else { <i class="bi bi-plus-lg"></i> }
+      <button class="btn btn-sm btn-success add-subtask-btn" (click)="submitAddChild()" [disabled]="!addChildTitle.trim()">
+        <i class="bi bi-plus-lg"></i>
       </button>
       <button class="btn btn-sm border btn-outline-light subtask-del-btn" (click)="cancelAddChild()" title="Cancel">
         <i class="bi bi-x text-danger"></i>
       </button>
     </div>
-    @if (addChildError) {
-      <div class="subtask-error" [style.padding-left]="'calc(' + (node.depth + 1) + ' * var(--tree-indent-unit, 22px) + 40px)'">{{ addChildError }}</div>
-    }
   }
 
   @if (expanded && (node.children.length > 0 || (canAddChild && node.depth === 0))) {

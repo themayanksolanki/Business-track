@@ -4,6 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { MeetingService } from '../../../core/services/meeting.service';
 import { ChatService } from '../../../core/services/chat.service';
 import { WebrtcPeerService } from '../../../core/services/webrtc-peer.service';
+import { MeetingSessionService } from '../../../core/services/meeting-session.service';
 import { Meeting } from '../../../models/meeting.model';
 import { MeetingRoomComponent } from '../meeting-room/meeting-room.component';
 
@@ -32,6 +33,7 @@ export class MeetingLobbyComponent implements OnInit, OnDestroy {
     // existing chat endpoint rather than duplicating it under /meetings.
     private chatSvc: ChatService,
     private webrtcSvc: WebrtcPeerService,
+    private meetingSessionSvc: MeetingSessionService,
   ) {}
 
   ngOnInit() {
@@ -45,6 +47,16 @@ export class MeetingLobbyComponent implements OnInit, OnDestroy {
       next: (meeting) => {
         this.meeting = meeting;
         this.loading = false;
+
+        // Returning here after minimizing (or any other in-app navigation)
+        // while this meeting is still live — re-attach to it directly
+        // instead of re-requesting camera/mic access and re-joining.
+        if (this.meetingSessionSvc.hasActiveSession(roomCode)) {
+          this.isMuted  = this.meetingSessionSvc.isMuted;
+          this.isCamOff = this.meetingSessionSvc.isCamOff;
+          this.joined   = true;
+          return;
+        }
         this.startPreview();
       },
       error: () => {

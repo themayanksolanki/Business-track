@@ -6,6 +6,8 @@ import {
   validateOccurrenceParams,
   validateAttachmentId,
   validateAttachmentLink,
+  validateTaskLinks,
+  validateProjectItemIdParam,
 } from '../middleware/validate.js';
 import { attachmentUpload } from '../middleware/attachmentUpload.js';
 import {
@@ -17,6 +19,9 @@ import {
   getOccurrence,
   updateOccurrence,
   skipOccurrence,
+  getEventTasks,
+  linkEventTasks,
+  unlinkEventTask,
 } from '../controllers/eventController.js';
 import {
   getEventAttachments,
@@ -43,6 +48,14 @@ router.post('/:eventId/attachments/link', protect, validateEventId, validateAtta
 router.get('/:eventId/attachments/:attachmentId/download', protect, validateEventId, validateAttachmentId, downloadEventAttachment);
 router.delete('/:eventId/attachments/:attachmentId', protect, validateEventId, validateAttachmentId, deleteEventAttachment);
 router.post('/:eventId/attachments/:attachmentId/undo', protect, validateEventId, validateAttachmentId, undoEventAttachment);
+
+// Tasks tab — link/unlink existing ProjectItem tasks against this event
+// (browsing projects/groups/tasks to pick from happens via the projects API,
+// see projectController.getProjects `minimal` + projectItemController.getItems
+// `parentId`/`type` params).
+router.get('/:eventId/tasks', protect, validateEventId, getEventTasks);
+router.post('/:eventId/tasks', protect, validateEventId, validateTaskLinks, linkEventTasks);
+router.delete('/:eventId/tasks/:projectItemId', protect, validateEventId, validateProjectItemIdParam, unlinkEventTask);
 
 // Per-occurrence exceptions to a recurring event (see EventException) —
 // :originalStart identifies which generated slot the request targets, not

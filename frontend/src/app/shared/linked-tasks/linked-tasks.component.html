@@ -1,0 +1,57 @@
+<div class="linked-tasks-root">
+  <div class="subtask-header">
+    <i class="bi bi-check2-square me-1"></i>Tasks
+    @if (tasks.length > 0) { <span class="subtask-count">{{ tasks.length }}</span> }
+  </div>
+
+  @if (error) {
+    <div class="field-error mb-2">{{ error }}</div>
+  }
+
+  @if (loading) {
+    <div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</div>
+  } @else if (tasks.length === 0) {
+    <p class="text-muted small mb-2">{{ emptyMessage }}</p>
+  } @else {
+    <ul class="linked-task-list mb-2">
+      @for (task of tasks; track task.id) {
+        <li class="linked-task-item">
+          <div class="linked-task-info">
+            <span class="linked-task-title">{{ task.title }}</span>
+            <span class="linked-task-meta">
+              {{ task.project.name }}@if (task.parent) { &nbsp;/&nbsp;{{ task.parent.title }} }
+            </span>
+          </div>
+          <span class="detail-status-pill linked-task-status-pill"
+                [class.pill-todo]="task.status === 'todo'"
+                [class.pill-doing]="task.status === 'doing'"
+                [class.pill-completed]="task.status === 'completed'">
+            {{ task.status === 'todo' ? 'Todo' : task.status === 'doing' ? 'Doing' : 'Completed' }}
+          </span>
+          @if (canEdit) {
+            <button type="button" class="subtask-del-btn" [disabled]="unlinkingId === task.id" (click)="unlink(task)" title="Unlink task">
+              @if (unlinkingId === task.id) {
+                <span class="spinner-border spinner-border-sm"></span>
+              } @else {
+                <i class="bi bi-x"></i>
+              }
+            </button>
+          }
+        </li>
+      }
+    </ul>
+  }
+
+  @if (canEdit) {
+    <button type="button" class="meeting-link-add-btn" (click)="openPicker()">
+      <i class="bi bi-plus-lg me-1"></i>Task
+    </button>
+  }
+</div>
+
+<app-task-picker-dialog
+  [open]="pickerOpen"
+  [excludeTaskIds]="excludeTaskIds"
+  (closed)="pickerOpen = false"
+  (tasksPicked)="onTasksPicked($event)">
+</app-task-picker-dialog>

@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import prisma from '../lib/prisma.js';
+import AppError from '../utils/AppError.js';
 
 interface IceServer {
   urls: string | string[];
@@ -29,17 +30,17 @@ export const getContacts = async (req: Request, res: Response, next: NextFunctio
   try {
     const myId = req.user!.id;
 
-    const [me, blockedByThemRows, users, messages] = await Promise.all([
+    const [me, users, messages] = await Promise.all([
       prisma.user.findUnique({
         where: { id: myId },
         select: {
-          blockedUsers: { select: { id: true } },
           mutedUsers: { select: { id: true } },
         },
       }),
-      prisma.user.findMany({ where: { blockedUsers: { some: { id: myId } } }, select: { id: true } }),
+      // Org-scoped — a user should only ever see/message people in their own
+      // organization, matching every other list endpoint in this app.
       prisma.user.findMany({
-        where: { id: { not: myId }, isActive: true },
+        where: { id: { not: myId }, isActive: true, organizationId: req.user!.organizationId },
         select: { id: true, username: true, email: true, profileImage: true, role: true },
       }),
       // Ordered newest-first so the first message we see per contact while
@@ -57,8 +58,6 @@ export const getContacts = async (req: Request, res: Response, next: NextFunctio
       }),
     ]);
 
-    const blockedByThemSet = new Set(blockedByThemRows.map((u) => u.id));
-    const myBlockedSet = new Set((me?.blockedUsers ?? []).map((u) => u.id));
     const myMutedSet = new Set((me?.mutedUsers ?? []).map((u) => u.id));
 
     interface ContactStats {
@@ -83,8 +82,6 @@ export const getContacts = async (req: Request, res: Response, next: NextFunctio
         user,
         lastMessage: stats?.lastMessage ?? null,
         unreadCount: stats?.unreadCount ?? 0,
-        isBlocked: myBlockedSet.has(user.id),
-        blockedByThem: blockedByThemSet.has(user.id),
         isMuted: myMutedSet.has(user.id),
       };
     });
@@ -107,6 +104,13 @@ export const getMessages = async (req: Request, res: Response, next: NextFunctio
   try {
     const myId = req.user!.id;
     const userId = Number(req.params.userId);
+
+    const contact = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { organizationId: true },
+    });
+    if (!contact || contact.organizationId !== req.user!.organizationId)
+      return next(new AppError('Contact not found', 404));
 
     const messages = await prisma.message.findMany({
       where: {
@@ -169,28 +173,6 @@ export const clearChat = async (req: Request, res: Response, next: NextFunction)
     }
 
     res.status(200).json({ success: true });
-  } catch (err) {
-    next(err);
-  }
-};
-
-export const toggleBlock = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const myId = req.user!.id;
-    const userId = Number(req.params.userId);
-
-    const me = await prisma.user.findUnique({
-      where: { id: myId },
-      select: { blockedUsers: { where: { id: userId }, select: { id: true } } },
-    });
-    const isBlocked = me!.blockedUsers.length > 0;
-
-    await prisma.user.update({
-      where: { id: myId },
-      data: { blockedUsers: isBlocked ? { disconnect: { id: userId } } : { connect: { id: userId } } },
-    });
-
-    res.status(200).json({ blocked: !isBlocked });
   } catch (err) {
     next(err);
   }

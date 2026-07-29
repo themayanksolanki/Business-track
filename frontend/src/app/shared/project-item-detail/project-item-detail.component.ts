@@ -17,6 +17,7 @@ import { User } from '../../models/user.model';
 import { Tag, TagLite } from '../../models/tag.model';
 import { Attachment, ACCEPTED_ATTACHMENT_TYPES } from '../../models/attachment.model';
 import { ProjectComment, CommentMention } from '../../models/comment.model';
+import { LinkedEvent } from '../../models/event.model';
 import { DatePickerComponent } from '../date-picker/date-picker.component';
 import { TimePickerComponent } from '../time-picker/time-picker.component';
 import { ModalDirective } from '../modal.directive';
@@ -106,6 +107,13 @@ export class ProjectItemDetailComponent implements OnChanges, OnInit, OnDestroy 
   commentBody = '';
   commentSubmitting = false;
 
+  // Events this task/subtask has been linked to (see the event modal's
+  // "Tasks" tab) — read + unlink only, shown just above Comments; never
+  // shown for groups (see isGroup gate on the section + the load call below).
+  linkedEvents: LinkedEvent[] = [];
+  linkedEventsLoading = false;
+  unlinkingEventId: number | null = null;
+
   editingCommentId: number | null = null;
   editCommentBody = '';
   editCommentSubmitting = false;
@@ -170,8 +178,20 @@ export class ProjectItemDetailComponent implements OnChanges, OnInit, OnDestroy 
   meetingLinkTitleDraft = '';
   meetingLinkDateStr: string | null = null;
   meetingLinkTimeStr: string | null = null;
+  meetingLinkDurationDraft = 30;
   meetingLinkSaving = false;
   meetingLinkError = '';
+
+  readonly meetingLinkDurationOptions = [
+    { value: 15, label: '15 min' },
+    { value: 30, label: '30 min' },
+    { value: 45, label: '45 min' },
+    { value: 60, label: '1 hr' },
+    { value: 90, label: '1.5 hr' },
+    { value: 120, label: '2 hr' },
+    { value: 180, label: '3 hr' },
+    { value: 240, label: '4 hr' },
+  ];
 
   readonly meetingPlatformMeta: Record<MeetingPlatform, { label: string; icon: string; color: string }> = {
     ZOOM: { label: 'Zoom', icon: 'bi-camera-video-fill', color: '#2d8cff' },
@@ -228,6 +248,7 @@ export class ProjectItemDetailComponent implements OnChanges, OnInit, OnDestroy 
       if (!this.sharedViewOnly) {
         this.loadComments();
         this.loadAttachments();
+        if (!this.isGroup) this.loadLinkedEvents();
       }
     }
   }
@@ -361,6 +382,7 @@ export class ProjectItemDetailComponent implements OnChanges, OnInit, OnDestroy 
     this.meetingLinkTitleDraft = this.item?.meetingLinkTitle ?? '';
     this.meetingLinkDateStr = this.item?.meetingLinkAt ? dayjs(this.item.meetingLinkAt).format('YYYY-MM-DD') : null;
     this.meetingLinkTimeStr = this.item?.meetingLinkAt ? dayjs(this.item.meetingLinkAt).format('HH:mm') : null;
+    this.meetingLinkDurationDraft = this.item?.meetingLinkDurationMinutes ?? 30;
   }
 
   cancelMeetingLinkForm() {
@@ -390,7 +412,12 @@ export class ProjectItemDetailComponent implements OnChanges, OnInit, OnDestroy 
     this.meetingLinkSaving = true;
     const meetingLinkAt = this.combineDateTime(this.meetingLinkDateStr, this.meetingLinkTimeStr);
     this.projectService
-      .updateItem(this.projectId, this.item.id, { meetingLinkUrl: url, meetingLinkTitle: title, meetingLinkAt })
+      .updateItem(this.projectId, this.item.id, {
+        meetingLinkUrl: url,
+        meetingLinkTitle: title,
+        meetingLinkAt,
+        meetingLinkDuration: this.meetingLinkDurationDraft,
+      })
       .subscribe({
         next: (res) => {
           this.item = res.item;
@@ -539,6 +566,33 @@ export class ProjectItemDetailComponent implements OnChanges, OnInit, OnDestroy 
         if (this.highlightCommentId != null) this.scrollToHighlightedComment();
       },
       error: () => (this.commentsLoading = false),
+    });
+  }
+
+  loadLinkedEvents() {
+    if (!this.item) return;
+    this.linkedEventsLoading = true;
+    this.projectService.getItemEvents(this.projectId, this.item.id).subscribe({
+      next: (res) => {
+        this.linkedEvents = res.events;
+        this.linkedEventsLoading = false;
+      },
+      error: () => (this.linkedEventsLoading = false),
+    });
+  }
+
+  unlinkEvent(event: LinkedEvent) {
+    if (!this.item) return;
+    this.unlinkingEventId = event.id;
+    this.projectService.unlinkItemEvent(this.projectId, this.item.id, event.id).subscribe({
+      next: () => {
+        this.linkedEvents = this.linkedEvents.filter((e) => e.id !== event.id);
+        this.unlinkingEventId = null;
+      },
+      error: (err) => {
+        this.notifications.error(err.error?.message || 'Failed to unlink event');
+        this.unlinkingEventId = null;
+      },
     });
   }
 

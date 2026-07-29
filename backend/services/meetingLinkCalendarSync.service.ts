@@ -4,8 +4,9 @@ import { nextSequenceId } from '../utils/sequence.js';
 import { detectMeetingPlatform } from '../utils/meetingLink.js';
 
 // A new meeting link only ever carries a single point in time (no end),
-// unlike a real CalendarEvent — this default duration backs the mirrored
-// event's `end` so it renders as a normal (non-zero-length) block.
+// unlike a real CalendarEvent — this fallback duration backs the mirrored
+// event's `end` when no duration was picked (legacy links saved before this
+// field existed) so it still renders as a normal (non-zero-length) block.
 const MEETING_EVENT_DURATION_MINUTES = 30;
 
 interface MeetingLinkItem {
@@ -20,6 +21,7 @@ interface MeetingLinkChange {
   url: string | null;
   title: string | null;
   at: Date | null;
+  durationMinutes: number | null;
 }
 
 // Keeps a ProjectItem's pasted meeting link (see projectItemController.ts'
@@ -31,13 +33,23 @@ interface MeetingLinkChange {
 // so the event keeps surfacing on the calendar as an explicit cancellation
 // instead of silently vanishing. Must run inside the same transaction as the
 // ProjectItem write it's syncing from.
+//
+// `description` is deliberately left untouched (never set here) — it's a
+// free-text field users edit directly via the event modal's CKEditor, and
+// used to get clobbered with a canned "Automatically created from..."
+// string on every meeting-link edit. Instead, the originating task is
+// connected into the event's `linkedTasks` (the same many-to-many the
+// event's "Tasks" tab uses), so it simply shows up there.
 export async function syncMeetingLinkCalendarEvent(
   tx: Prisma.TransactionClient,
   item: MeetingLinkItem,
   change: MeetingLinkChange,
   actorId: number
 ) {
-  const existing = await tx.calendarEvent.findUnique({ where: { sourceProjectItemId: item.id } });
+  const existing = await tx.calendarEvent.findUnique({
+    where: { sourceProjectItemId: item.id },
+    include: { linkedTasks: { select: { id: true } } },
+  });
 
   if (!change.url) {
     if (existing && existing.status !== 'cancelled') {
@@ -50,17 +62,17 @@ export async function syncMeetingLinkCalendarEvent(
   }
 
   const start = change.at ?? new Date();
-  const end = new Date(start.getTime() + MEETING_EVENT_DURATION_MINUTES * 60_000);
+  const durationMinutes = change.durationMinutes ?? MEETING_EVENT_DURATION_MINUTES;
+  const end = new Date(start.getTime() + durationMinutes * 60_000);
   const platform = detectMeetingPlatform(change.url);
   const title = change.title || 'Meeting';
-  const description = `Automatically created from the meeting link on task "${item.title}".`;
 
   if (existing) {
+    const alreadyLinked = existing.linkedTasks.some((t) => t.id === item.id);
     await tx.calendarEvent.update({
       where: { id: existing.id },
       data: {
         title,
-        description,
         start,
         end,
         meetingLinkUrl: change.url,
@@ -68,6 +80,7 @@ export async function syncMeetingLinkCalendarEvent(
         meetingLinkPlatform: platform,
         status: 'confirmed',
         updatedById: actorId,
+        ...(alreadyLinked ? {} : { linkedTasks: { connect: [{ id: item.id }] } }),
       },
     });
     return;
@@ -82,7 +95,6 @@ export async function syncMeetingLinkCalendarEvent(
       organizationId: item.organizationId,
       sequenceId,
       title,
-      description,
       start,
       end,
       allDay: false,
@@ -94,6 +106,7 @@ export async function syncMeetingLinkCalendarEvent(
       status: 'confirmed',
       sourceProjectItemId: item.id,
       createdById: actorId,
+      linkedTasks: { connect: [{ id: item.id }] },
     },
   });
 }

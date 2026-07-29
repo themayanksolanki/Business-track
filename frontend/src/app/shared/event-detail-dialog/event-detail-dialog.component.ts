@@ -25,6 +25,7 @@ import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.compone
 import { DatePickerComponent } from '../date-picker/date-picker.component';
 import { TimePickerComponent } from '../time-picker/time-picker.component';
 import { AttachmentsComponent } from '../attachments/attachments.component';
+import { LinkedTasksComponent } from '../linked-tasks/linked-tasks.component';
 import { EventService } from '../../core/services/event.service';
 import { DepartmentService } from '../../core/services/department.service';
 import { CategoryService } from '../../core/services/category.service';
@@ -88,6 +89,7 @@ const REMINDER_METHOD_OPTIONS: { value: ReminderMethod; label: string }[] = [
     TimePickerComponent,
     CKEditorModule,
     AttachmentsComponent,
+    LinkedTasksComponent,
   ],
   templateUrl: './event-detail-dialog.component.html',
   styleUrl: './event-detail-dialog.component.css',
@@ -171,6 +173,14 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
   // modified, that embedded field belongs to the separate override row
   // (always empty), not the master series' real list.
   attachmentsCount = 0;
+
+  // Which top-level pane is showing — "Details" is today's existing
+  // two-panel view/edit content, "Tasks" is the new linked-tasks panel.
+  // Always resets to 'details' whenever the dialog (re)opens/loads a
+  // different event, same reasoning as attachmentsCount above: tasksCount
+  // is kept in sync purely via <app-linked-tasks>'s (tasksChange) output.
+  activeTab: 'details' | 'tasks' = 'details';
+  tasksCount = 0;
 
   private subs = new Subscription();
 
@@ -291,6 +301,8 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
     if (changes['open'] && this.open) {
       this.error = '';
       this.confirmDeleteOpen = false;
+      this.activeTab = 'details';
+      this.tasksCount = 0;
       this.departmentService.ensureDepartmentsLoaded();
       this.categoryService.ensureCategoriesLoaded();
       this.calendarService.getCalendars().subscribe({
@@ -320,6 +332,7 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
     } else if (changes['open'] && !this.open) {
       this.loadedEvent = null;
       this.attachmentsCount = 0;
+      this.tasksCount = 0;
       this.scopeChoiceOpen = false;
       this.scopeChoiceKind = null;
       this.pendingPayload = null;
@@ -334,6 +347,7 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
         this.loadedEvent = event;
         this.populateForm(event);
         this.loading = false;
+        this.promoteToEditIfPermitted();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to load event';
@@ -350,12 +364,26 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
         this.loadedEvent = event;
         this.populateForm(event);
         this.loading = false;
+        this.promoteToEditIfPermitted();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to load event';
         this.loading = false;
       },
     });
+  }
+
+  // Clicking an existing event opens this dialog with mode 'view' — skip
+  // straight to the edit form instead of making the user click "Edit" as a
+  // second step, but only when they can actually save changes; a guest/
+  // non-owner with view-only access still lands on the read-only view,
+  // exactly as before (the backend would reject their save anyway, so
+  // showing an editable form to them would just be misleading).
+  private promoteToEditIfPermitted() {
+    if (this.internalMode === 'view' && this.canManage) {
+      this.internalMode = 'edit';
+      setTimeout(() => this.titleInput?.nativeElement.focus());
+    }
   }
 
   private resetFormForCreate() {
@@ -446,8 +474,17 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
   startEdit() {
     this.internalMode = 'edit';
     this.error = '';
+    // Deferred a tick for the same reason as the create-mode focus in
+    // ngOnChanges — the header's title input doesn't exist in the DOM yet
+    // on this same change-detection pass (view mode's read-only <h5> is
+    // still what's rendered until internalMode flips take effect).
+    setTimeout(() => this.titleInput?.nativeElement.focus());
   }
 
+  // "Cancel" in the header: for an existing event, revert to the read-only
+  // view (discarding in-progress edits) rather than closing the modal
+  // outright; for a brand-new (unsaved) event there's no "view" to revert
+  // to, so it just closes.
   cancelEdit() {
     if (this.mode === 'create') {
       this.close();

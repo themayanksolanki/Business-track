@@ -81,8 +81,6 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
 
   addChildOpen = false;
   addChildTitle = '';
-  addChildLoading = false;
-  addChildError = '';
   editTitle = false;
 
   menuVisible = false;
@@ -97,6 +95,10 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
 
   private brokenAvatarIds = new Set<number>();
   private lastExpandToken = -1;
+  // Negative, decrementing per-instance — real ProjectItem ids are always
+  // positive, so these can never collide with a server-issued id while an
+  // optimistic add is in flight.
+  private nextOptimisticId = -1;
 
   constructor(
     private projectService: ProjectService,
@@ -415,9 +417,8 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
     this.descriptionOpen = !this.descriptionOpen;
   }
 
-  // Unlike attachments/description, approvers apply to Groups too — no
-  // isGroup guard here.
   toggleApproval() {
+    if (this.isGroup) return;
     this.approvalOpen = !this.approvalOpen;
   }
 
@@ -480,13 +481,11 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
     if (!this.canAddChild) return;
     this.addChildOpen = true;
     this.addChildTitle = '';
-    this.addChildError = '';
     this.expanded = true;
   }
 
   cancelAddChild() {
     this.addChildOpen = false;
-    this.addChildError = '';
   }
 
   onAddChildKeydown(event: KeyboardEvent) {
@@ -495,23 +494,59 @@ export class ProjectTreeNodeComponent implements OnInit, OnChanges, OnDestroy {
     this.submitAddChild();
   }
 
+  // Renders the new row immediately from client-known fields and closes the
+  // form right away — the create request itself completes in the
+  // background. On success the optimistic row is swapped for the real
+  // server item (real id, sequenceId, etc.); on failure it's pulled back out
+  // and the error surfaces as a toast, since the form is already closed.
   submitAddChild() {
     const title = this.addChildTitle.trim();
     if (!title) return;
-    this.addChildLoading = true;
-    this.addChildError = '';
+    this.addChildOpen = false;
+
+    const tempId = this.nextOptimisticId--;
+    const now = new Date().toISOString();
+    const optimisticNode: ProjectTreeNode = {
+      id: tempId,
+      sequenceId: null,
+      project: Number(this.projectId),
+      parentId: this.node.id,
+      type: this.node.depth === 0 ? 'task' : 'subtask',
+      title,
+      description: '',
+      status: 'todo',
+      priority: 'medium',
+      assignedTo: null,
+      createdBy: this.auth.currentUser()!,
+      depth: this.node.depth + 1,
+      order: this.node.children.length,
+      startDate: null,
+      endDate: null,
+      attachmentCount: 0,
+      approverCount: 0,
+      pendingApproverCount: 0,
+      tags: [],
+      createdAt: now,
+      updatedAt: now,
+      children: [],
+      childCount: 0,
+    };
+
+    this.node.children = [...this.node.children, optimisticNode];
+    this.node.childCount = this.node.children.length;
+
     this.projectService
       .createItem(this.projectId, { title, parentId: this.node.id })
       .subscribe({
         next: (res) => {
-          this.addChildLoading = false;
-          this.addChildOpen = false;
-          this.node.children = [...this.node.children, { ...res.item, children: [], childCount: 0 }];
-          this.node.childCount = this.node.children.length;
+          this.node.children = this.node.children.map((c) =>
+            c.id === tempId ? { ...res.item, children: [], childCount: 0 } : c
+          );
         },
         error: (err) => {
-          this.addChildError = err.error?.message || 'Failed to add item';
-          this.addChildLoading = false;
+          this.node.children = this.node.children.filter((c) => c.id !== tempId);
+          this.node.childCount = this.node.children.length;
+          this.notifications.error(err.error?.message || 'Failed to add item');
         },
       });
   }

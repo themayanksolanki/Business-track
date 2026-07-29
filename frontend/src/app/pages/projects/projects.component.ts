@@ -23,6 +23,7 @@ import {
   DataTableFilterOption,
   DataTableFilterState,
   DataTableSortState,
+  isFilterValueActive,
   toHierarchicalOptions,
 } from '../../shared/data-table/data-table.model';
 
@@ -167,6 +168,13 @@ export class ProjectsComponent implements OnInit, OnDestroy {
       { key: 'createdBy', label: 'Created By', width: '140px', minWidth: '110px' },
       { key: 'createdAt', label: 'Created', sortable: true, type: 'date', align: 'right', width: '130px', minWidth: '100px' },
     ];
+  }
+
+  get tableEmptyMessage(): string {
+    const hasActiveFilter = Object.values(this.filterState).some(isFilterValueActive);
+    return hasActiveFilter
+      ? 'No projects match your filters. Try clearing them or add a new project.'
+      : 'No projects yet. Click "New Project" to add one.';
   }
 
   onSortChange(state: DataTableSortState) {

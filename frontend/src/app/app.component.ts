@@ -20,11 +20,12 @@ import { LoadingService } from './core/services/loading.service';
 import { SidebarComponent } from './shared/sidebar/sidebar.component';
 import { ToastContainerComponent } from './shared/toast-container/toast-container.component';
 import { GlobalLoaderComponent } from './shared/global-loader/global-loader.component';
+import { CallWidgetComponent } from './shared/call-widget/call-widget.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, SidebarComponent, ToastContainerComponent, GlobalLoaderComponent],
+  imports: [RouterOutlet, SidebarComponent, ToastContainerComponent, GlobalLoaderComponent, CallWidgetComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
 })

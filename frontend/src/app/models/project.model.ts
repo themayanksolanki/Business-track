@@ -104,3 +104,21 @@ export interface PaginatedProjects {
   limit: number;
   totalPages: number;
 }
+
+// Narrow row shape for pickers (e.g. the event "Tasks" tab's project search)
+// — backed by GET /projects?minimal=true, which selects only these columns
+// server-side rather than the full Project include.
+export interface ProjectPickerRow {
+  id: number;
+  name: string;
+  status: ProjectStatus;
+  department: Pick<Department, 'id' | 'name'> | null;
+}
+
+export interface PaginatedProjectPickerRows {
+  projects: ProjectPickerRow[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}

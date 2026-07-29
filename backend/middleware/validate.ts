@@ -357,6 +357,7 @@ export const validateProjectItem = (req: Request, res: Response, next: NextFunct
     meetingLinkUrl,
     meetingLinkTitle,
     meetingLinkAt,
+    meetingLinkDuration,
   } = req.body;
 
   if (req.method === 'POST' && (!title || !title.trim()))
@@ -405,6 +406,12 @@ export const validateProjectItem = (req: Request, res: Response, next: NextFunct
 
     if (!meetingLinkAt || isNaN(new Date(meetingLinkAt).getTime()))
       return next(new AppError('meetingLinkAt is required when adding a meeting link', 400));
+
+    if (meetingLinkDuration !== undefined && meetingLinkDuration !== null) {
+      const duration = Number(meetingLinkDuration);
+      if (!Number.isInteger(duration) || duration <= 0 || duration > 1440)
+        return next(new AppError('meetingLinkDuration must be a whole number of minutes between 1 and 1440', 400));
+    }
   }
 
   next();
@@ -505,6 +512,18 @@ export const validateApproverAssignment = (req: Request, res: Response, next: Ne
 };
 
 export const validateApproverUserId = validateParamId('userId');
+
+export const validateProjectItemIdParam = validateParamId('projectItemId');
+
+export const validateTaskLinks = (req: Request, res: Response, next: NextFunction) => {
+  const { projectItemIds } = req.body;
+  if (!Array.isArray(projectItemIds) || projectItemIds.length === 0)
+    return next(new AppError('projectItemIds must be a non-empty array', 400));
+  if (!projectItemIds.every((id: unknown) => isValidId(id)))
+    return next(new AppError('projectItemIds must all be valid IDs', 400));
+
+  next();
+};
 
 export const validateAttachmentLink = (req: Request, res: Response, next: NextFunction) => {
   const { url } = req.body;

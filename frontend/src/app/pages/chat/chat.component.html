@@ -214,12 +214,12 @@
             <i class="bi bi-search"></i>
           </button>
           <button class="call-btn" (click)="startCall('audio')"
-                  [disabled]="callState !== 'idle' || isChatBlocked"
+                  [disabled]="callSvc.callState !== 'idle'"
                   title="Audio call">
             <i class="bi bi-telephone-fill"></i>
           </button>
           <button class="call-btn call-btn-video" (click)="startCall('video')"
-                  [disabled]="callState !== 'idle' || isChatBlocked"
+                  [disabled]="callSvc.callState !== 'idle'"
                   title="Video call">
             <i class="bi bi-camera-video-fill"></i>
           </button>
@@ -352,7 +352,7 @@
                           <span class="quoted-text">{{ msg.replyTo.type === 'image' ? 'Photo' : (msg.replyTo.content | slice:0:60) }}</span>
                         </div>
                       }
-                      <span class="msg-text">{{ msg.content }}</span>
+                      <span class="msg-text" [innerHTML]="renderMessageContent(msg)"></span>
                       <span class="msg-meta">
                         @if (msg.isEdited) { <span class="msg-edited">edited</span> }
                         <span class="msg-time">{{ formatTime(msg.createdAt) }}</span>
@@ -435,21 +435,8 @@
             </div>
           </div>
 
-          @if (selected.isBlocked || selected.blockedByThem) {
-            <div class="profile-card-blocked-notice">
-              <i class="bi bi-slash-circle-fill me-2"></i>
-              {{ selected.isBlocked ? 'You have blocked this contact' : 'You can\'t message this contact' }}
-            </div>
-          }
         </div>
       }
-
-      @if (isChatBlocked) {
-        <div class="chat-blocked-bar">
-          <i class="bi bi-slash-circle-fill me-2"></i>
-          {{ selected.isBlocked ? 'You have blocked this contact. Unblock to send messages.' : "You can't send messages to this contact." }}
-        </div>
-      } @else {
 
         @if (replyingTo) {
           <div class="reply-preview-bar">
@@ -523,7 +510,6 @@
             <i class="bi" [class.bi-send-fill]="!editingMessage" [class.bi-check-lg]="editingMessage"></i>
           </button>
         </div>
-      }
     }
   </div>
 </div>
@@ -546,112 +532,7 @@
   (cancelled)="onConfirmCancelled()">
 </app-confirm-dialog>
 
-<!-- ══ Call notice toast ══════════════════════════════════════════ -->
-@if (callNotice) {
-  <div class="call-notice-toast">
-    <i class="bi bi-info-circle-fill me-2"></i>{{ callNotice }}
-  </div>
-}
-
-<!-- ══ Incoming call notification ════════════════════════════════ -->
-@if (callState === 'incoming' && incomingCall) {
-  <div class="incoming-call-card">
-    <div class="ic-icon-wrap">
-      <i class="bi" [class.bi-telephone-fill]="incomingCall.callType === 'audio'"
-                    [class.bi-camera-video-fill]="incomingCall.callType === 'video'"></i>
-    </div>
-    <div class="ic-info">
-      <div class="ic-name">{{ incomingCall.fromName }}</div>
-      <div class="ic-type">Incoming {{ incomingCall.callType }} call…</div>
-    </div>
-    <div class="ic-actions">
-      <button class="ic-btn ic-reject" (click)="rejectCall()" title="Reject">
-        <i class="bi bi-telephone-x-fill"></i>
-      </button>
-      <button class="ic-btn ic-accept" (click)="acceptCall()" title="Accept">
-        <i class="bi bi-telephone-fill"></i>
-      </button>
-    </div>
-  </div>
-}
-
-<!-- ══ Call overlay ═══════════════════════════════════════════════ -->
-@if (callState === 'calling' || callState === 'in-call') {
-  <div class="call-overlay" #callOverlay>
-
-    <button class="fullscreen-btn" (click)="toggleFullscreen()" title="Toggle fullscreen">
-      <i class="bi" [class.bi-fullscreen]="!isFullscreen" [class.bi-fullscreen-exit]="isFullscreen"></i>
-    </button>
-
-    <!-- Remote tile (stage by default) -->
-    <div class="video-tile" [class.video-tile-main]="!pipSwapped" [class.video-tile-pip]="pipSwapped"
-         (click)="pipSwapped && toggleVideoSwap()">
-      <video #remoteVideo autoplay playsinline [muted]="false"></video>
-
-      @if (callType === 'audio' && callState === 'in-call') {
-        <div class="audio-call-placeholder">
-          <div class="audio-avatar">
-            @if (selected && avatarUrl(selected.user)) {
-              <img [src]="avatarUrl(selected!.user)!" class="audio-avatar-img" />
-            } @else {
-              <span class="audio-avatar-init">{{ selected?.user?.username?.[0]?.toUpperCase() }}</span>
-            }
-          </div>
-        </div>
-      }
-
-      @if (callState === 'calling') {
-        <div class="call-status-overlay">
-          <div class="call-spinner"></div>
-          <div class="call-status-text">Calling {{ selected?.user?.username }}…</div>
-          <div class="call-status-sub">Waiting for answer</div>
-        </div>
-      }
-
-      <div class="tile-label">
-        <span class="tile-label-name">{{ selected?.user?.username }}</span>
-        @if (remoteMuted) {
-          <i class="bi bi-mic-mute-fill tile-mute-icon"></i>
-        }
-      </div>
-    </div>
-
-    <!-- Local tile (PiP by default) -->
-    @if (callType === 'video') {
-      <div class="video-tile" [class.video-tile-pip]="!pipSwapped" [class.video-tile-main]="pipSwapped"
-           (click)="!pipSwapped && toggleVideoSwap()">
-        <video #localVideo autoplay playsinline muted></video>
-        <div class="tile-label">
-          <span class="tile-label-name">You</span>
-          @if (isMuted) {
-            <i class="bi bi-mic-mute-fill tile-mute-icon"></i>
-          }
-        </div>
-      </div>
-    }
-
-    <!-- Live call timer -->
-    @if (callState === 'in-call') {
-      <div class="call-timer-badge">
-        <i class="bi bi-circle-fill call-timer-dot"></i>
-        {{ formatCallTimer() }}
-      </div>
-    }
-
-    <!-- Controls -->
-    <div class="call-controls">
-      <button class="ctrl-btn" [class.ctrl-active]="isMuted" (click)="toggleMute()" title="Mute">
-        <i class="bi" [class.bi-mic-fill]="!isMuted" [class.bi-mic-mute-fill]="isMuted"></i>
-      </button>
-      @if (callType === 'video') {
-        <button class="ctrl-btn" [class.ctrl-active]="isCamOff" (click)="toggleCamera()" title="Camera">
-          <i class="bi" [class.bi-camera-video-fill]="!isCamOff" [class.bi-camera-video-off-fill]="isCamOff"></i>
-        </button>
-      }
-      <button class="ctrl-btn ctrl-end" (click)="callState === 'calling' ? cancelCall() : endCall()" title="End call">
-        <i class="bi bi-telephone-x-fill"></i>
-      </button>
-    </div>
-
-  </div>
-}
+<!-- Call notice toast / incoming call card / in-call overlay now live in
+     the app-root-level <app-call-widget> (shared/call-widget) so a call
+     started or received here keeps running and stays visible even after
+     navigating away from this page. -->

@@ -53,6 +53,8 @@ interface ClientToServerEvents {
   'call:answer': (payload: { callId: string; answer: unknown }) => void;
   'call:ice-candidate': (payload: { callId: string; candidate: unknown }) => void;
   'call:mute': (payload: { callId: string; muted: boolean }) => void;
+  'call:video': (payload: { callId: string; off: boolean }) => void;
+  'call:screen-share': (payload: { callId: string; sharing: boolean }) => void;
   'message:seen': (payload: { from: string | number }) => void;
   'meeting:join': (payload: { roomToken: string }) => void;
   'meeting:leave': (payload: { meetingId: number }) => void;
@@ -179,13 +181,10 @@ export function setupSocket(server: HttpServer) {
       try {
         const toId = Number(to);
         const [me, recipient] = await Promise.all([
-          prisma.user.findUnique({ where: { id: myId }, select: { blockedUsers: { select: { id: true } } } }),
-          prisma.user.findUnique({ where: { id: toId }, select: { blockedUsers: { select: { id: true } } } }),
+          prisma.user.findUnique({ where: { id: myId }, select: { organizationId: true } }),
+          prisma.user.findUnique({ where: { id: toId }, select: { organizationId: true } }),
         ]);
-        const blocked =
-          me?.blockedUsers?.some((u) => u.id === toId) ||
-          recipient?.blockedUsers?.some((u) => u.id === myId);
-        if (blocked) {
+        if (!recipient || recipient.organizationId !== me?.organizationId) {
           socket.emit('message:error', 'You cannot message this user.');
           return;
         }
@@ -361,6 +360,8 @@ export function setupSocket(server: HttpServer) {
     socket.on('call:answer',         ({ callId, answer })     => { const o = otherParty(callId); if (o) emitToUser(o, 'call:answer',         { answer, callId }); });
     socket.on('call:ice-candidate',  ({ callId, candidate })  => { const o = otherParty(callId); if (o) emitToUser(o, 'call:ice-candidate',  { candidate, callId }); });
     socket.on('call:mute',           ({ callId, muted })      => { const o = otherParty(callId); if (o) emitToUser(o, 'call:mute',           { muted, callId }); });
+    socket.on('call:video',          ({ callId, off })        => { const o = otherParty(callId); if (o) emitToUser(o, 'call:video',          { off, callId }); });
+    socket.on('call:screen-share',   ({ callId, sharing })    => { const o = otherParty(callId); if (o) emitToUser(o, 'call:screen-share',   { sharing, callId }); });
 
     // ── Meeting room signaling (N-way mesh) ─────────────────────────
     // First use of native Socket.IO rooms in this codebase — 1:1 calls above

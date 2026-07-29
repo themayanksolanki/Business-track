@@ -105,11 +105,9 @@ model User {
 
   departments Department[] @relation("UserDepartments")
 
-  // Directional self-relations: A blocking/muting B does not imply the reverse.
-  blockedUsers User[] @relation("UserBlocks")
-  blockedBy    User[] @relation("UserBlocks")
-  mutedUsers   User[] @relation("UserMutes")
-  mutedBy      User[] @relation("UserMutes")
+  // Directional self-relation: A muting B does not imply the reverse.
+  mutedUsers User[] @relation("UserMutes")
+  mutedBy    User[] @relation("UserMutes")
 
   // Reverse sides of createdBy/updatedBy/etc. relations declared on other
   // models — required by Prisma, rarely queried directly from this end.

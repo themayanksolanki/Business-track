@@ -10,7 +10,9 @@ import {
   PaginatedEvents,
 } from '../../models/event.model';
 import { Attachment, AttachmentsAdapter, DownloadInfo } from '../../models/attachment.model';
+import { LinkedTask, LinkedTasksAdapter } from '../../models/project-item.model';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 // Only 4 backend routes exist (GET/POST /events, PUT/DELETE /events/:id) —
 // searchEvents()/getEventsBetween() are thin convenience wrappers over the
@@ -163,6 +165,31 @@ export class EventService {
       delete: (a) => this.deleteAttachment(eventId, a.id),
       undoDelete: (a) => this.undoDeleteAttachment(eventId, a.id),
       addLink: (payload) => this.addLinkAttachment(eventId, payload),
+    };
+  }
+
+  // Tasks tab — link/unlink existing ProjectItem tasks against this event.
+  getEventTasks(eventId: number | string) {
+    return this.http.get<{ tasks: LinkedTask[] }>(`${this.api}/${eventId}/tasks`);
+  }
+
+  linkTasks(eventId: number | string, projectItemIds: number[]) {
+    return this.http.post<{ tasks: LinkedTask[] }>(`${this.api}/${eventId}/tasks`, { projectItemIds });
+  }
+
+  unlinkTask(eventId: number | string, projectItemId: number) {
+    return this.http.delete<{ message: string }>(`${this.api}/${eventId}/tasks/${projectItemId}`);
+  }
+
+  // Adapter for the shared <app-linked-tasks> component — generic on the
+  // component's side (no "event" concept baked in), so the same component/
+  // task-picker-dialog can bind to a different parent entity later (e.g.
+  // metrics) via its own adapter factory, without touching either.
+  linkedTasksAdapter(eventId: number | string): LinkedTasksAdapter {
+    return {
+      list: () => this.getEventTasks(eventId).pipe(map((res) => res.tasks)),
+      link: (projectItemIds) => this.linkTasks(eventId, projectItemIds),
+      unlink: (projectItemId) => this.unlinkTask(eventId, projectItemId),
     };
   }
 

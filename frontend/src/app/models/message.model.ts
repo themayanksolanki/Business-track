@@ -38,7 +38,5 @@ export interface ContactData {
   user: User;
   lastMessage: Message | null;
   unreadCount: number;
-  isBlocked?: boolean;
-  blockedByThem?: boolean;
   isMuted?: boolean;
 }

@@ -89,6 +89,13 @@ export class TimePickerComponent implements ControlValueAccessor, AfterViewCheck
     this.valueChange.emit(value);
   }
 
+  // select()/clear() below write into this component's own display state
+  // (writeValue) *before* calling emit() — see the identical comment in
+  // date-picker.component.ts's emit(): under formControlName, Angular never
+  // calls writeValue in response to this component's own onChange, so
+  // without this the trigger's displayLabel/selected-slot highlight never
+  // updates even though the FormControl itself is already correct.
+
   get displayLabel(): string {
     return this.value ? dayjs(this.value, 'HH:mm').format(this.dateFormat.timeToken) : this.placeholder;
   }
@@ -112,11 +119,13 @@ export class TimePickerComponent implements ControlValueAccessor, AfterViewCheck
   }
 
   select(slot: TimeSlot) {
+    this.writeValue(slot.value);
     this.emit(slot.value);
     this.close();
   }
 
   clear() {
+    this.writeValue(null);
     this.emit(null);
     this.close();
   }

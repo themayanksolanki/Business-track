@@ -9,13 +9,16 @@ import {
   CreateProjectPayload,
   UpdateProjectPayload,
   PaginatedProjects,
+  PaginatedProjectPickerRows,
 } from '../../models/project.model';
 import { Attachment, AttachmentsAdapter, DownloadInfo } from '../../models/attachment.model';
+import { LinkedEvent } from '../../models/event.model';
 import {
   ProjectItem,
   CreateProjectItemPayload,
   UpdateProjectItemPayload,
   ProjectItemSummary,
+  ProjectItemPickerRow,
 } from '../../models/project-item.model';
 import { ProjectComment, CreateCommentPayload, UpdateCommentPayload } from '../../models/comment.model';
 import { ProjectMember } from '../../models/project.model';
@@ -81,6 +84,35 @@ export class ProjectService {
     if (status && status !== 'all') params['status'] = status;
     if (includeDrafts) params['includeDrafts'] = 'true';
     return this.http.get<PaginatedProjects>(this.api, { params });
+  }
+
+  // Narrow, paginated, server-searched project list for pickers (e.g. the
+  // event "Tasks" tab's task-picker dialog) — `minimal=true` selects only
+  // {id, name, status, department} server-side, and `includeDrafts` is
+  // always on since the picker shows all four project states, not just
+  // the default "exclude drafts" view. Distinct from `getProjects` above
+  // (full include, used by the Projects/Drafts board pages).
+  searchProjectsMinimal(page: number, limit: number, search?: string) {
+    const params: Record<string, string | number> = { page, limit, minimal: 'true', includeDrafts: 'true' };
+    if (search) params['search'] = search;
+    return this.http.get<PaginatedProjectPickerRows>(this.api, { params });
+  }
+
+  // Top-level groups under a project, for the task-picker dialog's group
+  // step — narrow `select`, no pagination (a project's group count is
+  // naturally small).
+  getProjectGroups(projectId: string) {
+    return this.http.get<{ items: ProjectItemPickerRow[] }>(`${this.api}/${projectId}/items`, {
+      params: { parentId: 'null', type: 'group' },
+    });
+  }
+
+  // Tasks directly under a group, for the task-picker dialog's task step —
+  // same narrow shape as getProjectGroups.
+  getGroupTasks(projectId: string, groupId: number) {
+    return this.http.get<{ items: ProjectItemPickerRow[] }>(`${this.api}/${projectId}/items`, {
+      params: { parentId: groupId, type: 'task' },
+    });
   }
 
   getProjectById(projectId: string) {
@@ -161,6 +193,17 @@ export class ProjectService {
 
   deleteItem(projectId: string, itemId: number) {
     return this.http.delete<{ message: string }>(`${this.api}/${projectId}/items/${itemId}`);
+  }
+
+  // Events linked to this task/subtask — reverse side of the event "Tasks"
+  // tab (see EventService.getEventTasks/linkTasks/unlinkTask). Read + unlink
+  // only; linking happens from the event side's task-picker dialog.
+  getItemEvents(projectId: string, itemId: number) {
+    return this.http.get<{ events: LinkedEvent[] }>(`${this.api}/${projectId}/items/${itemId}/events`);
+  }
+
+  unlinkItemEvent(projectId: string, itemId: number, eventId: number) {
+    return this.http.delete<{ message: string }>(`${this.api}/${projectId}/items/${itemId}/events/${eventId}`);
   }
 
   duplicateItem(projectId: string, itemId: number) {

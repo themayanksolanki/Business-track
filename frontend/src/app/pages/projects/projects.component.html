@@ -114,11 +114,6 @@
         <div class="text-center py-3 cards-end-marker">— End of list —</div>
       }
     }
-  } @else if (pagedItems.length === 0) {
-    <div class="empty-state text-center py-5 text-muted">
-      <i class="bi bi-kanban display-4 d-block mb-3"></i>
-      <p class="fs-5 mb-0">No projects yet.</p>
-    </div>
   } @else if (viewMode === 'table') {
     <app-data-table
       [columns]="columns"
@@ -129,6 +124,7 @@
       [pageSize]="pageSize"
       [totalItems]="totalItems"
       [trackBy]="trackByProjectId"
+      [emptyMessage]="tableEmptyMessage"
       (sortChange)="onSortChange($event)"
       (filterChange)="onFilterChange($event)"
       (pageChange)="loadPage($event)"
@@ -222,6 +218,11 @@
         <span class="text-muted-em">{{ project.createdAt | appDate }}</span>
       </ng-template>
     </app-data-table>
+  } @else if (pagedItems.length === 0) {
+    <div class="empty-state text-center py-5 text-muted">
+      <i class="bi bi-kanban display-4 d-block mb-3"></i>
+      <p class="fs-5 mb-0">No projects yet.</p>
+    </div>
   } @else {
     <div class="project-list">
       @for (project of pagedItems; track project.id) {

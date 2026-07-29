@@ -390,6 +390,14 @@
   overflow-wrap: break-word;
 }
 
+/* Auto-linkified URLs (see renderMessageContent) */
+.msg-text a {
+  color: #2563eb;
+  text-decoration: underline;
+  word-break: break-all;
+}
+.msg-mine .msg-text a { color: #fff; }
+
 /* ── Meta: time + ticks ── */
 .msg-meta {
   display: flex;
@@ -479,38 +487,6 @@
   opacity: 0.6;
   margin-left: 4px;
   white-space: nowrap;
-}
-
-/* ══ Live call timer badge ═══════════════════════════════════════ */
-.call-timer-badge {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  background: rgba(0,0,0,0.55);
-  color: #fff;
-  font-size: 1rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  padding: 7px 18px;
-  border-radius: 99px;
-  z-index: 15;
-  backdrop-filter: blur(6px);
-  letter-spacing: 0.04em;
-}
-
-.call-timer-dot {
-  font-size: 0.5rem;
-  color: #22c55e;
-  animation: timer-pulse 1s ease infinite;
-}
-
-@keyframes timer-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.3; }
 }
 
 /* ══ Input area ═══════════════════════════════════════════════════ */
@@ -685,327 +661,8 @@
 }
 .emoji-item:hover { background: var(--bg-muted); transform: scale(1.15); }
 
-/* ══ Call notice toast ═══════════════════════════════════════════ */
-.call-notice-toast {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #1e293b;
-  color: #fff;
-  font-size: 0.85rem;
-  padding: 10px 20px;
-  border-radius: 99px;
-  z-index: 2000;
-  white-space: nowrap;
-  animation: toast-in 0.2s ease;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-}
-
-@keyframes toast-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
-
-/* ══ Incoming call card ══════════════════════════════════════════ */
-.incoming-call-card {
-  position: fixed;
-  bottom: 80px;
-  right: 24px;
-  background: #1e293b;
-  color: #fff;
-  border-radius: 16px;
-  padding: 14px 16px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
-  z-index: 2000;
-  animation: ic-slide 0.25s ease;
-  min-width: 280px;
-}
-
-@keyframes ic-slide {
-  from { transform: translateX(120%); opacity: 0; }
-  to   { transform: translateX(0);    opacity: 1; }
-}
-
-.ic-icon-wrap {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-  box-shadow: 0 3px 10px rgba(34,197,94,0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
-  flex-shrink: 0;
-  animation: ic-ring 0.8s ease infinite alternate;
-}
-
-@keyframes ic-ring {
-  from { box-shadow: 0 0 0 0 rgba(34,197,94,0.6); }
-  to   { box-shadow: 0 0 0 10px rgba(34,197,94,0); }
-}
-
-.ic-info { flex: 1; }
-.ic-name { font-size: 0.9rem; font-weight: 700; }
-.ic-type { font-size: 0.75rem; color: #94a3b8; margin-top: 2px; }
-
-.ic-actions { display: flex; gap: 8px; }
-
-.ic-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: none;
-  font-size: 1rem;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 0.15s, transform 0.15s;
-}
-
-.ic-reject { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #fff; }
-.ic-accept { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: #fff; }
-.ic-btn:hover { opacity: 0.85; transform: scale(1.05); }
-
-/* ══ Call overlay ════════════════════════════════════════════════ */
-.call-overlay {
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(120% 120% at 50% 0%, #1e293b 0%, #0f172a 55%, #060b16 100%);
-  z-index: 3000;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  animation: overlay-in 0.25s ease;
-}
-
-@keyframes overlay-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-/* ── Video tiles (stage + PiP — rounded-box layout, tap to swap) ── */
-.video-tile {
-  position: absolute;
-  border-radius: 20px;
-  overflow: hidden;
-  background: #111827;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
-  transition: top 0.35s cubic-bezier(.4,0,.2,1), left 0.35s cubic-bezier(.4,0,.2,1),
-              width 0.35s cubic-bezier(.4,0,.2,1), height 0.35s cubic-bezier(.4,0,.2,1),
-              box-shadow 0.2s cubic-bezier(.4,0,.2,1), transform 0.2s cubic-bezier(.4,0,.2,1),
-              border-color 0.2s cubic-bezier(.4,0,.2,1);
-  animation: tile-in 0.3s cubic-bezier(.4,0,.2,1);
-}
-
-@keyframes tile-in {
-  from { opacity: 0; transform: scale(0.96); }
-  to   { opacity: 1; transform: scale(1); }
-}
-
-.video-tile video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.video-tile-main {
-  top: max(24px, env(safe-area-inset-top));
-  left: max(24px, env(safe-area-inset-left));
-  width: calc(100% - max(24px, env(safe-area-inset-left)) - max(24px, env(safe-area-inset-right)));
-  height: calc(100% - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom)));
-  z-index: 1;
-}
-
-.video-tile-pip {
-  --pip-w: clamp(110px, 22vw, 190px);
-  --pip-h: clamp(85px, 16vw, 140px);
-  width: var(--pip-w);
-  height: var(--pip-h);
-  top: calc(100% - max(100px, calc(env(safe-area-inset-bottom) + 100px)) - var(--pip-h));
-  left: calc(100% - max(20px, env(safe-area-inset-right)) - var(--pip-w));
-  z-index: 10;
-  cursor: pointer;
-  border: 2px solid rgba(255,255,255,0.25);
-}
-
-.video-tile-pip:hover {
-  transform: scale(1.03);
-  box-shadow: 0 10px 36px rgba(0,0,0,0.5);
-  border-color: rgba(255,255,255,0.45);
-}
-
-/* ── Per-tile name / mute chip ── */
-.tile-label {
-  position: absolute;
-  left: 12px;
-  bottom: 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  max-width: calc(100% - 24px);
-  background: rgba(0,0,0,0.5);
-  color: #fff;
-  font-size: 0.78rem;
-  font-weight: 600;
-  padding: 5px 10px;
-  border-radius: 99px;
-  z-index: 2;
-  backdrop-filter: blur(4px);
-}
-
-.tile-label-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tile-mute-icon  { color: #f87171; font-size: 0.8rem; flex-shrink: 0; }
-
-.video-tile-pip .tile-label {
-  font-size: 0.65rem;
-  padding: 3px 7px;
-  left: 6px;
-  bottom: 6px;
-  gap: 4px;
-}
-
-.call-status-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 5;
-  background: rgba(15,23,42,0.85);
-}
-
-.call-spinner {
-  width: 56px;
-  height: 56px;
-  border: 3px solid rgba(255,255,255,0.2);
-  border-top-color: #22c55e;
-  border-radius: 50%;
-  animation: spin 0.9s linear infinite;
-  margin-bottom: 20px;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.call-status-text { font-size: 1.1rem; font-weight: 700; color: #fff; }
-.call-status-sub  { font-size: 0.8rem; color: #94a3b8; margin-top: 6px; }
-
-/* Audio call placeholder */
-.audio-call-placeholder {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 5;
-}
-
-.audio-avatar {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 3px solid rgba(255,255,255,0.2);
-  animation: avatar-pulse 2.2s ease infinite;
-}
-
-@keyframes avatar-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); }
-  70%  { box-shadow: 0 0 0 22px rgba(59,130,246,0); }
-  100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); }
-}
-
-.audio-avatar-img { width: 100%; height: 100%; object-fit: cover; }
-
-.audio-avatar-init {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  background: #1e3a5f;
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #fff;
-}
-
-/* ── Fullscreen toggle ── */
-.fullscreen-btn {
-  position: absolute;
-  top: max(16px, env(safe-area-inset-top));
-  right: max(16px, env(safe-area-inset-right));
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(255,255,255,0.12);
-  color: #fff;
-  font-size: 1rem;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 25;
-  backdrop-filter: blur(10px);
-  transition: background 0.2s cubic-bezier(.4,0,.2,1), transform 0.15s cubic-bezier(.4,0,.2,1);
-}
-.fullscreen-btn:hover  { background: rgba(255,255,255,0.22); }
-.fullscreen-btn:active { transform: scale(0.92); }
-
-/* Controls */
-.call-controls {
-  position: absolute;
-  bottom: max(32px, env(safe-area-inset-bottom));
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 16px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 999px;
-  backdrop-filter: blur(18px);
-  box-shadow: 0 8px 28px rgba(0,0,0,0.3);
-  z-index: 20;
-}
-
-.ctrl-btn {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: none;
-  /* Idle state is a gradient (not a flat color) so toggling to .ctrl-active/.ctrl-end
-     below tweens gradient-to-gradient — a flat color can't interpolate into a
-     gradient, so the background would otherwise just snap instead of animating. */
-  background: linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.08) 100%);
-  color: #fff;
-  font-size: 1.3rem;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.25s cubic-bezier(.4,0,.2,1), transform 0.15s cubic-bezier(.4,0,.2,1);
-}
-
-.ctrl-btn:hover    { background: linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.16) 100%); }
-.ctrl-btn:active   { transform: scale(0.92); }
-/* Muted / camera-off reads as a clear "toggled off" danger state, not just a highlight */
-.ctrl-active       { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important; color: #fff !important; }
-.ctrl-end          { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
-.ctrl-end:hover    { background: linear-gradient(135deg, #f87171 0%, #ef4444 100%); box-shadow: 0 4px 16px rgba(239,68,68,0.5); }
-
-/* Classic "hang up" gesture — a plain phone-with-X reads ambiguously */
-.ctrl-end i, .ic-reject i { display: inline-block; transform: rotate(135deg); }
+/* Call notice toast / incoming call card / call overlay CSS moved to
+   shared/call-widget/call-widget.component.css (see chat.component.html). */
 
 /* ══ Tablet / small desktop ══════════════════════════════════════ */
 @media (min-width: 881px) and (max-width: 1100px) {
@@ -1080,18 +737,6 @@
   .chat-input      { font-size: 0.85rem; padding: 8px 14px; }
 
   .emoji-panel { width: min(300px, calc(100vw - 24px)); }
-
-  .incoming-call-card { left: 12px; right: 12px; bottom: 64px; min-width: unset; }
-
-  .ctrl-btn      { width: 46px; height: 46px; font-size: 1rem; }
-  .call-controls { padding: 8px 12px; gap: 10px; }
-  .video-tile-main { top: 12px; left: 12px; width: calc(100% - 24px); height: calc(100% - 24px); }
-}
-
-@media (max-height: 480px) {
-  .call-controls   { bottom: 12px; padding: 6px 10px; gap: 8px; }
-  .ctrl-btn         { width: 44px; height: 44px; }
-  .video-tile-pip   { --pip-h: clamp(64px, 14vw, 100px); top: calc(100% - 76px - var(--pip-h)); }
 }
 
 /* <main> itself only switches to 20px/16px padding (+ 72px icon-rail
@@ -1312,9 +957,6 @@
 [data-theme="dark"] .chat-input:focus { box-shadow: 0 0 0 3px rgba(59,130,246,0.22); }
 
 [data-theme="dark"] .profile-card { box-shadow: -4px 0 24px rgba(0,0,0,0.55); }
-
-[data-theme="dark"] .call-status-sub { color: #64748b; }
-[data-theme="dark"] .ic-type         { color: #64748b; }
 
 [data-theme="dark"] .online-text { color: #4ade80; }
 
@@ -1610,31 +1252,6 @@
   padding: 4px;
 }
 .reply-preview-close:hover { color: var(--text-primary); }
-
-/* ══ Blocked contact notices ═════════════════════════════════════ */
-.chat-blocked-bar {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  background: rgba(239,68,68,0.08);
-  color: #ef4444;
-  font-size: 0.8rem;
-  border-top: 1px solid var(--border-strong);
-}
-
-.profile-card-blocked-notice {
-  margin-top: 16px;
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: rgba(239,68,68,0.08);
-  color: #ef4444;
-  font-size: 0.78rem;
-  text-align: center;
-}
-
-[data-theme="dark"] .chat-blocked-bar,
-[data-theme="dark"] .profile-card-blocked-notice { background: rgba(239,68,68,0.14); color: #f87171; }
 
 .profile-card-menu-btn {
   position: absolute;

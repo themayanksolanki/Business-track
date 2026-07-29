@@ -60,6 +60,17 @@ export interface EventReminder {
   minutesBefore: number;
 }
 
+// Narrow row shape for the project-item detail modal's "Events" section —
+// the reverse side of LinkedTask (see project-item.model.ts), backed by
+// GET /projects/:id/items/:itemId/events.
+export interface LinkedEvent {
+  id: number;
+  title: string;
+  start: string;
+  end: string;
+  status: CalendarEventStatus;
+}
+
 export interface CalendarEventModel {
   id: number;
   sequenceId?: number | null;

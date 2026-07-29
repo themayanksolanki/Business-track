@@ -46,9 +46,21 @@ model ProjectItem {
   meetingLinkTitle    String?
   meetingLinkPlatform MeetingPlatform?
   meetingLinkAt       DateTime?
+  // User-picked meeting length in minutes, used only to derive the mirrored
+  // CalendarEvent's `end` (see meetingLinkCalendarSync.service.ts) — falls
+  // back to 30 there when null (link added before this field existed).
+  meetingLinkDurationMinutes Int?
   // Back-relation only — FK (sourceProjectItemId) lives on CalendarEvent,
-  // same shape as RecurringRule.event on CalendarEvent.recurrenceId.
-  meetingCalendarEvent CalendarEvent?
+  // same shape as RecurringRule.event on CalendarEvent.recurrenceId. Named
+  // explicitly since a second CalendarEvent relation (linkedEvents, below)
+  // now also exists between these two models.
+  meetingCalendarEvent CalendarEvent? @relation("ProjectItemSourceEvent")
+  // Arbitrary CalendarEvents this task has been linked to from the event's
+  // "Tasks" tab (see eventController.ts's getEventTasks/linkEventTasks) —
+  // implicit many-to-many, same shape as `tags` above, distinct from the
+  // 1:1 `meetingCalendarEvent` (which is the auto-managed meeting-link
+  // mirror, not a user-picked link).
+  linkedEvents CalendarEvent[] @relation("ProjectItemLinkedEvents")
   assignedToId   Int?
   createdById    Int
   updatedById    Int?

@@ -1,0 +1,123 @@
+<div
+  class="modal fade"
+  tabindex="-1"
+  aria-hidden="true"
+  [appModal]="open"
+  [appModalOptions]="{ backdrop: 'static' }"
+  (appModalClosed)="cancel()"
+>
+  <div class="modal-dialog modal-dialog-centered tpd-dialog">
+    <div class="modal-content tpd-content" (click)="$event.stopPropagation()">
+
+      @if (step === 'project') {
+        <h5 class="tpd-title">Add Task</h5>
+        <p class="tpd-message">Select a project.</p>
+
+        <input #searchInput type="text" class="form-control tpd-search" placeholder="Search projects…"
+               [(ngModel)]="projectQuery" (ngModelChange)="onProjectQueryChange()" />
+
+        @if (projectsError) {
+          <p class="tpd-empty text-danger">{{ projectsError }}</p>
+        }
+
+        <div #panel class="tpd-list">
+          @if (projectsLoading) {
+            <div class="tpd-inline-loading"><span class="spinner-border spinner-border-sm"></span></div>
+          } @else if (projects.length === 0) {
+            <p class="tpd-empty text-muted">No projects found.</p>
+          } @else {
+            @for (project of projects; track project.id) {
+              <button type="button" class="tpd-item" (click)="selectProject(project)">
+                <i class="bi bi-kanban tpd-item-icon"></i>
+                <span class="tpd-item-body">
+                  <span class="tpd-item-title">{{ project.name }}</span>
+                  @if (project.department) {
+                    <span class="tpd-item-subtitle">{{ project.department.name }}</span>
+                  }
+                </span>
+              </button>
+            }
+            <div #sentinel></div>
+            @if (projectsLoadingMore) {
+              <div class="tpd-inline-loading"><span class="spinner-border spinner-border-sm"></span></div>
+            }
+          }
+        </div>
+      }
+
+      @if (step === 'group') {
+        <h5 class="tpd-title">Add Task</h5>
+        <p class="tpd-message">Select a group in "{{ selectedProject?.name }}".</p>
+
+        @if (groupsLoading) {
+          <div class="tpd-inline-loading"><span class="spinner-border spinner-border-sm"></span></div>
+        } @else if (groupsError) {
+          <p class="tpd-empty text-danger">{{ groupsError }}</p>
+        } @else if (groups.length === 0) {
+          <p class="tpd-empty text-muted">"{{ selectedProject?.name }}" has no groups yet.</p>
+        } @else {
+          <div class="tpd-list">
+            @for (group of groups; track group.id) {
+              <button type="button" class="tpd-item" (click)="selectGroup(group)">
+                <i class="bi bi-folder2 tpd-item-icon"></i>
+                <span class="tpd-item-body">
+                  <span class="tpd-item-title">{{ group.title }}</span>
+                </span>
+              </button>
+            }
+          </div>
+        }
+      }
+
+      @if (step === 'task') {
+        <h5 class="tpd-title">Add Task</h5>
+        <p class="tpd-message">Select tasks in "{{ selectedGroup?.title }}".</p>
+
+        @if (tasksLoading) {
+          <div class="tpd-inline-loading"><span class="spinner-border spinner-border-sm"></span></div>
+        } @else if (tasksError) {
+          <p class="tpd-empty text-danger">{{ tasksError }}</p>
+        } @else {
+          <div class="tpd-list tpd-task-list">
+            @for (task of tasks; track task.id) {
+              <label class="tpd-item tpd-task-item" [class.tpd-item-disabled]="isExcluded(task.id)">
+                <input type="checkbox" class="tpd-checkbox" [checked]="isChecked(task.id)" [disabled]="isExcluded(task.id)" (change)="toggleTask(task)" />
+                <span class="tpd-item-title">{{ task.title }}</span>
+                @if (isExcluded(task.id)) { <span class="tpd-badge">Already linked</span> }
+              </label>
+            } @empty {
+              <p class="tpd-empty text-muted">No tasks in this group yet — add one below.</p>
+            }
+          </div>
+        }
+
+        <div class="tpd-add-task-row">
+          <input type="text" class="form-control tpd-search" placeholder="New task title…" [(ngModel)]="newTaskTitle"
+                 [disabled]="creatingTask" (keydown.enter)="createTask()" />
+          <button type="button" class="tpd-btn tpd-btn-add" [disabled]="creatingTask || !newTaskTitle.trim()" (click)="createTask()">
+            @if (creatingTask) { <span class="spinner-border spinner-border-sm"></span> } @else { <i class="bi bi-plus-lg"></i> }
+          </button>
+        </div>
+        @if (createTaskError) {
+          <p class="tpd-empty text-danger mb-0">{{ createTaskError }}</p>
+        }
+      }
+
+      <div class="tpd-actions">
+        @if (step === 'group') {
+          <button type="button" class="tpd-btn tpd-btn-cancel" (click)="backToProjects()">Back</button>
+        }
+        @if (step === 'task') {
+          <button type="button" class="tpd-btn tpd-btn-cancel" (click)="backToGroups()">Back</button>
+        }
+        <button type="button" class="tpd-btn tpd-btn-cancel" (click)="cancel()">Cancel</button>
+        @if (step === 'task') {
+          <button type="button" class="tpd-btn tpd-btn-primary" [disabled]="selectedTaskIds.size === 0" (click)="confirm()">
+            Add {{ selectedTaskIds.size || '' }} task{{ selectedTaskIds.size === 1 ? '' : 's' }}
+          </button>
+        }
+      </div>
+
+    </div>
+  </div>
+</div>

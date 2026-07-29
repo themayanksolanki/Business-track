@@ -170,13 +170,17 @@ model CalendarEvent {
   owner        User              @relation("CalendarEventOwner", fields: [ownerId], references: [id])
   calendar     Calendar          @relation(fields: [calendarId], references: [id], onDelete: Cascade)
   recurrence   RecurringRule?    @relation(fields: [recurrenceId], references: [id])
-  sourceProjectItem ProjectItem? @relation(fields: [sourceProjectItemId], references: [id], onDelete: Cascade)
+  sourceProjectItem ProjectItem? @relation("ProjectItemSourceEvent", fields: [sourceProjectItemId], references: [id], onDelete: Cascade)
   createdBy    User              @relation("CalendarEventCreatedBy", fields: [createdById], references: [id])
   updatedBy    User?             @relation("CalendarEventUpdatedBy", fields: [updatedById], references: [id])
 
   guests      Guest[]
   attachments Attachment[]
   reminders   EventReminder[]
+  // User-picked tasks linked from this event's "Tasks" tab — implicit
+  // many-to-many (see ProjectItem.linkedEvents), distinct from
+  // sourceProjectItem's 1:1 meeting-link-sync relation above.
+  linkedTasks ProjectItem[] @relation("ProjectItemLinkedEvents")
 
   // A recurring master's per-occurrence overrides/skips (see EventException).
   exceptions EventException[] @relation("EventExceptionMaster")

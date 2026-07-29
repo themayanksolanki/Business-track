@@ -39,6 +39,16 @@ const ACCESS_INCLUDE_WITH_ROLE = {
   members: { select: { userId: true, role: { select: { canEdit: true } } } },
 };
 
+// For pickers (e.g. the event "Tasks" tab's project search) that only ever
+// render a name + muted department subtitle — asking for PROJECT_INCLUDE's
+// full owner/tags/members join there would be pure waste.
+const PROJECT_PICKER_SELECT = {
+  id: true,
+  name: true,
+  status: true,
+  department: { select: { id: true, name: true } },
+};
+
 type AuthUser = { id: number; role: string; organizationId: number | null };
 
 interface ProjectForAccess {
@@ -245,14 +255,24 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
     applyDateRange('endDateFrom', 'endDateTo', 'endDate');
     applyDateRange('createdAtFrom', 'createdAtTo', 'createdAt');
 
+    const orderBy = buildProjectOrderBy(req.query.sortBy, req.query.sortDir);
+
+    if (req.query.minimal === 'true') {
+      const [projects, total] = await Promise.all([
+        prisma.project.findMany({ where, select: PROJECT_PICKER_SELECT, orderBy, skip, take: limit }),
+        prisma.project.count({ where }),
+      ]);
+      return res.status(200).json({
+        projects,
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      });
+    }
+
     const [projects, total] = await Promise.all([
-      prisma.project.findMany({
-        where,
-        include: PROJECT_INCLUDE,
-        orderBy: buildProjectOrderBy(req.query.sortBy, req.query.sortDir),
-        skip,
-        take: limit,
-      }),
+      prisma.project.findMany({ where, include: PROJECT_INCLUDE, orderBy, skip, take: limit }),
       prisma.project.count({ where }),
     ]);
 

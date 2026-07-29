@@ -37,6 +37,8 @@ export class SocketService {
   readonly callAnswer$    = new Subject<{ answer: RTCSessionDescriptionInit; callId: string }>();
   readonly iceCandidate$  = new Subject<{ candidate: RTCIceCandidateInit; callId: string }>();
   readonly remoteMuted$   = new Subject<boolean>();
+  readonly remoteCamOff$  = new Subject<boolean>();
+  readonly remoteScreenSharing$ = new Subject<boolean>();
   readonly callLogged$    = new Subject<Message>();
 
   readonly meetingJoined$            = new Subject<{ members: { socketId: string; userId: number }[] }>();
@@ -88,6 +90,8 @@ export class SocketService {
     this.socket.on('call:answer',       (d: { answer: RTCSessionDescriptionInit; callId: string })  => this.callAnswer$.next(d));
     this.socket.on('call:ice-candidate',(d: { candidate: RTCIceCandidateInit; callId: string })     => this.iceCandidate$.next(d));
     this.socket.on('call:mute',         (d: { muted: boolean })                                     => this.remoteMuted$.next(d.muted));
+    this.socket.on('call:video',        (d: { off: boolean })                                       => this.remoteCamOff$.next(d.off));
+    this.socket.on('call:screen-share', (d: { sharing: boolean })                                   => this.remoteScreenSharing$.next(d.sharing));
     this.socket.on('call:logged',       (m: Message)                                                 => this.callLogged$.next(m));
 
     this.socket.on('meeting:joined',              (d: { members: { socketId: string; userId: number }[] })                       => this.meetingJoined$.next(d));
@@ -149,6 +153,14 @@ export class SocketService {
 
   sendMuteState(callId: string, muted: boolean) {
     this.socket?.emit('call:mute', { callId, muted });
+  }
+
+  sendVideoState(callId: string, off: boolean) {
+    this.socket?.emit('call:video', { callId, off });
+  }
+
+  sendScreenShareState(callId: string, sharing: boolean) {
+    this.socket?.emit('call:screen-share', { callId, sharing });
   }
 
   markSeen(from: string) {

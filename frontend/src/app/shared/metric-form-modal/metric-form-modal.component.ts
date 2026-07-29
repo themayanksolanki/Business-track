@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CKEditorModule } from '@ckeditor/ckeditor5-angular';
@@ -76,6 +76,8 @@ export class MetricFormModalComponent implements OnChanges {
   @Input() error = '';
   @Input() deleteLoading = false;
 
+  @ViewChild('titleInput') titleInput?: ElementRef<HTMLInputElement>;
+
   @Output() closed = new EventEmitter<void>();
   @Output() submitted = new EventEmitter<CreateMetricPayload | UpdateMetricPayload>();
   // Emitted once the confirm dialog is accepted — the parent owns the
@@ -138,6 +140,10 @@ export class MetricFormModalComponent implements OnChanges {
       this.localError = '';
       this.confirmDeleteOpen = false;
       this.activeTab = 'details';
+      // Deferred a tick — the header's title input hasn't rendered yet on
+      // this same change-detection pass (the modal's @if (open) block, and
+      // the underlying Bootstrap fade-in, haven't necessarily settled).
+      setTimeout(() => this.titleInput?.nativeElement.focus());
     }
   }
 

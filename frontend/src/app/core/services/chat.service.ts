@@ -65,10 +65,6 @@ export class ChatService {
     return this.http.delete<{ success: boolean }>(`${this.api}/clear/${userId}`);
   }
 
-  toggleBlock(userId: string) {
-    return this.http.post<{ blocked: boolean }>(`${this.api}/block/${userId}`, {});
-  }
-
   toggleMute(userId: string) {
     return this.http.post<{ muted: boolean }>(`${this.api}/mute/${userId}`, {});
   }

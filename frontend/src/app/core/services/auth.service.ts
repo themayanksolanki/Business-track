@@ -65,7 +65,7 @@ export class AuthService {
     return this.http.get<{ status: string }>(`${BASE_URL}/health/db`);
   }
 
-  avatarUrl(user?: User | null): string | null {
+  avatarUrl(user?: { profileImage?: string | null } | null): string | null {
     const img = (user ?? this.currentUser())?.profileImage;
     if (!img) return null;
     if (img.startsWith('http')) return img; // Cloudinary URL — use as-is

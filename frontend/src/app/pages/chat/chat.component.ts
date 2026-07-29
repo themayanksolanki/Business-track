@@ -3,11 +3,12 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ChatService } from '../../core/services/chat.service';
-import { SocketService, IncomingCall } from '../../core/services/socket.service';
-import { WebrtcPeerService } from '../../core/services/webrtc-peer.service';
+import { SocketService } from '../../core/services/socket.service';
+import { CallSessionService } from '../../core/services/call-session.service';
 import { DateFormatService } from '../../core/services/date-format.service';
 import { ContactData, Message } from '../../models/message.model';
 import { User } from '../../models/user.model';
@@ -25,9 +26,6 @@ import { EMOJI_CATEGORIES } from '../../shared/emoji-data';
 })
 export class ChatComponent implements OnInit, OnDestroy {
   @ViewChild('messagesArea') messagesArea!: ElementRef<HTMLDivElement>;
-  @ViewChild('localVideo')  localVideo!:  ElementRef<HTMLVideoElement>;
-  @ViewChild('remoteVideo') remoteVideo!: ElementRef<HTMLVideoElement>;
-  @ViewChild('callOverlay') callOverlay?: ElementRef<HTMLDivElement>;
   @ViewChild('imageInput')  imageInput!:  ElementRef<HTMLInputElement>;
   @ViewChild('chatInput')   chatInput!:   ElementRef<HTMLTextAreaElement>;
   @ViewChild('chatSearchInput') chatSearchInput!: ElementRef<HTMLInputElement>;
@@ -53,7 +51,6 @@ export class ChatComponent implements OnInit, OnDestroy {
   onlineUsers = new Set<string>();
   messagesLoading = false;
   imageUploading  = false;
-  callNotice      = '';
   mobileShowChat  = false;
   showProfileCard = false;
 
@@ -91,36 +88,6 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   readonly emojiCategories = EMOJI_CATEGORIES;
 
-  // ── Call state ────────────────────────────────────────────────
-  callState: 'idle' | 'calling' | 'incoming' | 'in-call' = 'idle';
-  callType:  'audio' | 'video' = 'video';
-  callWith:  string | null = null;
-  incomingCall: IncomingCall | null = null;
-
-  private callId:     string | null = null;
-
-  // Fixed key into WebrtcPeerService — chat only ever has one active peer at a time.
-  private readonly PEER_ID = 'chat';
-
-  isMuted      = false;
-  isCamOff     = false;
-  remoteMuted  = false;
-  pipSwapped   = false;
-  isFullscreen = false;
-
-  // ── Call timer ────────────────────────────────────────────────
-  callElapsed = 0;
-  private callTimerInterval: any = null;
-  private callStartTime: number | null = null;
-
-  private remoteStream: MediaStream | null = null;
-  private pendingOffer: { from: string; offer: RTCSessionDescriptionInit; callId: string } | null = null;
-  private callTimeout: any;
-
-  private readonly ringAudio     = Object.assign(new Audio('/assets/ring.mp3'),     { loop: true, preload: 'auto' });
-  private readonly ringtoneAudio = Object.assign(new Audio('/assets/ringtone.mp3'), { loop: true, preload: 'auto' });
-  private audioUnlocked = false;
-
   private subs = new Subscription();
   private me: User | null = null;
 
@@ -128,34 +95,23 @@ export class ChatComponent implements OnInit, OnDestroy {
     private auth: AuthService,
     private chatSvc: ChatService,
     public  socketSvc: SocketService,
-    private webrtcSvc: WebrtcPeerService,
+    public  callSvc: CallSessionService,
     private cdr: ChangeDetectorRef,
     private dateFormat: DateFormatService,
+    private sanitizer: DomSanitizer,
   ) {}
 
   ngOnInit() {
     this.me = this.auth.getUser();
-
-    this.chatSvc.getIceServers().subscribe({
-      next: ({ iceServers }) => { this.webrtcSvc.setIceServers(iceServers); },
-    });
     this.loadContacts();
     this.subscribeToSocket();
-    document.addEventListener('fullscreenchange', this.onFullscreenChange);
   }
 
   ngOnDestroy() {
     this.subs.unsubscribe();
-    this.cleanupCall();
     this.stopTyping();
     clearTimeout(this.typingIndicatorTimeout);
-    document.removeEventListener('fullscreenchange', this.onFullscreenChange);
   }
-
-  private onFullscreenChange = () => {
-    this.isFullscreen = !!document.fullscreenElement;
-    this.cdr.detectChanges();
-  };
 
   @HostListener('document:click')
   onDocumentClick() {
@@ -170,15 +126,6 @@ export class ChatComponent implements OnInit, OnDestroy {
       this.reactionPickerForId = null;
       this.cdr.detectChanges();
     }
-    this.unlockAudio();
-  }
-
-  private unlockAudio() {
-    if (this.audioUnlocked) return;
-    this.audioUnlocked = true;
-    [this.ringAudio, this.ringtoneAudio].forEach((a) => {
-      a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
-    });
   }
 
   // ── Sidebar tabs ──────────────────────────────────────────────
@@ -295,13 +242,9 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   // ── Messaging ─────────────────────────────────────────────────
-  get isChatBlocked(): boolean {
-    return !!(this.selected && (this.selected.isBlocked || this.selected.blockedByThem));
-  }
-
   sendMessage() {
     const text = this.messageText.trim();
-    if (!text || !this.selected || this.isChatBlocked) return;
+    if (!text || !this.selected) return;
     const to = this.contactId(this.selected);
 
     if (this.editingMessage) {
@@ -318,7 +261,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   // ── Typing indicator ──────────────────────────────────────────
   onMessageInput() {
-    if (!this.selected || this.isChatBlocked) {
+    if (!this.selected) {
       this.stopTyping();
       return;
     }
@@ -445,12 +388,6 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.menuTargetId = this.contactId(this.selected);
     this.menuItems = [
       { label: 'Clear Chat', icon: 'bi-x-circle', action: 'clear' },
-      {
-        label: this.selected.isBlocked ? 'Unblock' : 'Block',
-        icon: 'bi-slash-circle',
-        action: 'block',
-        danger: !this.selected.isBlocked,
-      },
     ];
     this.positionMenu(event.clientX, event.clientY);
   }
@@ -536,25 +473,6 @@ export class ChatComponent implements OnInit, OnDestroy {
         'Clear',
         () => this.clearChatWith(selected)
       );
-    } else if (action === 'block') {
-      const blocking = !selected.isBlocked;
-      this.openConfirm(
-        blocking ? 'Block this contact?' : 'Unblock this contact?',
-        blocking
-          ? `You won't be able to send or receive messages from ${selected.user.username}.`
-          : `You will be able to message ${selected.user.username} again.`,
-        blocking ? 'Block' : 'Unblock',
-        () => {
-          this.chatSvc.toggleBlock(this.contactId(selected)).subscribe({
-            next: ({ blocked }) => {
-              selected.isBlocked = blocked;
-              const c = this.contacts.find((c) => this.contactId(c) === this.contactId(selected));
-              if (c) c.isBlocked = blocked;
-              this.cdr.detectChanges();
-            },
-          });
-        }
-      );
     }
   }
 
@@ -604,7 +522,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   onImageSelected(event: Event) {
     const file = (event.target as HTMLInputElement).files?.[0];
-    if (!file || !this.selected || this.isChatBlocked) return;
+    if (!file || !this.selected) return;
     this.imageUploading = true;
     this.chatSvc.uploadImage(file).subscribe({
       next: ({ url }) => {
@@ -844,35 +762,6 @@ export class ChatComponent implements OnInit, OnDestroy {
       })
     );
 
-    // Call events
-    this.subs.add(this.socketSvc.callSession$.subscribe(({ callId }) => { this.callId = callId; }));
-    this.subs.add(this.socketSvc.callIncoming$.subscribe((d) => this.onCallIncoming(d)));
-    this.subs.add(this.socketSvc.callAccepted$.subscribe(() => this.onCallAccepted()));
-    this.subs.add(this.socketSvc.callRejected$.subscribe(() => this.onCallRejected()));
-    this.subs.add(this.socketSvc.callEnded$.subscribe(() => this.onCallEnded()));
-    this.subs.add(this.socketSvc.callOffline$.subscribe(() => this.onCallOffline()));
-    this.subs.add(this.socketSvc.callOffer$.subscribe((d) => this.onCallOffer(d)));
-    this.subs.add(this.socketSvc.callAnswer$.subscribe((d) => this.onCallAnswer(d)));
-    this.subs.add(this.socketSvc.iceCandidate$.subscribe((d) => this.onIceCandidate(d)));
-    this.subs.add(this.socketSvc.remoteMuted$.subscribe((m) => { this.remoteMuted = m; this.cdr.detectChanges(); }));
-
-    // WebrtcPeerService events for the single chat-call peer
-    this.subs.add(
-      this.webrtcSvc.iceCandidateReady$.subscribe(({ peerId, candidate }) => {
-        if (peerId === this.PEER_ID && this.callId) {
-          this.socketSvc.sendIceCandidate(this.callId, candidate);
-        }
-      })
-    );
-    this.subs.add(
-      this.webrtcSvc.remoteStreamAdded$.subscribe(({ peerId, stream }) => {
-        if (peerId !== this.PEER_ID) return;
-        this.remoteStream = stream;
-        this.attachRemote();
-        this.cdr.detectChanges();
-      })
-    );
-
     // Call log — push into current conversation and call history
     this.subs.add(
       this.socketSvc.callLogged$.subscribe((msg) => {
@@ -890,264 +779,44 @@ export class ChatComponent implements OnInit, OnDestroy {
     );
   }
 
-  // ── Call timer ────────────────────────────────────────────────
-  private startCallTimer() {
-    this.stopCallTimer();
-    this.callElapsed   = 0;
-    this.callStartTime = Date.now();
-    this.callTimerInterval = setInterval(() => {
-      this.callElapsed = Math.floor((Date.now() - this.callStartTime!) / 1000);
-      this.cdr.detectChanges();
-    }, 1000);
-  }
-
-  private stopCallTimer() {
-    clearInterval(this.callTimerInterval);
-    this.callTimerInterval = null;
-    this.callElapsed   = 0;
-    this.callStartTime = null;
-  }
-
-  formatCallTimer(): string {
-    const m   = Math.floor(this.callElapsed / 60);
-    const sec = this.callElapsed % 60;
-    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-  }
-
-  // ── Initiate call ─────────────────────────────────────────────
-  async startCall(type: 'audio' | 'video') {
-    if (!this.selected || this.callState !== 'idle' || this.isChatBlocked) return;
-    this.callType  = type;
-    this.callWith  = this.contactId(this.selected);
-    this.callState = 'calling';
-
-    try {
-      await this.webrtcSvc.getLocalStream({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        video: type === 'video',
-      });
-      this.attachLocal();
-      this.webrtcSvc.createPeer(this.PEER_ID);
-      this.socketSvc.requestCall(
-        this.callWith,
-        this.me?.username ?? 'Someone',
-        type
-      );
-      void this.ringAudio.play().catch(() => {});
-      this.callTimeout = setTimeout(() => {
-        if (this.callState === 'calling') this.cancelCall();
-      }, 30000);
-    } catch (err) {
-      this.cleanupCall();
-      this.showCallNotice('Could not access your camera or microphone.');
-    }
-    this.cdr.detectChanges();
-  }
-
-  cancelCall() {
-    if (this.callId) this.socketSvc.endCall(this.callId);
-    this.cleanupCall();
-  }
-
-  // ── Incoming call ─────────────────────────────────────────────
-  private onCallIncoming(data: IncomingCall) {
-    if (this.callState !== 'idle') {
-      this.socketSvc.rejectCall(data.callId);
-      return;
-    }
-    this.incomingCall = data;
-    this.callState = 'incoming';
-    void this.ringtoneAudio.play().catch(() => {});
-    this.cdr.detectChanges();
-  }
-
-  async acceptCall() {
-    if (!this.incomingCall) return;
-    this.callId    = this.incomingCall.callId;
-    this.callWith  = this.incomingCall.from;
-    this.callType  = this.incomingCall.callType;
-    this.incomingCall = null;
-    this.callState = 'in-call';
-    this.stopAllAudio();
-    this.startCallTimer();
-    this.cdr.detectChanges();
-
-    try {
-      await this.webrtcSvc.getLocalStream({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        video: this.callType === 'video',
-      });
-      this.webrtcSvc.createPeer(this.PEER_ID);
-      this.attachLocal();
-      this.socketSvc.acceptCall(this.callId);
-
-      if (this.pendingOffer) {
-        const offer = this.pendingOffer;
-        this.pendingOffer = null;
-        await this.answerOffer(offer);
-      }
-    } catch {
-      const cid = this.callId;
-      if (cid) this.socketSvc.rejectCall(cid);
-      this.cleanupCall();
-      this.showCallNotice('Could not access your camera or microphone.');
-    }
-  }
-
-  rejectCall() {
-    if (this.incomingCall) this.socketSvc.rejectCall(this.incomingCall.callId);
-    this.incomingCall = null;
-    this.callState = 'idle';
-    this.stopAllAudio();
-  }
-
-  endCall() {
-    if (this.callId) this.socketSvc.endCall(this.callId);
-    this.cleanupCall();
-  }
-
-  // ── WebRTC signaling ──────────────────────────────────────────
-  private async onCallAccepted() {
-    clearTimeout(this.callTimeout);
-    this.callState = 'in-call';
-    this.stopAllAudio();
-    this.startCallTimer();
-    this.cdr.detectChanges();
-    this.attachLocal();
-    if (!this.webrtcSvc.hasPeer(this.PEER_ID) || !this.callId) return;
-    const offer = await this.webrtcSvc.createOffer(this.PEER_ID);
-    this.socketSvc.sendOffer(this.callId, offer);
-    this.cdr.detectChanges();
-  }
-
-  private onCallRejected() {
-    this.cleanupCall();
-    this.callNotice = `${this.selected?.user?.username ?? 'User'} declined the call.`;
-    setTimeout(() => (this.callNotice = ''), 3500);
-    this.cdr.detectChanges();
-  }
-
-  private onCallEnded() {
-    this.cleanupCall();
-    this.cdr.detectChanges();
-  }
-
-  private onCallOffline() {
-    this.cleanupCall();
-    this.callNotice = `${this.selected?.user?.username ?? 'User'} is not available right now.`;
-    setTimeout(() => (this.callNotice = ''), 3500);
-    this.cdr.detectChanges();
-  }
-
-  private async onCallOffer(data: { from: string; offer: RTCSessionDescriptionInit; callId: string }) {
-    if (!this.webrtcSvc.hasPeer(this.PEER_ID)) {
-      this.pendingOffer = data;
-      return;
-    }
-
-    await this.answerOffer(data);
-  }
-
-  private async answerOffer(data: { from: string; offer: RTCSessionDescriptionInit; callId: string }) {
-    if (!this.webrtcSvc.hasPeer(this.PEER_ID)) {
-      this.pendingOffer = data;
-      return;
-    }
-
-    const answer = await this.webrtcSvc.createAnswer(this.PEER_ID, data.offer);
-    this.socketSvc.sendAnswer(data.callId, answer);
-  }
-
-  private async onCallAnswer(data: { answer: RTCSessionDescriptionInit }) {
-    if (!this.webrtcSvc.hasPeer(this.PEER_ID)) return;
-    await this.webrtcSvc.setRemoteAnswer(this.PEER_ID, data.answer);
-  }
-
-  private async onIceCandidate(data: { candidate: RTCIceCandidateInit }) {
-    await this.webrtcSvc.addIceCandidate(this.PEER_ID, data.candidate);
-  }
-
-  // ── Call helpers ──────────────────────────────────────────────
-  private attachLocal() {
-    setTimeout(() => {
-      const video = this.localVideo?.nativeElement;
-      const stream = this.webrtcSvc.getCurrentLocalStream();
-      if (video && stream && video.srcObject !== stream) {
-        video.muted = true;
-        video.srcObject = stream;
-        void video.play().catch(() => {});
-      }
-    });
-  }
-
-  private attachRemote() {
-    setTimeout(() => {
-      const video = this.remoteVideo?.nativeElement;
-      if (video && this.remoteStream && video.srcObject !== this.remoteStream) {
-        video.srcObject = this.remoteStream;
-        void video.play().catch(() => {});
-      }
-    });
-  }
-
-  private stopAllAudio() {
-    [this.ringAudio, this.ringtoneAudio].forEach((a) => { a.pause(); a.currentTime = 0; });
-  }
-
-  private cleanupCall() {
-    clearTimeout(this.callTimeout);
-    this.stopCallTimer();
-    this.stopAllAudio();
-    this.webrtcSvc.closePeer(this.PEER_ID);
-    this.webrtcSvc.stopLocalStream();
-    this.remoteStream = null;
-    this.pendingOffer = null;
-    this.callState    = 'idle';
-    this.callId       = null;
-    this.callWith     = null;
-    this.incomingCall = null;
-    this.isMuted      = false;
-    this.isCamOff     = false;
-    this.remoteMuted  = false;
-    this.pipSwapped   = false;
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
-  }
-
-  toggleVideoSwap() {
-    if (this.callType !== 'video') return;
-    this.pipSwapped = !this.pipSwapped;
-  }
-
-  async toggleFullscreen() {
-    const el = this.callOverlay?.nativeElement;
-    if (!el) return;
-    try {
-      if (!document.fullscreenElement) {
-        await el.requestFullscreen();
-      } else {
-        await document.exitFullscreen();
-      }
-    } catch { /* fullscreen unavailable or denied — ignore */ }
-  }
-
-  private showCallNotice(message: string) {
-    this.callNotice = message;
-    setTimeout(() => (this.callNotice = ''), 3500);
-    this.cdr.detectChanges();
-  }
-
-  toggleMute() {
-    this.isMuted = !this.isMuted;
-    this.webrtcSvc.setMuted(this.isMuted);
-    if (this.callId) this.socketSvc.sendMuteState(this.callId, this.isMuted);
-  }
-
-  toggleCamera() {
-    this.isCamOff = !this.isCamOff;
-    this.webrtcSvc.setCameraOff(this.isCamOff);
+  // ── Calling ───────────────────────────────────────────────────
+  // Actual call session lives in CallSessionService (app-wide, survives
+  // navigating away from this page) — this page only knows how to trigger one.
+  startCall(type: 'audio' | 'video') {
+    if (!this.selected || this.callSvc.callState !== 'idle') return;
+    this.callSvc.startCall(this.selected.user, type);
   }
 
   // ── Utilities ─────────────────────────────────────────────────
+  // Matches a bare http(s) URL or a "www."-prefixed domain — the trailing
+  // group excludes common sentence-ending punctuation so "check out
+  // https://example.com." doesn't swallow the period into the link.
+  private static readonly URL_REGEX = /((?:https?:\/\/|www\.)[^\s<]+)/gi;
+  private static readonly TRAILING_PUNCTUATION = /[.,;:!?'")\]]+$/;
+
+  // Auto-linkifies any URL in a text message so it opens in a new tab —
+  // same escape-then-reinsert-safe-HTML approach as project-item-detail's
+  // renderBody (mentions), just replacing URLs instead of @mentions. Quotes
+  // are escaped too (renderBody doesn't need to, since it never builds an
+  // attribute from matched text) — without that, a URL containing a literal
+  // `"` (e.g. `https://evil.com/"onmouseover="alert(1)`) could break out of
+  // the href="..." attribute built below.
+  renderMessageContent(msg: Message): SafeHtml {
+    const escapeHtml = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+    const html = escapeHtml(msg.content).replace(ChatComponent.URL_REGEX, (match) => {
+      const trailingMatch = match.match(ChatComponent.TRAILING_PUNCTUATION);
+      const trailing = trailingMatch ? trailingMatch[0] : '';
+      const url = trailing ? match.slice(0, -trailing.length) : match;
+      const href = url.toLowerCase().startsWith('www.') ? `https://${url}` : url;
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>${trailing}`;
+    });
+
+    return this.sanitizer.bypassSecurityTrustHtml(html);
+  }
+
   formatTime(date: string): string {
     return this.dateFormat.formatTime(date);
   }

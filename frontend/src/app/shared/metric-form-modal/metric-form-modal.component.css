@@ -22,6 +22,40 @@
   flex-shrink: 0;
 }
 
+.metric-modal-header-icon {
+  font-size: 1.15rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Borderless, auto-focused title field that replaces the old static "New
+   Metric"/"Edit Metric" header text — reads as part of the header until
+   focused. Same treatment as event-detail-dialog's .event-title-input. */
+.metric-title-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  padding: 4px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.metric-title-input::placeholder { color: var(--text-dim); font-weight: 400; }
+
+.metric-title-input:focus {
+  box-shadow: 0 1px 0 0 #3b82f6;
+}
+
+/* Smaller variant of .modal-submit-btn for the Cancel/Save pair embedded in
+   the header row next to the title, instead of a full-size footer button. */
+.modal-submit-btn-sm {
+  min-width: 0;
+  padding: 4px 14px;
+  font-size: 0.78rem;
+}
+
 .metric-modal-form {
   display: flex;
   flex-direction: column;

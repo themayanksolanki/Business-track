@@ -1,7 +1,15 @@
 <div class="video-tile">
   <video #video [muted]="muted" playsinline autoplay [class.hidden]="camOff"></video>
   <div class="tile-placeholder" *ngIf="camOff">
-    <i class="bi bi-camera-video-off-fill"></i>
+    <ng-container *ngIf="user; else iconOnly">
+      <div class="tile-avatar">
+        <img *ngIf="avatarUrl" [src]="avatarUrl" class="tile-avatar-img" />
+        <span *ngIf="!avatarUrl" class="tile-avatar-init">{{ user.username[0].toUpperCase() }}</span>
+      </div>
+    </ng-container>
+    <ng-template #iconOnly>
+      <i class="bi bi-camera-video-off-fill"></i>
+    </ng-template>
   </div>
   <span class="tile-label">{{ label }}</span>
 </div>

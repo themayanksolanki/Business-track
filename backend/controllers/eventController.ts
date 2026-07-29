@@ -421,6 +421,98 @@ export const getEventById = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
+// Narrow select for the event's "Tasks" tab — just enough to render a row
+// (title, a project/group breadcrumb, a status pill), never the project
+// item's full ITEM_INCLUDE (assignee/creator/updater/tags/mentions/etc.).
+const EVENT_TASK_SELECT = {
+  id: true,
+  title: true,
+  type: true,
+  status: true,
+  project: { select: { id: true, name: true } },
+  parent: { select: { id: true, title: true } },
+};
+
+export const getEventTasks = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const event = await prisma.calendarEvent.findUnique({
+      where: { id: Number(req.params.eventId) },
+      include: { guests: { select: { userId: true } } },
+    });
+    if (!event) return next(new AppError('Event not found', 404));
+    if (!canAccessEvent(req.user! as AuthUser, event))
+      return next(new AppError('You do not have access to this event', 403));
+
+    const tasks = await prisma.projectItem.findMany({
+      where: { linkedEvents: { some: { id: event.id } } },
+      select: EVENT_TASK_SELECT,
+      orderBy: { title: 'asc' },
+    });
+
+    res.status(200).json({ tasks });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const linkEventTasks = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const event = await prisma.calendarEvent.findUnique({
+      where: { id: Number(req.params.eventId) },
+      include: { guests: { select: { userId: true } }, linkedTasks: { select: { id: true } } },
+    });
+    if (!event) return next(new AppError('Event not found', 404));
+    if (!canAccessEvent(req.user! as AuthUser, event))
+      return next(new AppError('You do not have access to this event', 403));
+    if (!canEditEvent(req.user! as AuthUser, event))
+      return next(new AppError('You do not have permission to update this event', 403));
+
+    const requestedIds: number[] = req.body.projectItemIds.map(Number);
+    const alreadyLinkedIds = new Set(event.linkedTasks.map((t) => t.id));
+    const newIds = requestedIds.filter((id) => !alreadyLinkedIds.has(id));
+
+    if (newIds.length) {
+      await prisma.calendarEvent.update({
+        where: { id: event.id },
+        data: { linkedTasks: { connect: newIds.map((id) => ({ id })) } },
+      });
+    }
+
+    const tasks = await prisma.projectItem.findMany({
+      where: { linkedEvents: { some: { id: event.id } } },
+      select: EVENT_TASK_SELECT,
+      orderBy: { title: 'asc' },
+    });
+
+    res.status(200).json({ tasks });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const unlinkEventTask = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const event = await prisma.calendarEvent.findUnique({
+      where: { id: Number(req.params.eventId) },
+      include: { guests: { select: { userId: true } } },
+    });
+    if (!event) return next(new AppError('Event not found', 404));
+    if (!canAccessEvent(req.user! as AuthUser, event))
+      return next(new AppError('You do not have access to this event', 403));
+    if (!canEditEvent(req.user! as AuthUser, event))
+      return next(new AppError('You do not have permission to update this event', 403));
+
+    await prisma.calendarEvent.update({
+      where: { id: event.id },
+      data: { linkedTasks: { disconnect: { id: Number(req.params.projectItemId) } } },
+    });
+
+    res.status(200).json({ message: 'Task unlinked' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const updateEvent = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const event = await prisma.calendarEvent.findUnique({
