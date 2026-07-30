@@ -13,6 +13,7 @@ enum SequenceEntity {
   calendar
   calendarEvent
   meeting
+  group
 }
 
 model OrgSequence {

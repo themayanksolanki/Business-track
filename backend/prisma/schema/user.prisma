@@ -162,6 +162,13 @@ model User {
   taskApproverAssignedBy   TaskApprover[]     @relation("TaskApproverAssignedBy")
   approvalHistoryActions   ApprovalHistory[]  @relation("ApprovalHistoryUser")
   approvalComments         ApprovalComment[]  @relation("ApprovalCommentAuthor")
+  createdGroups            Group[]            @relation("GroupCreatedBy")
+  updatedGroups            Group[]            @relation("GroupUpdatedBy")
+  groupMemberships         GroupMember[]      @relation("GroupMemberUser")
+  addedGroupMembers        GroupMember[]      @relation("GroupMemberAddedBy")
+  sentGroupMessages        GroupMessage[]     @relation("GroupMessageSender")
+  deletedGroupMessagesFor  GroupMessage[]     @relation("GroupMessageDeletedFor")
+  groupMessageReads        GroupMessageRead[] @relation("GroupMessageReadUser")
 
   @@unique([organizationId, sequenceId])
   @@map("users")

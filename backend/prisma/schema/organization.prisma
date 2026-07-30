@@ -23,6 +23,7 @@ model Organization {
   calendars           Calendar[]
   calendarEvents      CalendarEvent[]
   meetings     Meeting[]
+  groups       Group[]
   sequences    OrgSequence[]
 
   @@map("organizations")

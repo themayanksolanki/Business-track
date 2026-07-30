@@ -23,6 +23,7 @@ import {
 import { ProjectComment, CreateCommentPayload, UpdateCommentPayload } from '../../models/comment.model';
 import { ProjectMember } from '../../models/project.model';
 import { PaginatedUsers } from '../../models/user.model';
+import { Meeting } from '../../models/meeting.model';
 import { Observable } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
@@ -420,5 +421,10 @@ export class ProjectService {
     return this.http.delete<{ message: string; members: ProjectMember[] }>(
       `${this.api}/${projectId}/members/${memberId}`
     );
+  }
+
+  // Meetings panel (Meetings tab) — Meet Hub rooms scheduled against this project.
+  getMeetings(projectId: string) {
+    return this.http.get<Meeting[]>(`${this.api}/${projectId}/meetings`);
   }
 }

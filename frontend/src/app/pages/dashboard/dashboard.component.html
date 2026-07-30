@@ -11,6 +11,34 @@
   </div>
 </div>
 
+<!-- Join now banner — only when a meeting is within 5 minutes of starting -->
+@if (startingSoonMeeting) {
+  <a class="join-now-banner mb-4" [routerLink]="['/meet', startingSoonMeeting.roomCode]">
+    <i class="bi bi-camera-video-fill"></i>
+    <span class="flex-grow-1">{{ meetingLabel(startingSoonMeeting) }} is starting now</span>
+    <span class="join-now-btn">Join <i class="bi bi-arrow-right"></i></span>
+  </a>
+}
+
+<!-- Upcoming meetings widget -->
+@if (otherUpcomingMeetings.length > 0) {
+  <div class="card upcoming-meetings-card mb-4 shadow-sm">
+    <div class="card-body py-3 px-4">
+      <span class="small fw-semibold text-muted text-uppercase d-block mb-2" style="letter-spacing:.05em">Upcoming Meetings</span>
+      @for (m of otherUpcomingMeetings.slice(0, 5); track m.id) {
+        <div class="upcoming-meeting-row">
+          <i class="bi bi-camera-video text-muted"></i>
+          <span class="flex-grow-1">{{ meetingLabel(m) }}</span>
+          @if (m.scheduledStart) {
+            <span class="text-muted small">{{ m.scheduledStart | date: 'MMM d, h:mm a' }}</span>
+          }
+          <a class="btn btn-sm btn-outline-primary" [routerLink]="['/meet', m.roomCode]">Open</a>
+        </div>
+      }
+    </div>
+  </div>
+}
+
 @if (loading) {
   <div class="text-center text-muted py-5">
     <div class="spinner-border spinner-border-sm me-2" role="status"></div>

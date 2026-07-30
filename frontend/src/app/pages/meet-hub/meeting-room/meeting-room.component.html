@@ -2,23 +2,52 @@
   <div class="room-banner" *ngIf="meetingSessionSvc.roomFull">This meeting is full (max 4 participants).</div>
   <div class="room-banner room-banner-error" *ngIf="meetingSessionSvc.joinError">{{ meetingSessionSvc.joinError }}</div>
 
-  <div class="tile-grid">
-    <app-video-tile
-      [stream]="meetingSessionSvc.localStream"
-      [label]="myUsername + ' (You)'"
-      [user]="myUser"
-      [muted]="true"
-      [camOff]="meetingSessionSvc.isCamOff"
-    ></app-video-tile>
+  <div class="room-body">
+    <div class="tile-grid">
+      <app-video-tile
+        [stream]="meetingSessionSvc.localStream"
+        [label]="myUsername + ' (You)'"
+        [user]="myUser"
+        [muted]="true"
+        [camOff]="meetingSessionSvc.isCamOff"
+        [handRaised]="meetingSessionSvc.handRaised"
+        [isScreenSharing]="meetingSessionSvc.isScreenSharing"
+        [mirror]="true"
+      ></app-video-tile>
 
-    <app-video-tile
-      *ngFor="let tile of meetingSessionSvc.remoteTiles"
-      [stream]="tile.stream"
-      [label]="participantLabel(tile.userId)"
-      [user]="participantUser(tile.userId)"
-      [muted]="false"
-      [camOff]="meetingSessionSvc.isPeerCamOff(tile.socketId)"
-    ></app-video-tile>
+      <app-video-tile
+        *ngFor="let tile of meetingSessionSvc.remoteTiles"
+        [stream]="tile.stream"
+        [label]="participantLabel(tile.userId)"
+        [user]="participantUser(tile.userId)"
+        [muted]="false"
+        [camOff]="meetingSessionSvc.isPeerCamOff(tile.socketId)"
+        [handRaised]="meetingSessionSvc.isPeerHandRaised(tile.socketId)"
+        [isScreenSharing]="meetingSessionSvc.isPeerScreenSharing(tile.socketId)"
+        [showKick]="isHost"
+        (kick)="kickTile(tile.socketId)"
+      ></app-video-tile>
+    </div>
+
+    <div class="chat-panel" *ngIf="showChatPanel">
+      <div class="chat-panel-header">
+        <span>In-call messages</span>
+        <button class="chat-panel-close" (click)="toggleChatPanel()"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="chat-panel-messages">
+        <div class="chat-panel-msg" *ngFor="let m of meetingSessionSvc.chatMessages">
+          <span class="chat-panel-sender">{{ chatSenderLabel(m.userId) }}</span>
+          <span class="chat-panel-text">{{ m.message }}</span>
+        </div>
+        <div class="chat-panel-empty" *ngIf="!meetingSessionSvc.chatMessages.length">
+          No messages yet — this chat isn't saved after the call ends.
+        </div>
+      </div>
+      <div class="chat-panel-input-row">
+        <input #chatInput type="text" [(ngModel)]="chatText" (keydown.enter)="sendChat()" placeholder="Message everyone…" />
+        <button (click)="sendChat()" [disabled]="!chatText.trim()"><i class="bi bi-send-fill"></i></button>
+      </div>
+    </div>
   </div>
 
   <div class="room-controls">
@@ -28,11 +57,23 @@
     <button class="ctrl-btn" [class.active]="meetingSessionSvc.isCamOff" (click)="meetingSessionSvc.toggleCamera()">
       <i class="bi" [class.bi-camera-video-fill]="!meetingSessionSvc.isCamOff" [class.bi-camera-video-off-fill]="meetingSessionSvc.isCamOff"></i>
     </button>
+    <button class="ctrl-btn" [class.active]="meetingSessionSvc.isScreenSharing" (click)="meetingSessionSvc.toggleScreenShare()" title="Share screen">
+      <i class="bi bi-easel2-fill"></i>
+    </button>
+    <button class="ctrl-btn" [class.active]="meetingSessionSvc.handRaised" (click)="meetingSessionSvc.toggleHandRaise()" title="Raise hand">
+      <i class="bi bi-hand-index-thumb-fill"></i>
+    </button>
+    <button class="ctrl-btn" [class.active]="showChatPanel" (click)="toggleChatPanel()" title="Chat">
+      <i class="bi bi-chat-dots-fill"></i>
+    </button>
     <button class="ctrl-btn" (click)="minimize()" title="Minimize">
-      <i class="bi bi-dash-lg"></i>
+      <i class="bi bi-arrows-angle-contract"></i>
     </button>
     <button class="ctrl-btn ctrl-btn-leave" (click)="leaveMeeting()">
       <i class="bi bi-telephone-fill"></i> Leave
+    </button>
+    <button class="ctrl-btn ctrl-btn-end" *ngIf="isHost" (click)="endMeeting()" title="End meeting for everyone">
+      <i class="bi bi-x-octagon-fill"></i>
     </button>
   </div>
 </div>

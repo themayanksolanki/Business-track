@@ -1,6 +1,7 @@
 import { User } from './user.model';
 import { Department } from './department.model';
 import { Category } from './category.model';
+import { MetricFrequency } from './metric-tracking.model';
 
 export type MetricStatus = 'active' | 'archived' | 'deleted';
 // Decides how a metric's tracked values are decorated in the Bowling View's
@@ -20,6 +21,7 @@ export interface Metric {
   notes: string;
   status: MetricStatus;
   dataType: MetricDataType;
+  frequency: MetricFrequency;
   order: number;
   depth: number;
   startDate: string | null;
@@ -34,8 +36,9 @@ export interface Metric {
   updatedAt: string;
 }
 
-// Metrics-list row shape — only what the table renders (name/department/owner).
-export type MetricListItem = Pick<Metric, 'id' | 'sequenceId' | 'title' | 'department' | 'owner' | 'status' | 'dataType'>;
+// Metrics-list row shape — only what the table renders (name/department/owner),
+// plus frequency since the Bowling View's per-row lens filter needs it.
+export type MetricListItem = Pick<Metric, 'id' | 'sequenceId' | 'title' | 'department' | 'owner' | 'status' | 'dataType' | 'frequency'>;
 
 export interface CreateMetricPayload {
   title: string;
@@ -47,6 +50,7 @@ export interface CreateMetricPayload {
   dueDate?: string | null;
   notes?: string;
   dataType?: MetricDataType;
+  frequency?: MetricFrequency;
 }
 
 export interface UpdateMetricPayload {
@@ -60,6 +64,7 @@ export interface UpdateMetricPayload {
   notes?: string;
   status?: MetricStatus;
   dataType?: MetricDataType;
+  frequency?: MetricFrequency;
 }
 
 export interface PaginatedMetrics {

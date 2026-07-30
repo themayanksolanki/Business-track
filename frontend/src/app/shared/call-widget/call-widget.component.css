@@ -175,6 +175,12 @@
   object-fit: contain;
 }
 
+/* Mirror your own camera preview only — never while it's actually showing
+   your shared screen (that must stay readable), and never the remote tile. */
+.video-tile.local-tile:not(.cw-screenshare) video {
+  transform: scaleX(-1);
+}
+
 .video-tile-main {
   top: max(24px, env(safe-area-inset-top));
   left: max(24px, env(safe-area-inset-left));
@@ -500,12 +506,13 @@
   width: 240px;
   border-radius: 18px;
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 12px 40px rgba(0,0,0,0.5);
   cursor: pointer;
   z-index: 4000;
-  background: #111827;
+  background: linear-gradient(160deg, #1a2236 0%, #0b0f19 100%);
   animation: mini-in 0.3s cubic-bezier(.4,0,.2,1);
-  transition: transform 0.2s cubic-bezier(.4,0,.2,1), box-shadow 0.2s cubic-bezier(.4,0,.2,1);
+  transition: transform 0.2s cubic-bezier(.4,0,.2,1), box-shadow 0.2s cubic-bezier(.4,0,.2,1), border-color 0.2s ease;
 }
 
 .meeting-mini-widget:hover {
@@ -549,6 +556,7 @@
   gap: 6px;
   padding: 4px 8px;
   background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   backdrop-filter: blur(10px);
   z-index: 6;

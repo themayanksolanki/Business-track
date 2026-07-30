@@ -2,7 +2,10 @@ import type { Request, Response, NextFunction } from 'express';
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
 
-const NOTIFICATION_INCLUDE = { actor: { select: { id: true, username: true, profileImage: true } } };
+const NOTIFICATION_INCLUDE = {
+  actor: { select: { id: true, username: true, profileImage: true } },
+  meeting: { select: { id: true, roomCode: true, status: true } },
+};
 const RECENT_LIMIT = 30;
 
 export const getNotifications = async (req: Request, res: Response, next: NextFunction) => {

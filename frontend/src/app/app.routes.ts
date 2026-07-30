@@ -16,6 +16,12 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/register/register.component').then((m) => m.RegisterComponent),
   },
   {
+    // Public marketing page — viewable whether signed in or not, so no
+    // guestGuard/authGuard here (unlike the rest of the auth-flow routes).
+    path: 'pricing',
+    loadComponent: () => import('./pages/pricing/pricing.component').then((m) => m.PricingComponent),
+  },
+  {
     path: 'forgot-password',
     canActivate: [guestGuard],
     loadComponent: () => import('./pages/forgot-password/forgot-password.component').then((m) => m.ForgotPasswordComponent),

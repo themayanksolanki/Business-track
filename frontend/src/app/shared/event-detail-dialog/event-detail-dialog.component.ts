@@ -1,6 +1,7 @@
 import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import dayjs from 'dayjs/esm';
 import { CKEditorModule } from '@ckeditor/ckeditor5-angular';
@@ -32,6 +33,7 @@ import { CategoryService } from '../../core/services/category.service';
 import { CalendarService } from '../../core/services/calendar.service';
 import { AuthService } from '../../core/services/auth.service';
 import { DateFormatService } from '../../core/services/date-format.service';
+import { MeetingService } from '../../core/services/meeting.service';
 import {
   CalendarEventModel,
   CreateEventPayload,
@@ -44,7 +46,7 @@ import {
 } from '../../models/event.model';
 import { Calendar } from '../../models/calendar.model';
 
-export type EventDialogMode = 'create' | 'edit' | 'view';
+export type EventDialogMode = 'create' | 'edit';
 type RecurrenceEndType = 'never' | 'on' | 'after';
 
 const RECURRENCE_UNIT_LABEL: Record<RecurrenceFrequency, string> = {
@@ -72,17 +74,16 @@ const REMINDER_METHOD_OPTIONS: { value: ReminderMethod; label: string }[] = [
   { value: 'email', label: 'Email' },
 ];
 
-// Single dialog covering all three modes the user asked for (Create/Edit/
-// View) rather than a separate viewer + form — 'view' renders the loaded
-// event read-only with an Edit button that flips this component's own
-// internal mode to 'edit' in place, reusing the same already-loaded data
-// instead of closing and reopening a different component.
+// Single dialog covering both Create and Edit — no separate read-only
+// "info" view. A non-manager (guest without edit rights) still lands on
+// this same form, just fully disabled (see applyFormPermissions).
 @Component({
   selector: 'app-event-detail-dialog',
   standalone: true,
   imports: [
     ReactiveFormsModule,
     NgTemplateOutlet,
+    RouterLink,
     ModalDirective,
     ConfirmDialogComponent,
     DatePickerComponent,
@@ -114,7 +115,7 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
   };
 
   @Input() open = false;
-  @Input() mode: EventDialogMode = 'view';
+  @Input() mode: EventDialogMode = 'edit';
   @Input() eventId: number | null = null;
   // Set only when the parent clicked one instance of a recurring series
   // (see CalendarStateService.openEventDetail) — identifies which generated
@@ -126,6 +127,12 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
   @Input() initialStart: Date | null = null;
   @Input() initialEnd: Date | null = null;
   @Input() initialAllDay = false;
+  // Set when opened from a Project's "Schedule meeting" action (see
+  // ProjectDetailComponent) — pre-links the event to this project and forces
+  // the "Add Meet Hub room" toggle on, since that's the whole point of that
+  // entry point. Left null for the normal calendar-feature open, where no
+  // project scoping applies.
+  @Input() projectId: number | null = null;
 
   @Output() closed = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
@@ -133,9 +140,7 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
 
   @ViewChild('titleInput') titleInput?: ElementRef<HTMLInputElement>;
 
-  // Internal, can diverge from the `mode` input (view -> edit via the Edit
-  // button) without the parent needing to know or re-bind anything.
-  internalMode: EventDialogMode = 'view';
+  internalMode: EventDialogMode = 'edit';
 
   loadedEvent: CalendarEventModel | null = null;
   calendars: Calendar[] = [];
@@ -191,7 +196,8 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
     public categoryService: CategoryService,
     private calendarService: CalendarService,
     public auth: AuthService,
-    public dateFormat: DateFormatService
+    public dateFormat: DateFormatService,
+    private meetingService: MeetingService
   ) {
     this.form = this.fb.group({
       title: ['', Validators.required],
@@ -208,6 +214,10 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
       calendarId: this.fb.control<number | null>(null),
       meetingLinkUrl: [''],
       meetingLinkTitle: [{ value: '', disabled: true }],
+      // Alternative to pasting an external link — creates an internal Meet
+      // Hub room instead (see attachMeetHubRoom). Mutually exclusive with
+      // meetingLinkUrl in the UI, though the backend doesn't hard-enforce it.
+      meetHubRoom: [false],
       visibility: this.fb.control<EventVisibility>('standard'),
       busyStatus: this.fb.control<EventBusyStatus>('busy'),
       repeats: [false],
@@ -233,6 +243,21 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
         else titleControl.disable({ emitEvent: false });
       })
     );
+
+    // Toggling on a Meet Hub room clears/locks the pasted-link fields —
+    // an event has either an external link or an internal room, not both.
+    this.subs.add(
+      this.form.get('meetHubRoom')!.valueChanges.subscribe((on: boolean) => {
+        const urlControl = this.form.get('meetingLinkUrl')!;
+        if (on) {
+          urlControl.setValue('', { emitEvent: false });
+          urlControl.disable({ emitEvent: false });
+          this.form.get('meetingLinkTitle')!.disable({ emitEvent: false });
+        } else if (this.canManage) {
+          urlControl.enable({ emitEvent: false });
+        }
+      })
+    );
   }
 
   ngOnDestroy() {
@@ -252,13 +277,9 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
   }
 
   get canManage(): boolean {
-    if (!this.loadedEvent) return this.mode !== 'view';
+    if (!this.loadedEvent) return true;
     const user = this.auth.currentUser();
     return !!user && (user.role === 'Admin' || user.id === this.loadedEvent.owner.id);
-  }
-
-  get isViewing(): boolean {
-    return this.internalMode === 'view';
   }
 
   // True only when this dialog is looking at one instance of a recurring
@@ -266,12 +287,6 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
   // vs entire series" needs asking before a save/delete goes through.
   get isRecurringOccurrenceContext(): boolean {
     return !!this.originalStart && !!this.loadedEvent?.recurrence;
-  }
-
-  get dialogTitle(): string {
-    if (this.internalMode === 'create') return 'New Event';
-    if (this.internalMode === 'edit') return 'Edit Event';
-    return this.loadedEvent?.title || 'Event';
   }
 
   get timeRangeLabel(): string {
@@ -285,6 +300,31 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
     return sameDay
       ? `${this.dateFormat.formatDate(start)} · ${this.dateFormat.formatTime(start)} – ${this.dateFormat.formatTime(end)}`
       : `${this.dateFormat.formatDateTime(start)} – ${this.dateFormat.formatDateTime(end)}`;
+  }
+
+  // True once a Meet Hub room is already attached, or this dialog was opened
+  // pre-scoped to a project (see @Input() projectId) — in both cases the
+  // toggle is shown but locked, since there's no "detach the room" flow yet.
+  get meetHubRoomLocked(): boolean {
+    return !!this.loadedEvent?.meeting || this.projectId !== null;
+  }
+
+  get hasExistingMeeting(): boolean {
+    return !!this.loadedEvent?.meeting;
+  }
+
+  // Join button activates 5 minutes before start and stays until the room
+  // is no longer live/scheduled (mirrors the "starts in X minutes" idea
+  // referenced in the spec — no prior art elsewhere in this component).
+  get canJoinMeeting(): boolean {
+    const meeting = this.loadedEvent?.meeting;
+    if (!meeting || !this.loadedEvent) return false;
+    if (meeting.status !== 'scheduled' && meeting.status !== 'live') return false;
+    return dayjs().isAfter(dayjs(this.loadedEvent.start).subtract(5, 'minute'));
+  }
+
+  get joinMeetingUrl(): string | null {
+    return this.loadedEvent?.meeting ? `/meet/${this.loadedEvent.meeting.roomCode}` : null;
   }
 
   get recurrenceLabel(): string | null {
@@ -320,6 +360,7 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
         this.loadedEvent = null;
         this.attachmentsCount = 0;
         this.resetFormForCreate();
+        this.applyFormPermissions();
         // Deferred a tick so the title <input> exists in the DOM — the modal's
         // @if (open) block (and the underlying Bootstrap fade-in) hasn't
         // necessarily rendered/settled yet on this same change-detection pass.
@@ -346,8 +387,8 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
       next: (event) => {
         this.loadedEvent = event;
         this.populateForm(event);
+        this.applyFormPermissions();
         this.loading = false;
-        this.promoteToEditIfPermitted();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to load event';
@@ -363,8 +404,8 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
       next: (event) => {
         this.loadedEvent = event;
         this.populateForm(event);
+        this.applyFormPermissions();
         this.loading = false;
-        this.promoteToEditIfPermitted();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to load event';
@@ -373,16 +414,24 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
     });
   }
 
-  // Clicking an existing event opens this dialog with mode 'view' — skip
-  // straight to the edit form instead of making the user click "Edit" as a
-  // second step, but only when they can actually save changes; a guest/
-  // non-owner with view-only access still lands on the read-only view,
-  // exactly as before (the backend would reject their save anyway, so
-  // showing an editable form to them would just be misleading).
-  private promoteToEditIfPermitted() {
-    if (this.internalMode === 'view' && this.canManage) {
-      this.internalMode = 'edit';
-      setTimeout(() => this.titleInput?.nativeElement.focus());
+  // No separate read-only view — a guest/non-owner without manage rights
+  // still lands on this same form, just disabled outright (the backend
+  // would reject their save anyway, so an editable form would be
+  // misleading). meetingLinkTitle's own enable/disable (tied to whether
+  // meetingLinkUrl has a value, see the constructor subscription) only ever
+  // narrows further, so re-apply it after a blanket enable() re-opens it.
+  private applyFormPermissions() {
+    if (this.canManage) {
+      this.form.enable({ emitEvent: false });
+      const url = (this.form.get('meetingLinkUrl')!.value || '').trim();
+      if (!url) this.form.get('meetingLinkTitle')!.disable({ emitEvent: false });
+      if (this.form.get('meetHubRoom')!.value) {
+        this.form.get('meetingLinkUrl')!.disable({ emitEvent: false });
+        this.form.get('meetingLinkTitle')!.disable({ emitEvent: false });
+      }
+      if (this.meetHubRoomLocked) this.form.get('meetHubRoom')!.disable({ emitEvent: false });
+    } else {
+      this.form.disable({ emitEvent: false });
     }
   }
 
@@ -405,6 +454,7 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
       calendarId: null,
       meetingLinkUrl: '',
       meetingLinkTitle: '',
+      meetHubRoom: this.projectId !== null,
       visibility: 'standard',
       busyStatus: 'busy',
       repeats: false,
@@ -439,6 +489,7 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
       calendarId: event.calendar.id,
       meetingLinkUrl: event.meetingLinkUrl || '',
       meetingLinkTitle: event.meetingLinkTitle || '',
+      meetHubRoom: !!event.meeting,
       visibility: event.visibility,
       busyStatus: event.busyStatus,
       repeats: !!r,
@@ -471,28 +522,8 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
     list.forEach((g) => this.guestsArray.push(this.createGuestGroup(g)));
   }
 
-  startEdit() {
-    this.internalMode = 'edit';
-    this.error = '';
-    // Deferred a tick for the same reason as the create-mode focus in
-    // ngOnChanges — the header's title input doesn't exist in the DOM yet
-    // on this same change-detection pass (view mode's read-only <h5> is
-    // still what's rendered until internalMode flips take effect).
-    setTimeout(() => this.titleInput?.nativeElement.focus());
-  }
-
-  // "Cancel" in the header: for an existing event, revert to the read-only
-  // view (discarding in-progress edits) rather than closing the modal
-  // outright; for a brand-new (unsaved) event there's no "view" to revert
-  // to, so it just closes.
   cancelEdit() {
-    if (this.mode === 'create') {
-      this.close();
-      return;
-    }
-    if (this.loadedEvent) this.populateForm(this.loadedEvent);
-    this.internalMode = 'view';
-    this.error = '';
+    this.close();
   }
 
   addReminder() {
@@ -577,8 +608,9 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
       departmentId: v.departmentId,
       categoryId: v.categoryId,
       calendarId: v.calendarId ?? undefined,
-      meetingLinkUrl: v.meetingLinkUrl.trim() || null,
-      meetingLinkTitle: v.meetingLinkUrl.trim() ? v.meetingLinkTitle.trim() || null : null,
+      ...(this.projectId !== null ? { projectId: this.projectId } : {}),
+      meetingLinkUrl: v.meetHubRoom ? null : v.meetingLinkUrl.trim() || null,
+      meetingLinkTitle: !v.meetHubRoom && v.meetingLinkUrl.trim() ? v.meetingLinkTitle.trim() || null : null,
       visibility: v.visibility,
       busyStatus: v.busyStatus,
       guests,
@@ -629,22 +661,51 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
 
   private saveEvent(payload: CreateEventPayload | UpdateEventPayload) {
     this.saving = true;
+    const wantsMeetHubRoom = this.form.getRawValue().meetHubRoom && !this.hasExistingMeeting;
     const request =
       this.internalMode === 'create'
         ? this.eventService.createEvent(payload as CreateEventPayload)
         : this.eventService.updateEvent(this.eventId!, payload);
 
     request.subscribe({
-      next: () => {
-        this.saving = false;
-        this.saved.emit();
-        this.close();
+      next: (res) => {
+        if (wantsMeetHubRoom) this.attachMeetHubRoom(res.event);
+        else {
+          this.saving = false;
+          this.saved.emit();
+          this.close();
+        }
       },
       error: (err) => {
         this.saving = false;
         this.error = err.error?.message || 'Failed to save event';
       },
     });
+  }
+
+  // Attaches a hosted Meet Hub room to the just-saved event via
+  // calendarEventId — the backend links it and writes the internal room URL
+  // back onto the event's meetingLinkUrl (see meetingController.createMeeting).
+  private attachMeetHubRoom(event: CalendarEventModel) {
+    this.meetingService
+      .create({
+        title: event.title,
+        calendarEventId: event.id,
+        scheduledStart: event.start,
+        scheduledEnd: event.end,
+        ...(this.projectId !== null ? { projectId: this.projectId } : {}),
+      })
+      .subscribe({
+        next: () => {
+          this.saving = false;
+          this.saved.emit();
+          this.close();
+        },
+        error: (err) => {
+          this.saving = false;
+          this.error = err.error?.message || 'Event saved, but creating the Meet Hub room failed';
+        },
+      });
   }
 
   private saveOccurrence(payload: UpdateEventPayload) {

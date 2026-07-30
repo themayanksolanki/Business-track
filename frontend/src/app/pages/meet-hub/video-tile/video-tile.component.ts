@@ -1,5 +1,5 @@
 import {
-  Component, Input, ViewChild, ElementRef, OnChanges, AfterViewInit, SimpleChanges,
+  Component, Input, Output, EventEmitter, ViewChild, ElementRef, OnChanges, AfterViewInit, SimpleChanges,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../core/services/auth.service';
@@ -17,9 +17,19 @@ export class VideoTileComponent implements OnChanges, AfterViewInit {
   @Input() label = '';
   @Input() muted = false;
   @Input() camOff = false;
+  // Flips the feed horizontally — only ever set for a user's OWN camera
+  // preview (a "mirror" is what people expect looking at themselves, the
+  // same way any camera app behaves), never for a remote participant's
+  // tile or an actual screen-share, which must stay unflipped/readable.
+  @Input() mirror = false;
   // Shown (avatar or initial) in place of the generic camera-off icon when
   // known — falls back to the icon for tiles this data isn't wired up for.
   @Input() user: MeetingUser | null = null;
+  @Input() handRaised = false;
+  @Input() isScreenSharing = false;
+  // Host-only — the local tile never shows this (you can't kick yourself).
+  @Input() showKick = false;
+  @Output() kick = new EventEmitter<void>();
 
   @ViewChild('video') videoRef!: ElementRef<HTMLVideoElement>;
 

@@ -9,6 +9,10 @@
               (click)="switchTab('chat')">
         <i class="bi bi-chat-dots-fill"></i> Chats
       </button>
+      <button class="sidebar-tab" [class.sidebar-tab-active]="sidebarTab === 'groups'"
+              (click)="switchTab('groups')">
+        <i class="bi bi-people-fill"></i> Groups
+      </button>
       <button class="sidebar-tab" [class.sidebar-tab-active]="sidebarTab === 'calls'"
               (click)="switchTab('calls')">
         <i class="bi bi-telephone-fill"></i> Calls
@@ -98,6 +102,76 @@
       </div>
     }
 
+    <!-- ── Groups tab ── -->
+    @if (sidebarTab === 'groups') {
+      <div class="contact-search-wrap">
+        <i class="bi bi-search contact-search-icon"></i>
+        <input type="text" class="contact-search-input" placeholder="Search groups"
+               [(ngModel)]="groupSearchQuery" />
+        @if (groupSearchQuery) {
+          <button class="contact-search-clear" (click)="groupSearchQuery = ''" title="Clear">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        }
+      </div>
+
+      <button type="button" class="btn btn-success btn-sm w-100 mb-2" style="margin: 0 12px; width: calc(100% - 24px);" (click)="createGroupOpen = true">
+        <i class="bi bi-plus-lg me-1"></i>New Group
+      </button>
+
+      <div class="contact-list">
+        @if (groupsLoading) {
+          <div class="d-flex justify-content-center align-items-center p-4">
+            <span class="spinner-border spinner-border-sm text-primary"></span>
+          </div>
+        } @else if (filteredGroups.length === 0) {
+          <div class="call-history-empty">
+            <i class="bi bi-people call-history-empty-icon"></i>
+            <p>No groups yet</p>
+          </div>
+        }
+        @for (g of filteredGroups; track g.id) {
+          <div class="contact-row"
+               [class.contact-selected]="selectedGroup && selectedGroup.id === g.id"
+               [class.has-unread]="g.unreadCount > 0"
+               (click)="selectGroup(g)">
+
+            <div class="contact-avatar-wrap">
+              @if (g.avatarUrl) {
+                <img class="contact-avatar-img" [src]="g.avatarUrl" [alt]="g.name" />
+              } @else {
+                <span class="contact-avatar ca-user">{{ g.name[0].toUpperCase() }}</span>
+              }
+            </div>
+
+            <div class="contact-info">
+              <div class="contact-name">{{ g.name }}</div>
+              <div class="contact-preview">
+                @if (g.lastMessage) {
+                  @if (g.lastMessage.type === 'image') {
+                    <i class="bi bi-image-fill me-1"></i>{{ g.lastMessage.sender.username }}: Photo
+                  } @else {
+                    {{ g.lastMessage.sender.username }}: {{ (g.lastMessage.content || '') | slice:0:26 }}{{ (g.lastMessage.content || '').length > 26 ? '…' : '' }}
+                  }
+                } @else {
+                  <span class="text-muted">No messages yet</span>
+                }
+              </div>
+            </div>
+
+            <div class="contact-meta">
+              @if (g.lastMessage) {
+                <div class="contact-time">{{ formatTime(g.lastMessage.createdAt) }}</div>
+              }
+              @if (g.unreadCount > 0) {
+                <span class="unread-badge">{{ g.unreadCount }}</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+
     <!-- ── Calls tab ── -->
     @if (sidebarTab === 'calls') {
       <div class="contact-list">
@@ -162,7 +236,7 @@
 
   <!-- ══ Message area ════════════════════════════════════════════ -->
   <div class="chat-main" [class.mobile-active]="mobileShowChat">
-    @if (!selected) {
+    @if (!selected && !selectedGroup) {
       <div class="chat-empty">
         <div class="chat-empty-icon-wrap">
           <i class="bi bi-chat-dots-fill chat-empty-icon"></i>
@@ -170,7 +244,7 @@
         <p class="chat-empty-text">Select a contact to start chatting</p>
         <p class="chat-empty-sub">Your messages, calls, and shared photos will appear here.</p>
       </div>
-    } @else {
+    } @else if (selected) {
 
       <!-- Header -->
       <div class="chat-header">
@@ -438,78 +512,220 @@
         </div>
       }
 
-        @if (replyingTo) {
-          <div class="reply-preview-bar">
-            <i class="bi bi-reply-fill reply-preview-icon"></i>
-            <div class="reply-preview-body">
-              <div class="reply-preview-sender">{{ isMine(replyingTo) ? 'You' : replyingTo.sender.username }}</div>
-              <div class="reply-preview-text">{{ replyingTo.type === 'image' ? 'Photo' : (replyingTo.content | slice:0:80) }}</div>
+    } @else if (selectedGroup) {
+
+      <!-- Group header -->
+      <div class="chat-header">
+        <div class="d-flex align-items-center gap-3">
+          <button class="back-btn" (click)="backToContacts()" title="Back">
+            <i class="bi bi-arrow-left"></i>
+          </button>
+          <div class="header-contact-btn" (click)="openGroupMembers()" title="Group members">
+            <div class="contact-avatar-wrap">
+              @if (selectedGroup.avatarUrl) {
+                <img class="contact-avatar-img" [src]="selectedGroup.avatarUrl" [alt]="selectedGroup.name" />
+              } @else {
+                <span class="contact-avatar ca-user">{{ selectedGroup.name[0].toUpperCase() }}</span>
+              }
             </div>
-            <button class="reply-preview-close" (click)="cancelReply()"><i class="bi bi-x-lg"></i></button>
-          </div>
-        }
-
-        @if (editingMessage) {
-          <div class="edit-preview-bar">
-            <i class="bi bi-pencil-fill reply-preview-icon"></i>
-            <div class="reply-preview-body">
-              <div class="reply-preview-sender">Editing message</div>
-            </div>
-            <button class="reply-preview-close" (click)="cancelEdit()"><i class="bi bi-x-lg"></i></button>
-          </div>
-        }
-
-        <!-- Input -->
-        <div class="chat-input-area">
-          <input #imageInput type="file" accept="image/*" class="d-none" (change)="onImageSelected($event)" />
-
-          <!-- Emoji picker -->
-          <div class="emoji-wrap">
-            <button class="input-action-btn" (click)="toggleEmojiPicker($event)" title="Emoji">
-              <i class="bi bi-emoji-smile-fill"></i>
-            </button>
-
-            @if (showEmojiPicker) {
-              <div class="emoji-panel" (click)="$event.stopPropagation()">
-                <!-- Category tabs -->
-                <div class="emoji-cats">
-                  @for (cat of emojiCategories; track cat.label; let i = $index) {
-                    <button class="emoji-cat-btn"
-                            [class.emoji-cat-active]="activeCatIdx === i"
-                            (click)="activeCatIdx = i"
-                            [title]="cat.label">
-                      {{ cat.icon }}
-                    </button>
-                  }
-                </div>
-                <!-- Emoji grid -->
-                <div class="emoji-grid">
-                  @for (e of emojiCategories[activeCatIdx].emojis; track e) {
-                    <button class="emoji-item" (click)="insertEmoji($event, e)">{{ e }}</button>
-                  }
-                </div>
+            <div>
+              <div class="chat-header-name">{{ selectedGroup.name }}</div>
+              <div class="chat-header-status">
+                @if (otherGroupTyping) {
+                  <span class="typing-status">typing<span class="typing-dots"><span></span><span></span><span></span></span></span>
+                } @else {
+                  <span class="text-muted" style="font-size:0.72rem">{{ selectedGroup.members.length }} members</span>
+                }
               </div>
-            }
+            </div>
           </div>
+        </div>
 
-          <button class="input-action-btn" (click)="triggerImageInput()" [disabled]="imageUploading" title="Send image">
-            @if (imageUploading) {
+        <div class="chat-header-actions">
+          <button class="call-btn" (click)="openGroupMembers()" title="Group members">
+            <i class="bi bi-people-fill"></i>
+          </button>
+          <button class="call-btn" (click)="startGroupCall('audio')"
+                  [disabled]="callSvc.callState !== 'idle' || groupCallStarting"
+                  title="Audio call">
+            @if (groupCallStarting) {
               <span class="spinner-border spinner-border-sm"></span>
             } @else {
-              <i class="bi bi-image-fill"></i>
+              <i class="bi bi-telephone-fill"></i>
             }
           </button>
-
-          <textarea #chatInput class="chat-input" rows="1"
-                    [placeholder]="editingMessage ? 'Edit message…' : 'Type a message…'"
-                    [(ngModel)]="messageText"
-                    (ngModelChange)="onMessageInput()"
-                    (keydown)="onKeydown($event)"></textarea>
-
-          <button class="send-btn" (click)="sendMessage()" [disabled]="!messageText.trim()">
-            <i class="bi" [class.bi-send-fill]="!editingMessage" [class.bi-check-lg]="editingMessage"></i>
+          <button class="call-btn call-btn-video" (click)="startGroupCall('video')"
+                  [disabled]="callSvc.callState !== 'idle' || groupCallStarting"
+                  title="Video call">
+            <i class="bi bi-camera-video-fill"></i>
           </button>
         </div>
+      </div>
+
+      <!-- Group messages (same newest-first / column-reverse convention as
+           the DM thread above — no call-event rows or reactions here, since
+           group calls (Phase 6) and group reactions aren't built yet). -->
+      <div class="messages-area" #messagesArea>
+        @if (groupMessagesLoading) {
+          <div class="d-flex justify-content-center align-items-center h-100">
+            <span class="spinner-border text-primary"></span>
+          </div>
+        } @else {
+          @if (otherGroupTyping) {
+            <div class="typing-bubble-row">
+              <div class="typing-bubble">
+                <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
+              </div>
+            </div>
+          }
+          @for (msg of reversedGroupMessages; track msg.id; let i = $index) {
+            <div class="msg-row" [id]="'msg-' + msg.id" [class.msg-row-mine]="isGroupMsgMine(msg)">
+              <div class="msg-col" [class.msg-col-mine]="isGroupMsgMine(msg)">
+              <div class="msg-bubble" [class.msg-mine]="isGroupMsgMine(msg)" [class.msg-theirs]="!isGroupMsgMine(msg)"
+                   (contextmenu)="openGroupMessageMenu($event, msg)">
+
+                @if (msg.isPinned) {
+                  <i class="bi bi-pin-angle-fill msg-pin-badge" title="Pinned"></i>
+                }
+
+                @if (!msg.isDeleted) {
+                  <button class="msg-menu-btn" (click)="openGroupMessageMenu($event, msg)" title="More options">
+                    <i class="bi bi-three-dots-vertical"></i>
+                  </button>
+                }
+
+                @if (!isGroupMsgMine(msg)) {
+                  <div class="quoted-sender" style="margin-bottom: 2px;">{{ msg.sender.username }}</div>
+                }
+
+                @if (msg.isDeleted) {
+                  <div class="msg-body">
+                    <span class="msg-text msg-deleted-text"><i class="bi bi-slash-circle-fill me-1"></i>This message was deleted</span>
+                    <span class="msg-meta">
+                      <span class="msg-time">{{ formatTime(msg.createdAt) }}</span>
+                    </span>
+                  </div>
+                } @else if (msg.type === 'image' && msg.fileUrl) {
+                  @if (msg.replyTo) {
+                    <div class="quoted-reply">
+                      <span class="quoted-sender">{{ msg.replyTo.sender.username }}</span>
+                      <span class="quoted-text">{{ msg.replyTo.type === 'image' ? 'Photo' : (msg.replyTo.content | slice:0:60) }}</span>
+                    </div>
+                  }
+                  <img class="msg-image" [src]="imageFullUrl(msg.fileUrl)"
+                       alt="Image" (click)="openImage(imageFullUrl(msg.fileUrl))" />
+                  <div class="msg-meta">
+                    @if (msg.isEdited) { <span class="msg-edited">edited</span> }
+                    <span class="msg-time">{{ formatTime(msg.createdAt) }}</span>
+                    @if (isGroupMsgMine(msg)) {
+                      <i class="bi bi-check2-all msg-tick" [class.msg-seen]="groupMsgSeenByAll(msg)"></i>
+                    }
+                  </div>
+                } @else {
+                  <div class="msg-body">
+                    @if (msg.replyTo) {
+                      <div class="quoted-reply">
+                        <span class="quoted-sender">{{ msg.replyTo.sender.username }}</span>
+                        <span class="quoted-text">{{ msg.replyTo.type === 'image' ? 'Photo' : (msg.replyTo.content | slice:0:60) }}</span>
+                      </div>
+                    }
+                    <span class="msg-text" [innerHTML]="renderMessageContent(msg)"></span>
+                    <span class="msg-meta">
+                      @if (msg.isEdited) { <span class="msg-edited">edited</span> }
+                      <span class="msg-time">{{ formatTime(msg.createdAt) }}</span>
+                      @if (isGroupMsgMine(msg)) {
+                        <i class="bi bi-check2-all msg-tick" [class.msg-seen]="groupMsgSeenByAll(msg)"></i>
+                      }
+                    </span>
+                  </div>
+                }
+              </div>
+              </div>
+            </div>
+
+            @if (showDateSeparatorReversed(reversedGroupMessages, i)) {
+              <div class="date-separator">
+                <span>{{ formatDate(msg.createdAt) }}</span>
+              </div>
+            }
+          }
+        }
+      </div>
+    }
+
+    @if (replyingTo) {
+      <div class="reply-preview-bar">
+        <i class="bi bi-reply-fill reply-preview-icon"></i>
+        <div class="reply-preview-body">
+          <div class="reply-preview-sender">{{ isMine(replyingTo) ? 'You' : replyingTo.sender.username }}</div>
+          <div class="reply-preview-text">{{ replyingTo.type === 'image' ? 'Photo' : (replyingTo.content | slice:0:80) }}</div>
+        </div>
+        <button class="reply-preview-close" (click)="cancelReply()"><i class="bi bi-x-lg"></i></button>
+      </div>
+    }
+
+    @if (editingMessage) {
+      <div class="edit-preview-bar">
+        <i class="bi bi-pencil-fill reply-preview-icon"></i>
+        <div class="reply-preview-body">
+          <div class="reply-preview-sender">Editing message</div>
+        </div>
+        <button class="reply-preview-close" (click)="cancelEdit()"><i class="bi bi-x-lg"></i></button>
+      </div>
+    }
+
+    @if (selected || selectedGroup) {
+      <!-- Input (shared between a DM thread and a group thread) -->
+      <div class="chat-input-area">
+        <input #imageInput type="file" accept="image/*" class="d-none" (change)="onActiveImageSelected($event)" />
+
+        <!-- Emoji picker -->
+        <div class="emoji-wrap">
+          <button class="input-action-btn" (click)="toggleEmojiPicker($event)" title="Emoji">
+            <i class="bi bi-emoji-smile-fill"></i>
+          </button>
+
+          @if (showEmojiPicker) {
+            <div class="emoji-panel" (click)="$event.stopPropagation()">
+              <!-- Category tabs -->
+              <div class="emoji-cats">
+                @for (cat of emojiCategories; track cat.label; let i = $index) {
+                  <button class="emoji-cat-btn"
+                          [class.emoji-cat-active]="activeCatIdx === i"
+                          (click)="activeCatIdx = i"
+                          [title]="cat.label">
+                    {{ cat.icon }}
+                  </button>
+                }
+              </div>
+              <!-- Emoji grid -->
+              <div class="emoji-grid">
+                @for (e of emojiCategories[activeCatIdx].emojis; track e) {
+                  <button class="emoji-item" (click)="insertEmoji($event, e)">{{ e }}</button>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        <button class="input-action-btn" (click)="triggerImageInput()" [disabled]="imageUploading" title="Send image">
+          @if (imageUploading) {
+            <span class="spinner-border spinner-border-sm"></span>
+          } @else {
+            <i class="bi bi-image-fill"></i>
+          }
+        </button>
+
+        <textarea #chatInput class="chat-input" rows="1"
+                  [placeholder]="editingMessage ? 'Edit message…' : 'Type a message…'"
+                  [(ngModel)]="messageText"
+                  (ngModelChange)="onActiveMessageInput()"
+                  (keydown)="onKeydown($event)"></textarea>
+
+        <button class="send-btn" (click)="sendActiveMessage()" [disabled]="!messageText.trim()">
+          <i class="bi" [class.bi-send-fill]="!editingMessage" [class.bi-check-lg]="editingMessage"></i>
+        </button>
+      </div>
     }
   </div>
 </div>
@@ -531,6 +747,22 @@
   (confirmed)="onConfirmed()"
   (cancelled)="onConfirmCancelled()">
 </app-confirm-dialog>
+
+<app-create-group-dialog
+  [open]="createGroupOpen"
+  (closed)="createGroupOpen = false"
+  (created)="onGroupCreated($event)">
+</app-create-group-dialog>
+
+<app-group-members-dialog
+  [open]="groupMembersOpen"
+  [group]="selectedGroup"
+  [canManage]="canManageSelectedGroup"
+  (closed)="groupMembersOpen = false"
+  (groupUpdated)="onGroupUpdated($event)"
+  (groupDeleted)="onGroupDeleted()"
+  (left)="onLeftGroup()">
+</app-group-members-dialog>
 
 <!-- Call notice toast / incoming call card / in-call overlay now live in
      the app-root-level <app-call-widget> (shared/call-widget) so a call

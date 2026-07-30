@@ -34,6 +34,20 @@ export interface EventDepartmentLite {
   color: string;
 }
 
+export interface EventProjectLite {
+  id: number;
+  sequenceId: number | null;
+  name: string;
+}
+
+// Read-only Meet Hub room summary attached to this event, if any — see
+// MeetingService/meeting.model.ts for the full Meeting shape.
+export interface EventMeetingLite {
+  id: number;
+  roomCode: string;
+  status: 'scheduled' | 'live' | 'ended' | 'cancelled';
+}
+
 export interface RecurringRule {
   id: number;
   frequency: RecurrenceFrequency;
@@ -85,9 +99,14 @@ export interface CalendarEventModel {
   category: EventCategoryLite | null;
   owner: User;
   calendar: EventCalendarLite;
+  project: EventProjectLite | null;
   meetingLinkUrl: string | null;
   meetingLinkTitle: string | null;
   meetingLinkPlatform: MeetingPlatform | null;
+  // Hosted Meet Hub room attached via calendarEventId, if any — mutually
+  // exclusive in practice with a pasted meetingLinkUrl, though the backend
+  // doesn't hard-enforce that (see meetingController.createMeeting).
+  meeting: EventMeetingLite | null;
   visibility: EventVisibility;
   busyStatus: EventBusyStatus;
   status: CalendarEventStatus;
@@ -151,6 +170,7 @@ export interface CreateEventPayload {
   departmentId?: number | null;
   categoryId?: number | null;
   calendarId?: number;
+  projectId?: number | null;
   meetingLinkUrl?: string | null;
   meetingLinkTitle?: string | null;
   visibility?: EventVisibility;

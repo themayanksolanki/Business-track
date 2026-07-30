@@ -1,46 +1,105 @@
 <div class="meet-hub-page">
   <div class="meet-hub-hero">
+    <div class="meet-hub-icon-badge">
+      <i class="bi bi-camera-video-fill"></i>
+    </div>
     <h1>Meet Hub</h1>
-    <p>Start an instant meeting or join one with a code.</p>
+    <p>Start an instant meeting, schedule one for later, or join with a code.</p>
 
     <div class="meet-hub-actions">
-      <button class="primary-btn" (click)="startNewMeeting()" [disabled]="creating">
-        <i class="bi bi-camera-video-fill"></i>
+      <button class="hero-btn hero-btn-primary" (click)="startNewMeeting()" [disabled]="creating">
+        @if (creating) {
+          <span class="spinner-border spinner-border-sm"></span>
+        } @else {
+          <i class="bi bi-camera-video-fill"></i>
+        }
         {{ creating ? 'Creating…' : 'New meeting' }}
       </button>
 
-      <div class="join-code-group">
-        <input
-          type="text"
-          placeholder="Enter a code"
-          [(ngModel)]="joinCode"
-          (keydown.enter)="joinWithCode()"
-        />
-        <button class="secondary-btn" (click)="joinWithCode()" [disabled]="!joinCode.trim()">
-          Join
-        </button>
-      </div>
+      <button class="hero-btn hero-btn-outline" [class.hero-btn-active]="scheduling" (click)="toggleScheduling()">
+        <i class="bi bi-calendar-plus"></i>
+        Schedule for later
+      </button>
     </div>
 
-    <div class="meet-hub-error" *ngIf="error">{{ error }}</div>
+    <div class="join-code-row">
+      <i class="bi bi-link-45deg"></i>
+      <input
+        type="text"
+        placeholder="Enter a meeting code"
+        [(ngModel)]="joinCode"
+        (keydown.enter)="joinWithCode()"
+      />
+      <button class="hero-btn hero-btn-ghost" (click)="joinWithCode()" [disabled]="!joinCode.trim()">
+        Join <i class="bi bi-arrow-right"></i>
+      </button>
+    </div>
+
+    @if (error) {
+      <div class="meet-hub-error"><i class="bi bi-exclamation-circle-fill me-1"></i>{{ error }}</div>
+    }
+
+    @if (scheduling) {
+      <div class="schedule-card">
+        <div class="schedule-field">
+          <label>Title</label>
+          <input type="text" placeholder="Meeting title (optional)" [(ngModel)]="scheduleTitle" />
+        </div>
+        <div class="schedule-row">
+          <div class="schedule-field">
+            <label>Date</label>
+            <app-date-picker [value]="scheduleDate" (valueChange)="scheduleDate = $event"></app-date-picker>
+          </div>
+          <div class="schedule-field">
+            <label>Start</label>
+            <app-time-picker [value]="scheduleStartTime" (valueChange)="scheduleStartTime = $event; clampScheduleEndToStart()"></app-time-picker>
+          </div>
+          <div class="schedule-field">
+            <label>End</label>
+            <app-time-picker [value]="scheduleEndTime" (valueChange)="scheduleEndTime = $event"></app-time-picker>
+          </div>
+        </div>
+        @if (scheduleError) {
+          <div class="meet-hub-error"><i class="bi bi-exclamation-circle-fill me-1"></i>{{ scheduleError }}</div>
+        }
+        <div class="schedule-actions">
+          <button class="hero-btn hero-btn-outline" (click)="toggleScheduling()">Cancel</button>
+          <button class="hero-btn hero-btn-primary" (click)="scheduleMeeting()" [disabled]="scheduleSaving">
+            @if (scheduleSaving) { <span class="spinner-border spinner-border-sm"></span> }
+            {{ scheduleSaving ? 'Scheduling…' : 'Schedule meeting' }}
+          </button>
+        </div>
+      </div>
+    }
   </div>
 
   <div class="upcoming-section">
-    <h2>Upcoming meetings</h2>
+    <span class="section-label">Upcoming Meetings</span>
 
-    <div class="upcoming-loading" *ngIf="upcomingLoading">Loading…</div>
-    <div class="upcoming-empty" *ngIf="!upcomingLoading && !upcoming.length">
-      No upcoming meetings.
-    </div>
-
-    <div class="upcoming-list" *ngIf="!upcomingLoading && upcoming.length">
-      <button class="upcoming-item" *ngFor="let m of upcoming" (click)="openMeeting(m)">
-        <i class="bi bi-camera-video"></i>
-        <div class="upcoming-item-info">
-          <span class="upcoming-title">{{ meetingLabel(m) }}</span>
-          <span class="upcoming-time" *ngIf="m.scheduledStart">{{ m.scheduledStart | date: 'medium' }}</span>
-        </div>
-      </button>
-    </div>
+    @if (upcomingLoading) {
+      <div class="upcoming-empty">
+        <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+      </div>
+    } @else if (!upcoming.length) {
+      <div class="upcoming-empty">
+        <i class="bi bi-calendar2-week"></i>
+        <span>No upcoming meetings.</span>
+      </div>
+    } @else {
+      <div class="upcoming-list">
+        @for (m of upcoming; track m.id) {
+          <button class="upcoming-item" (click)="openMeeting(m)">
+            <span class="upcoming-icon"><i class="bi bi-camera-video-fill"></i></span>
+            <div class="upcoming-item-info">
+              <span class="upcoming-title">{{ meetingLabel(m) }}</span>
+              @if (m.scheduledStart) {
+                <span class="upcoming-time">{{ m.scheduledStart | date: 'medium' }}</span>
+              }
+            </div>
+            <i class="bi bi-chevron-right upcoming-chevron"></i>
+          </button>
+        }
+      </div>
+    }
   </div>
 </div>

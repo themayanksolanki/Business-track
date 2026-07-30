@@ -1,10 +1,14 @@
 import { Component, OnInit } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import dayjs from 'dayjs/esm';
 import { AuthService } from '../../core/services/auth.service';
 import { DashboardService } from '../../core/services/dashboard.service';
 import { ChatService } from '../../core/services/chat.service';
+import { MeetingService } from '../../core/services/meeting.service';
 import { DashboardStats } from '../../models/dashboard.model';
 import { User } from '../../models/user.model';
+import { Meeting } from '../../models/meeting.model';
 
 // Fixed status→color mapping, reused across every task/project chart on this
 // page — a status color always means the same thing everywhere it appears.
@@ -24,7 +28,7 @@ const PROJECT_STATUS_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, DatePipe],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css',
 })
@@ -33,10 +37,13 @@ export class DashboardComponent implements OnInit {
   stats: DashboardStats | null = null;
   loading = true;
 
+  upcomingMeetings: Meeting[] = [];
+
   constructor(
     private auth: AuthService,
     private dashboardService: DashboardService,
     private chatService: ChatService,
+    private meetingService: MeetingService,
   ) {}
 
   ngOnInit() {
@@ -49,6 +56,28 @@ export class DashboardComponent implements OnInit {
       error: () => (this.loading = false),
     });
     this.chatService.prefetch();
+    this.meetingService.getUpcoming().subscribe({
+      next: (meetings) => (this.upcomingMeetings = meetings),
+      error: () => {},
+    });
+  }
+
+  // Within 5 minutes of start (same rule as the event dialog's Join button
+  // and the meeting-lobby countdown) — the one meeting worth a prominent
+  // "Join now" banner instead of just a line in the list below.
+  get startingSoonMeeting(): Meeting | null {
+    const soon = this.upcomingMeetings.find(
+      (m) => m.scheduledStart && dayjs().isAfter(dayjs(m.scheduledStart).subtract(5, 'minute'))
+    );
+    return soon ?? null;
+  }
+
+  get otherUpcomingMeetings(): Meeting[] {
+    return this.upcomingMeetings.filter((m) => m.id !== this.startingSoonMeeting?.id);
+  }
+
+  meetingLabel(meeting: Meeting): string {
+    return meeting.title || `Meeting with ${meeting.host.username}`;
   }
 
   get isAdmin() { return this.user?.role === 'Admin'; }

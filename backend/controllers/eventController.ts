@@ -6,6 +6,7 @@ import { destroyBlob } from '../utils/blobStorage.js';
 import { detectMeetingPlatform } from '../utils/meetingLink.js';
 import { nextSequenceId } from '../utils/sequence.js';
 import { generateOccurrences, isGeneratedOccurrence } from '../utils/recurrence.js';
+import { canAccessProject } from './projectController.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
 
@@ -14,12 +15,15 @@ const EVENT_INCLUDE = {
   category: { select: { id: true, name: true, color: true } },
   owner: { select: USER_SELECT },
   calendar: { select: { id: true, name: true, color: true } },
+  project: { select: { id: true, sequenceId: true, name: true } },
   createdBy: { select: USER_SELECT },
   updatedBy: { select: USER_SELECT },
   recurrence: true,
   guests: { include: { user: { select: USER_SELECT } } },
   reminders: true,
   attachments: true,
+  // Read-only Meet Hub room summary, if one is attached — see meetingController.createMeeting.
+  meeting: { select: { id: true, roomCode: true, status: true } },
 };
 
 // Lightweight include for the list view — no separate "light" list endpoint
@@ -335,6 +339,7 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
       departmentId,
       categoryId,
       calendarId,
+      projectId,
       meetingLinkUrl,
       meetingLinkTitle,
       visibility,
@@ -350,6 +355,23 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
       if (!calendar) return next(new AppError('Calendar not found', 404));
       if (!canAccessCalendar(req.user! as AuthUser, calendar))
         return next(new AppError('You do not have access to this calendar', 403));
+    }
+
+    if (projectId) {
+      const project = await prisma.project.findUnique({
+        where: { id: Number(projectId) },
+        select: {
+          id: true,
+          organizationId: true,
+          departmentId: true,
+          createdById: true,
+          ownerId: true,
+          members: { select: { userId: true } },
+        },
+      });
+      if (!project) return next(new AppError('Project not found', 404));
+      if (!(await canAccessProject(req.user! as AuthUser, project)))
+        return next(new AppError('You do not have access to this project', 403));
     }
 
     const event = await prisma.$transaction(async (tx) => {
@@ -378,6 +400,7 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
           categoryId: categoryId ? Number(categoryId) : null,
           ownerId: req.user!.id,
           calendarId: resolvedCalendar.id,
+          projectId: projectId ? Number(projectId) : null,
           meetingLinkUrl: meetingLinkUrl || null,
           meetingLinkTitle: meetingLinkUrl ? meetingLinkTitle || null : null,
           meetingLinkPlatform: meetingLinkUrl ? detectMeetingPlatform(meetingLinkUrl) : null,
@@ -539,6 +562,7 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
       departmentId,
       categoryId,
       calendarId,
+      projectId,
       meetingLinkUrl,
       meetingLinkTitle,
       visibility,
@@ -547,6 +571,23 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
       reminders,
       recurrence,
     } = req.body;
+
+    if (projectId !== undefined && projectId !== null) {
+      const project = await prisma.project.findUnique({
+        where: { id: Number(projectId) },
+        select: {
+          id: true,
+          organizationId: true,
+          departmentId: true,
+          createdById: true,
+          ownerId: true,
+          members: { select: { userId: true } },
+        },
+      });
+      if (!project) return next(new AppError('Project not found', 404));
+      if (!(await canAccessProject(req.user! as AuthUser, project)))
+        return next(new AppError('You do not have access to this project', 403));
+    }
 
     if (calendarId !== undefined) {
       const calendar = await prisma.calendar.findUnique({ where: { id: Number(calendarId) } });
@@ -566,6 +607,7 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
     if (departmentId !== undefined) data.departmentId = departmentId ? Number(departmentId) : null;
     if (categoryId !== undefined) data.categoryId = categoryId ? Number(categoryId) : null;
     if (calendarId !== undefined) data.calendarId = Number(calendarId);
+    if (projectId !== undefined) data.projectId = projectId ? Number(projectId) : null;
     if (visibility !== undefined) data.visibility = visibility;
     if (busyStatus !== undefined) data.busyStatus = busyStatus;
 

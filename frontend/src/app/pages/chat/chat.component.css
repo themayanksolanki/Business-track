@@ -3,8 +3,15 @@
   display: flex;
   /* <main> only sets min-height:100vh with 24px padding (no header/footer
      take flow height — see app.component.css) — anchor to the viewport and
-     cancel that padding via negative margin, same pattern as calendar.component.css. */
+     cancel that padding via negative margin, same pattern as calendar.component.css.
+     100dvh (the actual visible viewport, excluding a mobile/tablet browser's
+     dynamic address/toolbar) always follows 100vh so it wins in any browser
+     that supports it, at every width — not just the <768px breakpoint below.
+     Without this, a fixed-position sidebar (which already tracks the real
+     visible viewport) ends up shorter than this 100vh-based page on any
+     device with a dynamic toolbar, tablet-landscape included. */
   height: 100vh;
+  height: 100dvh;
   margin: -24px;
   width: calc(100% + 48px);
   overflow: hidden;
@@ -747,7 +754,7 @@
   .chat-page {
     margin: -20px -16px;
     width: calc(100% + 32px);
-    height: 100dvh;
+    /* height itself (100vh/100dvh) is already handled by the base rule above */
   }
 }
 

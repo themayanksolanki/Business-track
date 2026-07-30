@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
@@ -55,6 +55,8 @@ import { NgbPopover, NgbTooltip } from '@ng-bootstrap/ng-bootstrap';
 import { ProjectTeamsComponent } from '../../shared/project-teams/project-teams.component';
 import { CardResizeDirective, CardResizeEvent } from '../../shared/card-resize.directive';
 import { ProjectListOverlayComponent } from '../../shared/project-list-overlay/project-list-overlay.component';
+import { ProjectMeetingsComponent } from '../../shared/project-meetings/project-meetings.component';
+import { EventDetailDialogComponent } from '../../shared/event-detail-dialog/event-detail-dialog.component';
 
 @Component({
   selector: 'app-project-detail',
@@ -83,7 +85,9 @@ import { ProjectListOverlayComponent } from '../../shared/project-list-overlay/p
     ProjectTeamsComponent,
     CardResizeDirective,
     NgbPopover,
-    ProjectListOverlayComponent
+    ProjectListOverlayComponent,
+    ProjectMeetingsComponent,
+    EventDetailDialogComponent
   ],
   providers: [DropListRegistryService],
   templateUrl: './project-detail.component.html',
@@ -101,8 +105,12 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     { key: 'tasks', label: 'Tasks', icon: 'bi-list-task' },
     { key: 'kanban', label: 'Kanban', icon: 'bi-kanban' },
     { key: 'teams', label: 'Teams', icon: 'bi-people' },
+    { key: 'meetings', label: 'Meetings', icon: 'bi-camera-video' },
   ];
   activeTab = 'tasks';
+
+  @ViewChild(ProjectMeetingsComponent) meetingsPanel?: ProjectMeetingsComponent;
+  scheduleMeetingOpen = false;
 
   tree: ProjectTreeNode[] = [];
   itemsLoading = false;
@@ -242,7 +250,10 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
       this.projectId = idParam;
 
       const tab = this.route.snapshot.queryParamMap.get('tab');
-      this.activeTab = tab === 'detail' || tab === 'tasks' || tab === 'kanban' || tab === 'teams' ? tab : 'tasks';
+      this.activeTab =
+        tab === 'detail' || tab === 'tasks' || tab === 'kanban' || tab === 'teams' || tab === 'meetings'
+          ? tab
+          : 'tasks';
       const itemParam = this.route.snapshot.queryParamMap.get('item');
       this.pendingOpenItemId = itemParam ? Number(itemParam) : null;
       const commentParam = this.route.snapshot.queryParamMap.get('comment');
@@ -987,6 +998,20 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
       () => this.notifications.success('Task link copied'),
       () => this.notifications.error('Failed to copy link'),
     );
+  }
+
+  openScheduleMeeting() {
+    this.scheduleMeetingOpen = true;
+  }
+
+  cancelScheduleMeeting() {
+    this.scheduleMeetingOpen = false;
+  }
+
+  onMeetingScheduled() {
+    this.scheduleMeetingOpen = false;
+    this.notifications.success('Meeting scheduled');
+    this.meetingsPanel?.reload();
   }
 
   openDeleteConfirm() {

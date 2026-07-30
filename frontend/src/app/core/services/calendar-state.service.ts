@@ -22,7 +22,7 @@ import { CalendarOccurrence } from '../../models/event.model';
 import { isAllDayOrMultiDay, resolveEventColor } from './calendar-layout.util';
 
 export type CalendarViewMode = 'day' | 'week' | 'month';
-export type EventDialogMode = 'create' | 'edit' | 'view';
+export type EventDialogMode = 'create' | 'edit';
 
 // Provided per-instance in CalendarComponent (not providedIn:'root') so it's
 // scoped to the /calendar feature and shared between the shell (toolbar/
@@ -47,7 +47,7 @@ export class CalendarStateService {
   // instance of a recurring series — null for a plain event or a create.
   // Lets the dialog load/act on just this occurrence instead of the master.
   private readonly _selectedOriginalStart = signal<string | null>(null);
-  private readonly _dialogMode = signal<EventDialogMode>('view');
+  private readonly _dialogMode = signal<EventDialogMode>('edit');
   private readonly _createRangeStart = signal<Date | null>(null);
   private readonly _createRangeEnd = signal<Date | null>(null);
   private readonly _createAllDay = signal(false);
@@ -194,7 +194,7 @@ export class CalendarStateService {
   }
 
   openEventDetail(eventId: number, originalStart?: string) {
-    this._dialogMode.set('view');
+    this._dialogMode.set('edit');
     this._selectedEventId.set(eventId);
     this._selectedOriginalStart.set(originalStart ?? null);
   }
@@ -211,7 +211,7 @@ export class CalendarStateService {
   closeEventDetail() {
     this._selectedEventId.set(null);
     this._selectedOriginalStart.set(null);
-    this._dialogMode.set('view');
+    this._dialogMode.set('edit');
     this._createRangeStart.set(null);
     this._createRangeEnd.set(null);
     this._createAllDay.set(false);

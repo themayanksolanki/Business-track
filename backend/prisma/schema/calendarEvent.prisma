@@ -144,8 +144,14 @@ model CalendarEvent {
   categoryId     Int?
   ownerId        Int
   calendarId     Int
+  // Set when this event was created via a Project's "Schedule meeting"
+  // action (or otherwise explicitly tied to a project) — the Project↔Calendar
+  // link; independent of `sourceProjectItemId` above (task-level meeting-link sync).
+  projectId      Int?
   // Same scalar-field shape (not a relation) as ProjectItem's meeting-link
   // fields — only one link per event, so a join table would be overkill.
+  // A CalendarEvent can have *either* this pasted external link *or* a
+  // hosted Meet Hub `meeting` (below), or neither.
   meetingLinkUrl      String?
   meetingLinkTitle    String?
   meetingLinkPlatform MeetingPlatform?
@@ -169,11 +175,14 @@ model CalendarEvent {
   category     Category?         @relation(fields: [categoryId], references: [id])
   owner        User              @relation("CalendarEventOwner", fields: [ownerId], references: [id])
   calendar     Calendar          @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  project      Project?          @relation(fields: [projectId], references: [id])
   recurrence   RecurringRule?    @relation(fields: [recurrenceId], references: [id])
   sourceProjectItem ProjectItem? @relation("ProjectItemSourceEvent", fields: [sourceProjectItemId], references: [id], onDelete: Cascade)
   createdBy    User              @relation("CalendarEventCreatedBy", fields: [createdById], references: [id])
   updatedBy    User?             @relation("CalendarEventUpdatedBy", fields: [updatedById], references: [id])
 
+  // Back-reference to the hosted Meet Hub room, if any (FK lives on Meeting.calendarEventId).
+  meeting     Meeting?
   guests      Guest[]
   attachments Attachment[]
   reminders   EventReminder[]
@@ -195,6 +204,7 @@ model CalendarEvent {
   @@index([departmentId])
   @@index([categoryId])
   @@index([ownerId, start])
+  @@index([projectId])
   @@unique([organizationId, sequenceId])
   @@map("calendar_events")
 }

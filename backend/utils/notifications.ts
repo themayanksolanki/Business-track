@@ -2,11 +2,14 @@ import type { NotificationType } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { emitToUser } from '../socket.js';
 
-const NOTIFICATION_INCLUDE = { actor: { select: { id: true, username: true, profileImage: true } } };
+const NOTIFICATION_INCLUDE = {
+  actor: { select: { id: true, username: true, profileImage: true } },
+  meeting: { select: { id: true, roomCode: true, status: true } },
+};
 
-// Exactly one of projectId/taskId/projectItemId/commentId is meaningfully
-// used per `type` (see notification.prisma) — callers pass whichever one(s)
-// their notification type needs.
+// Exactly one of projectId/taskId/projectItemId/commentId/meetingId/groupId
+// is meaningfully used per `type` (see notification.prisma) — callers pass
+// whichever one(s) their notification type needs.
 interface NotificationPayload {
   type: NotificationType;
   title: string;
@@ -15,6 +18,8 @@ interface NotificationPayload {
   taskId?: number;
   projectItemId?: number;
   commentId?: number;
+  meetingId?: number;
+  groupId?: number;
 }
 
 // Persists first, then pushes live — the DB row is the source of truth (it's

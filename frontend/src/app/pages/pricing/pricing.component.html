@@ -1,0 +1,75 @@
+<div class="pricing-page">
+  <div class="pricing-topbar">
+    <a routerLink="/login" class="pricing-brand">
+      <span class="brand-logo-sm"><i class="bi bi-check2-square"></i></span>
+      <span class="pricing-brand-name">Business Tracker</span>
+    </a>
+    <a routerLink="/login" class="btn btn-light pricing-back-btn">
+      <i class="bi bi-arrow-left me-1"></i>Back to sign in
+    </a>
+  </div>
+
+  <div class="pricing-hero">
+    <h1 class="pricing-title">Simple, transparent pricing</h1>
+    <p class="pricing-subtitle">
+      Track your organization, workforce, projects, metrics, tasks, and meetings — all in one place.
+      Pick the plan that fits how your team works today, and grow into it.
+    </p>
+  </div>
+
+  <div class="billing-toggle" role="group" aria-label="Billing cadence">
+    <button type="button" class="billing-toggle-btn" [class.active]="!annual" (click)="setBillingAnnual(false)">
+      Monthly
+    </button>
+    <button type="button" class="billing-toggle-btn" [class.active]="annual" (click)="setBillingAnnual(true)">
+      Annual <span class="save-badge">{{ annualDiscountLabel }}</span>
+    </button>
+  </div>
+
+  <div class="pricing-grid">
+    @for (plan of plans; track plan.name) {
+      <div class="pricing-card" [class.pricing-card-highlighted]="plan.highlighted">
+        @if (plan.highlighted) {
+          <div class="pricing-popular-badge">Most Popular</div>
+        }
+
+        <h3 class="plan-name">{{ plan.name }}</h3>
+        <p class="plan-tagline">{{ plan.tagline }}</p>
+
+        @if (priceFor(plan) !== null) {
+          <div class="plan-price-row">
+            <span class="plan-price">${{ priceFor(plan) }}</span>
+            <span class="plan-price-unit">/ user / mo</span>
+          </div>
+          <p class="plan-price-note">
+            billed {{ annual ? 'annually' : 'monthly' }}, per seat
+          </p>
+        } @else {
+          <div class="plan-price-row">
+            <span class="plan-price">Custom</span>
+          </div>
+          <p class="plan-price-note">$10,000+ / year is common</p>
+        }
+
+        <a routerLink="/register" class="btn w-100 plan-cta-btn"
+           [class.btn-primary]="plan.highlighted"
+           [class.btn-outline-primary]="!plan.highlighted">
+          {{ plan.ctaLabel }}
+        </a>
+
+        <ul class="plan-feature-list">
+          @if (plan.inheritsFrom) {
+            <li class="plan-feature-inherit">Everything in {{ plan.inheritsFrom }}, plus:</li>
+          }
+          @for (feature of plan.features; track feature) {
+            <li><i class="bi bi-check-lg"></i>{{ feature }}</li>
+          }
+        </ul>
+      </div>
+    }
+  </div>
+
+  <p class="pricing-footnote">
+    All prices are estimates and billed per seat. Need something in between? <a routerLink="/register">Talk to us</a>.
+  </p>
+</div>

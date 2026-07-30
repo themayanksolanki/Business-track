@@ -1,0 +1,100 @@
+// Chat groups (Meet Hub Phase 5) — a group conversation among org members,
+// distinct from ProjectItemType.group (a Kanban section inside a Project).
+// GroupMessage mirrors Message's shape (see message.prisma) but keyed by
+// groupId instead of a single receiverId, with GroupMessageRead standing in
+// for Message's single boolean `read` flag since "read" is now per-member.
+// Reactions aren't mirrored here — not asked for, and easy to add later
+// without touching this shape.
+enum GroupMemberRole {
+  admin
+  member
+}
+
+model Group {
+  id             Int      @id @default(autoincrement())
+  sequenceId     Int?
+  name           String
+  avatarUrl      String?
+  organizationId Int?
+  createdById    Int
+  updatedById    Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  createdBy    User          @relation("GroupCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?         @relation("GroupUpdatedBy", fields: [updatedById], references: [id])
+
+  members       GroupMember[]
+  messages      GroupMessage[]
+  meetings      Meeting[]
+  notifications Notification[]
+
+  @@index([organizationId])
+  @@unique([organizationId, sequenceId])
+  @@map("groups")
+}
+
+model GroupMember {
+  id        Int             @id @default(autoincrement())
+  groupId   Int
+  userId    Int
+  role      GroupMemberRole @default(member)
+  addedById Int?
+  joinedAt  DateTime        @default(now())
+
+  group   Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user    User  @relation("GroupMemberUser", fields: [userId], references: [id])
+  addedBy User? @relation("GroupMemberAddedBy", fields: [addedById], references: [id])
+
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@map("group_members")
+}
+
+model GroupMessage {
+  id        Int         @id @default(autoincrement())
+  groupId   Int
+  senderId  Int
+  content   String      @default("")
+  // Reuses Message's MessageType/CallType-free subset — group calls are
+  // Phase 6 territory, so no callType/callStatus/callDuration here yet.
+  type      MessageType @default(text)
+  fileUrl   String?
+  isPinned  Boolean     @default(false)
+  isEdited  Boolean     @default(false)
+  editedAt  DateTime?
+  isDeleted Boolean     @default(false)
+  replyToId Int?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  group   Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  sender  User           @relation("GroupMessageSender", fields: [senderId], references: [id])
+  replyTo GroupMessage?  @relation("GroupMessageReplyTo", fields: [replyToId], references: [id])
+  replies GroupMessage[] @relation("GroupMessageReplyTo")
+
+  // Per-user soft delete, same idea as Message.deletedFor — distinct from
+  // isDeleted (delete-for-everyone).
+  deletedFor User[]             @relation("GroupMessageDeletedFor")
+  reads      GroupMessageRead[]
+
+  @@index([groupId, createdAt])
+  @@map("group_messages")
+}
+
+// One row per (message, member who has seen it) — the group analogue of
+// Message.read, which only works for a single receiver.
+model GroupMessageRead {
+  id             Int      @id @default(autoincrement())
+  groupMessageId Int
+  userId         Int
+  readAt         DateTime @default(now())
+
+  message GroupMessage @relation(fields: [groupMessageId], references: [id], onDelete: Cascade)
+  user    User         @relation("GroupMessageReadUser", fields: [userId], references: [id])
+
+  @@unique([groupMessageId, userId])
+  @@index([groupMessageId])
+  @@map("group_message_reads")
+}

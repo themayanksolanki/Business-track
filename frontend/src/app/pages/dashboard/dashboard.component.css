@@ -34,6 +34,40 @@
   color: #fff;
 }
 
+/* ── Join-now banner ── */
+.join-now-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-radius: 12px;
+  background: #16a34a;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+}
+.join-now-banner:hover { background: #15803d; color: #fff; }
+
+.join-now-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 0.85rem;
+}
+
+/* ── Upcoming meetings widget ── */
+.upcoming-meeting-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+.upcoming-meeting-row:first-of-type { border-top: none; }
+
 .role-pill {
   display: inline-flex;
   align-items: center;

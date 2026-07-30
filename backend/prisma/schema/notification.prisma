@@ -20,6 +20,15 @@ enum NotificationType {
   taskApprovalReRequested
   taskFullyApproved
   taskApprovalCommentAdded
+  // Meet Hub (see meeting.prisma) — fired when a group call starts, or when
+  // a scheduled/group meeting is cancelled. `meetingInvited`/`meetingReminder`
+  // aren't added yet: neither has a real trigger in the codebase yet (no
+  // explicit-invite flow for a meeting, no delayed-job reminder scheduler).
+  meetingStarting
+  meetingCancelled
+  // Chat groups (see group.prisma) — added as a member, mirrors
+  // projectMemberAdded's existing precedent.
+  groupMemberAdded
 }
 
 // actorId is who triggered it (assigner, updater, commenter) — null for
@@ -39,6 +48,12 @@ model Notification {
   taskId        Int?
   projectItemId Int?
   commentId     Int?
+  // SetNull (not Cascade, unlike the FKs above) — a cancelled/ended meeting
+  // or a deleted group shouldn't erase the notification history that
+  // referenced it, just its now-dead deep link (the "Join" action simply
+  // stops rendering once this goes null).
+  meetingId     Int?
+  groupId       Int?
   isRead        Boolean          @default(false)
   createdAt     DateTime         @default(now())
 
@@ -48,6 +63,8 @@ model Notification {
   task        Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
   projectItem ProjectItem? @relation(fields: [projectItemId], references: [id], onDelete: Cascade)
   comment     Comment?     @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  meeting     Meeting?     @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  group       Group?       @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
   @@index([userId, isRead])
   @@index([userId, createdAt])

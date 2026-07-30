@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import type { CallType, CallStatus, MessageType } from '@prisma/client';
 import prisma from './lib/prisma.js';
 import { verifyRoomToken } from './utils/meetingToken.js';
+import { GROUP_MESSAGE_INCLUDE } from './controllers/groupMessageController.js';
 
 // Native mesh WebRTC scales poorly past a handful of participants (each
 // client uploads N-1 streams) — capped here until an SFU is worth building.
@@ -56,11 +57,29 @@ interface ClientToServerEvents {
   'call:video': (payload: { callId: string; off: boolean }) => void;
   'call:screen-share': (payload: { callId: string; sharing: boolean }) => void;
   'message:seen': (payload: { from: string | number }) => void;
+  'group:message:send': (payload: {
+    groupId: string | number;
+    content?: string;
+    type?: MessageType;
+    fileUrl?: string;
+    replyTo?: string | number;
+  }) => void;
+  'group:message:edit': (payload: { messageId: string | number; content?: string }) => void;
+  'group:message:delete': (payload: { messageId: string | number; forAll?: boolean }) => void;
+  'group:message:pin': (payload: { messageId: string | number; pinned?: boolean }) => void;
+  'group:message:seen': (payload: { groupId: string | number }) => void;
+  'group:typing:start': (payload: { groupId: string | number }) => void;
+  'group:typing:stop': (payload: { groupId: string | number }) => void;
   'meeting:join': (payload: { roomToken: string }) => void;
   'meeting:leave': (payload: { meetingId: number }) => void;
   'meeting:signal': (payload: { meetingId: number; toSocketId: string; sdp?: unknown; candidate?: unknown }) => void;
   'meeting:mute': (payload: { meetingId: number; muted: boolean }) => void;
   'meeting:video-toggle': (payload: { meetingId: number; off: boolean }) => void;
+  'meeting:screen-share': (payload: { meetingId: number; sharing: boolean }) => void;
+  'meeting:hand-raise': (payload: { meetingId: number; raised: boolean }) => void;
+  'meeting:chat-message': (payload: { meetingId: number; message: string }) => void;
+  'meeting:kick': (payload: { meetingId: number; targetSocketId: string }) => void;
+  'meeting:end': (payload: { meetingId: number }) => void;
 }
 
 // Outgoing server -> client events are emitted from many not-yet-migrated
@@ -87,6 +106,13 @@ const callStartTimes = new Map<string, number>(); // callId → Date.now() when 
 // Socket.IO's own room membership (io.sockets.adapter.rooms) is otherwise
 // authoritative for "who's currently in the room".
 const meetingSocketUsers = new Map<string, { meetingId: number; userId: number }>();
+
+// meetingId → userIds the host has kicked — otherwise a kick has zero
+// durable effect (the REST /join + socket meeting:join path has no other
+// memory of it), letting a kicked user just immediately rejoin. Session-only
+// by design (mesh WebRTC state itself is entirely in-memory too); cleared
+// whenever the meeting ends, same lifetime as meetingSocketUsers.
+const kickedFromMeeting = new Map<number, Set<number>>();
 
 // Set once setupSocket() runs; other modules (notification triggers in
 // controllers) import emitToUser rather than reaching into this directly.
@@ -367,11 +393,49 @@ export function setupSocket(server: HttpServer) {
     // First use of native Socket.IO rooms in this codebase — 1:1 calls above
     // route by userId via emitToUser instead. A meeting room needs broadcast
     // to an arbitrary number of members, which rooms give for free.
+
+    // Same DB transaction the REST endMeeting controller runs — duplicated
+    // rather than imported, since that handler needs an Express req/res and
+    // this fires from a plain leave/disconnect with neither.
+    const endMeetingRecord = async (meetingId: number) => {
+      await prisma.$transaction([
+        prisma.meeting.update({ where: { id: meetingId }, data: { status: 'ended', endedAt: new Date() } }),
+        prisma.meetingParticipant.updateMany({ where: { meetingId, leftAt: null }, data: { leftAt: new Date() } }),
+      ]);
+      kickedFromMeeting.delete(meetingId);
+    };
+
+    // Ends the meeting once the room is empty — the host leaving while
+    // other members (co-host or plain attendee, doesn't matter) are still on
+    // the call does NOT end it; they keep talking.
+    //
+    // Waits a short grace period and re-checks before actually committing:
+    // the room-emptiness check and the DB write are two separate ticks (the
+    // write awaits a real transaction), so a same-user reconnect — a tab
+    // refresh, a network blip — landing in that gap would otherwise get its
+    // rejoin silently overwritten by a now-stale "ended" status. The delay
+    // gives that reconnect time to land before the decision is finalized;
+    // it doesn't fully close the window, just shrinks it to something a
+    // real user's network hiccup will comfortably fit inside.
+    const AUTO_END_GRACE_MS = 3000;
+    const maybeAutoEndMeeting = (meetingId: number, room: string) => {
+      if ((io.sockets.adapter.rooms.get(room)?.size ?? 0) > 0) return; // someone's still in it
+      setTimeout(() => {
+        void (async () => {
+          try {
+            if ((io.sockets.adapter.rooms.get(room)?.size ?? 0) > 0) return; // someone reconnected during the grace period
+            await endMeetingRecord(meetingId);
+          } catch { /* non-critical */ }
+        })();
+      }, AUTO_END_GRACE_MS);
+    };
+
     const leaveMeetingRoom = (meetingId: number) => {
       const room = meetingRoom(meetingId);
       socket.leave(room);
       meetingSocketUsers.delete(socket.id);
       socket.to(room).emit('meeting:participant-left', { socketId: socket.id });
+      void maybeAutoEndMeeting(meetingId, room);
     };
 
     socket.on('meeting:join', ({ roomToken }) => {
@@ -384,6 +448,10 @@ export function setupSocket(server: HttpServer) {
       }
       if (payload.userId !== myId) {
         socket.emit('meeting:join-error', { message: 'Room token does not match this session' });
+        return;
+      }
+      if (kickedFromMeeting.get(payload.meetingId)?.has(myId)) {
+        socket.emit('meeting:join-error', { message: 'You have been removed from this meeting.' });
         return;
       }
 
@@ -430,6 +498,96 @@ export function setupSocket(server: HttpServer) {
       socket.to(room).emit('meeting:video-toggle', { socketId: socket.id, off });
     });
 
+    socket.on('meeting:screen-share', ({ meetingId, sharing }) => {
+      const room = meetingRoom(meetingId);
+      if (!socket.rooms.has(room)) return;
+      socket.to(room).emit('meeting:screen-share', { socketId: socket.id, sharing });
+    });
+
+    socket.on('meeting:hand-raise', ({ meetingId, raised }) => {
+      const room = meetingRoom(meetingId);
+      if (!socket.rooms.has(room)) return;
+      socket.to(room).emit('meeting:hand-raise', { socketId: socket.id, raised });
+    });
+
+    // Ephemeral, in-room only — never persisted (distinct from the real
+    // Group/DM chat, which is Message/GroupMessage rows). Echoed to the
+    // sender too (io.to, not socket.to) so their own panel shows it in the
+    // same order as everyone else's, rather than optimistically local-only.
+    socket.on('meeting:chat-message', ({ meetingId, message }) => {
+      const room = meetingRoom(meetingId);
+      if (!socket.rooms.has(room)) return;
+      const trimmed = (message || '').slice(0, 2000).trim();
+      if (!trimmed) return;
+      io.to(room).emit('meeting:chat-message', {
+        socketId: socket.id,
+        userId: myId,
+        message: trimmed,
+        at: new Date().toISOString(),
+      });
+    });
+
+    // Host-only — re-verified against the DB rather than trusted from the
+    // client, unlike the state-broadcast events above (mute/hand-raise/etc.)
+    // which only ever reflect the caller's own state and can't affect anyone
+    // else's session even if spoofed.
+    socket.on('meeting:kick', async ({ meetingId, targetSocketId }) => {
+      const room = meetingRoom(meetingId);
+      if (!socket.rooms.has(room)) return;
+      const meeting = await prisma.meeting.findUnique({ where: { id: Number(meetingId) }, select: { hostId: true } });
+      if (!meeting || meeting.hostId !== myId) return;
+
+      const targetSocket = io.sockets.sockets.get(targetSocketId);
+      if (!targetSocket || !targetSocket.rooms.has(room)) return;
+
+      // Recorded BEFORE removing the socketId→userId mapping below — a kick
+      // that only drops the socket has no durable effect otherwise, since
+      // nothing stops the same user immediately re-requesting a room token
+      // and rejoining. See kickedFromMeeting's own comment.
+      const targetUserId = meetingSocketUsers.get(targetSocketId)?.userId;
+      if (targetUserId !== undefined) {
+        const kicked = kickedFromMeeting.get(Number(meetingId)) ?? new Set<number>();
+        kicked.add(targetUserId);
+        kickedFromMeeting.set(Number(meetingId), kicked);
+      }
+
+      targetSocket.leave(room);
+      meetingSocketUsers.delete(targetSocketId);
+      targetSocket.emit('meeting:kicked');
+      socket.to(room).emit('meeting:participant-left', { socketId: targetSocketId });
+    });
+
+    // Host, co-host, or org Admin — re-verified against the DB, mirroring
+    // canEndMeeting exactly (meetingController.ts) so this broadcast can
+    // never be narrower than who the REST endMeeting endpoint actually
+    // allows to end the meeting. It used to check host-only, which meant a
+    // co-host/Admin ending the meeting via REST correctly flipped the DB but
+    // then had this socket relay silently dropped — everyone else's client
+    // sat in a "live" call that was already 'ended' underneath them. The
+    // REST PATCH-style status flip already happened via POST
+    // /meetings/:id/end before the client emits this — this is purely the
+    // real-time "everyone leave now" fan-out, including back to the
+    // initiator's own socket, so a single meeting:ended$ subscription
+    // handles cleanup/navigation identically for every participant.
+    socket.on('meeting:end', async ({ meetingId }) => {
+      const room = meetingRoom(meetingId);
+      if (!socket.rooms.has(room)) return;
+      const meeting = await prisma.meeting.findUnique({
+        where: { id: Number(meetingId) },
+        select: { hostId: true, organizationId: true, participants: { select: { userId: true, role: true } } },
+      });
+      if (!meeting) return;
+      const me = await prisma.user.findUnique({ where: { id: myId }, select: { role: true, organizationId: true } });
+      if (!me || me.organizationId !== meeting.organizationId) return;
+
+      const isHost = meeting.hostId === myId;
+      const isCoHost = meeting.participants.some((p) => p.userId === myId && p.role === 'coHost');
+      const isAdmin = me.role === 'Admin';
+      if (!isHost && !isCoHost && !isAdmin) return;
+
+      io.to(room).emit('meeting:ended');
+    });
+
     // ── Read receipts ─────────────────────────────────────────────
     socket.on('message:seen', async ({ from }) => {
       try {
@@ -444,6 +602,143 @@ export function setupSocket(server: HttpServer) {
     // ── Typing indicator (ephemeral relay, no persistence) ─────────
     socket.on('typing:start', ({ to }) => emitToUser(to, 'typing:update', { from: userId, isTyping: true }));
     socket.on('typing:stop',  ({ to }) => emitToUser(to, 'typing:update', { from: userId, isTyping: false }));
+
+    // ── Group chat messages ─────────────────────────────────────────
+    // Fans out via emitToUser per member, same as 1:1 messages above —
+    // deliberately not a Socket.IO room (unlike the meeting-room section
+    // below): groups are persistent, membership-gated conversations, not an
+    // ephemeral N-way media session, so this mirrors the existing message:*
+    // pattern generalized to N recipients instead of introducing a second
+    // real-time model.
+    const groupMemberIds = (groupId: number) =>
+      prisma.groupMember.findMany({ where: { groupId }, select: { userId: true } }).then((rows) => rows.map((r) => r.userId));
+
+    const isGroupMember = (groupId: number) =>
+      prisma.groupMember
+        .findUnique({ where: { groupId_userId: { groupId, userId: myId } } })
+        .then((m) => !!m);
+
+    socket.on('group:message:send', async ({ groupId, content, type, fileUrl, replyTo }) => {
+      try {
+        const gid = Number(groupId);
+        if (!(await isGroupMember(gid))) {
+          socket.emit('group:message:error', 'You are not a member of this group.');
+          return;
+        }
+
+        const msg = await prisma.groupMessage.create({
+          data: {
+            groupId: gid,
+            senderId: myId,
+            content: content || '',
+            type: type || 'text',
+            fileUrl: fileUrl || null,
+            replyToId: replyTo ? Number(replyTo) : null,
+          },
+          include: GROUP_MESSAGE_INCLUDE,
+        });
+        // The sender has implicitly seen their own message.
+        await prisma.groupMessageRead.create({ data: { groupMessageId: msg.id, userId: myId } });
+
+        emitToUser(userId, 'group:message:sent', msg);
+        const memberIds = await groupMemberIds(gid);
+        memberIds.filter((id) => id !== myId).forEach((id) => emitToUser(id, 'group:message:receive', msg));
+      } catch (err: any) {
+        socket.emit('group:message:error', err.message);
+      }
+    });
+
+    socket.on('group:message:edit', async ({ messageId, content }) => {
+      try {
+        const msg = await prisma.groupMessage.findUnique({ where: { id: Number(messageId) } });
+        if (!msg || msg.senderId !== myId || msg.type !== 'text' || msg.isDeleted) return;
+
+        const updated = await prisma.groupMessage.update({
+          where: { id: msg.id },
+          data: { content: content || '', isEdited: true, editedAt: new Date() },
+          include: GROUP_MESSAGE_INCLUDE,
+        });
+        const memberIds = await groupMemberIds(msg.groupId);
+        memberIds.forEach((id) => emitToUser(id, 'group:message:edited', updated));
+      } catch (err: any) {
+        socket.emit('group:message:error', err.message);
+      }
+    });
+
+    socket.on('group:message:delete', async ({ messageId, forAll }) => {
+      try {
+        const msg = await prisma.groupMessage.findUnique({ where: { id: Number(messageId) } });
+        if (!msg || !(await isGroupMember(msg.groupId))) return;
+
+        if (forAll) {
+          if (msg.senderId !== myId) return;
+          if (Date.now() - msg.createdAt.getTime() > DELETE_FOR_ALL_WINDOW_MS) {
+            socket.emit('group:message:error', 'Delete for everyone is only available within 2 hours of sending.');
+            return;
+          }
+          await prisma.groupMessage.update({
+            where: { id: msg.id },
+            data: { isDeleted: true, content: '', fileUrl: null },
+          });
+          const memberIds = await groupMemberIds(msg.groupId);
+          memberIds.forEach((id) => emitToUser(id, 'group:message:deleted', { messageId, forAll: true }));
+        } else {
+          await prisma.groupMessage.update({
+            where: { id: msg.id },
+            data: { deletedFor: { connect: { id: myId } } },
+          });
+          socket.emit('group:message:deleted', { messageId, forAll: false });
+        }
+      } catch (err: any) {
+        socket.emit('group:message:error', err.message);
+      }
+    });
+
+    socket.on('group:message:pin', async ({ messageId, pinned }) => {
+      try {
+        const msg = await prisma.groupMessage.findUnique({ where: { id: Number(messageId) } });
+        if (!msg || !(await isGroupMember(msg.groupId))) return;
+
+        const updated = await prisma.groupMessage.update({ where: { id: msg.id }, data: { isPinned: !!pinned } });
+        const memberIds = await groupMemberIds(msg.groupId);
+        memberIds.forEach((id) => emitToUser(id, 'group:message:pinned', { messageId, pinned: updated.isPinned }));
+      } catch (err: any) {
+        socket.emit('group:message:error', err.message);
+      }
+    });
+
+    socket.on('group:message:seen', async ({ groupId }) => {
+      try {
+        const gid = Number(groupId);
+        if (!(await isGroupMember(gid))) return;
+
+        const unread = await prisma.groupMessage.findMany({
+          where: { groupId: gid, senderId: { not: myId }, reads: { none: { userId: myId } } },
+          select: { id: true },
+        });
+        if (unread.length) {
+          await prisma.groupMessageRead.createMany({
+            data: unread.map((m) => ({ groupMessageId: m.id, userId: myId })),
+            skipDuplicates: true,
+          });
+        }
+        const memberIds = await groupMemberIds(gid);
+        memberIds.filter((id) => id !== myId).forEach((id) => emitToUser(id, 'group:message:seen', { groupId: gid, by: userId }));
+      } catch { /* non-critical */ }
+    });
+
+    socket.on('group:typing:start', async ({ groupId }) => {
+      const gid = Number(groupId);
+      if (!(await isGroupMember(gid))) return;
+      const memberIds = await groupMemberIds(gid);
+      memberIds.filter((id) => id !== myId).forEach((id) => emitToUser(id, 'group:typing:update', { groupId: gid, from: userId, isTyping: true }));
+    });
+    socket.on('group:typing:stop', async ({ groupId }) => {
+      const gid = Number(groupId);
+      if (!(await isGroupMember(gid))) return;
+      const memberIds = await groupMemberIds(gid);
+      memberIds.filter((id) => id !== myId).forEach((id) => emitToUser(id, 'group:typing:update', { groupId: gid, from: userId, isTyping: false }));
+    });
 
     // ── Disconnect ────────────────────────────────────────────────
     socket.on('disconnect', () => {

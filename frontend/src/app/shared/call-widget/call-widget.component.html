@@ -37,7 +37,7 @@
       <i class="bi" [class.bi-fullscreen]="!isFullscreen" [class.bi-fullscreen-exit]="isFullscreen"></i>
     </button>
     <button class="minimize-btn" [class.cw-hide]="callSvc.minimized" (click)="callSvc.toggleMinimize(); $event.stopPropagation()" title="Minimize">
-      <i class="bi bi-dash-lg"></i>
+      <i class="bi bi-arrows-angle-contract"></i>
     </button>
 
     <!-- Remote tile (stage by default) -->
@@ -86,7 +86,7 @@
 
     <!-- Local tile (PiP by default) -->
     @if (callSvc.callType === 'video' || callSvc.isScreenSharing || callSvc.audioCallVideoOn) {
-      <div class="video-tile" [class.video-tile-pip]="!chatPipSwapped" [class.video-tile-main]="chatPipSwapped"
+      <div class="video-tile local-tile" [class.video-tile-pip]="!chatPipSwapped" [class.video-tile-main]="chatPipSwapped"
            [class.cw-tile-hidden]="callSvc.minimized && !chatPipSwapped"
            [class.cw-screenshare]="callSvc.isScreenSharing"
            (click)="!chatPipSwapped && toggleChatSwap(); $event.stopPropagation()">
@@ -163,7 +163,8 @@
       [label]="primaryMeetingTile.label"
       [user]="primaryMeetingTile.user"
       [muted]="primaryMeetingTile.muted"
-      [camOff]="primaryMeetingTile.camOff">
+      [camOff]="primaryMeetingTile.camOff"
+      [mirror]="primaryMeetingTile.label === 'You'">
     </app-video-tile>
 
     @if (meetingSessionSvc.joinError) {

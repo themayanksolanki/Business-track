@@ -1,0 +1,119 @@
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="closed.emit()">
+  <div class="modal-dialog modal-dialog-centered">
+  @if (open && group) {
+    <div class="modal-content">
+      <div class="modal-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <div class="d-flex align-items-center gap-2">
+            <input #avatarInput type="file" accept="image/jpeg,image/png,image/webp" class="d-none" (change)="onAvatarSelected($event)" />
+            <button
+              type="button"
+              class="gmd-avatar-btn"
+              [class.gmd-avatar-btn-disabled]="!canManage"
+              [disabled]="avatarUploading"
+              (click)="triggerAvatarUpload()"
+              [title]="canManage ? 'Change group photo' : group.name"
+            >
+              @if (avatarUploading) {
+                <span class="spinner-border spinner-border-sm"></span>
+              } @else if (group.avatarUrl) {
+                <img [src]="group.avatarUrl" class="gmd-avatar-btn-img" [alt]="group.name" />
+              } @else {
+                <span class="gmd-avatar-btn-init">{{ group.name[0].toUpperCase() }}</span>
+              }
+              @if (canManage) { <i class="bi bi-camera-fill gmd-avatar-btn-edit"></i> }
+            </button>
+            <h5 class="mb-0">{{ group.name }}</h5>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="gmd-list mb-3">
+          @for (member of group.members; track member.id) {
+            <div class="gmd-row">
+              <span class="gmd-avatar">{{ member.user.username[0].toUpperCase() }}</span>
+              <div class="gmd-row-info">
+                <span class="gmd-row-name">{{ member.user.username }}</span>
+                <span class="gmd-row-email">{{ member.user.email }}</span>
+              </div>
+
+              @if (canManage) {
+                <select
+                  class="form-select form-select-sm gmd-role-select"
+                  [ngModel]="member.role"
+                  (ngModelChange)="changeRole(member, $event)"
+                  [disabled]="roleSavingId === member.id"
+                >
+                  <option value="admin">Admin</option>
+                  <option value="member">Member</option>
+                </select>
+                <button class="gmd-row-remove" type="button" title="Remove member" (click)="requestRemove(member)">
+                  <i class="bi bi-trash"></i>
+                </button>
+              } @else {
+                <span class="gmd-role-badge">{{ member.role === 'admin' ? 'Admin' : 'Member' }}</span>
+              }
+            </div>
+          }
+        </div>
+
+        @if (canManage) {
+          @if (!addingMembers) {
+            <button type="button" class="btn btn-outline-success btn-sm mb-3" (click)="toggleAddMembers()">
+              <i class="bi bi-person-plus me-1"></i>Add Members
+            </button>
+          } @else {
+            <div class="mb-3">
+              @if (addError) { <div class="alert alert-danger py-2">{{ addError }}</div> }
+              <app-group-member-picker
+                [groupId]="group.id"
+                [selected]="selectedNewUsers"
+                (selectedChange)="selectedNewUsers = $event"
+              ></app-group-member-picker>
+              <div class="d-flex justify-content-end gap-2 mt-2">
+                <button type="button" class="btn btn-light btn-sm" (click)="toggleAddMembers()">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" [disabled]="addLoading || selectedNewUsers.length === 0" (click)="submitAddMembers()">
+                  @if (addLoading) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                  Add
+                </button>
+              </div>
+            </div>
+          }
+        }
+
+        <div class="d-flex justify-content-between align-items-center pt-3 gmd-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="leaveLoading" (click)="leaveGroup()">
+            @if (leaveLoading) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            Leave Group
+          </button>
+          @if (canManage) {
+            <button type="button" class="btn btn-outline-danger btn-sm" (click)="openDeleteConfirm()">
+              <i class="bi bi-trash3 me-1"></i>Delete Group
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  }
+  </div>
+</div>
+
+<app-confirm-dialog
+  [open]="removeOpen"
+  title="Remove Member"
+  [message]="'Remove ' + (removeTarget?.user?.username || 'this member') + ' from the group?'"
+  confirmLabel="Remove"
+  [loading]="removeLoading"
+  (confirmed)="confirmRemove()"
+  (cancelled)="cancelRemove()"
+></app-confirm-dialog>
+
+<app-confirm-dialog
+  [open]="deleteConfirmOpen"
+  title="Delete Group"
+  message="This group and all of its messages will be permanently deleted for everyone."
+  confirmLabel="Delete Group"
+  [loading]="deleteLoading"
+  (confirmed)="confirmDelete()"
+  (cancelled)="cancelDeleteConfirm()"
+></app-confirm-dialog>

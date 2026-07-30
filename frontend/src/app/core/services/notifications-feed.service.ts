@@ -56,6 +56,17 @@ export class NotificationsFeedService {
   }
 
   linkFor(n: AppNotification): NotificationLink | null {
+    // Null once the meeting's cancelled/deleted (see NotificationMeeting's
+    // comment) — falls through to no navigation rather than a dead link.
+    if (n.meeting?.roomCode) {
+      return { commands: ['/meet', n.meeting.roomCode] };
+    }
+    if (n.groupId) {
+      // Groups have no stable per-conversation route of their own (chat
+      // selection is client-side state) — ?group= is read by ChatComponent
+      // on load to select it once the group list has loaded.
+      return { commands: ['/chat'], queryParams: { group: n.groupId } };
+    }
     if (n.projectItemId && n.projectId) {
       return {
         commands: ['/projects', n.projectId],

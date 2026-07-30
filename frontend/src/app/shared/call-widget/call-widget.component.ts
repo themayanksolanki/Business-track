@@ -8,6 +8,7 @@ import { MeetingSessionService } from '../../core/services/meeting-session.servi
 import { WebrtcPeerService } from '../../core/services/webrtc-peer.service';
 import { MeetingUser } from '../../models/meeting.model';
 import { VideoTileComponent } from '../../pages/meet-hub/video-tile/video-tile.component';
+import { NotificationService } from '../notification.service';
 
 // Mounted once at the app root (see app.component.html), so it's in the DOM
 // on every route — that's what lets a call/meeting started elsewhere in the
@@ -40,6 +41,7 @@ export class CallWidgetComponent implements OnInit, OnDestroy {
     public meetingSessionSvc: MeetingSessionService,
     private webrtcSvc: WebrtcPeerService,
     private router: Router,
+    private notifications: NotificationService,
   ) {}
 
   ngOnInit() {
@@ -60,6 +62,28 @@ export class CallWidgetComponent implements OnInit, OnDestroy {
     // still needs to be pointed back at the camera stream here.
     this.subs.add(this.webrtcSvc.screenShareEnded$.subscribe(() => this.attachLocalChat()));
     document.addEventListener('fullscreenchange', this.onFullscreenChange);
+
+    // This component is mounted at the app root — alive on every route,
+    // including while the full meeting-room page is also mounted — so both
+    // would otherwise show this notification at once. meeting-room.component
+    // already handles it (and navigates itself away) whenever its own page
+    // is the one on screen, so skip here in that case; this subscription
+    // only needs to cover the minimized-mini-widget case, where the room
+    // page isn't mounted to notice it itself. (meetingSessionSvc.meeting is
+    // already null by the time this fires, so router.url is checked instead
+    // of the meeting-derived onMeetingRoomPage getter.)
+    this.subs.add(
+      this.meetingSessionSvc.kicked$.subscribe(() => {
+        if (this.router.url.startsWith('/meet/')) return;
+        this.notifications.error('You were removed from the meeting.');
+      })
+    );
+    this.subs.add(
+      this.meetingSessionSvc.ended$.subscribe(() => {
+        if (this.router.url.startsWith('/meet/')) return;
+        this.notifications.success('The meeting was ended by the host.');
+      })
+    );
   }
 
   ngOnDestroy() {

@@ -2,11 +2,29 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: calc(100vh - 72px - 40px);
+  /* This page stays inside <main>'s normal 24px top+bottom padding (48px
+     total) rather than cancelling it — unlike meeting-room.component.css,
+     there's no negative margin here. The previous "- 72px - 40px" didn't
+     correspond to any real chrome; 100dvh follows 100vh so the dynamic
+     (toolbar-excluded) viewport height wins wherever a browser supports it. */
+  min-height: calc(100vh - 48px);
+  min-height: calc(100dvh - 48px);
+  padding: 16px;
 }
 
-.lobby-loading, .lobby-error {
+.lobby-loading,
+.lobby-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--text-muted);
+}
+
+.lobby-error {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+  padding: 10px 16px;
+  border-radius: 10px;
 }
 
 .lobby-card {
@@ -14,26 +32,45 @@
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  padding: 24px;
+  padding: 28px;
   background: var(--bg-card);
   border: 1px solid var(--border-strong);
-  border-radius: 12px;
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
   max-width: 480px;
   width: 100%;
 }
 
+.lobby-icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  color: #fff;
+  font-size: 1.2rem;
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
+}
+
 .lobby-card h2 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
   text-align: center;
 }
 
+/* Camera preview stays a dark surface deliberately — a live video feed reads
+   naturally dark regardless of the app's own light/dark theme, same as any
+   camera app or Zoom/Meet's own lobby. */
 .preview-wrap {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
   background: #111827;
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -48,6 +85,10 @@
 
 .preview-video.hidden { display: none; }
 
+/* Always your own camera at this pre-join stage (never a screen-share), so
+   mirroring unconditionally matches how you'd expect to see yourself. */
+.preview-video.mirrored { transform: scaleX(-1); }
+
 .preview-placeholder {
   color: #9ca3af;
   font-size: 2rem;
@@ -55,11 +96,11 @@
 
 .preview-controls {
   position: absolute;
-  bottom: 10px;
+  bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 
 .ctrl-btn {
@@ -73,17 +114,68 @@
   background: rgba(255, 255, 255, 0.15);
   color: #fff;
   cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: background 0.15s ease, transform 0.15s ease;
 }
-
+.ctrl-btn:hover { background: rgba(255, 255, 255, 0.25); }
 .ctrl-btn.active { background: #ef4444; }
 
-.join-btn {
+.device-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   width: 100%;
-  padding: 12px;
-  border: none;
+}
+
+.device-picker label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.device-picker select {
+  padding: 8px 10px;
   border-radius: 8px;
-  background: #3b82f6;
-  color: #fff;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.lobby-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.join-btn,
+.cancel-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 99px;
   font-weight: 600;
   cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
+
+.join-btn {
+  border: none;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+}
+.join-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(59, 130, 246, 0.45); }
+
+.cancel-btn {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+.cancel-btn:hover { background: var(--bg-hover); }

@@ -11,9 +11,9 @@ enum MeetingParticipantRole {
   attendee
 }
 
-// A hosted in-app meeting room (Google Meet-style), independent of any single
-// calendar event, project, or chat conversation — those links are additive
-// nullable FKs for later phases, not modeled here yet. `roomCode` is the
+// A hosted in-app meeting room (Google Meet-style). `calendarEventId`/
+// `projectId` are optional links to a CalendarEvent/Project (Phase 3/4);
+// group/DM linkage is still not modeled here yet. `roomCode` is the
 // short shareable code (e.g. "abc-defg-hij") used in the `/meet/:roomCode`
 // deep link. Reuses the existing CallType enum (message.prisma) instead of
 // a new one, since a meeting is just a video/audio call with N participants.
@@ -30,21 +30,41 @@ model Meeting {
   scheduledEnd   DateTime?
   startedAt      DateTime?
   endedAt        DateTime?
+  // Optional linkage — a meeting can still stand alone (ad-hoc "New
+  // meeting"). @unique since an event hosts at most one Meet Hub room.
+  calendarEventId Int? @unique
+  projectId       Int?
+  // A group's call — not @unique, since a group can have any number of
+  // meetings over time (unlike calendarEventId's one-room-per-event limit).
+  groupId        Int?
+  // True only when `calendarEventId` was auto-created by this meeting's own
+  // creation (no existing event supplied) — lets cancelMeeting distinguish
+  // "clean up the bare event nobody else uses" from "this was a real event
+  // someone had before the meeting was attached to it" (which must survive
+  // cancellation). False (default) for every other case, including a null
+  // calendarEventId.
+  calendarEventAutoCreated Boolean @default(false)
   createdById    Int
   updatedById    Int?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  host         User          @relation("MeetingHost", fields: [hostId], references: [id])
-  organization Organization? @relation(fields: [organizationId], references: [id])
-  createdBy    User          @relation("MeetingCreatedBy", fields: [createdById], references: [id])
-  updatedBy    User?         @relation("MeetingUpdatedBy", fields: [updatedById], references: [id])
+  host          User           @relation("MeetingHost", fields: [hostId], references: [id])
+  organization  Organization?  @relation(fields: [organizationId], references: [id])
+  calendarEvent CalendarEvent? @relation(fields: [calendarEventId], references: [id])
+  project       Project?       @relation(fields: [projectId], references: [id])
+  group         Group?         @relation(fields: [groupId], references: [id])
+  createdBy     User           @relation("MeetingCreatedBy", fields: [createdById], references: [id])
+  updatedBy     User?          @relation("MeetingUpdatedBy", fields: [updatedById], references: [id])
 
-  participants MeetingParticipant[]
-  settings     MeetingSettings?
+  participants  MeetingParticipant[]
+  settings      MeetingSettings?
+  notifications Notification[]
 
   @@index([organizationId])
   @@index([hostId])
+  @@index([projectId])
+  @@index([groupId])
   @@unique([organizationId, sequenceId])
   @@map("meetings")
 }

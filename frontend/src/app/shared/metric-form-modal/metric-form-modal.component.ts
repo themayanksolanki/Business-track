@@ -27,6 +27,7 @@ import { Department } from '../../models/department.model';
 import { Category } from '../../models/category.model';
 import { User } from '../../models/user.model';
 import { Metric, MetricStatus, MetricDataType, MetricParentLite, CreateMetricPayload, UpdateMetricPayload } from '../../models/metric.model';
+import { MetricFrequency } from '../../models/metric-tracking.model';
 import { MetricService } from '../../core/services/metric.service';
 
 export type MetricFormMode = 'create' | 'edit';
@@ -43,6 +44,20 @@ const DATA_TYPE_OPTIONS: DataTypeOption[] = [
   { value: 'percentage', label: 'Percentage' },
 ];
 
+interface FrequencyOption {
+  value: MetricFrequency;
+  label: string;
+}
+
+// Only 'daily' and 'weekly' are actually implemented in the Bowling View
+// (see backend/utils/metricPeriods.ts) — monthly/quarterly/yearly stay off
+// this list until that tracking exists, so picking one here can't strand a
+// metric with no working grid.
+const FREQUENCY_OPTIONS: FrequencyOption[] = [
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+];
+
 @Component({
   selector: 'app-metric-form-modal',
   standalone: true,
@@ -54,6 +69,7 @@ export class MetricFormModalComponent implements OnChanges {
   constructor(public metricSvc: MetricService) {}
 
   readonly dataTypeOptions = DATA_TYPE_OPTIONS;
+  readonly frequencyOptions = FREQUENCY_OPTIONS;
   readonly tabs: TabDef[] = [
     { key: 'statistics', label: 'Statistics', icon: 'bi-bar-chart' },
     { key: 'details', label: 'Details', icon: 'bi-info-circle' },
@@ -109,6 +125,7 @@ export class MetricFormModalComponent implements OnChanges {
   notes = '';
   status: MetricStatus = 'active';
   dataType: MetricDataType = 'number';
+  frequency: MetricFrequency = 'daily';
   localError = '';
   confirmDeleteOpen = false;
 
@@ -137,6 +154,7 @@ export class MetricFormModalComponent implements OnChanges {
       this.notes = this.initial?.notes ?? '';
       this.status = this.initial?.status ?? 'active';
       this.dataType = this.initial?.dataType ?? 'number';
+      this.frequency = this.initial?.frequency ?? 'daily';
       this.localError = '';
       this.confirmDeleteOpen = false;
       this.activeTab = 'details';
@@ -186,6 +204,7 @@ export class MetricFormModalComponent implements OnChanges {
       dueDate: this.dueDate,
       notes: this.notes,
       dataType: this.dataType,
+      frequency: this.frequency,
     };
     if (this.mode === 'edit') {
       (payload as UpdateMetricPayload).status = this.status;

@@ -95,16 +95,35 @@ export const savePeriodDiff = async (req: Request, res: Response, next: NextFunc
     // Mongo-only, but the aggregates are also persisted here on every save
     // so Postgres-side reporting/joins (with Department/Category/etc.)
     // don't need to reach into Mongo at all.
-    await prisma.metricPeriodTotal.upsert({
-      // Prisma's generated compound-unique lookup type doesn't accept `null`
-      // for a nullable member column even though the schema allows it — safe
-      // to assert non-null here since `month` is only ever a real 1-12 value
-      // by the time this runs (only 'daily' frequency reaches this code, and
-      // validateTrackingParams already required month to be set for it).
-      where: { metricId_frequency_year_month: { metricId: metric.id, frequency, year, month: month as number } },
-      create: { metricId: metric.id, frequency, year, month, actualTotal, targetTotal },
-      update: { actualTotal, targetTotal },
+    //
+    // Can't use upsert()'s compound-unique shorthand here: Prisma rejects a
+    // `null` in a compound-unique lookup outright (SQL `=` never matches
+    // NULL), and `month` really is `null` for every non-daily frequency. A
+    // plain filter supports `month: null` fine (translates to IS NULL), so
+    // find-then-create/update instead; on a create/create race, retry as an
+    // update (matches the P2002-retry convention used elsewhere, e.g.
+    // projectRoleController.ts).
+    const existingTotal = await prisma.metricPeriodTotal.findFirst({
+      where: { metricId: metric.id, frequency, year, month },
     });
+    if (existingTotal) {
+      await prisma.metricPeriodTotal.update({
+        where: { id: existingTotal.id },
+        data: { actualTotal, targetTotal },
+      });
+    } else {
+      try {
+        await prisma.metricPeriodTotal.create({
+          data: { metricId: metric.id, frequency, year, month, actualTotal, targetTotal },
+        });
+      } catch (err: any) {
+        if (err.code !== 'P2002') throw err;
+        await prisma.metricPeriodTotal.updateMany({
+          where: { metricId: metric.id, frequency, year, month },
+          data: { actualTotal, targetTotal },
+        });
+      }
+    }
 
     const obj = doc.toObject({ flattenMaps: true });
     res.status(200).json({ periods: obj.periods, actualTotal: obj.actualTotal, targetTotal: obj.targetTotal });

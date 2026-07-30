@@ -9,7 +9,15 @@ export class MeetingService {
 
   constructor(private http: HttpClient) {}
 
-  create(payload: { title?: string; callType?: 'audio' | 'video'; scheduledStart?: string; scheduledEnd?: string }) {
+  create(payload: {
+    title?: string;
+    callType?: 'audio' | 'video';
+    scheduledStart?: string;
+    scheduledEnd?: string;
+    calendarEventId?: number;
+    projectId?: number;
+    groupId?: number;
+  }) {
     return this.http.post<{ message: string; meeting: Meeting }>(this.api, payload);
   }
 

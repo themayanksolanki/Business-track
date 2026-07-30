@@ -1,13 +1,19 @@
 <ng-container *ngIf="!joined; else roomTpl">
   <div class="lobby-page">
-    <div class="lobby-loading" *ngIf="loading">Loading meeting…</div>
-    <div class="lobby-error" *ngIf="error">{{ error }}</div>
+    <div class="lobby-loading" *ngIf="loading">
+      <span class="spinner-border spinner-border-sm me-2"></span>Loading meeting…
+    </div>
+    <div class="lobby-error" *ngIf="error">
+      <i class="bi bi-exclamation-circle-fill"></i>
+      <span>{{ error }}</span>
+    </div>
 
     <div class="lobby-card" *ngIf="!loading && !error && meeting">
+      <div class="lobby-icon-badge"><i class="bi bi-camera-video-fill"></i></div>
       <h2>{{ meetingLabel() }}</h2>
 
       <div class="preview-wrap">
-        <video #previewVideo class="preview-video" playsinline [class.hidden]="isCamOff"></video>
+        <video #previewVideo class="preview-video mirrored" playsinline [class.hidden]="isCamOff"></video>
         <div class="preview-placeholder" *ngIf="isCamOff">
           <i class="bi bi-camera-video-off-fill"></i>
         </div>
@@ -19,10 +25,31 @@
           <button class="ctrl-btn" [class.active]="isCamOff" (click)="toggleCamera()">
             <i class="bi" [class.bi-camera-video-fill]="!isCamOff" [class.bi-camera-video-off-fill]="isCamOff"></i>
           </button>
+          <button class="ctrl-btn" [class.active]="showDevicePicker" (click)="toggleDevicePicker()" title="Choose camera/microphone">
+            <i class="bi bi-sliders"></i>
+          </button>
         </div>
       </div>
 
-      <button class="join-btn" (click)="join()">Join meeting</button>
+      <div class="device-picker" *ngIf="showDevicePicker">
+        <label>
+          Camera
+          <select [(ngModel)]="selectedCameraId" (ngModelChange)="applyDeviceSelection()">
+            <option *ngFor="let d of cameras" [value]="d.deviceId">{{ d.label || 'Camera ' + d.deviceId.slice(0, 6) }}</option>
+          </select>
+        </label>
+        <label>
+          Microphone
+          <select [(ngModel)]="selectedMicId" (ngModelChange)="applyDeviceSelection()">
+            <option *ngFor="let d of microphones" [value]="d.deviceId">{{ d.label || 'Microphone ' + d.deviceId.slice(0, 6) }}</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="lobby-actions">
+        <button class="cancel-btn" (click)="leaveLobby()">{{ canCancelMeeting ? 'Cancel meeting' : 'Back' }}</button>
+        <button class="join-btn" (click)="join()" [disabled]="switchingDevice">Join meeting</button>
+      </div>
     </div>
   </div>
 </ng-container>

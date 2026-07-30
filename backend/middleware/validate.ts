@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import AppError from '../utils/AppError.js';
 import { METRIC_FREQUENCIES } from '../models/metricTracking.model.js';
+import type { MetricFrequency } from '../models/metricTracking.model.js';
 import { periodCount } from '../utils/metricPeriods.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -651,7 +652,7 @@ const VALID_METRIC_STATUSES = ['active', 'archived', 'deleted'];
 const VALID_METRIC_DATA_TYPES = ['number', 'weight', 'currency', 'percentage'];
 
 export const validateMetric = (req: Request, res: Response, next: NextFunction) => {
-  const { title, department, category, owner, parentId, startDate, dueDate, notes, status, dataType } = req.body;
+  const { title, department, category, owner, parentId, startDate, dueDate, notes, status, dataType, frequency } = req.body;
 
   if (req.method === 'POST') {
     if (!title || !title.trim()) return next(new AppError('Title is required', 400));
@@ -680,6 +681,12 @@ export const validateMetric = (req: Request, res: Response, next: NextFunction) 
   if (dataType !== undefined && !VALID_METRIC_DATA_TYPES.includes(dataType))
     return next(new AppError(`dataType must be one of: ${VALID_METRIC_DATA_TYPES.join(', ')}`, 400));
 
+  // Only frequencies with real tracking support (see IMPLEMENTED_METRIC_FREQUENCIES
+  // below) are accepted here — picking e.g. 'monthly' would create a metric
+  // whose Bowling View tracking has nowhere to go yet.
+  if (frequency !== undefined && !IMPLEMENTED_METRIC_FREQUENCIES.includes(frequency))
+    return next(new AppError(`frequency must be one of: ${IMPLEMENTED_METRIC_FREQUENCIES.join(', ')}`, 400));
+
   const dateError = validateDateRange(startDate, dueDate, 'startDate', 'dueDate');
   if (dateError) return next(new AppError(dateError, 400));
 
@@ -689,11 +696,12 @@ export const validateMetric = (req: Request, res: Response, next: NextFunction) 
 export const validateMetricId = validateParamId('metricId');
 
 const VALID_METRIC_FREQUENCIES: string[] = METRIC_FREQUENCIES;
-// Only 'daily' is actually implemented yet (see backend/utils/metricPeriods.ts)
-// — the others are accepted here as a recognizable shape so the frontend gets
-// a clean "not implemented" 400 instead of falling through to a 500 deeper in
-// the controller/model layer.
-const IMPLEMENTED_METRIC_FREQUENCIES = ['daily'];
+// Only 'daily' and 'weekly' are actually implemented yet (see
+// backend/utils/metricPeriods.ts) — 'monthly'/'quarterly'/'yearly' are
+// accepted here as a recognizable shape so the frontend gets a clean "not
+// implemented" 400 instead of falling through to a 500 deeper in the
+// controller/model layer.
+const IMPLEMENTED_METRIC_FREQUENCIES = ['daily', 'weekly'];
 
 export const validateTrackingParams = (req: Request, res: Response, next: NextFunction) => {
   const frequency = String(req.params.frequency);
@@ -720,11 +728,15 @@ export const validateTrackingDiff = (req: Request, res: Response, next: NextFunc
   if (diff === undefined || diff === null || typeof diff !== 'object' || Array.isArray(diff))
     return next(new AppError('diff must be an object', 400));
 
+  const frequency = req.params.frequency as MetricFrequency;
   const year = Number(req.query.year);
-  const month = Number(req.query.month);
-  // req.params.frequency is guaranteed 'daily' by validateTrackingParams,
-  // which always runs first on these routes.
-  const maxPeriod = periodCount('daily', year, month);
+  // Only meaningful for 'daily' — weekly's key range (ISO week 1..N) depends
+  // only on `year`, so `month` is left undefined for it (periodCount ignores
+  // the argument for any frequency but 'daily').
+  const month = frequency === 'daily' ? Number(req.query.month) : undefined;
+  // frequency is already constrained to an IMPLEMENTED_METRIC_FREQUENCIES
+  // value by validateTrackingParams, which always runs first on these routes.
+  const maxPeriod = periodCount(frequency, year, month);
 
   for (const [key, value] of Object.entries(diff)) {
     const periodNum = Number(key);
@@ -886,6 +898,39 @@ export const validateCalendar = (req: Request, res: Response, next: NextFunction
     return next(new AppError('color must be a valid hex color', 400));
   if (isEnabled !== undefined && typeof isEnabled !== 'boolean')
     return next(new AppError('isEnabled must be a boolean', 400));
+
+  next();
+};
+
+export const validateGroupId = validateParamId('groupId');
+
+export const validateGroup = (req: Request, res: Response, next: NextFunction) => {
+  const { name, memberIds } = req.body;
+
+  if (req.method === 'POST' && (!name || !name.trim())) return next(new AppError('Name is required', 400));
+  if (name !== undefined && !name.trim()) return next(new AppError('Name cannot be empty', 400));
+  if (memberIds !== undefined) {
+    if (!Array.isArray(memberIds)) return next(new AppError('memberIds must be an array', 400));
+    if (!memberIds.every(isValidId)) return next(new AppError('memberIds must all be valid IDs', 400));
+  }
+
+  next();
+};
+
+export const validateAddGroupMembers = (req: Request, res: Response, next: NextFunction) => {
+  const { userIds } = req.body;
+
+  if (!Array.isArray(userIds) || userIds.length === 0)
+    return next(new AppError('userIds must be a non-empty array', 400));
+  if (!userIds.every(isValidId)) return next(new AppError('userIds must all be valid IDs', 400));
+
+  next();
+};
+
+export const validateUpdateGroupMemberRole = (req: Request, res: Response, next: NextFunction) => {
+  const { role } = req.body;
+
+  if (role !== 'admin' && role !== 'member') return next(new AppError("role must be 'admin' or 'member'", 400));
 
   next();
 };

@@ -241,6 +241,18 @@
         <span class="nav-label">Chat</span>
       }
     </a>
+    <a
+      routerLink="/meet-hub"
+      class="nav-item"
+      routerLinkActive="active"
+      [title]="labelsVisible() ? '' : 'Meet Hub'"
+      (click)="closeMobile()"
+    >
+      <span class="nav-icon"><app-icon name="video" [size]="18" /></span>
+      @if (labelsVisible()) {
+        <span class="nav-label">Meet Hub</span>
+      }
+    </a>
     @if (auth.getUser()?.role === 'Admin' || auth.getUser()?.role === 'Manager') {
       <a
         routerLink="/users"

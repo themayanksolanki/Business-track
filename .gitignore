@@ -6,6 +6,7 @@ backend/node_modules/
 # Build output
 frontend/dist/
 frontend/.angular/
+backend/dist/
 
 # Environment files
 backend/.env

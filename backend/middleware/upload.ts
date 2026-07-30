@@ -51,4 +51,25 @@ export const chatImageUpload = multer({
   },
 }).single('image');
 
+const groupAvatarStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: 'group-avatars',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+    transformation: [{ width: 400, height: 400, crop: 'fill' }],
+  },
+});
+
+export const groupAvatarUpload = multer({
+  storage: groupAvatarStorage,
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
+    if (['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new AppError('Only JPEG, PNG, and WebP images are allowed', 400));
+    }
+  },
+}).single('avatar');
+
 export { cloudinary };

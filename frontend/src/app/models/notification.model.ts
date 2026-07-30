@@ -15,12 +15,24 @@ export type NotificationType =
   | 'taskChangesRequested'
   | 'taskApprovalReRequested'
   | 'taskFullyApproved'
-  | 'taskApprovalCommentAdded';
+  | 'taskApprovalCommentAdded'
+  | 'meetingStarting'
+  | 'meetingCancelled'
+  | 'groupMemberAdded';
 
 export interface NotificationActor {
   id: number;
   username: string;
   profileImage?: string | null;
+}
+
+// Read-only meeting summary embedded on a meeting-related notification —
+// null once the meeting is cancelled/deleted (see notification.prisma's
+// onDelete: SetNull comment) so a dead "Join" link never renders.
+export interface NotificationMeeting {
+  id: number;
+  roomCode: string;
+  status: 'scheduled' | 'live' | 'ended' | 'cancelled';
 }
 
 export interface AppNotification {
@@ -35,4 +47,7 @@ export interface AppNotification {
   taskId?: number | null;
   projectItemId?: number | null;
   commentId?: number | null;
+  meetingId?: number | null;
+  groupId?: number | null;
+  meeting?: NotificationMeeting | null;
 }

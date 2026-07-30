@@ -275,45 +275,6 @@
   opacity: 1;
 }
 
-.event-view-time {
-  font-weight: 600;
-  font-size: 1rem;
-}
-
-.event-view-row {
-  display: flex;
-  align-items: center;
-  margin-bottom: 10px;
-  color: var(--text-primary);
-}
-
-.event-view-description {
-  white-space: pre-wrap;
-  color: var(--text-muted);
-  margin-bottom: 12px;
-}
-
-.event-view-meta {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  flex-wrap: wrap;
-}
-
-.event-color-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-  margin-right: 8px;
-}
-
-.event-view-description :where(p, ul, ol) {
-  margin: 0 0 8px;
-}
-.event-view-description :last-child {
-  margin-bottom: 0;
-}
-
 .field-error { font-size: 0.76rem; color: #ef4444; margin-top: 5px; }
 
 /* ── Attachments tab header — the grid/tile/upload styling itself now

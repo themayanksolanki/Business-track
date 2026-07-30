@@ -29,25 +29,29 @@ export class MetricService {
 
   // Tracking — daily/weekly/monthly/quarterly/yearly Actual+Target numbers,
   // stored in MongoDB (see backend/models/metricTracking.model.ts). Always
-  // parameterized by `frequency` (only 'daily' is implemented server-side
-  // today) so a future weekly/monthly/etc. view reuses these same methods.
-  getTracking(metricId: number | string, frequency: MetricFrequency, year: number, month: number) {
-    return this.http.get<MetricTrackingData>(`${this.api}/${metricId}/tracking/${frequency}`, {
-      params: { year, month },
-    });
+  // parameterized by `frequency` (only 'daily' and 'weekly' are implemented
+  // server-side today) so a future monthly/etc. view reuses these same
+  // methods. `month` is only meaningful for 'daily' — omit it (or pass null)
+  // for 'weekly', whose period key (ISO week) only depends on `year`.
+  getTracking(metricId: number | string, frequency: MetricFrequency, year: number, month?: number | null) {
+    const params: Record<string, number> = { year };
+    if (month != null) params['month'] = month;
+    return this.http.get<MetricTrackingData>(`${this.api}/${metricId}/tracking/${frequency}`, { params });
   }
 
   saveTrackingDiff(
     metricId: number | string,
     frequency: MetricFrequency,
     year: number,
-    month: number,
+    month: number | null | undefined,
     diff: TrackingDiff
   ) {
+    const params: Record<string, number> = { year };
+    if (month != null) params['month'] = month;
     return this.http.put<MetricTrackingData>(
       `${this.api}/${metricId}/tracking/${frequency}`,
       { diff },
-      { params: { year, month } }
+      { params }
     );
   }
 

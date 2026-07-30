@@ -71,13 +71,13 @@ export class WebrtcPeerService {
     return this.peers.has(peerId);
   }
 
-  // reserveVideoSlot: screen-share support (chat calls only, see
-  // CallSessionService) needs a video sender to exist even on an
-  // audio-only call, added up front so sharing later is a plain
-  // replaceTrack() swap rather than a mid-call renegotiation. Defaults to
-  // off so Meet Hub's group meetings (MeetingSessionService, which doesn't
-  // have screen share) keep negotiating exactly what they did before —
-  // no reserved-but-unused video m-line on their audio-only meetings.
+  // reserveVideoSlot: screen-share support needs a video sender to exist
+  // even on an audio-only call, added up front so sharing later is a plain
+  // replaceTrack() swap rather than a mid-call renegotiation. Both
+  // CallSessionService (1:1) and MeetingSessionService (Meet Hub group
+  // meetings) pass true for every real peer; defaults to off only so any
+  // other/future caller that never needs screen share doesn't get a
+  // reserved-but-unused video m-line on an audio-only connection.
   createPeer(peerId: string, reserveVideoSlot = false): RTCPeerConnection {
     this.closePeer(peerId);
 

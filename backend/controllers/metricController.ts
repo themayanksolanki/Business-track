@@ -4,6 +4,7 @@ import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
 import { getAccessibleDepartmentIds, canAccessDepartment } from '../utils/access.js';
 import { nextSequenceId } from '../utils/sequence.js';
+import { MetricTracking } from '../models/metricTracking.model.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
 
@@ -94,7 +95,7 @@ export const getMetrics = async (req: Request, res: Response, next: NextFunction
 
 export const createMetric = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { title, department, category, owner, parentId, startDate, dueDate, notes, dataType } = req.body;
+    const { title, department, category, owner, parentId, startDate, dueDate, notes, dataType, frequency } = req.body;
 
     const departmentId = Number(department);
     if (req.user!.role !== 'Admin') {
@@ -132,6 +133,7 @@ export const createMetric = async (req: Request, res: Response, next: NextFuncti
           dueDate: dueDate || null,
           notes: notes ?? '',
           dataType: dataType ?? 'number',
+          frequency: frequency ?? 'daily',
           ownerId: Number(owner),
           createdById: req.user!.id,
           organizationId: req.user!.organizationId,
@@ -172,7 +174,17 @@ export const updateMetric = async (req: Request, res: Response, next: NextFuncti
     if (!(await canAccessMetric(req.user! as AuthUser, metric)))
       return next(new AppError('You do not have access to this metric', 403));
 
-    const { title, department, category, owner, parentId, startDate, dueDate, notes, status, dataType } = req.body;
+    const { title, department, category, owner, parentId, startDate, dueDate, notes, status, dataType, frequency } = req.body;
+
+    // Switching frequency after Bowling View data has been entered would
+    // silently strand it under the old (metricId, frequency) key with no
+    // migration path yet — blocked outright for now rather than half-solving
+    // it with a migrate-on-switch flow.
+    if (frequency !== undefined && frequency !== metric.frequency) {
+      const hasTrackingData = await MetricTracking.exists({ metricId: metric.id });
+      if (hasTrackingData)
+        return next(new AppError('This metric already has Bowling View data — its frequency can no longer be changed', 400));
+    }
 
     const departmentId = department !== undefined ? Number(department) : undefined;
     if (departmentId !== undefined && req.user!.role !== 'Admin') {
@@ -191,6 +203,7 @@ export const updateMetric = async (req: Request, res: Response, next: NextFuncti
     if (notes !== undefined) data.notes = notes;
     if (status !== undefined) data.status = status;
     if (dataType !== undefined) data.dataType = dataType;
+    if (frequency !== undefined) data.frequency = frequency;
 
     if (parentId !== undefined) {
       if (parentId === null) {

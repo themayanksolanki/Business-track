@@ -68,6 +68,13 @@
             }
             @if (!sharedViewOnly) {
               <li>
+                <a class="dropdown-item status-opt" (click)="openScheduleMeeting()">
+                  <i class="bi bi-camera-video me-2"></i>Schedule Meeting
+                </a>
+              </li>
+            }
+            @if (!sharedViewOnly) {
+              <li>
                 <a class="dropdown-item status-opt text-danger" (click)="openDeleteConfirm()">
                   <i class="bi bi-trash3 me-2"></i>Delete Project
                 </a>
@@ -422,6 +429,14 @@
       </app-project-teams>
     }
 
+    @if (activeTab === 'meetings') {
+      <app-project-meetings
+        [projectId]="projectId"
+        [canManage]="canManageMembers"
+        (scheduleMeeting)="openScheduleMeeting()">
+      </app-project-meetings>
+    }
+
     @if (activeTab === 'detail') {
       <div class="details-grid" cdkDropList cdkDropListOrientation="mixed"
            [cdkDropListData]="orderedDetailCardIds" (cdkDropListDropped)="onDetailsDrop($event)">
@@ -592,3 +607,11 @@
   (closed)="planViewerOpen = false"
   (download)="downloadPlan()">
 </app-attachment-viewer>
+
+<app-event-detail-dialog
+  [open]="scheduleMeetingOpen"
+  mode="create"
+  [projectId]="project ? project.id : null"
+  (closed)="cancelScheduleMeeting()"
+  (saved)="onMeetingScheduled()">
+</app-event-detail-dialog>

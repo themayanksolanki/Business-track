@@ -1,0 +1,49 @@
+<div class="gmp">
+  @if (selected.length > 0) {
+    <div class="gmp-chips">
+      @for (user of selected; track user.id) {
+        <span class="gmp-chip">
+          {{ user.username }}
+          <button type="button" class="gmp-chip-remove" (click)="remove(user)">
+            <i class="bi bi-x"></i>
+          </button>
+        </span>
+      }
+    </div>
+  }
+
+  <input
+    type="text"
+    class="form-control field-input gmp-search"
+    [(ngModel)]="query"
+    (ngModelChange)="onQueryChange()"
+    placeholder="Search by name or email…"
+  />
+
+  <div class="gmp-list">
+    @for (user of results; track user.id) {
+      <button type="button" class="gmp-item" [class.gmp-item-selected]="isSelected(user)" (click)="toggle(user)">
+        <span class="gmp-avatar">{{ user.username[0].toUpperCase() }}</span>
+        <span class="gmp-item-info">
+          <span class="gmp-item-name">{{ user.username }}</span>
+          <span class="gmp-item-email">{{ user.email }}</span>
+        </span>
+        @if (isSelected(user)) { <i class="bi bi-check-circle-fill gmp-check"></i> }
+      </button>
+    } @empty {
+      @if (!loading) {
+        <div class="gmp-empty">No users found</div>
+      }
+    }
+
+    @if (loading) {
+      <div class="gmp-loading">
+        <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+      </div>
+    }
+  </div>
+
+  @if (error) {
+    <div class="gmp-error">{{ error }}</div>
+  }
+</div>

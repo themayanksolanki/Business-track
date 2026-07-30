@@ -5,7 +5,15 @@ import AppError from '../utils/AppError.js';
 import { nextSequenceId } from '../utils/sequence.js';
 import { generateRoomCode } from '../utils/roomCode.js';
 import { signRoomToken } from '../utils/meetingToken.js';
-import { type AuthUser } from './eventController.js';
+import {
+  type AuthUser,
+  canAccessEvent,
+  canEditEvent,
+  getOrCreateDefaultCalendar,
+} from './eventController.js';
+import { canAccessProject } from './projectController.js';
+import { canAccessGroup } from './groupController.js';
+import { notifyUsers } from '../utils/notifications.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
 
@@ -13,6 +21,16 @@ const MEETING_INCLUDE = {
   host: { select: USER_SELECT },
   settings: true,
   participants: { include: { user: { select: USER_SELECT } } },
+  calendarEvent: { select: { id: true, sequenceId: true, title: true, start: true, end: true } },
+  project: { select: { id: true, sequenceId: true, name: true } },
+  group: { select: { id: true, sequenceId: true, name: true } },
+};
+
+// Mirrors organizationController.ts's buildInviteLink — same CLIENT_URL
+// env var, same "first of a comma-joined list" parsing.
+const buildMeetingLink = (roomCode: string) => {
+  const clientUrl = (process.env.CLIENT_URL || 'http://localhost:4200').split(',')[0].trim();
+  return `${clientUrl}/meet/${roomCode}`;
 };
 
 interface MeetingForAccess {
@@ -33,12 +51,18 @@ export const canAccessMeeting = (user: AuthUser, meeting: MeetingForAccess) => {
   return meeting.settings?.allowGuestJoin ?? false;
 };
 
-export const canEditMeeting = (user: AuthUser, meeting: { hostId: number }) =>
-  user.role === 'Admin' || meeting.hostId === user.id;
+// Cross-org check first, same as canAccessMeeting — an Admin/host match on
+// role/id alone isn't enough; without this an Admin (or a host id that
+// happens to collide numerically) in one org could edit/end another org's
+// meeting entirely.
+export const canEditMeeting = (user: AuthUser, meeting: { organizationId: number | null; hostId: number }) => {
+  if (meeting.organizationId !== user.organizationId) return false;
+  return user.role === 'Admin' || meeting.hostId === user.id;
+};
 
 export const canEndMeeting = (
   user: AuthUser,
-  meeting: { hostId: number },
+  meeting: { organizationId: number | null; hostId: number },
   participants: { userId: number; role: string }[]
 ) =>
   canEditMeeting(user, meeting) ||
@@ -48,7 +72,7 @@ const VALID_CALL_TYPES = ['audio', 'video'];
 
 export const createMeeting = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { title, callType, scheduledStart, scheduledEnd } = req.body;
+    const { title, callType, scheduledStart, scheduledEnd, calendarEventId, projectId, groupId } = req.body;
 
     if (callType !== undefined && !VALID_CALL_TYPES.includes(callType)) {
       return next(new AppError(`Invalid callType: ${callType}`, 400));
@@ -56,12 +80,94 @@ export const createMeeting = async (req: Request, res: Response, next: NextFunct
 
     const user = req.user! as AuthUser;
 
+    let calendarEvent: { id: number; ownerId: number; organizationId: number | null } | null = null;
+    if (calendarEventId) {
+      const found = await prisma.calendarEvent.findUnique({
+        where: { id: Number(calendarEventId) },
+        include: { guests: { select: { userId: true } }, meeting: { select: { id: true } } },
+      });
+      if (!found) return next(new AppError('Calendar event not found', 404));
+      if (!canAccessEvent(user, found))
+        return next(new AppError('You do not have access to this calendar event', 403));
+      if (!canEditEvent(user, found))
+        return next(new AppError('You do not have permission to add a meeting to this event', 403));
+      if (found.meeting) return next(new AppError('This event already has a Meet Hub room', 409));
+      calendarEvent = found;
+    }
+
+    let project: { id: number } | null = null;
+    if (projectId) {
+      const found = await prisma.project.findUnique({
+        where: { id: Number(projectId) },
+        select: {
+          id: true,
+          organizationId: true,
+          departmentId: true,
+          createdById: true,
+          ownerId: true,
+          members: { select: { userId: true } },
+        },
+      });
+      if (!found) return next(new AppError('Project not found', 404));
+      if (!(await canAccessProject(user, found)))
+        return next(new AppError('You do not have access to this project', 403));
+      project = found;
+    }
+
+    // All current members are auto-invited as participants (see below) — a
+    // group call is for the group, not an org-wide open link, so it needs
+    // the member list up front rather than just an id.
+    let group: { id: number; members: { userId: number }[] } | null = null;
+    if (groupId) {
+      const found = await prisma.group.findUnique({
+        where: { id: Number(groupId) },
+        include: { members: { select: { userId: true } } },
+      });
+      if (!found) return next(new AppError('Group not found', 404));
+      if (!canAccessGroup(user, found)) return next(new AppError('You do not have access to this group', 403));
+      group = found;
+    }
+
     // roomCode is @unique — collisions are rare (11 alphanumeric chars) but
     // possible, so retry generation a few times on P2002 rather than failing.
     for (let attempt = 0; attempt < 5; attempt++) {
       const roomCode = generateRoomCode();
       try {
         const meeting = await prisma.$transaction(async (tx) => {
+          let linkedCalendarEventId = calendarEvent?.id ?? null;
+          let autoCreatedEvent = false;
+
+          if (calendarEvent) {
+            // Existing event supplied — attach this room to it directly.
+            await tx.calendarEvent.update({
+              where: { id: calendarEvent.id },
+              data: { meetingLinkUrl: buildMeetingLink(roomCode), meetingLinkTitle: 'Meet Hub' },
+            });
+          } else if (scheduledStart) {
+            // Standalone scheduled meeting (Meet Hub "New meeting" or a
+            // project's "Schedule meeting") with no existing event to attach
+            // to — auto-create a bare one so it shows up on the calendar.
+            const resolvedCalendar = await getOrCreateDefaultCalendar(tx, user);
+            const eventSequenceId = await nextSequenceId(tx, user.organizationId, 'calendarEvent');
+            const autoEvent = await tx.calendarEvent.create({
+              data: {
+                title: title?.trim() || 'Meeting',
+                start: new Date(scheduledStart),
+                end: scheduledEnd ? new Date(scheduledEnd) : new Date(scheduledStart),
+                ownerId: user.id,
+                calendarId: resolvedCalendar.id,
+                organizationId: user.organizationId,
+                createdById: user.id,
+                sequenceId: eventSequenceId,
+                projectId: project?.id ?? null,
+                meetingLinkUrl: buildMeetingLink(roomCode),
+                meetingLinkTitle: 'Meet Hub',
+              },
+            });
+            linkedCalendarEventId = autoEvent.id;
+            autoCreatedEvent = true;
+          }
+
           const sequenceId = await nextSequenceId(tx, user.organizationId, 'meeting');
           const created = await tx.meeting.create({
             data: {
@@ -74,13 +180,47 @@ export const createMeeting = async (req: Request, res: Response, next: NextFunct
               sequenceId,
               scheduledStart: scheduledStart ? new Date(scheduledStart) : null,
               scheduledEnd: scheduledEnd ? new Date(scheduledEnd) : null,
-              settings: { create: {} },
-              participants: { create: { userId: user.id, role: 'host', invited: true } },
+              calendarEventId: linkedCalendarEventId,
+              calendarEventAutoCreated: autoCreatedEvent,
+              projectId: project?.id ?? null,
+              groupId: group?.id ?? null,
+              // A group meeting is for that group's members only — an
+              // org-wide guest-join link would defeat the point of scoping
+              // it to the group. Every other creation path keeps the
+              // existing default (guests may join via the shared link).
+              settings: { create: group ? { allowGuestJoin: false } : {} },
+              participants: {
+                create: [
+                  { userId: user.id, role: 'host', invited: true },
+                  ...(group
+                    ? group.members
+                        .filter((m) => m.userId !== user.id)
+                        .map((m) => ({ userId: m.userId, role: 'attendee' as const, invited: true }))
+                    : []),
+                ],
+              },
             },
             include: MEETING_INCLUDE,
           });
           return created;
         });
+
+        // Fire-and-forget, after commit — a group call is instant (no
+        // scheduling flow invites anyone else yet), so this is always
+        // "starting now", never a future "invited" notice.
+        if (group) {
+          void notifyUsers(
+            group.members.map((m) => m.userId).filter((id) => id !== user.id),
+            user.id,
+            {
+              type: 'meetingStarting',
+              title: `${meeting.title || 'Group call'} started`,
+              message: `${req.user!.username ?? 'Someone'} started a call in a group you're in.`,
+              meetingId: meeting.id,
+              groupId: group.id,
+            }
+          );
+        }
 
         return res.status(201).json({ message: 'Meeting created', meeting });
       } catch (err: any) {
@@ -233,14 +373,61 @@ export const updateMeeting = async (req: Request, res: Response, next: NextFunct
 
 export const cancelMeeting = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const meeting = await prisma.meeting.findUnique({ where: { id: Number(req.params.id) } });
+    const meeting = await prisma.meeting.findUnique({
+      where: { id: Number(req.params.id) },
+      include: { participants: { select: { userId: true } } },
+    });
     if (!meeting) return next(new AppError('Meeting not found', 404));
     if (!canEditMeeting(req.user! as AuthUser, meeting))
       return next(new AppError('Only the host can cancel this meeting', 403));
     if (meeting.status !== 'scheduled')
       return next(new AppError('Only a scheduled meeting can be cancelled', 409));
 
-    await prisma.meeting.delete({ where: { id: meeting.id } });
+    const user = req.user! as AuthUser;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.meeting.delete({ where: { id: meeting.id } });
+      // Only the bare event this meeting created for itself — an event that
+      // already existed before the meeting was attached to it (calendarEventId
+      // supplied at create time) survives cancellation untouched. And even
+      // among auto-created events, only delete it if it's still bare: a user
+      // may have since added a description/guests/attachments to it, in which
+      // case it's become its own thing and cancelling the meeting shouldn't
+      // take that data down with it.
+      if (meeting.calendarEventAutoCreated && meeting.calendarEventId) {
+        const [guestCount, attachmentCount] = await Promise.all([
+          tx.guest.count({ where: { eventId: meeting.calendarEventId } }),
+          tx.attachment.count({ where: { calendarEventId: meeting.calendarEventId } }),
+        ]);
+        const event = await tx.calendarEvent.findUnique({
+          where: { id: meeting.calendarEventId },
+          select: { description: true },
+        });
+        const stillBare = !event?.description && guestCount === 0 && attachmentCount === 0;
+        if (stillBare) {
+          await tx.calendarEvent.delete({ where: { id: meeting.calendarEventId } });
+        }
+      }
+    });
+
+    // Notified only after the delete commits — otherwise a transaction
+    // failure would leave users told a meeting was cancelled while it's
+    // actually still live/joinable in the DB. meetingId is still valid at
+    // insert time here, then gets SetNull'd once the meeting row is gone
+    // (see notification.prisma), which is exactly right: a cancelled meeting
+    // shouldn't leave a working "Join" link behind.
+    await notifyUsers(
+      meeting.participants.map((p) => p.userId).filter((id) => id !== user.id),
+      user.id,
+      {
+        type: 'meetingCancelled',
+        title: `${meeting.title || 'Meeting'} cancelled`,
+        message: `${req.user!.username ?? 'The host'} cancelled this meeting.`,
+        meetingId: meeting.id,
+        ...(meeting.groupId ? { groupId: meeting.groupId } : {}),
+      }
+    );
+
     res.status(200).json({ message: 'Meeting cancelled' });
   } catch (err) {
     next(err);
@@ -259,6 +446,38 @@ export const getUpcomingMeetings = async (req: Request, res: Response, next: Nex
       },
       include: MEETING_INCLUDE,
       orderBy: { scheduledStart: 'asc' },
+    });
+
+    res.status(200).json(meetings);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Backs the "Upcoming/past meetings" panel on project-detail — mirrors
+// projectMemberController.getMembers's shape (fetch project, check access,
+// return a flat array).
+export const getProjectMeetings = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.params.projectId) },
+      select: {
+        id: true,
+        organizationId: true,
+        departmentId: true,
+        createdById: true,
+        ownerId: true,
+        members: { select: { userId: true } },
+      },
+    });
+    if (!project) return next(new AppError('Project not found', 404));
+    if (!(await canAccessProject(req.user! as AuthUser, project)))
+      return next(new AppError('You do not have access to this project', 403));
+
+    const meetings = await prisma.meeting.findMany({
+      where: { projectId: project.id },
+      include: MEETING_INCLUDE,
+      orderBy: { scheduledStart: 'desc' },
     });
 
     res.status(200).json(meetings);

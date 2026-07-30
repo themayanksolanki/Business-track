@@ -17,6 +17,33 @@
   color: var(--text-primary);
 }
 
+.bowling-lens-toggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-muted);
+  border-radius: 999px;
+}
+
+.bowling-lens-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.bowling-lens-btn.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
 .empty-state {
   color: var(--text-muted);
 }
@@ -132,6 +159,10 @@
   box-sizing: border-box;
   border: 1px solid var(--border-strong);
   text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
 }
 
 /* ── Metric rows ── */

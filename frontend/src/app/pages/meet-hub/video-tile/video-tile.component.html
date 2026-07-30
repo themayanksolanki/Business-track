@@ -1,5 +1,5 @@
 <div class="video-tile">
-  <video #video [muted]="muted" playsinline autoplay [class.hidden]="camOff"></video>
+  <video #video [muted]="muted" playsinline autoplay [class.hidden]="camOff" [class.mirrored]="mirror"></video>
   <div class="tile-placeholder" *ngIf="camOff">
     <ng-container *ngIf="user; else iconOnly">
       <div class="tile-avatar">
@@ -12,4 +12,15 @@
     </ng-template>
   </div>
   <span class="tile-label">{{ label }}</span>
+
+  <span class="tile-badge tile-badge-hand" *ngIf="handRaised" title="Hand raised">
+    <i class="bi bi-hand-index-thumb-fill"></i>
+  </span>
+  <span class="tile-badge tile-badge-share" *ngIf="isScreenSharing" title="Presenting">
+    <i class="bi bi-easel2-fill"></i>
+  </span>
+
+  <button class="tile-kick-btn" *ngIf="showKick" (click)="kick.emit()" title="Remove from meeting">
+    <i class="bi bi-person-dash-fill"></i>
+  </button>
 </div>

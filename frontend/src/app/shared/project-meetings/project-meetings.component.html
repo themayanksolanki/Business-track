@@ -1,0 +1,57 @@
+<div class="meetings-panel">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h6 class="mb-0 text-muted">Project Meetings</h6>
+    @if (canManage) {
+      <button class="btn btn-success btn-sm" (click)="scheduleMeeting.emit()">
+        <i class="bi bi-camera-video me-1"></i>Schedule Meeting
+      </button>
+    }
+  </div>
+
+  @if (loading) {
+    <div class="text-center py-5">
+      <span class="spinner-border spinner-border-sm text-muted"></span>
+    </div>
+  } @else if (meetings.length === 0) {
+    <div class="empty-state text-center py-5 text-muted">
+      <i class="bi bi-camera-video display-5 d-block mb-3"></i>
+      <p class="mb-0">No meetings scheduled yet.</p>
+    </div>
+  } @else {
+    @if (upcoming.length > 0) {
+      <div class="meetings-section-label">Upcoming</div>
+      <div class="meetings-list mb-3">
+        @for (meeting of upcoming; track meeting.id) {
+          <div class="meeting-row">
+            <div class="meeting-row-info">
+              <span class="meeting-row-title">{{ meeting.title || 'Untitled meeting' }}</span>
+              <span class="meeting-row-time">{{ timeLabel(meeting) }}</span>
+            </div>
+            @if (canJoin(meeting)) {
+              <a class="btn btn-success btn-sm" [routerLink]="['/meet', meeting.roomCode]">
+                <i class="bi bi-camera-video-fill me-1"></i>Join
+              </a>
+            } @else {
+              <span class="meeting-status-badge">{{ meeting.status }}</span>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    @if (past.length > 0) {
+      <div class="meetings-section-label">Past</div>
+      <div class="meetings-list">
+        @for (meeting of past; track meeting.id) {
+          <div class="meeting-row meeting-row-past">
+            <div class="meeting-row-info">
+              <span class="meeting-row-title">{{ meeting.title || 'Untitled meeting' }}</span>
+              <span class="meeting-row-time">{{ timeLabel(meeting) }}</span>
+            </div>
+            <span class="meeting-status-badge">{{ meeting.status }}</span>
+          </div>
+        }
+      </div>
+    }
+  }
+</div>

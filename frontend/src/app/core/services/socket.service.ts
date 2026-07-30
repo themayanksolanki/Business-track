@@ -4,6 +4,7 @@ import { io, Socket } from 'socket.io-client';
 import { environment } from '../../../environments/environment';
 import { Message, MessageReaction } from '../../models/message.model';
 import { AppNotification } from '../../models/notification.model';
+import { GroupMessage } from '../../models/group.model';
 
 export interface IncomingCall {
   from: string;
@@ -27,6 +28,15 @@ export class SocketService {
   readonly messageReaction$    = new Subject<{ messageId: number; reactions: MessageReaction[] }>();
   readonly typing$             = new Subject<{ from: string; isTyping: boolean }>();
 
+  readonly groupMessage$         = new Subject<GroupMessage>();
+  readonly groupMessageSent$     = new Subject<GroupMessage>();
+  readonly groupMessageEdited$   = new Subject<GroupMessage>();
+  readonly groupMessageDeleted$  = new Subject<{ messageId: string; forAll: boolean }>();
+  readonly groupMessagePinned$   = new Subject<{ messageId: string; pinned: boolean }>();
+  readonly groupMessageSeen$     = new Subject<{ groupId: number; by: string }>();
+  readonly groupTyping$          = new Subject<{ groupId: number; from: string; isTyping: boolean }>();
+  readonly groupMessageError$    = new Subject<string>();
+
   readonly callSession$   = new Subject<{ callId: string }>();
   readonly callIncoming$  = new Subject<IncomingCall>();
   readonly callAccepted$  = new Subject<{ callId: string }>();
@@ -49,6 +59,11 @@ export class SocketService {
   readonly meetingSignal$            = new Subject<{ fromSocketId: string; sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit }>();
   readonly meetingMute$              = new Subject<{ socketId: string; muted: boolean }>();
   readonly meetingVideoToggle$       = new Subject<{ socketId: string; off: boolean }>();
+  readonly meetingScreenShare$       = new Subject<{ socketId: string; sharing: boolean }>();
+  readonly meetingHandRaise$         = new Subject<{ socketId: string; raised: boolean }>();
+  readonly meetingChatMessage$       = new Subject<{ socketId: string; userId: number; message: string; at: string }>();
+  readonly meetingKicked$            = new Subject<void>();
+  readonly meetingEnded$             = new Subject<void>();
 
   readonly notification$ = new Subject<AppNotification>();
   // Fires on every reconnect (not the first connect) so listeners can re-sync
@@ -80,6 +95,15 @@ export class SocketService {
     this.socket.on('message:reaction',  (d: { messageId: number; reactions: MessageReaction[] }) => this.messageReaction$.next(d));
     this.socket.on('typing:update',     (d: { from: string; isTyping: boolean })          => this.typing$.next(d));
 
+    this.socket.on('group:message:receive', (m: GroupMessage)                                   => this.groupMessage$.next(m));
+    this.socket.on('group:message:sent',    (m: GroupMessage)                                   => this.groupMessageSent$.next(m));
+    this.socket.on('group:message:edited',  (m: GroupMessage)                                   => this.groupMessageEdited$.next(m));
+    this.socket.on('group:message:deleted', (d: { messageId: string; forAll: boolean })         => this.groupMessageDeleted$.next(d));
+    this.socket.on('group:message:pinned',  (d: { messageId: string; pinned: boolean })         => this.groupMessagePinned$.next(d));
+    this.socket.on('group:message:seen',    (d: { groupId: number; by: string })                => this.groupMessageSeen$.next(d));
+    this.socket.on('group:typing:update',   (d: { groupId: number; from: string; isTyping: boolean }) => this.groupTyping$.next(d));
+    this.socket.on('group:message:error',   (msg: string)                                       => this.groupMessageError$.next(msg));
+
     this.socket.on('call:session',      (d: { callId: string })                                     => this.callSession$.next(d));
     this.socket.on('call:incoming',     (d: IncomingCall)                                           => this.callIncoming$.next(d));
     this.socket.on('call:accepted',     (d: { callId: string })                                     => this.callAccepted$.next(d));
@@ -102,6 +126,11 @@ export class SocketService {
     this.socket.on('meeting:signal',              (d: { fromSocketId: string; sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit }) => this.meetingSignal$.next(d));
     this.socket.on('meeting:mute',                (d: { socketId: string; muted: boolean })                                      => this.meetingMute$.next(d));
     this.socket.on('meeting:video-toggle',        (d: { socketId: string; off: boolean })                                        => this.meetingVideoToggle$.next(d));
+    this.socket.on('meeting:screen-share',        (d: { socketId: string; sharing: boolean })                                    => this.meetingScreenShare$.next(d));
+    this.socket.on('meeting:hand-raise',          (d: { socketId: string; raised: boolean })                                     => this.meetingHandRaise$.next(d));
+    this.socket.on('meeting:chat-message',        (d: { socketId: string; userId: number; message: string; at: string })         => this.meetingChatMessage$.next(d));
+    this.socket.on('meeting:kicked',              ()                                                                              => this.meetingKicked$.next());
+    this.socket.on('meeting:ended',               ()                                                                              => this.meetingEnded$.next());
   }
 
   disconnect() {
@@ -167,6 +196,30 @@ export class SocketService {
     this.socket?.emit('message:seen', { from });
   }
 
+  sendGroupMessage(groupId: number, content: string, type: 'text' | 'image' = 'text', fileUrl?: string, replyTo?: string) {
+    this.socket?.emit('group:message:send', { groupId, content, type, fileUrl, replyTo });
+  }
+
+  editGroupMessage(messageId: string, content: string) {
+    this.socket?.emit('group:message:edit', { messageId, content });
+  }
+
+  deleteGroupMessage(messageId: string, forAll: boolean) {
+    this.socket?.emit('group:message:delete', { messageId, forAll });
+  }
+
+  pinGroupMessage(messageId: string, pinned: boolean) {
+    this.socket?.emit('group:message:pin', { messageId, pinned });
+  }
+
+  markGroupSeen(groupId: number) {
+    this.socket?.emit('group:message:seen', { groupId });
+  }
+
+  sendGroupTyping(groupId: number, isTyping: boolean) {
+    this.socket?.emit(isTyping ? 'group:typing:start' : 'group:typing:stop', { groupId });
+  }
+
   joinMeetingRoom(roomToken: string) {
     this.socket?.emit('meeting:join', { roomToken });
   }
@@ -189,5 +242,25 @@ export class SocketService {
 
   sendMeetingVideoToggle(meetingId: number, off: boolean) {
     this.socket?.emit('meeting:video-toggle', { meetingId, off });
+  }
+
+  sendMeetingScreenShare(meetingId: number, sharing: boolean) {
+    this.socket?.emit('meeting:screen-share', { meetingId, sharing });
+  }
+
+  sendMeetingHandRaise(meetingId: number, raised: boolean) {
+    this.socket?.emit('meeting:hand-raise', { meetingId, raised });
+  }
+
+  sendMeetingChatMessage(meetingId: number, message: string) {
+    this.socket?.emit('meeting:chat-message', { meetingId, message });
+  }
+
+  kickMeetingParticipant(meetingId: number, targetSocketId: string) {
+    this.socket?.emit('meeting:kick', { meetingId, targetSocketId });
+  }
+
+  endMeetingForEveryone(meetingId: number) {
+    this.socket?.emit('meeting:end', { meetingId });
   }
 }

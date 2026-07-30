@@ -80,6 +80,7 @@ import {
   updateMemberRole,
   removeMember,
 } from '../controllers/projectMemberController.js';
+import { getProjectMeetings } from '../controllers/meetingController.js';
 import {
   getItemAttachments,
   uploadItemAttachment,
@@ -156,6 +157,8 @@ router.patch(
   updateMemberRole
 );
 router.delete('/:projectId/members/:memberId', protect, validateProjectId, validateMemberId, removeMember);
+
+router.get('/:projectId/meetings', protect, validateProjectId, getProjectMeetings);
 
 router.get('/:projectId/items', protect, validateProjectId, getItems);
 router.post('/:projectId/items', protect, validateProjectId, validateProjectItem, createItem);
