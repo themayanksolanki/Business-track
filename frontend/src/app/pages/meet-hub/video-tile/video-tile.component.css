@@ -21,6 +21,20 @@ video.hidden { display: none; }
 
 video.mirrored { transform: scaleX(-1); }
 
+/* A mobile camera's capture is often portrait-shaped — letterbox it (see
+   VideoTileComponent's isMobileDevice input) instead of letting cover crop
+   into whatever padding the browser adds to fill this tile's 16:9 frame.
+   The tile's own gradient background (above) shows through the margins —
+   deliberately not flattened to solid black like the screen-share case
+   elsewhere, so it still reads as this tile rather than dead space. The
+   video itself gets a soft shadow so it reads as a floating card on that
+   gradient instead of a plain cropped rectangle. */
+.video-tile-mobile video {
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
 .tile-placeholder {
   color: #9ca3af;
   font-size: 2rem;

@@ -1,0 +1,52 @@
+// Admin-authored question templates (Settings > Status Forms) — later filled
+// in by a Project's owner from the Project Detail "Status Report" tab (not
+// built yet). Kept as its own file since, like taskApproval.prisma, it's a
+// self-contained feature rather than an extension of an existing model.
+enum StatusFormQuestionType {
+  shortText
+  longText
+  richText
+  singleSelect
+  multiSelect
+  attachment
+}
+
+model StatusForm {
+  id             Int      @id @default(autoincrement())
+  organizationId Int?
+  title          String
+  description    String   @default("")
+  createdById    Int
+  updatedById    Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  createdBy    User          @relation("StatusFormCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?         @relation("StatusFormUpdatedBy", fields: [updatedById], references: [id])
+
+  questions StatusFormQuestion[]
+
+  @@index([organizationId])
+  @@map("status_forms")
+}
+
+model StatusFormQuestion {
+  id       Int                    @id @default(autoincrement())
+  formId   Int
+  type     StatusFormQuestionType
+  label    String
+  // Option labels for 'singleSelect'/'multiSelect' questions, in display
+  // order — unused for every other type. Small, never independently
+  // queried, same JSON treatment as Project.links (see project.prisma).
+  options  Json                   @default("[]")
+  required Boolean                @default(false)
+  // Sibling position within the form — same "append at end on create,
+  // reordered via drag-drop" convention as ProjectItem.order/Metric.order.
+  order    Int                    @default(0)
+
+  form StatusForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId, order])
+  @@map("status_form_questions")
+}

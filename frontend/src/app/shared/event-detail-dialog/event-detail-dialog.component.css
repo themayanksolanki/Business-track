@@ -149,6 +149,31 @@
   overflow: auto;
 }
 
+/* Read-mode rendering of the same field (see canManage in the .ts) — sized
+   to roughly match the editor above it so switching between the two modes
+   doesn't visibly jump. */
+.event-description-readonly {
+  min-height: 160px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+.event-description-readonly :where(p, ul, ol, blockquote) {
+  margin: 0 0 0.6em;
+}
+.event-description-readonly :where(p, ul, ol, blockquote):last-child {
+  margin-bottom: 0;
+}
+.event-description-readonly a {
+  color: #3b82f6;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* CKEditor derives every internal border (toolbar, panels, dropdowns) from
    its own --ck-color-base-border custom property, which defaults to a fixed
    light gray (#ccced1) — overriding just border-color on individual pieces

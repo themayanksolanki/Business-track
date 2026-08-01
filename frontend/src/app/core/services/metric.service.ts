@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { Metric, MetricStatus, CreateMetricPayload, UpdateMetricPayload, PaginatedMetrics } from '../../models/metric.model';
+import { Metric, MetricStatus, CreateMetricPayload, UpdateMetricPayload, PaginatedMetrics, MetricTileItem } from '../../models/metric.model';
 import { MetricFrequency, MetricTrackingData, TrackingDiff } from '../../models/metric-tracking.model';
 import { Attachment, AttachmentsAdapter, DownloadInfo } from '../../models/attachment.model';
 
@@ -27,12 +27,22 @@ export class MetricService {
     return this.http.put<{ message: string; metric: Metric }>(`${this.api}/${metricId}`, payload);
   }
 
+  // Unpaginated, drag-drop-ordered feed for the Tiles View.
+  getMetricTiles() {
+    return this.http.get<MetricTileItem[]>(`${this.api}/tiles`);
+  }
+
+  // Reorders one sibling group at a time — `orderedIds` must be exactly the
+  // active metrics sharing `parentId` (see backend's reorderMetrics).
+  reorderMetrics(parentId: number | null, orderedIds: number[]) {
+    return this.http.patch<{ message: string }>(`${this.api}/reorder`, { parentId, orderedIds });
+  }
+
   // Tracking — daily/weekly/monthly/quarterly/yearly Actual+Target numbers,
   // stored in MongoDB (see backend/models/metricTracking.model.ts). Always
-  // parameterized by `frequency` (only 'daily' and 'weekly' are implemented
-  // server-side today) so a future monthly/etc. view reuses these same
-  // methods. `month` is only meaningful for 'daily' — omit it (or pass null)
-  // for 'weekly', whose period key (ISO week) only depends on `year`.
+  // parameterized by `frequency`. `month` is only meaningful for 'daily' —
+  // omit it (or pass null) for every other frequency, whose period key only
+  // depends on `year`.
   getTracking(metricId: number | string, frequency: MetricFrequency, year: number, month?: number | null) {
     const params: Record<string, number> = { year };
     if (month != null) params['month'] = month;

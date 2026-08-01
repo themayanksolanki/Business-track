@@ -4,11 +4,12 @@ import {
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../core/services/auth.service';
 import { MeetingUser } from '../../../models/meeting.model';
+import { CallIconComponent } from '../../../shared/call-icon/call-icon.component';
 
 @Component({
   selector: 'app-video-tile',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, CallIconComponent],
   templateUrl: './video-tile.component.html',
   styleUrl: './video-tile.component.css',
 })
@@ -27,6 +28,12 @@ export class VideoTileComponent implements OnChanges, AfterViewInit {
   @Input() user: MeetingUser | null = null;
   @Input() handRaised = false;
   @Input() isScreenSharing = false;
+  // True when this tile's owner is on a mobile device (see
+  // shared/utils/device.util.ts) — letterboxes the video instead of the
+  // default edge-to-edge crop, since a phone's camera capture is often
+  // portrait-shaped and object-fit: cover would otherwise crop into
+  // whatever padding the browser adds to fill the requested landscape frame.
+  @Input() isMobileDevice = false;
   // Host-only — the local tile never shows this (you can't kick yourself).
   @Input() showKick = false;
   @Output() kick = new EventEmitter<void>();

@@ -49,6 +49,9 @@ export class SocketService {
   readonly remoteMuted$   = new Subject<boolean>();
   readonly remoteCamOff$  = new Subject<boolean>();
   readonly remoteScreenSharing$ = new Subject<boolean>();
+  // See device.util.ts's isMobileDevice() — sent once at call start/accept,
+  // not toggled like the above.
+  readonly remoteMobileDevice$ = new Subject<boolean>();
   readonly callLogged$    = new Subject<Message>();
 
   readonly meetingJoined$            = new Subject<{ members: { socketId: string; userId: number }[] }>();
@@ -61,6 +64,7 @@ export class SocketService {
   readonly meetingVideoToggle$       = new Subject<{ socketId: string; off: boolean }>();
   readonly meetingScreenShare$       = new Subject<{ socketId: string; sharing: boolean }>();
   readonly meetingHandRaise$         = new Subject<{ socketId: string; raised: boolean }>();
+  readonly meetingMobileDevice$      = new Subject<{ socketId: string; mobile: boolean }>();
   readonly meetingChatMessage$       = new Subject<{ socketId: string; userId: number; message: string; at: string }>();
   readonly meetingKicked$            = new Subject<void>();
   readonly meetingEnded$             = new Subject<void>();
@@ -116,6 +120,7 @@ export class SocketService {
     this.socket.on('call:mute',         (d: { muted: boolean })                                     => this.remoteMuted$.next(d.muted));
     this.socket.on('call:video',        (d: { off: boolean })                                       => this.remoteCamOff$.next(d.off));
     this.socket.on('call:screen-share', (d: { sharing: boolean })                                   => this.remoteScreenSharing$.next(d.sharing));
+    this.socket.on('call:mobile-device',(d: { mobile: boolean })                                     => this.remoteMobileDevice$.next(d.mobile));
     this.socket.on('call:logged',       (m: Message)                                                 => this.callLogged$.next(m));
 
     this.socket.on('meeting:joined',              (d: { members: { socketId: string; userId: number }[] })                       => this.meetingJoined$.next(d));
@@ -128,6 +133,7 @@ export class SocketService {
     this.socket.on('meeting:video-toggle',        (d: { socketId: string; off: boolean })                                        => this.meetingVideoToggle$.next(d));
     this.socket.on('meeting:screen-share',        (d: { socketId: string; sharing: boolean })                                    => this.meetingScreenShare$.next(d));
     this.socket.on('meeting:hand-raise',          (d: { socketId: string; raised: boolean })                                     => this.meetingHandRaise$.next(d));
+    this.socket.on('meeting:mobile-device',       (d: { socketId: string; mobile: boolean })                                     => this.meetingMobileDevice$.next(d));
     this.socket.on('meeting:chat-message',        (d: { socketId: string; userId: number; message: string; at: string })         => this.meetingChatMessage$.next(d));
     this.socket.on('meeting:kicked',              ()                                                                              => this.meetingKicked$.next());
     this.socket.on('meeting:ended',               ()                                                                              => this.meetingEnded$.next());
@@ -192,6 +198,10 @@ export class SocketService {
     this.socket?.emit('call:screen-share', { callId, sharing });
   }
 
+  sendMobileDeviceState(callId: string, mobile: boolean) {
+    this.socket?.emit('call:mobile-device', { callId, mobile });
+  }
+
   markSeen(from: string) {
     this.socket?.emit('message:seen', { from });
   }
@@ -250,6 +260,10 @@ export class SocketService {
 
   sendMeetingHandRaise(meetingId: number, raised: boolean) {
     this.socket?.emit('meeting:hand-raise', { meetingId, raised });
+  }
+
+  sendMeetingMobileDevice(meetingId: number, mobile: boolean) {
+    this.socket?.emit('meeting:mobile-device', { meetingId, mobile });
   }
 
   sendMeetingChatMessage(meetingId: number, message: string) {

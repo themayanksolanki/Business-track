@@ -8,11 +8,12 @@ import { MeetingSessionService } from '../../../core/services/meeting-session.se
 import { Meeting, MeetingUser } from '../../../models/meeting.model';
 import { VideoTileComponent } from '../video-tile/video-tile.component';
 import { NotificationService } from '../../../shared/notification.service';
+import { CallIconComponent } from '../../../shared/call-icon/call-icon.component';
 
 @Component({
   selector: 'app-meeting-room',
   standalone: true,
-  imports: [CommonModule, FormsModule, VideoTileComponent],
+  imports: [CommonModule, FormsModule, VideoTileComponent, CallIconComponent],
   templateUrl: './meeting-room.component.html',
   styleUrl: './meeting-room.component.css',
 })
@@ -67,6 +68,12 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
   get isHost(): boolean {
     return this.meetingSessionSvc.isHost(this.auth.getUser()?.id);
+  }
+
+  // Drives the grid layout (meeting-room.component.css) — capped at 4 since
+  // that's the room's max participant count (see roomFull banner above).
+  get tileCount(): number {
+    return Math.min(1 + this.meetingSessionSvc.remoteTiles.length, 4);
   }
 
   get myUsername(): string {

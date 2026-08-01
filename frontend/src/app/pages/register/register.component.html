@@ -96,6 +96,30 @@
           }
         </div>
 
+        <div class="mb-4">
+          <label class="field-label">Organization currency</label>
+          <select class="form-select field-input" formControlName="currency">
+            @for (opt of currencyOptions; track opt.value) {
+              <option [ngValue]="opt.value">{{ opt.flag }} {{ opt.name }} ({{ opt.value }}) {{ opt.symbol }}</option>
+            }
+          </select>
+          <div class="field-hint">
+            Used for every currency-type metric across your whole organization. This cannot be changed later, so choose carefully.
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="field-label">Organization measurement unit</label>
+          <select class="form-select field-input" formControlName="unit">
+            @for (opt of measurementUnitOptions; track opt.value) {
+              <option [ngValue]="opt.value">{{ opt.name }} ({{ opt.symbol }})</option>
+            }
+          </select>
+          <div class="field-hint">
+            Used for every weight-type metric across your whole organization. This cannot be changed later, so choose carefully.
+          </div>
+        </div>
+
         <button type="submit" class="btn btn-primary submit-btn w-100" [disabled]="loading">
           @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
           {{ loading ? 'Creating organization...' : 'Create Organization' }}

@@ -1,0 +1,95 @@
+.status-forms-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  min-height: 320px;
+}
+
+.status-forms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.status-form-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  transition: background 0.12s;
+}
+
+.status-form-row:hover {
+  background: var(--bg-hover);
+}
+
+.status-form-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.status-form-row-title {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.status-form-row-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-form-row-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.status-form-question-count {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--bg-muted);
+  border-radius: 20px;
+  padding: 3px 10px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.status-form-row-actions {
+  display: flex;
+  gap: 2px;
+  margin-left: 8px;
+}
+
+.status-form-action-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+}
+
+.status-form-action-btn:hover {
+  background: var(--bg-muted);
+  color: var(--text-primary);
+}
+
+.status-form-action-danger:hover {
+  color: #ef4444;
+}
+
+.empty-state {
+  color: var(--text-muted);
+}

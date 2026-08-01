@@ -25,4 +25,8 @@
   @if (activeTab === 'projectRoles') {
     <app-project-roles></app-project-roles>
   }
+
+  @if (activeTab === 'statusForms' && isAdmin) {
+    <app-status-forms></app-status-forms>
+  }
 </div>

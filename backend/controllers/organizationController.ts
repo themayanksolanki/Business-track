@@ -270,7 +270,7 @@ export const acceptInviteByToken = async (req: Request, res: Response, next: Nex
           teamLeadId: invite.teamLeadId,
           departments: { connect: invite.departments.map((d) => ({ id: d.id })) },
         },
-        include: { organization: { select: { id: true, name: true, emailDomain: true } } },
+        include: { organization: { select: { id: true, name: true, emailDomain: true, currency: true, unit: true } } },
       });
 
       await tx.invite.update({

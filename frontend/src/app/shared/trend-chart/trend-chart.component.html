@@ -1,0 +1,9 @@
+<div class="trend-chart-wrap">
+  @if (categories.length === 0) {
+    <div class="trend-chart-empty text-muted text-center py-5">
+      <i class="bi bi-graph-up display-5 d-block mb-3"></i>
+      <p class="mb-0">{{ emptyMessage }}</p>
+    </div>
+  }
+  <div #chartHost class="trend-chart-host" [class.d-none]="categories.length === 0"></div>
+</div>

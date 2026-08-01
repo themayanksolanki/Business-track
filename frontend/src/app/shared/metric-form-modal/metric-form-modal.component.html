@@ -23,6 +23,39 @@
 
         <form id="metricForm" class="metric-modal-form" (ngSubmit)="submit()">
           <div class="metric-modal-scroll">
+          @if (activeTab === 'statistics') {
+            @if (mode === 'edit' && initial) {
+              @if (trendError) {
+                <div class="alert alert-danger py-2">{{ trendError }}</div>
+              }
+              @if (trendLoading) {
+                <div class="text-center py-5 text-muted">
+                  <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+                </div>
+              } @else {
+                <div class="metric-stats-summary">
+                  <app-gauge-chart class="metric-stats-gauge" [percent]="gaugePercent" [size]="120"></app-gauge-chart>
+                  <div class="metric-stats-summary-text">
+                    <p class="field-hint mb-1">Current period Actual vs Target</p>
+                    @if (gaugePercent === null) {
+                      <p class="mb-0 text-muted fst-italic">No target set for this period.</p>
+                    } @else {
+                      <p class="mb-0">{{ gaugeValueLabel(gaugeActual) }} of {{ gaugeValueLabel(gaugeTarget) }}</p>
+                      @if (gaugePercent > 100) {
+                        <p class="mb-0 metric-stats-exceeded"><i class="bi bi-trophy-fill me-1"></i>Target exceeded</p>
+                      }
+                    }
+                  </div>
+                </div>
+
+                <p class="field-hint mb-2">Last {{ trendCategories.length }} {{ initial.frequency }} periods — Actual vs Target.</p>
+                <app-trend-chart [categories]="trendCategories" [series]="trendSeries" emptyMessage="No tracking data yet for this metric."></app-trend-chart>
+              }
+            } @else {
+              <p class="text-muted small">Save the metric first to see statistics.</p>
+            }
+          }
+
           @if (activeTab === 'details') {
             <div class="row">
               <div class="col-md-6 mb-3">
@@ -55,8 +88,10 @@
                 </select>
                 <p class="field-hint">
                   Decides how values look in the Bowling View (read mode only, never while editing a cell) —
-                  Weight/Currency show the unit from your own <a routerLink="/settings">Settings &gt; General</a>
-                  preference, using that same preference's decimal points; Percentage adds %; Default shows a plain number.
+                  Weight/Currency show your organization's unit/currency (set once at signup, same for everyone),
+                  using your own <a routerLink="/settings">Settings &gt; General</a> decimal-points preference;
+                  Percentage adds % (entered as a fraction while editing a cell — e.g. 0.7 saves as 70%); Default
+                  shows a plain number.
                 </p>
               </div>
               <div class="col-md-6 mb-3">
@@ -68,7 +103,9 @@
                 </select>
                 <p class="field-hint">
                   Which lens this metric shows up under in the Bowling View — Daily tracks one value per day of a
-                  selected month, Weekly tracks one value per week of a selected year.
+                  selected month, Weekly tracks one value per week of a selected year, Monthly tracks one value per
+                  month of a selected year, Quarterly tracks one value per quarter of a selected year, Yearly tracks
+                  one value per year across a 5-year span starting from a selected year.
                 </p>
               </div>
             </div>

@@ -1,6 +1,4 @@
-// Only 'daily' is implemented today — the union already lists the others so
-// the service/API calls don't need reshaping when weekly/monthly/quarterly/
-// yearly tracking is built later.
+// 'daily', 'weekly', 'monthly', 'quarterly', and 'yearly' are all implemented.
 export type MetricFrequency = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
 
 export interface PeriodValue {

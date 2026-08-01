@@ -1,0 +1,112 @@
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-icon-wrap stat-done"><i class="bi bi-check2-all"></i></div>
+      <div class="stat-body">
+        <span class="stat-number">{{ doneLast7 }}</span>
+        <span class="stat-label">Done in last 7 days</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-icon-wrap stat-updated"><i class="bi bi-pencil"></i></div>
+      <div class="stat-body">
+        <span class="stat-number">{{ updatedLast7 }}</span>
+        <span class="stat-label">Updated in last 7 days</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-icon-wrap stat-new"><i class="bi bi-plus-circle"></i></div>
+      <div class="stat-body">
+        <span class="stat-number">{{ newLast7 }}</span>
+        <span class="stat-label">New in last 7 days</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-icon-wrap" [class.stat-due]="dueNext7 > 0" [class.stat-muted]="dueNext7 === 0">
+        <i class="bi bi-calendar-event"></i>
+      </div>
+      <div class="stat-body">
+        <span class="stat-number">{{ dueNext7 }}</span>
+        <span class="stat-label">Due in next 7 days</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-5">
+    <div class="chart-card h-100">
+      <h6 class="section-label mb-3">Task breakdown</h6>
+      @if (statusCounts.total > 0) {
+        <div class="d-flex align-items-center gap-4 flex-wrap">
+          <div class="donut" [style.background]="donutBackground">
+            <div class="donut-hole">
+              <span class="donut-value">{{ donutPercent }}%</span>
+              <span class="donut-caption">Done</span>
+            </div>
+          </div>
+          <div class="legend">
+            @for (item of statusLegend; track item.key) {
+              <div class="legend-row">
+                <span class="legend-swatch" [style.background]="item.color"></span>
+                <span class="legend-label">{{ item.label }}</span>
+                <span class="legend-count">{{ item.count }}</span>
+              </div>
+            }
+            <div class="legend-row legend-total">
+              <span class="legend-label">Total</span>
+              <span class="legend-count">{{ statusCounts.total }}</span>
+            </div>
+          </div>
+        </div>
+      } @else {
+        <p class="text-muted small mb-0">No tasks yet.</p>
+      }
+    </div>
+  </div>
+
+  <div class="col-md-7">
+    <div class="chart-card h-100">
+      <h6 class="section-label mb-3">Team workload</h6>
+      @if (workload.length > 0) {
+        <div class="workload-header">
+          <span class="workload-col-assignee">Assignee</span>
+          <span class="workload-col-percent">Percentage</span>
+          <span class="workload-col-count">Count</span>
+        </div>
+        @for (row of workload; track row.user?.id ?? 'unassigned') {
+          <div class="workload-row">
+            <div class="workload-assignee">
+              @if (row.user) {
+                @if (avatarUrl(row.user)) {
+                  <img class="workload-avatar" [src]="avatarUrl(row.user)!" [alt]="row.user.username" (error)="onAvatarError(row.user)" />
+                } @else {
+                  <span class="workload-avatar workload-avatar-fallback">{{ row.user.username[0].toUpperCase() }}</span>
+                }
+                <span class="workload-name">{{ row.user.username }}</span>
+              } @else {
+                <span class="workload-avatar workload-avatar-fallback workload-avatar-unassigned"><i class="bi bi-person"></i></span>
+                <span class="workload-name">Unassigned</span>
+              }
+            </div>
+            <div class="workload-bar-wrap">
+              <div class="workload-bar-track">
+                <div class="workload-bar-fill" [style.width]="row.percent + '%'" [style.background]="row.color"></div>
+              </div>
+              <span class="workload-percent">{{ row.percent }}%</span>
+            </div>
+            <span class="workload-count">{{ row.count }}</span>
+          </div>
+        }
+      } @else {
+        <p class="text-muted small mb-0">No tasks yet.</p>
+      }
+    </div>
+  </div>
+</div>

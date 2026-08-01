@@ -1,0 +1,140 @@
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="closed.emit()">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
+  @if (open) {
+    <div class="modal-content status-form-modal-content">
+      <div class="modal-body p-4 status-form-modal-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0">
+            <i class="bi bi-clipboard-data me-2"></i>{{ mode === 'create' ? 'New Status Report Template' : 'Edit Status Report Template' }}
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        @if (displayError) {
+          <div class="alert alert-danger py-2">{{ displayError }}</div>
+        }
+
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <div class="mb-3">
+            <label class="field-label">Title <span class="text-danger">*</span></label>
+            <input type="text" class="form-control field-input" formControlName="title" placeholder="New Status Report Template" />
+          </div>
+
+          <div class="mb-3">
+            <label class="field-label">Description</label>
+            <textarea class="form-control field-input" rows="2" formControlName="description" placeholder="Description"></textarea>
+          </div>
+
+          <div class="status-form-builder-grid">
+            <div class="status-form-palette">
+              <h6 class="status-form-panel-title">Elements</h6>
+              <p class="status-form-panel-hint">Click an element to add it to the form</p>
+              @for (opt of questionTypeOptions; track opt.value) {
+                <button type="button" class="status-form-palette-btn" (click)="addQuestion(opt.value)">
+                  <i class="bi {{ opt.icon }} me-2"></i>{{ opt.label }}
+                </button>
+              }
+            </div>
+
+            <div class="status-form-preview">
+              <h6 class="status-form-panel-title">Form Preview</h6>
+
+              @if (questionsArray.length === 0) {
+                <div class="status-form-empty-preview text-muted text-center py-5">
+                  <i class="bi bi-arrow-left display-6 d-block mb-2"></i>
+                  Add elements from the left to build your form.
+                </div>
+              } @else {
+                <div class="status-form-questions" formArrayName="questions" cdkDropList (cdkDropListDropped)="onDrop($event)">
+                  @for (q of questionsArray.controls; track q; let i = $index) {
+                    <div class="status-form-question-card" [formGroupName]="i" cdkDrag>
+                      <div class="status-form-question-placeholder" *cdkDragPlaceholder></div>
+
+                      <div class="status-form-question-header">
+                        <span class="status-form-drag-handle" cdkDragHandle title="Drag to reorder">
+                          <i class="bi bi-grip-vertical"></i>
+                        </span>
+                        <span class="status-form-type-badge">
+                          <i class="bi {{ typeIcons[typeAt(i)] }} me-1"></i>{{ typeLabels[typeAt(i)] }}
+                        </span>
+                        <button type="button" class="status-form-remove-btn ms-auto" title="Remove question" (click)="removeQuestion(i)">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                      </div>
+
+                      <input
+                        type="text"
+                        class="form-control status-form-label-input"
+                        formControlName="label"
+                        placeholder="Question label" />
+
+                      @switch (typeAt(i)) {
+                        @case ('shortText') {
+                          <input type="text" class="form-control status-form-preview-control" placeholder="Short answer" disabled />
+                        }
+                        @case ('longText') {
+                          <textarea class="form-control status-form-preview-control" rows="3" placeholder="Long answer" disabled></textarea>
+                        }
+                        @case ('richText') {
+                          <div class="status-form-preview-control status-form-richtext-preview">
+                            <i class="bi bi-file-richtext me-1"></i>Rich text answer area
+                          </div>
+                        }
+                        @case ('attachment') {
+                          <div class="status-form-preview-control status-form-attachment-preview">
+                            <i class="bi bi-paperclip me-1"></i>Attachments
+                          </div>
+                        }
+                      }
+
+                      @if (hasOptions(i)) {
+                        <div
+                          class="status-form-options"
+                          formArrayName="options"
+                          cdkDropList
+                          (cdkDropListDropped)="onOptionDrop(i, $event)">
+                          @for (opt of optionsArray(i).controls; track opt; let j = $index) {
+                            <div class="status-form-option-row" cdkDrag>
+                              <div class="status-form-option-placeholder" *cdkDragPlaceholder></div>
+                              <span class="status-form-option-drag-handle" cdkDragHandle title="Drag to reorder">
+                                <i class="bi bi-grip-vertical"></i>
+                              </span>
+                              <i class="bi {{ typeAt(i) === 'singleSelect' ? 'bi-circle' : 'bi-square' }}"></i>
+                              <input type="text" class="form-control form-control-sm" [formControlName]="j" placeholder="Option {{ j + 1 }}" />
+                              @if (optionsArray(i).length > 2) {
+                                <button type="button" class="status-form-option-remove-btn" title="Remove option" (click)="removeOption(i, j)">
+                                  <i class="bi bi-x-lg"></i>
+                                </button>
+                              }
+                            </div>
+                          }
+                          <button type="button" class="btn btn-light btn-sm status-form-add-option-btn" (click)="addOption(i)">
+                            <i class="bi bi-plus-lg me-1"></i>New Option
+                          </button>
+                        </div>
+                      }
+
+                      <div class="form-check status-form-required-check">
+                        <input type="checkbox" class="form-check-input" formControlName="required" id="statusFormRequired{{ i }}" />
+                        <label class="form-check-label" for="statusFormRequired{{ i }}">Required</label>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-end gap-2 mt-4">
+            <button type="button" class="btn btn-light modal-submit-btn" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary modal-submit-btn" [disabled]="loading">
+              @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+              {{ loading ? 'Saving...' : 'Save' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+  </div>
+</div>

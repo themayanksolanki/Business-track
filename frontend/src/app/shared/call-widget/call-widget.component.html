@@ -37,13 +37,14 @@
       <i class="bi" [class.bi-fullscreen]="!isFullscreen" [class.bi-fullscreen-exit]="isFullscreen"></i>
     </button>
     <button class="minimize-btn" [class.cw-hide]="callSvc.minimized" (click)="callSvc.toggleMinimize(); $event.stopPropagation()" title="Minimize">
-      <i class="bi bi-arrows-angle-contract"></i>
+      <app-call-icon name="to-pip" [size]="18"></app-call-icon>
     </button>
 
     <!-- Remote tile (stage by default) -->
     <div class="video-tile" [class.video-tile-main]="!chatPipSwapped" [class.video-tile-pip]="chatPipSwapped"
          [class.cw-tile-hidden]="callSvc.minimized && chatPipSwapped"
          [class.cw-screenshare]="callSvc.remoteScreenSharing"
+         [class.cw-mobile]="callSvc.remoteMobileDevice"
          (click)="chatPipSwapped && toggleChatSwap(); $event.stopPropagation()">
       <video #remoteVideo autoplay playsinline [muted]="false" [class.hidden]="callSvc.remoteCamOff && !callSvc.remoteScreenSharing"></video>
 
@@ -76,7 +77,7 @@
       <div class="tile-label" [class.cw-hide]="callSvc.minimized">
         <span class="tile-label-name">{{ callSvc.callWithUser?.username }}</span>
         @if (callSvc.remoteScreenSharing) {
-          <i class="bi bi-display-fill tile-share-icon" title="Presenting"></i>
+          <app-call-icon name="screen-mirror" [size]="14" class="tile-share-icon" title="Presenting"></app-call-icon>
         }
         @if (callSvc.remoteMuted) {
           <i class="bi bi-mic-mute-fill tile-mute-icon"></i>
@@ -89,6 +90,7 @@
       <div class="video-tile local-tile" [class.video-tile-pip]="!chatPipSwapped" [class.video-tile-main]="chatPipSwapped"
            [class.cw-tile-hidden]="callSvc.minimized && !chatPipSwapped"
            [class.cw-screenshare]="callSvc.isScreenSharing"
+           [class.cw-mobile]="callSvc.isMyMobileDevice"
            (click)="!chatPipSwapped && toggleChatSwap(); $event.stopPropagation()">
         <video #localVideo autoplay playsinline muted [class.hidden]="callSvc.isCamOff && !callSvc.isScreenSharing"></video>
 
@@ -103,7 +105,7 @@
         <div class="tile-label" [class.cw-hide]="callSvc.minimized">
           <span class="tile-label-name">You</span>
           @if (callSvc.isScreenSharing) {
-            <i class="bi bi-display-fill tile-share-icon" title="Presenting"></i>
+            <app-call-icon name="screen-mirror" [size]="14" class="tile-share-icon" title="Presenting"></app-call-icon>
           }
           @if (callSvc.isMuted) {
             <i class="bi bi-mic-mute-fill tile-mute-icon"></i>
@@ -138,12 +140,12 @@
       }
       @if (screenShareSupported && !callSvc.minimized) {
         <button class="ctrl-btn" [class.ctrl-active]="callSvc.isScreenSharing" (click)="toggleScreenShare()" title="Share screen">
-          <i class="bi" [class.bi-display]="!callSvc.isScreenSharing" [class.bi-display-fill]="callSvc.isScreenSharing"></i>
+          <app-call-icon name="screen-mirror" [size]="20"></app-call-icon>
         </button>
       }
       @if (callSvc.minimized) {
         <button class="ctrl-btn" (click)="callSvc.toggleMinimize()" title="Expand">
-          <i class="bi bi-arrows-angle-expand"></i>
+          <app-call-icon name="quit-pip" [size]="16"></app-call-icon>
         </button>
       }
       <button class="ctrl-btn ctrl-end" (click)="callSvc.callState === 'calling' ? callSvc.cancelCall() : callSvc.endCall()" title="End call">
@@ -164,6 +166,7 @@
       [user]="primaryMeetingTile.user"
       [muted]="primaryMeetingTile.muted"
       [camOff]="primaryMeetingTile.camOff"
+      [isMobileDevice]="primaryMeetingTile.isMobileDevice"
       [mirror]="primaryMeetingTile.label === 'You'">
     </app-video-tile>
 
@@ -179,7 +182,7 @@
         <i class="bi" [class.bi-camera-video-fill]="!meetingSessionSvc.isCamOff" [class.bi-camera-video-off-fill]="meetingSessionSvc.isCamOff"></i>
       </button>
       <button class="ctrl-btn" (click)="expandMeeting()" title="Expand">
-        <i class="bi bi-arrows-angle-expand"></i>
+        <app-call-icon name="quit-pip" [size]="16"></app-call-icon>
       </button>
       <button class="ctrl-btn ctrl-end" (click)="meetingSessionSvc.leave()" title="Leave meeting">
         <i class="bi bi-telephone-x-fill"></i>

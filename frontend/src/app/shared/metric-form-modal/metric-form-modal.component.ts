@@ -23,14 +23,26 @@ import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.compone
 import { DatePickerComponent } from '../date-picker/date-picker.component';
 import { TabStripComponent, TabDef } from '../tab-strip/tab-strip.component';
 import { AttachmentsComponent } from '../attachments/attachments.component';
+import { TrendChartComponent, TrendChartSeries } from '../trend-chart/trend-chart.component';
+import { GaugeChartComponent } from '../gauge-chart/gauge-chart.component';
+import { currentPeriodInfo } from '../utils/metric-period.util';
+import { TREND_ACTUAL_COLOR, TREND_TARGET_COLOR, trendPeriodLabel, trendWindow } from '../utils/metric-trend.util';
+import { formatMetricValue } from '../utils/metric-value.util';
 import { Department } from '../../models/department.model';
 import { Category } from '../../models/category.model';
 import { User } from '../../models/user.model';
 import { Metric, MetricStatus, MetricDataType, MetricParentLite, CreateMetricPayload, UpdateMetricPayload } from '../../models/metric.model';
 import { MetricFrequency } from '../../models/metric-tracking.model';
 import { MetricService } from '../../core/services/metric.service';
+import { AuthService } from '../../core/services/auth.service';
 
 export type MetricFormMode = 'create' | 'edit';
+
+// How many trailing periods the Statistics tab's trend chart plots — clamped
+// to what's actually available within the metric's current year (and month,
+// for daily), since there's no cross-year/cross-month range API yet.
+const TREND_POINTS = 10;
+const DEFAULT_DECIMAL_POINTS = 2;
 
 interface DataTypeOption {
   value: MetricDataType;
@@ -49,24 +61,28 @@ interface FrequencyOption {
   label: string;
 }
 
-// Only 'daily' and 'weekly' are actually implemented in the Bowling View
-// (see backend/utils/metricPeriods.ts) — monthly/quarterly/yearly stay off
-// this list until that tracking exists, so picking one here can't strand a
-// metric with no working grid.
+// Every frequency with real tracking support in the Bowling View (see
+// backend/utils/metricPeriods.ts's FREQUENCY_CONFIG) belongs on this list.
 const FREQUENCY_OPTIONS: FrequencyOption[] = [
   { value: 'daily', label: 'Daily' },
   { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'yearly', label: 'Yearly' },
 ];
 
 @Component({
   selector: 'app-metric-form-modal',
   standalone: true,
-  imports: [FormsModule, RouterLink, ModalDirective, ConfirmDialogComponent, DatePickerComponent, CKEditorModule, TabStripComponent, AttachmentsComponent],
+  imports: [FormsModule, RouterLink, ModalDirective, ConfirmDialogComponent, DatePickerComponent, CKEditorModule, TabStripComponent, AttachmentsComponent, TrendChartComponent, GaugeChartComponent],
   templateUrl: './metric-form-modal.component.html',
   styleUrl: './metric-form-modal.component.css',
 })
 export class MetricFormModalComponent implements OnChanges {
-  constructor(public metricSvc: MetricService) {}
+  constructor(
+    public metricSvc: MetricService,
+    private auth: AuthService
+  ) {}
 
   readonly dataTypeOptions = DATA_TYPE_OPTIONS;
   readonly frequencyOptions = FREQUENCY_OPTIONS;
@@ -81,6 +97,10 @@ export class MetricFormModalComponent implements OnChanges {
   @Input() open = false;
   @Input() mode: MetricFormMode = 'create';
   @Input() initial: Metric | null = null;
+  // Frequency to preselect in 'create' mode when there's no `initial` metric
+  // to read one from — e.g. the Bowling View passes its active lens, so
+  // creating from a filtered lens defaults to that same frequency.
+  @Input() defaultFrequency: MetricFrequency | null = null;
   @Input() departments: Department[] = [];
   @Input() categories: Category[] = [];
   @Input() users: User[] = [];
@@ -129,6 +149,18 @@ export class MetricFormModalComponent implements OnChanges {
   localError = '';
   confirmDeleteOpen = false;
 
+  trendCategories: string[] = [];
+  trendSeries: TrendChartSeries[] = [];
+  trendLoading = false;
+  trendError = '';
+
+  // Current-period Actual-vs-Target gauge, shown alongside the trend chart —
+  // sourced from the same getTracking() response the trend chart already
+  // fetches (its actualTotal/targetTotal), no separate request needed.
+  gaugePercent: number | null = null;
+  gaugeActual: number | null = null;
+  gaugeTarget: number | null = null;
+
   get displayError(): string {
     return this.localError || this.error;
   }
@@ -154,10 +186,19 @@ export class MetricFormModalComponent implements OnChanges {
       this.notes = this.initial?.notes ?? '';
       this.status = this.initial?.status ?? 'active';
       this.dataType = this.initial?.dataType ?? 'number';
-      this.frequency = this.initial?.frequency ?? 'daily';
+      this.frequency = this.initial?.frequency ?? this.defaultFrequency ?? 'daily';
       this.localError = '';
       this.confirmDeleteOpen = false;
       this.activeTab = 'details';
+      // Cleared rather than reloaded here — the tab starts on 'details', so
+      // stale data from a previously-opened metric would otherwise flash if
+      // the user switches to Statistics before a fresh load completes.
+      this.trendCategories = [];
+      this.trendSeries = [];
+      this.trendError = '';
+      this.gaugePercent = null;
+      this.gaugeActual = null;
+      this.gaugeTarget = null;
       // Deferred a tick — the header's title input hasn't rendered yet on
       // this same change-detection pass (the modal's @if (open) block, and
       // the underlying Bootstrap fade-in, haven't necessarily settled).
@@ -167,6 +208,47 @@ export class MetricFormModalComponent implements OnChanges {
 
   setActiveTab(tab: string) {
     this.activeTab = tab;
+    if (tab === 'statistics' && this.mode === 'edit' && this.initial) this.loadTrend();
+  }
+
+  private loadTrend() {
+    const metric = this.initial;
+    if (!metric) return;
+
+    const { year, month, period: currentPeriod } = currentPeriodInfo(metric.frequency, new Date());
+
+    this.trendLoading = true;
+    this.trendError = '';
+    this.metricSvc.getTracking(metric.id, metric.frequency, year, month).subscribe({
+      next: (data) => {
+        const periodNums = trendWindow(currentPeriod, TREND_POINTS);
+        this.trendCategories = periodNums.map((p) => trendPeriodLabel(metric.frequency, p, year));
+        this.trendSeries = [
+          { name: 'Actual', color: TREND_ACTUAL_COLOR, data: periodNums.map((p) => data.periods[String(p)]?.actual ?? null) },
+          { name: 'Target', color: TREND_TARGET_COLOR, data: periodNums.map((p) => data.periods[String(p)]?.target ?? null) },
+        ];
+        this.trendLoading = false;
+
+        this.gaugeActual = data.actualTotal;
+        this.gaugeTarget = data.targetTotal;
+        this.gaugePercent = data.targetTotal > 0 ? (data.actualTotal / data.targetTotal) * 100 : null;
+      },
+      error: (err) => {
+        this.trendError = err.error?.message || 'Failed to load trend data';
+        this.trendLoading = false;
+      },
+    });
+  }
+
+  // organization is typed loosely (Organization | number | null) since some
+  // payloads elsewhere reference it by bare id — currentUser() always
+  // carries the full nested object in practice (see authController.ts's
+  // toUserShape()), so narrow out the id-only case defensively.
+  gaugeValueLabel(value: number | null): string {
+    const rawOrg = this.auth.currentUser()?.organization;
+    const org = rawOrg && typeof rawOrg === 'object' ? rawOrg : null;
+    const decimalPoints = this.auth.currentUser()?.decimalPoints ?? DEFAULT_DECIMAL_POINTS;
+    return formatMetricValue(value, this.dataType, org?.currency ?? 'USD', org?.unit ?? 'KG', decimalPoints);
   }
 
   onStartDateChange(date: string | null) {

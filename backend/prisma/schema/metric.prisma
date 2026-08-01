@@ -6,11 +6,11 @@ enum MetricStatus {
 
 // Determines how a metric's daily/weekly/etc. values are decorated in the
 // Bowling View's read mode (see metric-bowling.component.ts) — the actual
-// unit shown (which currency, which weight unit) comes from the VIEWING
-// user's own Settings > General preferences (User.currency/unit), not from
-// the metric itself; this only picks which of those preferences applies,
-// or none for 'number'/'percentage'. No unit conversion is implied — the
-// stored number is shown as-is with a label attached.
+// unit shown (which currency, which weight unit) comes from the metric's
+// own organization's Settings (Organization.currency/unit), not from the
+// metric itself; this only picks which of those org-level preferences
+// applies, or none for 'number'/'percentage'. No unit conversion is
+// implied — the stored number is shown as-is with a label attached.
 enum MetricDataType {
   number
   weight
@@ -31,10 +31,9 @@ model Metric {
   notes          String       @default("")
   status         MetricStatus   @default(active)
   dataType       MetricDataType @default(number)
-  // Which period axis this metric's Bowling View tracking uses — only
-  // 'daily' and 'weekly' are actually implemented (see backend/utils/
-  // metricPeriods.ts); the enum already lists monthly/quarterly/yearly so
-  // this column doesn't need reshaping once those are built too.
+  // Which period axis this metric's Bowling View tracking uses — daily,
+  // weekly, monthly, quarterly, and yearly are all implemented (see
+  // backend/utils/metricPeriods.ts).
   frequency      MetricFrequency @default(daily)
   // Sibling position for future drag-drop reordering — not wired up to any
   // UI yet, seeded like ProjectItem's `order` (append-at-end on create).

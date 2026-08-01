@@ -5,6 +5,7 @@ import { WebrtcPeerService, CALL_AUDIO_CONSTRAINTS, CAMERA_VIDEO_CONSTRAINTS } f
 import { AuthService } from './auth.service';
 import { ChatService } from './chat.service';
 import { User } from '../../models/user.model';
+import { isMobileDevice } from '../../shared/utils/device.util';
 
 export type CallState = 'idle' | 'calling' | 'incoming' | 'in-call';
 
@@ -30,6 +31,11 @@ export class CallSessionService {
   remoteCamOff = false;
   isScreenSharing = false;
   remoteScreenSharing = false;
+  // Sent once at call start/accept (see startCall/acceptCall) — see
+  // device.util.ts's isMobileDevice() for why this drives the tile's
+  // object-fit rather than something derived from the stream itself.
+  readonly isMyMobileDevice = isMobileDevice();
+  remoteMobileDevice = false;
   // Separate from isCamOff/remoteCamOff on purpose: those two default to
   // false meaning "camera assumed on" (the right starting assumption for a
   // video call), whereas an audio call needs to default to "no camera yet" —
@@ -84,7 +90,12 @@ export class CallSessionService {
   };
 
   private subscribeToSocket() {
-    this.subs.add(this.socketSvc.callSession$.subscribe(({ callId }) => { this.callId = callId; }));
+    this.subs.add(
+      this.socketSvc.callSession$.subscribe(({ callId }) => {
+        this.callId = callId;
+        this.socketSvc.sendMobileDeviceState(callId, this.isMyMobileDevice);
+      })
+    );
     this.subs.add(this.socketSvc.callIncoming$.subscribe((d) => this.onCallIncoming(d)));
     this.subs.add(this.socketSvc.callAccepted$.subscribe(() => this.onCallAccepted()));
     this.subs.add(this.socketSvc.callRejected$.subscribe(() => this.onCallRejected()));
@@ -105,6 +116,7 @@ export class CallSessionService {
       })
     );
     this.subs.add(this.socketSvc.remoteScreenSharing$.subscribe((sharing) => { this.remoteScreenSharing = sharing; }));
+    this.subs.add(this.socketSvc.remoteMobileDevice$.subscribe((mobile) => { this.remoteMobileDevice = mobile; }));
 
     // Covers the other side stopping their share via the browser's own
     // "Stop sharing" bar rather than our in-app toggle.
@@ -181,6 +193,7 @@ export class CallSessionService {
     this.callState    = 'in-call';
     this.stopAllAudio();
     this.startCallTimer();
+    this.socketSvc.sendMobileDeviceState(this.callId, this.isMyMobileDevice);
 
     try {
       await this.webrtcSvc.getLocalStream({
@@ -319,6 +332,7 @@ export class CallSessionService {
     this.remoteCamOff    = false;
     this.isScreenSharing = false;
     this.remoteScreenSharing = false;
+    this.remoteMobileDevice = false;
     this.audioCallVideoOn = false;
     this.remoteVideoOnInAudioCall = false;
     this.minimized       = false;

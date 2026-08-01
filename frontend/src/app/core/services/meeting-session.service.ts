@@ -4,6 +4,7 @@ import { MeetingService } from './meeting.service';
 import { SocketService } from './socket.service';
 import { WebrtcPeerService } from './webrtc-peer.service';
 import { Meeting } from '../../models/meeting.model';
+import { isMobileDevice } from '../../shared/utils/device.util';
 
 export interface RemoteTile {
   socketId: string;
@@ -37,6 +38,9 @@ export class MeetingSessionService {
   isScreenSharing = false;
   handRaised = false;
   chatMessages: MeetingChatEntry[] = [];
+  // See device.util.ts's isMobileDevice() — sent once per join (see join()
+  // below), not toggled like mute/camera/screen-share.
+  readonly isMyMobileDevice = isMobileDevice();
 
   // Fire when this client itself is removed from the session — the
   // component/floating widget subscribes to show a message and navigate
@@ -50,6 +54,7 @@ export class MeetingSessionService {
   private camOffPeers = new Set<string>();
   private screenSharingPeers = new Set<string>();
   private raisedHandPeers = new Set<string>();
+  private mobileDevicePeers = new Set<string>();
   private subs = new Subscription();
 
   constructor(
@@ -84,6 +89,10 @@ export class MeetingSessionService {
     return this.raisedHandPeers.has(socketId);
   }
 
+  isPeerMobileDevice(socketId: string): boolean {
+    return this.mobileDevicePeers.has(socketId);
+  }
+
   isHost(userId: number | undefined): boolean {
     return !!userId && this.meeting?.hostId === userId;
   }
@@ -103,6 +112,7 @@ export class MeetingSessionService {
         // else could have seen it (there was no room to broadcast into yet).
         if (this.isMuted) this.socketSvc.sendMeetingMute(meeting.id, true);
         if (this.isCamOff) this.socketSvc.sendMeetingVideoToggle(meeting.id, true);
+        if (this.isMyMobileDevice) this.socketSvc.sendMeetingMobileDevice(meeting.id, true);
       },
       error: () => { this.joinError = 'Could not join this meeting.'; },
     });
@@ -130,6 +140,7 @@ export class MeetingSessionService {
     this.camOffPeers.clear();
     this.screenSharingPeers.clear();
     this.raisedHandPeers.clear();
+    this.mobileDevicePeers.clear();
   }
 
   // Host action — ends the meeting for everyone, not just this client.
@@ -164,6 +175,7 @@ export class MeetingSessionService {
         this.webrtcSvc.closePeer(socketId);
         this.mutedPeers.delete(socketId);
         this.camOffPeers.delete(socketId);
+        this.mobileDevicePeers.delete(socketId);
         this.remoteTiles = this.remoteTiles.filter((t) => t.socketId !== socketId);
       })
     );
@@ -220,6 +232,11 @@ export class MeetingSessionService {
     this.subs.add(
       this.socketSvc.meetingHandRaise$.subscribe(({ socketId, raised }) => {
         if (raised) this.raisedHandPeers.add(socketId); else this.raisedHandPeers.delete(socketId);
+      })
+    );
+    this.subs.add(
+      this.socketSvc.meetingMobileDevice$.subscribe(({ socketId, mobile }) => {
+        if (mobile) this.mobileDevicePeers.add(socketId); else this.mobileDevicePeers.delete(socketId);
       })
     );
     this.subs.add(

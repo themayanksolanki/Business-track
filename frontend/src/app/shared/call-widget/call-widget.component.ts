@@ -9,6 +9,7 @@ import { WebrtcPeerService } from '../../core/services/webrtc-peer.service';
 import { MeetingUser } from '../../models/meeting.model';
 import { VideoTileComponent } from '../../pages/meet-hub/video-tile/video-tile.component';
 import { NotificationService } from '../notification.service';
+import { CallIconComponent } from '../call-icon/call-icon.component';
 
 // Mounted once at the app root (see app.component.html), so it's in the DOM
 // on every route — that's what lets a call/meeting started elsewhere in the
@@ -19,7 +20,7 @@ import { NotificationService } from '../notification.service';
 @Component({
   selector: 'app-call-widget',
   standalone: true,
-  imports: [CommonModule, VideoTileComponent],
+  imports: [CommonModule, VideoTileComponent, CallIconComponent],
   templateUrl: './call-widget.component.html',
   styleUrl: './call-widget.component.css',
 })
@@ -184,7 +185,7 @@ export class CallWidgetComponent implements OnInit, OnDestroy {
     return this.meetingSessionSvc.meeting?.participants.find((p) => p.userId === userId)?.user ?? null;
   }
 
-  get primaryMeetingTile(): { stream: MediaStream | null; label: string; user: MeetingUser | null; muted: boolean; camOff: boolean } {
+  get primaryMeetingTile(): { stream: MediaStream | null; label: string; user: MeetingUser | null; muted: boolean; camOff: boolean; isMobileDevice: boolean } {
     const remote = this.meetingSessionSvc.remoteTiles[0];
     if (remote) {
       return {
@@ -193,6 +194,7 @@ export class CallWidgetComponent implements OnInit, OnDestroy {
         user: this.meetingParticipantUser(remote.userId),
         muted: false,
         camOff: this.meetingSessionSvc.isPeerCamOff(remote.socketId),
+        isMobileDevice: this.meetingSessionSvc.isPeerMobileDevice(remote.socketId),
       };
     }
     const me = this.auth.getUser();
@@ -202,6 +204,7 @@ export class CallWidgetComponent implements OnInit, OnDestroy {
       user: me ? { id: me.id, username: me.username, email: me.email, role: me.role, profileImage: me.profileImage ?? null } : null,
       muted: true,
       camOff: this.meetingSessionSvc.isCamOff,
+      isMobileDevice: this.meetingSessionSvc.isMyMobileDevice,
     };
   }
 

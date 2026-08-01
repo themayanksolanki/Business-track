@@ -17,12 +17,6 @@ ALTER TYPE "NotificationType" ADD VALUE 'groupMemberAdded';
 ALTER TYPE "SequenceEntity" ADD VALUE 'group';
 
 -- AlterTable
-ALTER TABLE "_ProjectItemLinkedEvents" ADD CONSTRAINT "_ProjectItemLinkedEvents_AB_pkey" PRIMARY KEY ("A", "B");
-
--- DropIndex
-DROP INDEX "_ProjectItemLinkedEvents_AB_unique";
-
--- AlterTable
 ALTER TABLE "calendar_events" ADD COLUMN     "projectId" INTEGER;
 
 -- AlterTable

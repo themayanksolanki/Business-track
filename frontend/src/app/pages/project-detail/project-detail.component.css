@@ -505,6 +505,24 @@
 
 .tree-drag-item.cdk-drag-animating { transition: transform 200ms cubic-bezier(0, 0, 0.2, 1); }
 
+/* Optimistic group placeholder (see ProjectDetailComponent.submitAddGroup) —
+   dimmed + a small spinner badge until the create request resolves and it's
+   swapped for the real, server-authoritative node. */
+.tree-drag-item {
+  position: relative;
+}
+.tree-item-pending {
+  opacity: 0.55;
+  pointer-events: none;
+}
+.tree-item-pending-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  color: var(--text-muted);
+}
+
 .tree-drag-placeholder {
   height: 40px;
   border: 2px dashed var(--border-strong);

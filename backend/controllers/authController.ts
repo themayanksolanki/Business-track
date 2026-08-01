@@ -10,7 +10,7 @@ import { cloudinary } from '../middleware/upload.js';
 import { ensureDefaultProjectRoles } from './projectRoleController.js';
 import { nextSequenceId } from '../utils/sequence.js';
 
-const ORG_SELECT = { id: true, name: true, emailDomain: true };
+const ORG_SELECT = { id: true, name: true, emailDomain: true, currency: true, unit: true };
 
 // Extract Cloudinary public_id from a secure URL for deletion
 const getPublicId = (url: string | null | undefined) => {
@@ -39,7 +39,7 @@ export const generateRefreshToken = (userId: number) =>
   } as jwt.SignOptions);
 
 type UserForShape = PrismaUser & {
-  organization?: Pick<PrismaOrganization, 'id' | 'name' | 'emailDomain'> | null;
+  organization?: Pick<PrismaOrganization, 'id' | 'name' | 'emailDomain' | 'currency' | 'unit'> | null;
 };
 
 export const toUserShape = (user: UserForShape) => ({
@@ -57,17 +57,21 @@ export const toUserShape = (user: UserForShape) => ({
   sidebarTheme: user.sidebarTheme,
   sidebarTextColor: user.sidebarTextColor ?? null,
   sidebarLogo: user.sidebarLogo,
-  currency: user.currency,
-  unit: user.unit,
   decimalPoints: user.decimalPoints,
   organization: user.organization
-    ? { id: user.organization.id, name: user.organization.name, emailDomain: user.organization.emailDomain }
+    ? {
+        id: user.organization.id,
+        name: user.organization.name,
+        emailDomain: user.organization.emailDomain,
+        currency: user.organization.currency,
+        unit: user.organization.unit,
+      }
     : null,
 });
 
 export const registerOrganization = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { username, email, password, organizationName, emailDomain } = req.body;
+    const { username, email, password, organizationName, emailDomain, currency, unit } = req.body;
 
     const normalizedEmail = email.toLowerCase().trim();
     const normalizedDomain = emailDomain.toLowerCase().trim();
@@ -109,6 +113,8 @@ export const registerOrganization = async (req: Request, res: Response, next: Ne
         data: {
           name: organizationName.trim(),
           emailDomain: normalizedDomain,
+          currency,
+          unit,
           createdById: user.id,
         },
       });
@@ -261,8 +267,6 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
       sidebarTheme,
       sidebarTextColor,
       sidebarLogo,
-      currency,
-      unit,
       decimalPoints,
     } = req.body;
 
@@ -279,8 +283,6 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
     if (sidebarTheme !== undefined) data.sidebarTheme = sidebarTheme;
     if (sidebarTextColor !== undefined) data.sidebarTextColor = sidebarTextColor || null;
     if (sidebarLogo !== undefined) data.sidebarLogo = sidebarLogo;
-    if (currency !== undefined) data.currency = currency;
-    if (unit !== undefined) data.unit = unit;
     if (decimalPoints !== undefined) data.decimalPoints = decimalPoints;
 
     const user = await prisma.user.update({

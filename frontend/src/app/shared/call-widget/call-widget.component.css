@@ -181,6 +181,18 @@
   transform: scaleX(-1);
 }
 
+/* A mobile camera's capture is often portrait-shaped — letterbox it (see
+   CallSessionService.isMyMobileDevice/remoteMobileDevice) instead of letting
+   cover crop into whatever padding the browser adds to fill this tile's
+   frame. Keeps the tile's own dark background (above) showing through the
+   margins rather than flattening to solid black like .cw-screenshare, so a
+   soft shadow on the video reads as a floating card instead of dead space. */
+.video-tile.cw-mobile:not(.cw-screenshare) video {
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
 .video-tile-main {
   top: max(24px, env(safe-area-inset-top));
   left: max(24px, env(safe-area-inset-left));

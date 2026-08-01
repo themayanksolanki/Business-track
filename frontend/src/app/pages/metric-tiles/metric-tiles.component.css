@@ -1,0 +1,228 @@
+.page-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.page-sub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+}
+
+.tiles-group-heading {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 24px 0 12px;
+}
+
+.tiles-group-heading:first-child {
+  margin-top: 0;
+}
+
+.tiles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
+  margin-bottom: 8px;
+}
+
+.metric-tile {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  transition: box-shadow 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.metric-tile:hover {
+  border-color: var(--border-strong, var(--border));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.metric-tile-placeholder {
+  min-height: 220px;
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  background: var(--bg-hover);
+}
+
+.metric-tile-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.metric-tile-drag-handle {
+  cursor: grab;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+.metric-tile-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metric-tile-title:hover {
+  color: var(--primary, #3b82f6);
+}
+
+.metric-tile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.metric-tile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: var(--bg-muted);
+  border-radius: 20px;
+  padding: 3px 9px 3px 6px;
+}
+
+.dept-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.metric-tile-owner-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.metric-tile-owner-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary, #3b82f6);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 600;
+}
+
+.metric-tile-chart-area {
+  position: relative;
+}
+
+/* TrendChartComponent enforces its own 300px min-height internally (see
+   trend-chart.component.css) — the tile simply grows to fit it rather than
+   fighting that with a shorter height here. */
+.metric-tile-trend {
+  display: block;
+  margin: 4px 0;
+}
+
+.metric-tile-flip-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  border: none;
+  background: var(--bg-card);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  color: var(--text-muted);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.metric-tile:hover .metric-tile-flip-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.metric-tile-flip-btn:hover {
+  background: var(--primary, #3b82f6);
+  color: #fff;
+}
+
+.metric-tile-flip-left {
+  left: -4px;
+}
+
+.metric-tile-flip-right {
+  right: -4px;
+}
+
+.metric-tile-gauge-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 140px;
+  color: var(--text-muted);
+}
+
+.metric-tile-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 140px;
+  color: #ef4444;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.metric-tile-values {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.metric-tile-no-target {
+  font-style: italic;
+}
+
+.metric-tile-exceeded {
+  display: inline-flex;
+  align-items: center;
+  color: #22c55e;
+  font-weight: 600;
+  font-size: 0.72rem;
+}
+
+.empty-state {
+  color: var(--text-muted);
+}
+
+.cdk-drag-preview {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  border-radius: 14px;
+}
+
+.tiles-grid.cdk-drop-list-dragging .metric-tile:not(.cdk-drag-placeholder) {
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}

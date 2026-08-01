@@ -101,7 +101,13 @@
 
                 <div class="event-field">
                   <label class="field-label">Description</label>
-                  <ckeditor class="event-description-editor" [editor]="DescriptionEditor" [config]="descriptionEditorConfig" formControlName="description"></ckeditor>
+                  @if (canManage) {
+                    <ckeditor class="event-description-editor" [editor]="DescriptionEditor" [config]="descriptionEditorConfig" formControlName="description"></ckeditor>
+                  } @else if (form.value.description) {
+                    <div class="event-description-readonly" [innerHTML]="descriptionHtml"></div>
+                  } @else {
+                    <p class="text-muted small mb-0">No description</p>
+                  }
                 </div>
 
                 @if (internalMode !== 'create') {

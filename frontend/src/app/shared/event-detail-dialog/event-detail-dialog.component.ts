@@ -1,6 +1,7 @@
-import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, SecurityContext, SimpleChanges, ViewChild } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import dayjs from 'dayjs/esm';
@@ -197,7 +198,8 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
     private calendarService: CalendarService,
     public auth: AuthService,
     public dateFormat: DateFormatService,
-    private meetingService: MeetingService
+    private meetingService: MeetingService,
+    private sanitizer: DomSanitizer
   ) {
     this.form = this.fb.group({
       title: ['', Validators.required],
@@ -282,6 +284,20 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
     return !!user && (user.role === 'Admin' || user.id === this.loadedEvent.owner.id);
   }
 
+  // A viewer without manage rights sees the description's saved HTML
+  // rendered directly rather than inside the CKEditor editable region —
+  // CKEditor's editing view intercepts clicks on links (so the cursor can be
+  // placed) even once the control is disabled, so links there are inert.
+  // Explicitly sanitized (not bypassSecurityTrustHtml'd) since `description`
+  // reaches the DB through a plain string API field with no server-side HTML
+  // sanitization — this view is what other users (event guests) see, so a
+  // raw API write can't smuggle a script/handler through to them.
+  get descriptionHtml(): SafeHtml {
+    const raw = this.form.get('description')!.value || '';
+    const clean = this.sanitizer.sanitize(SecurityContext.HTML, raw) || '';
+    return this.sanitizer.bypassSecurityTrustHtml(clean);
+  }
+
   // True only when this dialog is looking at one instance of a recurring
   // series (not the series' own definition) — that's when "this occurrence
   // vs entire series" needs asking before a save/delete goes through.
@@ -355,16 +371,20 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
         },
       });
 
+      // Deferred a tick so the title <input> exists in the DOM — the modal's
+      // @if (open) block (and the underlying Bootstrap fade-in) hasn't
+      // necessarily rendered/settled yet on this same change-detection pass.
+      // The title input sits in the header, outside the loading/tab-gated
+      // body, so it's already there for both create and edit (even edit's
+      // async load hasn't resolved yet).
+      setTimeout(() => this.titleInput?.nativeElement.focus());
+
       if (this.mode === 'create') {
         this.internalMode = 'create';
         this.loadedEvent = null;
         this.attachmentsCount = 0;
         this.resetFormForCreate();
         this.applyFormPermissions();
-        // Deferred a tick so the title <input> exists in the DOM — the modal's
-        // @if (open) block (and the underlying Bootstrap fade-in) hasn't
-        // necessarily rendered/settled yet on this same change-detection pass.
-        setTimeout(() => this.titleInput?.nativeElement.focus());
       } else if (this.eventId !== null) {
         this.internalMode = this.mode;
         if (this.originalStart) this.loadOccurrence(this.eventId, this.originalStart);

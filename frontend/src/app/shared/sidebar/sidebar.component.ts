@@ -2,7 +2,9 @@ import { Component, ElementRef, OnDestroy, ViewChild, inject } from '@angular/co
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { NgbDropdown, NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
 import { AuthService } from '../../core/services/auth.service';
+import { CallSessionService } from '../../core/services/call-session.service';
 import { ChatService } from '../../core/services/chat.service';
+import { MeetingSessionService } from '../../core/services/meeting-session.service';
 import { ProjectsViewMode, ProjectsViewService } from '../../core/services/projects-view.service';
 import { SidebarAppearanceService } from '../../core/services/sidebar-appearance.service';
 import {
@@ -11,6 +13,7 @@ import {
   SIDEBAR_RAIL_WIDTH,
   SidebarService,
 } from '../../core/services/sidebar.service';
+import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 import { IconComponent, IconName } from '../icon/icon.component';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 import { SIDEBAR_LOGOS } from '../sidebar-logo-data';
@@ -24,6 +27,7 @@ import { SIDEBAR_LOGOS } from '../sidebar-logo-data';
     IconComponent,
     NotificationBellComponent,
     NgbDropdownModule,
+    ConfirmDialogComponent,
   ],
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.css',
@@ -34,7 +38,28 @@ export class SidebarComponent implements OnDestroy {
   readonly svc = inject(SidebarService);
   readonly projectsView = inject(ProjectsViewService);
   readonly appearance = inject(SidebarAppearanceService);
+  private readonly callSvc = inject(CallSessionService);
+  private readonly meetingSessionSvc = inject(MeetingSessionService);
   private readonly router = inject(Router);
+
+  logoutConfirmOpen = false;
+
+  private get inCallOrMeeting(): boolean {
+    return this.callSvc.callState !== 'idle' || this.meetingSessionSvc.active;
+  }
+
+  onLogoutClick() {
+    if (this.inCallOrMeeting) {
+      this.logoutConfirmOpen = true;
+      return;
+    }
+    this.auth.logout();
+  }
+
+  confirmLogout() {
+    this.logoutConfirmOpen = false;
+    this.auth.logout();
+  }
 
   @ViewChild('sidebarEl') private sidebarEl?: ElementRef<HTMLElement>;
 

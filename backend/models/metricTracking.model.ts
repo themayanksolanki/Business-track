@@ -9,9 +9,8 @@ export type MetricFrequency = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'ye
 
 export const METRIC_FREQUENCIES: MetricFrequency[] = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'];
 
-// Only 'daily' is implemented today (see utils/metricPeriods.ts) — the enum
-// already lists the others so the schema/API shape doesn't need reworking
-// when they're built later.
+// 'daily', 'weekly', 'monthly', 'quarterly', and 'yearly' are all implemented
+// (see utils/metricPeriods.ts).
 const periodValueSchema = new mongoose.Schema(
   { actual: { type: Number, default: null }, target: { type: Number, default: null } },
   { _id: false }

@@ -82,11 +82,6 @@ model User {
   sidebarTheme     SidebarTheme @default(MIDNIGHT)
   sidebarTextColor String?
   sidebarLogo      SidebarLogo  @default(CHECK)
-  // Display currency (Settings > General) — same cross-device-persisted
-  // treatment as dateFormat/timeFormat.
-  currency         Currency     @default(USD)
-  // Display measurement unit (Settings > General) — same treatment.
-  unit             MeasurementUnit @default(KG)
   // Decimal places shown for numeric values (Settings > General) — plain Int
   // rather than an enum since it's a small bounded range (0-7), validated in
   // validate.ts rather than by the DB.
@@ -169,6 +164,8 @@ model User {
   sentGroupMessages        GroupMessage[]     @relation("GroupMessageSender")
   deletedGroupMessagesFor  GroupMessage[]     @relation("GroupMessageDeletedFor")
   groupMessageReads        GroupMessageRead[] @relation("GroupMessageReadUser")
+  createdStatusForms       StatusForm[]       @relation("StatusFormCreatedBy")
+  updatedStatusForms       StatusForm[]       @relation("StatusFormUpdatedBy")
 
   @@unique([organizationId, sequenceId])
   @@map("users")

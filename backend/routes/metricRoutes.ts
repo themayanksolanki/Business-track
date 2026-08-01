@@ -3,10 +3,18 @@ import protect from '../middleware/authMiddleware.js';
 import {
   validateMetric,
   validateMetricId,
+  validateMetricReorder,
   validateTrackingParams,
   validateTrackingDiff,
 } from '../middleware/validate.js';
-import { getMetrics, createMetric, getMetricById, updateMetric } from '../controllers/metricController.js';
+import {
+  getMetrics,
+  createMetric,
+  getMetricById,
+  updateMetric,
+  getMetricTiles,
+  reorderMetrics,
+} from '../controllers/metricController.js';
 import { getPeriodData, savePeriodDiff } from '../controllers/metricTrackingController.js';
 import {
   getMetricAttachments,
@@ -22,6 +30,9 @@ const router = Router();
 
 router.get('/', protect, getMetrics);
 router.post('/', protect, validateMetric, createMetric);
+// Both registered ahead of /:metricId so 'tiles'/'reorder' aren't captured as a metricId.
+router.get('/tiles', protect, getMetricTiles);
+router.patch('/reorder', protect, validateMetricReorder, reorderMetrics);
 router.get('/:metricId', protect, validateMetricId, getMetricById);
 router.put('/:metricId', protect, validateMetricId, validateMetric, updateMetric);
 

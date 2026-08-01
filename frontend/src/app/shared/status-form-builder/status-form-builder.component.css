@@ -1,0 +1,213 @@
+.status-form-modal-content {
+  max-height: 90vh;
+}
+
+.status-form-modal-body {
+  overflow-y: auto;
+}
+
+.status-form-builder-grid {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.status-form-panel-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.status-form-panel-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.status-form-palette {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: sticky;
+  top: 0;
+}
+
+.status-form-palette-btn {
+  display: flex;
+  align-items: center;
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.status-form-palette-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--primary, #3b82f6);
+}
+
+.status-form-preview {
+  min-height: 200px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.status-form-empty-preview {
+  color: var(--text-muted);
+}
+
+.status-form-questions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.status-form-question-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  cursor: grab;
+}
+
+.status-form-question-placeholder {
+  min-height: 60px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: var(--bg-hover);
+}
+
+.status-form-question-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.status-form-drag-handle,
+.status-form-option-drag-handle {
+  cursor: grab;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+}
+
+.status-form-type-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-muted);
+  border-radius: 20px;
+  padding: 3px 10px;
+}
+
+.status-form-remove-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-form-remove-btn:hover {
+  background: var(--bg-muted);
+  color: #ef4444;
+}
+
+.status-form-label-input {
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.status-form-preview-control {
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  min-height: 38px;
+  margin-bottom: 8px;
+}
+
+.status-form-richtext-preview,
+.status-form-attachment-preview {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+}
+
+.status-form-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.status-form-option-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+
+.status-form-option-placeholder {
+  min-height: 32px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  background: var(--bg-hover);
+}
+
+.status-form-option-remove-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.status-form-option-remove-btn:hover {
+  background: var(--bg-muted);
+  color: #ef4444;
+}
+
+.status-form-add-option-btn {
+  align-self: flex-start;
+}
+
+.status-form-required-check {
+  margin-top: 4px;
+  font-size: 0.85rem;
+}
+
+.cdk-drag-preview {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+}
+
+.cdk-drag-animating {
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.status-form-questions.cdk-drop-list-dragging .status-form-question-card:not(.cdk-drag-placeholder),
+.status-form-options.cdk-drop-list-dragging .status-form-option-row:not(.cdk-drag-placeholder) {
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}

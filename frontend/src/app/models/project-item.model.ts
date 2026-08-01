@@ -118,6 +118,11 @@ export interface LinkedTasksAdapter {
 export interface ProjectTreeNode extends ProjectItem {
   children: ProjectTreeNode[];
   childCount: number;
+  // Set only on an optimistic placeholder inserted locally before its create
+  // request resolves (see ProjectDetailComponent.submitAddGroup) — never
+  // sent by the backend. Lets the tree show a new group instantly instead of
+  // waiting on the round-trip, while still flagging it as not-yet-real.
+  pending?: boolean;
 }
 
 // Per-item meta for card views (Kanban): cover image + comment count,

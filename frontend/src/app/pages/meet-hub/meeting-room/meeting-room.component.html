@@ -3,7 +3,7 @@
   <div class="room-banner room-banner-error" *ngIf="meetingSessionSvc.joinError">{{ meetingSessionSvc.joinError }}</div>
 
   <div class="room-body">
-    <div class="tile-grid">
+    <div class="tile-grid" [class.count-1]="tileCount === 1" [class.count-2]="tileCount === 2" [class.count-3]="tileCount === 3" [class.count-4]="tileCount === 4">
       <app-video-tile
         [stream]="meetingSessionSvc.localStream"
         [label]="myUsername + ' (You)'"
@@ -12,6 +12,7 @@
         [camOff]="meetingSessionSvc.isCamOff"
         [handRaised]="meetingSessionSvc.handRaised"
         [isScreenSharing]="meetingSessionSvc.isScreenSharing"
+        [isMobileDevice]="meetingSessionSvc.isMyMobileDevice"
         [mirror]="true"
       ></app-video-tile>
 
@@ -24,6 +25,7 @@
         [camOff]="meetingSessionSvc.isPeerCamOff(tile.socketId)"
         [handRaised]="meetingSessionSvc.isPeerHandRaised(tile.socketId)"
         [isScreenSharing]="meetingSessionSvc.isPeerScreenSharing(tile.socketId)"
+        [isMobileDevice]="meetingSessionSvc.isPeerMobileDevice(tile.socketId)"
         [showKick]="isHost"
         (kick)="kickTile(tile.socketId)"
       ></app-video-tile>
@@ -58,7 +60,7 @@
       <i class="bi" [class.bi-camera-video-fill]="!meetingSessionSvc.isCamOff" [class.bi-camera-video-off-fill]="meetingSessionSvc.isCamOff"></i>
     </button>
     <button class="ctrl-btn" [class.active]="meetingSessionSvc.isScreenSharing" (click)="meetingSessionSvc.toggleScreenShare()" title="Share screen">
-      <i class="bi bi-easel2-fill"></i>
+      <app-call-icon name="screen-mirror" [size]="20"></app-call-icon>
     </button>
     <button class="ctrl-btn" [class.active]="meetingSessionSvc.handRaised" (click)="meetingSessionSvc.toggleHandRaise()" title="Raise hand">
       <i class="bi bi-hand-index-thumb-fill"></i>
@@ -67,7 +69,7 @@
       <i class="bi bi-chat-dots-fill"></i>
     </button>
     <button class="ctrl-btn" (click)="minimize()" title="Minimize">
-      <i class="bi bi-arrows-angle-contract"></i>
+      <app-call-icon name="to-pip" [size]="20"></app-call-icon>
     </button>
     <button class="ctrl-btn ctrl-btn-leave" (click)="leaveMeeting()">
       <i class="bi bi-telephone-fill"></i> Leave

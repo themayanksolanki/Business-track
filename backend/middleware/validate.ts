@@ -2,11 +2,14 @@ import type { Request, Response, NextFunction } from 'express';
 import AppError from '../utils/AppError.js';
 import { METRIC_FREQUENCIES } from '../models/metricTracking.model.js';
 import type { MetricFrequency } from '../models/metricTracking.model.js';
-import { periodCount } from '../utils/metricPeriods.js';
+import { periodCount, IMPLEMENTED_METRIC_FREQUENCIES, frequencyRequiresMonth } from '../utils/metricPeriods.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DOMAIN_REGEX = /^[^\s@]+\.[^\s@]+$/;
 const VALID_ROLES = ['Admin', 'Manager', 'Team Lead', 'User'];
+// Organization-level, set once at signup — see validateOrgRegister below.
+const VALID_CURRENCIES = ['USD', 'EUR', 'JPY', 'GBP', 'CNY', 'INR'];
+const VALID_MEASUREMENT_UNITS = ['KG', 'LB'];
 
 // Ids are Postgres autoincrement integers — accept a positive integer or the
 // numeric string a route param/JSON body would carry it as.
@@ -35,7 +38,7 @@ const validateIdArray = (fieldName: string, ids: unknown, opts?: { allowEmpty?: 
 };
 
 export const validateOrgRegister = (req: Request, res: Response, next: NextFunction) => {
-  const { username, email, password, organizationName, emailDomain } = req.body;
+  const { username, email, password, organizationName, emailDomain, currency, unit } = req.body;
 
   if (!username || !username.trim())
     return next(new AppError('Username is required', 400));
@@ -51,6 +54,14 @@ export const validateOrgRegister = (req: Request, res: Response, next: NextFunct
 
   if (!emailDomain || !DOMAIN_REGEX.test(emailDomain))
     return next(new AppError('A valid organization email domain is required', 400));
+
+  // Set once here — never editable afterward (updateOrganization never
+  // accepts these fields at all), so they must be required and valid up front.
+  if (!currency || !VALID_CURRENCIES.includes(currency))
+    return next(new AppError(`currency must be one of: ${VALID_CURRENCIES.join(', ')}`, 400));
+
+  if (!unit || !VALID_MEASUREMENT_UNITS.includes(unit))
+    return next(new AppError(`unit must be one of: ${VALID_MEASUREMENT_UNITS.join(', ')}`, 400));
 
   next();
 };
@@ -125,8 +136,6 @@ const VALID_LANDING_PAGES = [
 ];
 const VALID_SIDEBAR_THEMES = ['MIDNIGHT', 'CHARCOAL', 'OCEAN', 'FOREST', 'PLUM', 'DAYLIGHT', 'ROSE', 'SKY', 'SAND', 'LEMON'];
 const VALID_SIDEBAR_LOGOS = ['CHECK', 'ROCKET', 'BOLT', 'STAR', 'SHIELD', 'DIAMOND'];
-const VALID_CURRENCIES = ['USD', 'EUR', 'JPY', 'GBP', 'CNY', 'INR'];
-const VALID_MEASUREMENT_UNITS = ['KG', 'LB'];
 
 // Fields are all independently optional — this endpoint is shared by the
 // Profile page's phone editor and Settings > General's date/time-format/
@@ -142,8 +151,6 @@ export const validateUpdateProfile = (req: Request, res: Response, next: NextFun
     sidebarTheme,
     sidebarTextColor,
     sidebarLogo,
-    currency,
-    unit,
     decimalPoints,
   } = req.body;
 
@@ -175,12 +182,6 @@ export const validateUpdateProfile = (req: Request, res: Response, next: NextFun
 
   if (sidebarLogo !== undefined && !VALID_SIDEBAR_LOGOS.includes(sidebarLogo))
     return next(new AppError(`sidebarLogo must be one of: ${VALID_SIDEBAR_LOGOS.join(', ')}`, 400));
-
-  if (currency !== undefined && !VALID_CURRENCIES.includes(currency))
-    return next(new AppError(`currency must be one of: ${VALID_CURRENCIES.join(', ')}`, 400));
-
-  if (unit !== undefined && !VALID_MEASUREMENT_UNITS.includes(unit))
-    return next(new AppError(`unit must be one of: ${VALID_MEASUREMENT_UNITS.join(', ')}`, 400));
 
   if (decimalPoints !== undefined && (!Number.isInteger(decimalPoints) || decimalPoints < 0 || decimalPoints > 7))
     return next(new AppError('decimalPoints must be an integer between 0 and 7', 400));
@@ -681,9 +682,10 @@ export const validateMetric = (req: Request, res: Response, next: NextFunction) 
   if (dataType !== undefined && !VALID_METRIC_DATA_TYPES.includes(dataType))
     return next(new AppError(`dataType must be one of: ${VALID_METRIC_DATA_TYPES.join(', ')}`, 400));
 
-  // Only frequencies with real tracking support (see IMPLEMENTED_METRIC_FREQUENCIES
-  // below) are accepted here — picking e.g. 'monthly' would create a metric
-  // whose Bowling View tracking has nowhere to go yet.
+  // Only frequencies with real tracking support (see FREQUENCY_CONFIG in
+  // backend/utils/metricPeriods.ts) are accepted here — picking e.g.
+  // 'quarterly' would create a metric whose Bowling View tracking has
+  // nowhere to go yet.
   if (frequency !== undefined && !IMPLEMENTED_METRIC_FREQUENCIES.includes(frequency))
     return next(new AppError(`frequency must be one of: ${IMPLEMENTED_METRIC_FREQUENCIES.join(', ')}`, 400));
 
@@ -695,13 +697,19 @@ export const validateMetric = (req: Request, res: Response, next: NextFunction) 
 
 export const validateMetricId = validateParamId('metricId');
 
+export const validateMetricReorder = (req: Request, res: Response, next: NextFunction) => {
+  const { parentId, orderedIds } = req.body;
+
+  if (parentId !== null && parentId !== undefined && !isValidId(parentId))
+    return next(new AppError('parentId is not a valid ID', 400));
+
+  const idsError = validateIdArray('orderedIds', orderedIds);
+  if (idsError) return next(new AppError(idsError, 400));
+
+  next();
+};
+
 const VALID_METRIC_FREQUENCIES: string[] = METRIC_FREQUENCIES;
-// Only 'daily' and 'weekly' are actually implemented yet (see
-// backend/utils/metricPeriods.ts) — 'monthly'/'quarterly'/'yearly' are
-// accepted here as a recognizable shape so the frontend gets a clean "not
-// implemented" 400 instead of falling through to a 500 deeper in the
-// controller/model layer.
-const IMPLEMENTED_METRIC_FREQUENCIES = ['daily', 'weekly'];
 
 export const validateTrackingParams = (req: Request, res: Response, next: NextFunction) => {
   const frequency = String(req.params.frequency);
@@ -717,8 +725,8 @@ export const validateTrackingParams = (req: Request, res: Response, next: NextFu
   if (!Number.isInteger(year) || year < 2000 || year > 2100)
     return next(new AppError('year must be a valid 4-digit year', 400));
 
-  if (frequency === 'daily' && (!Number.isInteger(month) || month! < 1 || month! > 12))
-    return next(new AppError('month must be between 1 and 12 for daily frequency', 400));
+  if (frequencyRequiresMonth(frequency) && (!Number.isInteger(month) || month! < 1 || month! > 12))
+    return next(new AppError(`month must be between 1 and 12 for ${frequency} frequency`, 400));
 
   next();
 };
@@ -730,10 +738,10 @@ export const validateTrackingDiff = (req: Request, res: Response, next: NextFunc
 
   const frequency = req.params.frequency as MetricFrequency;
   const year = Number(req.query.year);
-  // Only meaningful for 'daily' — weekly's key range (ISO week 1..N) depends
-  // only on `year`, so `month` is left undefined for it (periodCount ignores
-  // the argument for any frequency but 'daily').
-  const month = frequency === 'daily' ? Number(req.query.month) : undefined;
+  // Only frequencies that need a month sub-key (currently 'daily') read it —
+  // the rest key their periods off `year` alone (periodCount ignores the
+  // argument otherwise).
+  const month = frequencyRequiresMonth(frequency) ? Number(req.query.month) : undefined;
   // frequency is already constrained to an IMPLEMENTED_METRIC_FREQUENCIES
   // value by validateTrackingParams, which always runs first on these routes.
   const maxPeriod = periodCount(frequency, year, month);
@@ -931,6 +939,43 @@ export const validateUpdateGroupMemberRole = (req: Request, res: Response, next:
   const { role } = req.body;
 
   if (role !== 'admin' && role !== 'member') return next(new AppError("role must be 'admin' or 'member'", 400));
+
+  next();
+};
+
+export const validateStatusFormId = validateParamId('id');
+
+const VALID_STATUS_FORM_QUESTION_TYPES = ['shortText', 'longText', 'richText', 'singleSelect', 'multiSelect', 'attachment'];
+const STATUS_FORM_OPTION_TYPES = ['singleSelect', 'multiSelect'];
+
+export const validateStatusForm = (req: Request, res: Response, next: NextFunction) => {
+  const { title, description, questions } = req.body;
+
+  if (typeof title !== 'string' || !title.trim()) return next(new AppError('Title is required', 400));
+  if (description !== undefined && typeof description !== 'string')
+    return next(new AppError('description must be a string', 400));
+
+  if (!Array.isArray(questions) || questions.length === 0)
+    return next(new AppError('At least one question is required', 400));
+
+  for (const q of questions) {
+    if (!q || typeof q !== 'object') return next(new AppError('Each question must be an object', 400));
+    if (!VALID_STATUS_FORM_QUESTION_TYPES.includes(q.type))
+      return next(new AppError(`Each question's type must be one of: ${VALID_STATUS_FORM_QUESTION_TYPES.join(', ')}`, 400));
+    if (typeof q.label !== 'string' || !q.label.trim())
+      return next(new AppError('Each question must have a label', 400));
+    // Checked for every type, not just select ones — the controller trims
+    // every entry in `options` regardless of type, so a non-string sneaking
+    // in here would otherwise throw past this boundary instead of a clean 400.
+    if (q.options !== undefined && (!Array.isArray(q.options) || !q.options.every((o: unknown) => typeof o === 'string')))
+      return next(new AppError(`"${q.label}" options must be an array of strings`, 400));
+    if (STATUS_FORM_OPTION_TYPES.includes(q.type)) {
+      const validOptionCount = Array.isArray(q.options)
+        ? q.options.filter((o: unknown) => typeof o === 'string' && o.trim()).length
+        : 0;
+      if (validOptionCount < 2) return next(new AppError(`"${q.label}" needs at least 2 options`, 400));
+    }
+  }
 
   next();
 };

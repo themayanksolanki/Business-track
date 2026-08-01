@@ -1,12 +1,27 @@
 <div class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
   <div>
     <h2 class="page-title mb-0">Metrics · Bowling View</h2>
-    <p class="page-sub">{{ lens === 'daily' ? 'Daily' : 'Weekly' }} Actual vs Target tracking</p>
+    <p class="page-sub">{{ lensLabel }} Actual vs Target tracking</p>
   </div>
   <div class="d-flex align-items-center gap-2">
-    <div class="bowling-lens-toggle" role="group" aria-label="Frequency lens">
-      <button type="button" class="bowling-lens-btn" [class.active]="lens === 'daily'" (click)="setLens('daily')">Daily</button>
-      <button type="button" class="bowling-lens-btn" [class.active]="lens === 'weekly'" (click)="setLens('weekly')">Weekly</button>
+    <button class="btn btn-primary" type="button" (click)="openCreate()">
+      <i class="bi bi-plus-lg me-1"></i>Create Metric
+    </button>
+    <div class="dropdown bowling-lens-dropdown">
+      <button type="button" class="bowling-lens-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+        <app-frequency-icon [name]="lens" [size]="16"></app-frequency-icon>
+        {{ lensLabel }}
+      </button>
+      <ul class="dropdown-menu bowling-lens-menu">
+        @for (opt of lensOptions; track opt) {
+          <li>
+            <a class="dropdown-item bowling-lens-item" [class.active]="lens === opt" (click)="setLens(opt)">
+              <app-frequency-icon [name]="opt" [size]="16"></app-frequency-icon>
+              {{ lensLabels[opt] }}
+            </a>
+          </li>
+        }
+      </ul>
     </div>
     @if (lens === 'daily') {
       <input type="month" class="form-control bowling-month-input" [(ngModel)]="selectedMonthStr" (change)="onMonthChange()" />
@@ -27,12 +42,12 @@
 } @else if (rows.length === 0) {
   <div class="empty-state text-center py-5 text-muted">
     <i class="bi bi-graph-up-arrow display-5 d-block mb-3"></i>
-    <p class="mb-0">No metrics yet — create one from the Metrics list first.</p>
+    <p class="mb-0">No metrics yet — create one to get started.</p>
   </div>
 } @else if (!hasVisibleRows) {
   <div class="empty-state text-center py-5 text-muted">
     <i class="bi bi-graph-up-arrow display-5 d-block mb-3"></i>
-    <p class="mb-0">No {{ lens }} metrics yet — switch lenses, or set a metric's Frequency to {{ lens === 'daily' ? 'Daily' : 'Weekly' }} to see it here.</p>
+    <p class="mb-0">No {{ lens }} metrics yet — switch lenses, or set a metric's Frequency to {{ lensLabel }} to see it here.</p>
   </div>
 } @else {
   <div class="bowling-grid">
@@ -42,17 +57,17 @@
       <div class="bowling-days-col">
         <div class="bowling-window-nav">
           <button type="button" class="bowling-nav-btn" (click)="prevWindow()" [disabled]="windowIndex === 0">
-            <i class="bi bi-chevron-left"></i> Prev {{ windowSize }} {{ lens === 'daily' ? 'Days' : 'Weeks' }}
+            <i class="bi bi-chevron-left"></i> Prev {{ navUnitLabel }}
           </button>
           <span class="bowling-window-label">{{ windowLabel }}</span>
           <button type="button" class="bowling-nav-btn" (click)="nextWindow()" [disabled]="windowIndex === totalWindows - 1">
-            Next {{ windowSize }} {{ lens === 'daily' ? 'Days' : 'Weeks' }} <i class="bi bi-chevron-right"></i>
+            Next {{ navUnitLabel }} <i class="bi bi-chevron-right"></i>
           </button>
         </div>
         <div class="bowling-day-cells">
           <span class="mx-1">{{ lens === 'daily' ? selectedMonthStr : selectedYear }}</span>
           @for (day of visibleDays; track day) {
-            <span class="bowling-day-cell">{{ lens === 'daily' ? day : weekDateLabel(day) }}</span>
+            <span class="bowling-day-cell">{{ columnLabel(day) }}</span>
           }
         </div>
       </div>
@@ -94,6 +109,7 @@
                   @if (isEditing(rowIndex, 'actual', day)) {
                     <input #activeInput type="text" inputmode="decimal" class="bowling-cell-input"
                            [class.bowling-cell-input-error]="editError" [(ngModel)]="editValue"
+                           [title]="row.item.dataType === 'percentage' ? 'Enter as a fraction — e.g. 0.7 for 70%' : ''"
                            (keydown)="onCellKeydown($event)" (blur)="onCellBlur()" />
                   } @else {
                     <span class="bowling-cell-value">{{ formatRead(rowIndex, 'actual', day) }}</span>
@@ -108,6 +124,7 @@
                   @if (isEditing(rowIndex, 'target', day)) {
                     <input #activeInput type="text" inputmode="decimal" class="bowling-cell-input"
                            [class.bowling-cell-input-error]="editError" [(ngModel)]="editValue"
+                           [title]="row.item.dataType === 'percentage' ? 'Enter as a fraction — e.g. 0.7 for 70%' : ''"
                            (keydown)="onCellKeydown($event)" (blur)="onCellBlur()" />
                   } @else {
                     <span class="bowling-cell-value">{{ formatRead(rowIndex, 'target', day) }}</span>
@@ -139,6 +156,7 @@
   [categories]="categoryService.categories()"
   [users]="userService.users()"
   [parentOptions]="parentOptions"
+  [defaultFrequency]="lens"
   [loading]="formLoading"
   [error]="formError"
   [deleteLoading]="deleteLoading"

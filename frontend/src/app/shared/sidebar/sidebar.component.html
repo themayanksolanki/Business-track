@@ -222,6 +222,10 @@
           <i class="bi bi-bar-chart-steps"></i>
           <span>Bowling</span>
         </a>
+        <a routerLink="/metrics/tiles" routerLinkActive="active" class="nav-submenu-item" (click)="closeMobile()">
+          <i class="bi bi-speedometer2"></i>
+          <span>Tiles</span>
+        </a>
       </div>
     </div>
     <a
@@ -318,7 +322,7 @@
     <button
       class="nav-item logout-item"
       type="button"
-      (click)="auth.logout()"
+      (click)="onLogoutClick()"
       [title]="labelsVisible() ? '' : 'Logout'"
     >
       <span class="nav-icon"><app-icon name="logout" [size]="18" /></span>
@@ -332,3 +336,12 @@
     <span class="grip-dots"><app-icon name="grip" [size]="12" /></span>
   </div>
 </aside>
+
+<app-confirm-dialog
+  [open]="logoutConfirmOpen"
+  title="You're still in a call"
+  message="Logging out will end your current call or meeting. Log out anyway?"
+  confirmLabel="Log out anyway"
+  (confirmed)="confirmLogout()"
+  (cancelled)="logoutConfirmOpen = false"
+></app-confirm-dialog>

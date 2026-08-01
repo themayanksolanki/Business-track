@@ -112,6 +112,12 @@ export const routes: Routes = [
       import('./pages/metric-bowling/metric-bowling.component').then((m) => m.MetricBowlingComponent),
   },
   {
+    path: 'metrics/tiles',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/metric-tiles/metric-tiles.component').then((m) => m.MetricTilesComponent),
+  },
+  {
     // loadChildren (not loadComponent+inline children) so app.routes.ts —
     // part of the main bundle, not itself lazy — never imports
     // angular-calendar/date-fns at all; that only happens once this whole

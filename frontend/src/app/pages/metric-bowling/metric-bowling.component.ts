@@ -20,6 +20,8 @@ import {
 import { MetricFrequency, PeriodMap, PeriodValue, TrackingDiff } from '../../models/metric-tracking.model';
 import { CURRENCY_SYMBOLS, MEASUREMENT_UNIT_SYMBOLS } from '../../models/user.model';
 import { MetricFormModalComponent, MetricFormMode } from '../../shared/metric-form-modal/metric-form-modal.component';
+import { MONTH_LABELS, isoWeekInfo } from '../../shared/utils/metric-period.util';
+import { FrequencyIconComponent, FrequencyIconName } from '../../shared/frequency-icon/frequency-icon.component';
 
 const DEFAULT_DECIMAL_POINTS = 2;
 
@@ -44,21 +46,44 @@ interface BowlingRow {
   error: string;
 }
 
-// 13 rather than 15 — gives each column more breathing room now that Weekly
-// headers show a formatted date (see weekDateLabel) instead of a bare number.
-const WINDOW_SIZE = 13;
+// Daily lens pages through the month 15 days at a time.
+const DAILY_WINDOW_SIZE = 15;
+
+// Weekly lens pages by calendar quarter rather than a flat 13-week chunk —
+// Q1-Q3 are always weeks 1-13/14-26/27-39; Q4 picks up whatever's left
+// (13 weeks normally, 14 in a 53-week ISO year) instead of spilling into a
+// tiny 5th window. 1-indexed week numbers, matching weekDateLabel/visibleDays.
+const WEEKLY_QUARTER_STARTS = [1, 14, 27, 40];
+
+// Labels for the lens toggle / page subtitle / empty state — only the
+// implemented lenses are ever set on `lens`, but MetricFrequency's other
+// values are covered too so this stays a total function.
+const LENS_LABELS: Record<MetricFrequency, string> = {
+  daily: 'Daily',
+  weekly: 'Weekly',
+  monthly: 'Monthly',
+  quarterly: 'Quarterly',
+  yearly: 'Yearly',
+};
+
+// Order shown in the lens dropdown — only the frequencies the Bowling View
+// actually implements (see backend/utils/metricPeriods.ts's FREQUENCY_CONFIG).
+const IMPLEMENTED_LENSES: FrequencyIconName[] = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'];
+
+// Yearly shows this many consecutive years at once (periods 1..N), starting
+// at whatever `selectedYear` is typed in — mirrors backend/utils/
+// metricPeriods.ts's yearly periodCount().
+const YEARLY_BLOCK_SIZE = 5;
 
 @Component({
   selector: 'app-metric-bowling',
   standalone: true,
-  imports: [FormsModule, MetricFormModalComponent],
+  imports: [FormsModule, MetricFormModalComponent, FrequencyIconComponent],
   templateUrl: './metric-bowling.component.html',
   styleUrl: './metric-bowling.component.css',
 })
 export class MetricBowlingComponent implements OnInit {
   @ViewChild('activeInput') activeInputRef?: ElementRef<HTMLInputElement>;
-
-  readonly windowSize = WINDOW_SIZE;
 
   rows: BowlingRow[] = [];
   loading = false;
@@ -78,15 +103,23 @@ export class MetricBowlingComponent implements OnInit {
   formError = '';
   deleteLoading = false;
 
-  // Which frequency's metrics are currently shown — the two lenses have
+  // Which lenses to offer, in order, and their labels — exposed for the
+  // template's dropdown @for loop.
+  readonly lensOptions = IMPLEMENTED_LENSES;
+  readonly lensLabels = LENS_LABELS;
+
+  // Which frequency's metrics are currently shown — the lenses have
   // different navigators (Daily: month+day-of-month; Weekly: year+week-of-
-  // year) and can't share one header row, so only one is ever visible at a
-  // time (see rows filtered by `row.item.frequency === lens` in the template).
-  lens: MetricFrequency = 'daily';
+  // year; Monthly: year+month-of-year; Quarterly: year+quarter-of-year;
+  // Yearly: start-year+year-of-block) and can't share one header row, so
+  // only one is ever visible at a time (see rows filtered by
+  // `row.item.frequency === lens` in the template).
+  lens: FrequencyIconName = 'monthly';
 
   // 'YYYY-MM', bound directly to <input type="month"> — Daily lens only.
   selectedMonthStr = this.defaultMonthStr();
-  // Weekly lens only.
+  // Weekly, Monthly, Quarterly, and Yearly lenses — for Yearly this is the
+  // block's start year, not "the" year (see YEARLY_BLOCK_SIZE).
   selectedYear = new Date().getFullYear();
   windowIndex = 0;
 
@@ -109,9 +142,11 @@ export class MetricBowlingComponent implements OnInit {
     public dateFormat: DateFormatService
   ) {}
 
-  // The unit/currency/decimal-places actually shown come from the VIEWING
-  // user's own Settings > General preferences, not anything stored on the
-  // metric — the metric only picks WHICH of these applies (see dataType).
+  // Decimal places shown come from the VIEWING user's own Settings > General
+  // preference. Currency/measurement-unit symbols, by contrast, come from
+  // the organization (fixed at signup, same for everyone in it — see
+  // Organization.currency/.unit) — the metric only picks WHICH of these
+  // applies (see dataType).
   private get decimalPoints(): number {
     return this.auth.currentUser()?.decimalPoints ?? DEFAULT_DECIMAL_POINTS;
   }
@@ -160,27 +195,56 @@ export class MetricBowlingComponent implements OnInit {
     return 52;
   }
 
-  // Size of the current lens's period axis — days-of-month for Daily,
-  // weeks-of-year for Weekly. Everything windowing-related below is driven
-  // off this rather than `daysInMonth` directly, so it works for either lens.
-  private get periodAxisSize(): number {
-    return this.lens === 'daily' ? this.daysInMonth : this.weeksInYear;
+  // [start, end] (1-indexed, inclusive) of a given quarter's weeks — Q4 runs
+  // to the end of the ISO year, so it's 13 weeks in a 52-week year and 14 in
+  // a 53-week one, rather than a fixed size like Q1-Q3.
+  private weeklyQuarterRange(quarterIndex: number): [number, number] {
+    const start = WEEKLY_QUARTER_STARTS[quarterIndex];
+    const end = quarterIndex < 3 ? WEEKLY_QUARTER_STARTS[quarterIndex + 1] - 1 : this.weeksInYear;
+    return [start, end];
   }
 
   get totalWindows(): number {
-    return Math.max(1, Math.ceil(this.periodAxisSize / WINDOW_SIZE));
+    if (this.lens === 'monthly' || this.lens === 'quarterly' || this.lens === 'yearly') return 1;
+    if (this.lens === 'weekly') return WEEKLY_QUARTER_STARTS.length;
+    return Math.max(1, Math.ceil(this.daysInMonth / DAILY_WINDOW_SIZE));
   }
 
   get visibleDays(): number[] {
-    const start = this.windowIndex * WINDOW_SIZE + 1;
-    const end = Math.min(start + WINDOW_SIZE - 1, this.periodAxisSize);
+    if (this.lens === 'monthly') return Array.from({ length: 12 }, (_, i) => i + 1);
+    if (this.lens === 'quarterly') return [1, 2, 3, 4];
+    if (this.lens === 'yearly') return Array.from({ length: YEARLY_BLOCK_SIZE }, (_, i) => i + 1);
+    if (this.lens === 'weekly') {
+      const [start, end] = this.weeklyQuarterRange(this.windowIndex);
+      return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+    }
+    const start = this.windowIndex * DAILY_WINDOW_SIZE + 1;
+    const end = Math.min(start + DAILY_WINDOW_SIZE - 1, this.daysInMonth);
     return Array.from({ length: end - start + 1 }, (_, i) => start + i);
   }
 
   get windowLabel(): string {
     const days = this.visibleDays;
-    const unit = this.lens === 'daily' ? 'Day' : 'Week';
-    return days.length === 1 ? `${unit} ${days[0]}` : `${unit}s ${days[0]}–${days[days.length - 1]}`;
+    if (this.lens === 'yearly') return `${this.selectedYear}–${this.selectedYear + YEARLY_BLOCK_SIZE - 1}`;
+    if (this.lens === 'monthly' || this.lens === 'quarterly') return String(this.selectedYear);
+    if (this.lens === 'weekly') {
+      const range = days.length === 1 ? `Week ${days[0]}` : `Weeks ${days[0]}–${days[days.length - 1]}`;
+      return `Q${this.windowIndex + 1} · ${range}`;
+    }
+    return days.length === 1 ? `Day ${days[0]}` : `Days ${days[0]}–${days[days.length - 1]}`;
+  }
+
+  // Page subtitle / empty-state lens name.
+  get lensLabel(): string {
+    return LENS_LABELS[this.lens];
+  }
+
+  // Prev/Next window button text — what one "page" of the active lens is.
+  get navUnitLabel(): string {
+    if (this.lens === 'yearly') return `${YEARLY_BLOCK_SIZE} Years`;
+    if (this.lens === 'monthly' || this.lens === 'quarterly') return 'Year';
+    if (this.lens === 'weekly') return 'Quarter';
+    return `${DAILY_WINDOW_SIZE} Days`;
   }
 
   // Whether any loaded metric actually matches the current lens — drives the
@@ -206,16 +270,36 @@ export class MetricBowlingComponent implements OnInit {
     return this.dateFormat.formatDate(this.weekStartDate(week));
   }
 
-  // ISO week-year + week-number of a given date — the inverse of
-  // weekStartDate, used only to find "today"'s week so landing on the
-  // Weekly lens can jump straight to it instead of always starting at week 1.
-  private isoWeekInfo(date: Date): { year: number; week: number } {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayMon1 = d.getUTCDay() || 7; // Mon=1..Sun=7
-    d.setUTCDate(d.getUTCDate() + 4 - dayMon1); // Thursday of this ISO week
-    const yearStart = Date.UTC(d.getUTCFullYear(), 0, 1);
-    const week = Math.ceil((((d.getTime() - yearStart) / 86_400_000) + 1) / 7);
-    return { year: d.getUTCFullYear(), week };
+  monthLabel(month: number): string {
+    return MONTH_LABELS[month - 1];
+  }
+
+  quarterLabel(quarter: number): string {
+    return `Q${quarter}`;
+  }
+
+  // Yearly-lens period 1..N maps to the actual calendar year it represents
+  // (selectedYear is the block's start year — see YEARLY_BLOCK_SIZE).
+  yearLabel(period: number): string {
+    return String(this.selectedYear + period - 1);
+  }
+
+  // Column header content for a period, dispatched by the active lens —
+  // Daily shows the raw day-of-month, Weekly the week's Monday, Monthly the
+  // month name, Quarterly "Q1".."Q4", Yearly the actual calendar year.
+  columnLabel(period: number): string {
+    if (this.lens === 'daily') return String(period);
+    if (this.lens === 'weekly') return this.weekDateLabel(period);
+    if (this.lens === 'quarterly') return this.quarterLabel(period);
+    if (this.lens === 'yearly') return this.yearLabel(period);
+    return this.monthLabel(period);
+  }
+
+  // Which quarter window (0-3) a given ISO week falls into.
+  private quarterIndexForWeek(week: number): number {
+    let index = 0;
+    while (index < WEEKLY_QUARTER_STARTS.length - 1 && week >= WEEKLY_QUARTER_STARTS[index + 1]) index++;
+    return index;
   }
 
   // Positions the Weekly-lens window on today's ISO week — only when
@@ -223,11 +307,11 @@ export class MetricBowlingComponent implements OnInit {
   // "current week" to jump to in a past/future year), falling back to the
   // first window otherwise.
   private jumpToCurrentWeek() {
-    const { year, week } = this.isoWeekInfo(new Date());
-    this.windowIndex = year === this.selectedYear ? Math.floor((week - 1) / WINDOW_SIZE) : 0;
+    const { year, week } = isoWeekInfo(new Date());
+    this.windowIndex = year === this.selectedYear ? this.quarterIndexForWeek(week) : 0;
   }
 
-  setLens(lens: MetricFrequency) {
+  setLens(lens: FrequencyIconName) {
     if (this.lens === lens) return;
     this.lens = lens;
     if (lens === 'weekly') this.jumpToCurrentWeek();
@@ -240,7 +324,8 @@ export class MetricBowlingComponent implements OnInit {
   }
 
   onYearChange() {
-    this.jumpToCurrentWeek();
+    if (this.lens === 'weekly') this.jumpToCurrentWeek();
+    else this.windowIndex = 0;
     this.loadAllTracking();
   }
 
@@ -250,6 +335,14 @@ export class MetricBowlingComponent implements OnInit {
 
   nextWindow() {
     if (this.windowIndex < this.totalWindows - 1) this.windowIndex++;
+  }
+
+  openCreate() {
+    this.formMode = 'create';
+    this.editingRowIndex = null;
+    this.formInitial = null;
+    this.formError = '';
+    this.formOpen = true;
   }
 
   openEdit(rowIndex: number) {
@@ -271,10 +364,47 @@ export class MetricBowlingComponent implements OnInit {
   }
 
   submitForm(payload: CreateMetricPayload | UpdateMetricPayload) {
-    if (this.editingRowIndex === null) return;
-    const rowIndex = this.editingRowIndex;
     this.formLoading = true;
     this.formError = '';
+
+    if (this.formMode === 'create') {
+      this.metricService.createMetric(payload as CreateMetricPayload).subscribe({
+        next: (res) => {
+          this.formLoading = false;
+          this.closeForm();
+          const item: MetricListItem = {
+            id: res.metric.id,
+            sequenceId: res.metric.sequenceId,
+            title: res.metric.title,
+            department: res.metric.department,
+            owner: res.metric.owner,
+            status: res.metric.status,
+            dataType: res.metric.dataType,
+            frequency: res.metric.frequency,
+          };
+          this.rows.push({
+            item,
+            periods: {},
+            originalPeriods: {},
+            actualTotal: 0,
+            targetTotal: 0,
+            loading: true,
+            saving: false,
+            error: '',
+          });
+          this.parentOptions = this.rows.map((r) => ({ id: r.item.id, title: r.item.title }));
+          this.loadTracking(this.rows.length - 1);
+        },
+        error: (err) => {
+          this.formError = err.error?.message || 'Failed to save metric';
+          this.formLoading = false;
+        },
+      });
+      return;
+    }
+
+    if (this.editingRowIndex === null) return;
+    const rowIndex = this.editingRowIndex;
     this.metricService.updateMetric(this.rows[rowIndex].item.id, payload as UpdateMetricPayload).subscribe({
       next: (res) => {
         this.formLoading = false;
@@ -389,19 +519,26 @@ export class MetricBowlingComponent implements OnInit {
 
   // Decimal-formats a raw number per the viewing user's own decimalPoints
   // preference, then decorates it with a unit/symbol per the metric's
-  // dataType — the unit itself always comes from the viewer's own currency/
-  // unit preference, never anything stored on the metric (no conversion
-  // happens either way, this is a label only). Shared by formatRead() (a
-  // single day's cell) and formatTotal() (the always-visible Total column).
+  // dataType — the symbol itself always comes from the organization's fixed
+  // currency/unit (same for every viewer in the org, never anything stored
+  // on the metric itself; no conversion happens either way, this is a label
+  // only). Shared by formatRead() (a single day's cell) and formatTotal()
+  // (the always-visible Total column).
   private formatValue(value: number, dataType: MetricDataType): string {
     const formatted = value.toFixed(this.decimalPoints);
+    // organization is typed loosely (Organization | number | null) since
+    // some payloads elsewhere reference it by bare id — currentUser() always
+    // carries the full nested object in practice (see authController.ts's
+    // toUserShape()), so narrow out the id-only case defensively.
+    const rawOrg = this.auth.currentUser()?.organization;
+    const org = rawOrg && typeof rawOrg === 'object' ? rawOrg : null;
     switch (dataType) {
       case 'currency': {
-        const symbol = CURRENCY_SYMBOLS[this.auth.currentUser()?.currency ?? 'USD'];
+        const symbol = CURRENCY_SYMBOLS[org?.currency ?? 'USD'];
         return `${symbol}${formatted}`;
       }
       case 'weight': {
-        const symbol = MEASUREMENT_UNIT_SYMBOLS[this.auth.currentUser()?.unit ?? 'KG'];
+        const symbol = MEASUREMENT_UNIT_SYMBOLS[org?.unit ?? 'KG'];
         return `${formatted} ${symbol}`;
       }
       case 'percentage':
@@ -427,13 +564,36 @@ export class MetricBowlingComponent implements OnInit {
     return !!this.editing && this.editing.rowIndex === rowIndex && this.editing.row === row && this.editing.day === day;
   }
 
+  // Percentage metrics are stored/read in percentage-point scale (a stored
+  // 70 means "70%", read straight through by formatValue's plain `${n}%` —
+  // no scaling there). Typing is friendlier as a fraction though (spreadsheet
+  // convention: 0.7 means 70%), so the edit box shows/accepts the /100 form
+  // and converts back with *100 on commit. Every other dataType passes
+  // through unchanged.
+  private toEditValue(stored: number, dataType: MetricDataType): number {
+    return dataType === 'percentage' ? stored / 100 : stored;
+  }
+
+  private fromEditValue(entered: number, dataType: MetricDataType): number {
+    return dataType === 'percentage' ? entered * 100 : entered;
+  }
+
   startEdit(rowIndex: number, row: RowKey, day: number) {
     const current = this.cellValue(rowIndex, row, day);
     this.editing = { rowIndex, row, day };
-    // Edit mode shows the raw decimal-formatted number (per the user's
-    // decimalPoints preference) but never the unit/currency/% decoration —
-    // that only ever appears in read mode.
-    this.editValue = current === null ? '' : current.toFixed(this.decimalPoints);
+    const dataType = this.rows[rowIndex].item.dataType;
+    if (current === null) {
+      this.editValue = '';
+    } else if (dataType === 'percentage') {
+      // Not toFixed(decimalPoints) here — that preference is about
+      // currency/weight display precision, not fraction precision, and
+      // would round e.g. 0.705 down to "1" for a user with 0 decimal points.
+      // JS's own number-to-string already gives the shortest round-tripping
+      // decimal (70/100 -> "0.7", not a binary-float artifact).
+      this.editValue = String(this.toEditValue(current, dataType));
+    } else {
+      this.editValue = current.toFixed(this.decimalPoints);
+    }
     this.editError = '';
     setTimeout(() => {
       this.activeInputRef?.nativeElement.focus();
@@ -456,8 +616,8 @@ export class MetricBowlingComponent implements OnInit {
       return false;
     }
     const { rowIndex, row, day } = this.editing;
-    const value = this.editValue.trim() === '' ? null : Number(this.editValue);
     const rowData = this.rows[rowIndex];
+    const value = this.editValue.trim() === '' ? null : this.fromEditValue(Number(this.editValue), rowData.item.dataType);
     const key = String(day);
     const existing: PeriodValue = rowData.periods[key] ?? { actual: null, target: null };
     rowData.periods = { ...rowData.periods, [key]: { ...existing, [row]: value } };

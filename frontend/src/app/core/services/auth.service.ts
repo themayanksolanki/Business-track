@@ -34,6 +34,8 @@ export class AuthService {
     password: string;
     organizationName: string;
     emailDomain: string;
+    currency: Currency;
+    unit: MeasurementUnit;
   }) {
     return this.http
       .post<AuthResponse>(`${this.api}/register-organization`, payload, this.CREDS)
@@ -92,8 +94,6 @@ export class AuthService {
     sidebarTheme?: SidebarTheme;
     sidebarTextColor?: string | null;
     sidebarLogo?: SidebarLogo;
-    currency?: Currency;
-    unit?: MeasurementUnit;
     decimalPoints?: number;
   }) {
     return this.http

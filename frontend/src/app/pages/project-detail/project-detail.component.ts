@@ -57,6 +57,7 @@ import { CardResizeDirective, CardResizeEvent } from '../../shared/card-resize.d
 import { ProjectListOverlayComponent } from '../../shared/project-list-overlay/project-list-overlay.component';
 import { ProjectMeetingsComponent } from '../../shared/project-meetings/project-meetings.component';
 import { EventDetailDialogComponent } from '../../shared/event-detail-dialog/event-detail-dialog.component';
+import { ProjectStatusComponent } from '../../shared/project-status/project-status.component';
 
 @Component({
   selector: 'app-project-detail',
@@ -87,7 +88,8 @@ import { EventDetailDialogComponent } from '../../shared/event-detail-dialog/eve
     NgbPopover,
     ProjectListOverlayComponent,
     ProjectMeetingsComponent,
-    EventDetailDialogComponent
+    EventDetailDialogComponent,
+    ProjectStatusComponent
   ],
   providers: [DropListRegistryService],
   templateUrl: './project-detail.component.html',
@@ -104,6 +106,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     { key: 'detail', label: 'Details', icon: 'bi-info-circle' },
     { key: 'tasks', label: 'Tasks', icon: 'bi-list-task' },
     { key: 'kanban', label: 'Kanban', icon: 'bi-kanban' },
+    { key: 'status', label: 'Status', icon: 'bi-graph-up' },
     { key: 'teams', label: 'Teams', icon: 'bi-people' },
     { key: 'meetings', label: 'Meetings', icon: 'bi-camera-video' },
   ];
@@ -128,8 +131,6 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
 
   addGroupOpen = false;
   addGroupTitle = '';
-  addGroupLoading = false;
-  addGroupError = '';
 
   selectedNode: ProjectTreeNode | null = null;
 
@@ -251,7 +252,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
 
       const tab = this.route.snapshot.queryParamMap.get('tab');
       this.activeTab =
-        tab === 'detail' || tab === 'tasks' || tab === 'kanban' || tab === 'teams' || tab === 'meetings'
+        tab === 'detail' || tab === 'tasks' || tab === 'kanban' || tab === 'status' || tab === 'teams' || tab === 'meetings'
           ? tab
           : 'tasks';
       const itemParam = this.route.snapshot.queryParamMap.get('item');
@@ -1040,12 +1041,10 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   openAddGroup() {
     this.addGroupOpen = true;
     this.addGroupTitle = '';
-    this.addGroupError = '';
   }
 
   cancelAddGroup() {
     this.addGroupOpen = false;
-    this.addGroupError = '';
   }
 
   onAddGroupKeydown(event: KeyboardEvent) {
@@ -1054,24 +1053,58 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.submitAddGroup();
   }
 
+  // Closes the composer and inserts the group into the tree immediately (an
+  // optimistic placeholder, flagged `pending`) instead of showing a spinner
+  // and waiting on the round-trip — the actual create happens in the
+  // background, swapping the placeholder for the real, server-authoritative
+  // node once it resolves, or removing it and surfacing an error toast if
+  // the request fails.
   submitAddGroup() {
     const title = this.addGroupTitle.trim();
     if (!title) return;
-    this.addGroupLoading = true;
-    this.addGroupError = '';
-    this.projectService
-      .createItem(this.projectId, { title, parentId: null })
-      .subscribe({
-        next: (res) => {
-          this.addGroupLoading = false;
-          this.addGroupOpen = false;
-          this.tree = [...this.tree, { ...res.item, children: [], childCount: 0 }];
-        },
-        error: (err) => {
-          this.addGroupError = err.error?.message || 'Failed to add group';
-          this.addGroupLoading = false;
-        },
-      });
+    const user = this.auth.getUser();
+    if (!user) return;
+
+    this.addGroupOpen = false;
+
+    const tempId = -Date.now();
+    const now = new Date().toISOString();
+    const placeholder: ProjectTreeNode = {
+      id: tempId,
+      sequenceId: null,
+      project: Number(this.projectId),
+      parentId: null,
+      type: 'group',
+      title,
+      description: '',
+      status: 'todo',
+      priority: 'medium',
+      assignedTo: null,
+      createdBy: user,
+      updatedBy: null,
+      depth: 0,
+      order: this.tree.length,
+      startDate: null,
+      endDate: null,
+      attachmentCount: 0,
+      tags: [],
+      createdAt: now,
+      updatedAt: now,
+      children: [],
+      childCount: 0,
+      pending: true,
+    };
+    this.tree = [...this.tree, placeholder];
+
+    this.projectService.createItem(this.projectId, { title, parentId: null }).subscribe({
+      next: (res) => {
+        this.tree = this.tree.map((n) => (n.id === tempId ? { ...res.item, children: [], childCount: 0 } : n));
+      },
+      error: (err) => {
+        this.tree = this.tree.filter((n) => n.id !== tempId);
+        this.notifications.error(err.error?.message || 'Failed to add group');
+      },
+    });
   }
 
   onOpenDetail(node: ProjectTreeNode) {

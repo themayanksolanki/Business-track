@@ -56,6 +56,7 @@ interface ClientToServerEvents {
   'call:mute': (payload: { callId: string; muted: boolean }) => void;
   'call:video': (payload: { callId: string; off: boolean }) => void;
   'call:screen-share': (payload: { callId: string; sharing: boolean }) => void;
+  'call:mobile-device': (payload: { callId: string; mobile: boolean }) => void;
   'message:seen': (payload: { from: string | number }) => void;
   'group:message:send': (payload: {
     groupId: string | number;
@@ -77,6 +78,7 @@ interface ClientToServerEvents {
   'meeting:video-toggle': (payload: { meetingId: number; off: boolean }) => void;
   'meeting:screen-share': (payload: { meetingId: number; sharing: boolean }) => void;
   'meeting:hand-raise': (payload: { meetingId: number; raised: boolean }) => void;
+  'meeting:mobile-device': (payload: { meetingId: number; mobile: boolean }) => void;
   'meeting:chat-message': (payload: { meetingId: number; message: string }) => void;
   'meeting:kick': (payload: { meetingId: number; targetSocketId: string }) => void;
   'meeting:end': (payload: { meetingId: number }) => void;
@@ -388,6 +390,7 @@ export function setupSocket(server: HttpServer) {
     socket.on('call:mute',           ({ callId, muted })      => { const o = otherParty(callId); if (o) emitToUser(o, 'call:mute',           { muted, callId }); });
     socket.on('call:video',          ({ callId, off })        => { const o = otherParty(callId); if (o) emitToUser(o, 'call:video',          { off, callId }); });
     socket.on('call:screen-share',   ({ callId, sharing })    => { const o = otherParty(callId); if (o) emitToUser(o, 'call:screen-share',   { sharing, callId }); });
+    socket.on('call:mobile-device',  ({ callId, mobile })     => { const o = otherParty(callId); if (o) emitToUser(o, 'call:mobile-device',  { mobile, callId }); });
 
     // ── Meeting room signaling (N-way mesh) ─────────────────────────
     // First use of native Socket.IO rooms in this codebase — 1:1 calls above
@@ -508,6 +511,12 @@ export function setupSocket(server: HttpServer) {
       const room = meetingRoom(meetingId);
       if (!socket.rooms.has(room)) return;
       socket.to(room).emit('meeting:hand-raise', { socketId: socket.id, raised });
+    });
+
+    socket.on('meeting:mobile-device', ({ meetingId, mobile }) => {
+      const room = meetingRoom(meetingId);
+      if (!socket.rooms.has(room)) return;
+      socket.to(room).emit('meeting:mobile-device', { socketId: socket.id, mobile });
     });
 
     // Ephemeral, in-room only — never persisted (distinct from the real

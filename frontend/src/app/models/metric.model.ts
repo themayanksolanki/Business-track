@@ -6,7 +6,7 @@ import { MetricFrequency } from './metric-tracking.model';
 export type MetricStatus = 'active' | 'archived' | 'deleted';
 // Decides how a metric's tracked values are decorated in the Bowling View's
 // read mode — the actual unit shown (which currency/weight unit) comes from
-// the VIEWING user's own Settings > General preferences, not the metric.
+// the metric's own organization's Settings, not the metric or the viewer.
 export type MetricDataType = 'number' | 'weight' | 'currency' | 'percentage';
 
 export interface MetricParentLite {
@@ -39,6 +39,15 @@ export interface Metric {
 // Metrics-list row shape — only what the table renders (name/department/owner),
 // plus frequency since the Bowling View's per-row lens filter needs it.
 export type MetricListItem = Pick<Metric, 'id' | 'sequenceId' | 'title' | 'department' | 'owner' | 'status' | 'dataType' | 'frequency'>;
+
+// Tiles View row shape — MetricListItem plus what a tile grid needs on top:
+// `order`/`parentId` to group and persist drag-drop, `parent` for a
+// non-root group's "Under: <parent>" heading.
+export type MetricTileItem = MetricListItem & {
+  order: number;
+  parentId: number | null;
+  parent: MetricParentLite | null;
+};
 
 export interface CreateMetricPayload {
   title: string;

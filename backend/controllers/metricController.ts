@@ -93,6 +93,82 @@ export const getMetrics = async (req: Request, res: Response, next: NextFunction
   }
 };
 
+// Unpaginated, ordered-for-drag-drop feed for the Tiles View — everything
+// getMetrics' list already selects, plus `order`/`parentId`/`depth` (needed
+// to group tiles into sibling sections) and a lightweight `parent` label for
+// the "Under: <parent>" section heading on non-root groups.
+const METRIC_TILE_INCLUDE = {
+  ...METRIC_LIST_INCLUDE,
+  parent: { select: { id: true, title: true } },
+};
+
+export const getMetricTiles = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const where: Prisma.MetricWhereInput = { organizationId: req.user!.organizationId, status: 'active' };
+
+    if (req.user!.role !== 'Admin') {
+      const accessibleIds = await getAccessibleDepartmentIds(req.user!);
+      where.departmentId = { in: accessibleIds ?? [] };
+    }
+
+    const metrics = await prisma.metric.findMany({
+      where,
+      include: METRIC_TILE_INCLUDE,
+      orderBy: [{ parentId: 'asc' }, { order: 'asc' }],
+    });
+
+    res.status(200).json(metrics);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Reorders one sibling group at a time — `order` is scoped per
+// (organizationId, parentId) (see Metric.order's schema comment), and every
+// metric sharing a `parentId` shares the same `depth` by construction, so
+// validating the exact `parentId` group inherently keeps reordering
+// depth-consistent without a separate depth check.
+export const reorderMetrics = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { parentId, orderedIds } = req.body;
+    const parentIdNum = parentId === null || parentId === undefined ? null : Number(parentId);
+
+    // Department-scoped like every other metric-mutating endpoint
+    // (createMetric/updateMetric via canAccessDepartment) — without this, a
+    // non-Admin could reorder metrics in a department they can't otherwise
+    // see or edit, just by knowing/guessing its parentId.
+    const where: Prisma.MetricWhereInput = {
+      organizationId: req.user!.organizationId,
+      parentId: parentIdNum,
+      status: 'active',
+    };
+    if (req.user!.role !== 'Admin') {
+      const accessibleIds = await getAccessibleDepartmentIds(req.user!);
+      where.departmentId = { in: accessibleIds ?? [] };
+    }
+
+    const siblings = await prisma.metric.findMany({ where, select: { id: true } });
+    const siblingIds = new Set(siblings.map((m) => m.id));
+    const numericIds = (orderedIds as (number | string)[]).map(Number);
+    const uniqueIds = new Set(numericIds);
+
+    if (
+      uniqueIds.size !== numericIds.length ||
+      numericIds.length !== siblingIds.size ||
+      !numericIds.every((id) => siblingIds.has(id))
+    )
+      return next(new AppError('orderedIds must match exactly the active metrics under this parent', 400));
+
+    await prisma.$transaction(
+      numericIds.map((id, index) => prisma.metric.update({ where: { id }, data: { order: index } }))
+    );
+
+    res.status(200).json({ message: 'Order updated' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const createMetric = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { title, department, category, owner, parentId, startDate, dueDate, notes, dataType, frequency } = req.body;

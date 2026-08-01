@@ -47,6 +47,10 @@ export interface Organization {
   id?: number;
   name: string;
   emailDomain: string;
+  // Both set once at signup, never editable afterward — see
+  // registerOrganization/updateOrganization on the backend.
+  currency: Currency;
+  unit: MeasurementUnit;
   createdBy?: number;
   updatedBy?: number | null;
   createdAt?: string;
@@ -76,8 +80,6 @@ export interface User {
   sidebarTheme?: SidebarTheme;
   sidebarTextColor?: string | null;
   sidebarLogo?: SidebarLogo;
-  currency?: Currency;
-  unit?: MeasurementUnit;
   decimalPoints?: number;
   managerId?: number | null;
   teamLeadId?: number | null;

@@ -2,6 +2,12 @@ model Organization {
   id          Int      @id @default(autoincrement())
   name        String   @unique
   emailDomain String   @unique
+  // Set once at signup (registerOrganization) — deliberately never editable
+  // afterward (updateOrganization intentionally never accepts these fields).
+  // Every currency/weight-type metric within an org shares these, so there's
+  // no per-viewer/per-metric mismatch to reconcile.
+  currency    Currency        @default(USD)
+  unit        MeasurementUnit @default(KG)
   createdById Int
   updatedById Int?
   createdAt   DateTime @default(now())
@@ -25,6 +31,7 @@ model Organization {
   meetings     Meeting[]
   groups       Group[]
   sequences    OrgSequence[]
+  statusForms  StatusForm[]
 
   @@map("organizations")
 }

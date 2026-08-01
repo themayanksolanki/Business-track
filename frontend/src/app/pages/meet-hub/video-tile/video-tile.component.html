@@ -1,4 +1,4 @@
-<div class="video-tile">
+<div class="video-tile" [class.video-tile-mobile]="isMobileDevice">
   <video #video [muted]="muted" playsinline autoplay [class.hidden]="camOff" [class.mirrored]="mirror"></video>
   <div class="tile-placeholder" *ngIf="camOff">
     <ng-container *ngIf="user; else iconOnly">
@@ -17,7 +17,7 @@
     <i class="bi bi-hand-index-thumb-fill"></i>
   </span>
   <span class="tile-badge tile-badge-share" *ngIf="isScreenSharing" title="Presenting">
-    <i class="bi bi-easel2-fill"></i>
+    <app-call-icon name="screen-mirror" [size]="14"></app-call-icon>
   </span>
 
   <button class="tile-kick-btn" *ngIf="showKick" (click)="kick.emit()" title="Remove from meeting">

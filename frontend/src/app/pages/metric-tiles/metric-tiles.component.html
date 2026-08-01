@@ -1,0 +1,123 @@
+<div class="page-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div>
+    <h2 class="page-title mb-0">Metrics · Tiles View</h2>
+    <p class="page-sub">Actual vs Target at a glance — current period</p>
+  </div>
+  <button class="btn btn-primary" type="button" (click)="openCreate()">
+    <i class="bi bi-plus-lg me-1"></i>Create Metric
+  </button>
+</div>
+
+@if (error) {
+  <div class="alert alert-danger py-2">{{ error }}</div>
+}
+
+@if (loading) {
+  <div class="text-center py-5 text-muted">
+    <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+  </div>
+} @else if (groups.length === 0) {
+  <div class="empty-state text-center py-5 text-muted">
+    <i class="bi bi-speedometer2 display-5 d-block mb-3"></i>
+    <p class="mb-0">No metrics yet — create one to get started.</p>
+  </div>
+} @else {
+  @for (group of groups; track group.parentId) {
+    @if (showGroupHeadings) {
+      <h6 class="tiles-group-heading">
+        {{ group.parentId === null ? 'Top-Level Metrics' : 'Under: ' + (group.parentTitle ?? 'Unknown metric') }}
+      </h6>
+    }
+
+    <div class="tiles-grid" cdkDropList (cdkDropListDropped)="onDrop(group, $event)">
+      @for (row of group.rows; track row.item.id) {
+        <div class="metric-tile" cdkDrag>
+          <div class="metric-tile-placeholder" *cdkDragPlaceholder></div>
+
+          <div class="metric-tile-header">
+            <span class="metric-tile-drag-handle" cdkDragHandle title="Drag to reorder">
+              <i class="bi bi-grip-vertical"></i>
+            </span>
+            <span class="metric-tile-title" (click)="openEdit(row)" title="{{ row.item.title }}">{{ row.item.title }}</span>
+          </div>
+
+          <div class="metric-tile-meta">
+            <span class="metric-tile-chip">
+              <span class="dept-dot" [style.background]="row.item.department.color"></span>{{ row.item.department.name }}
+            </span>
+            <span class="metric-tile-chip">
+              @if (auth.avatarUrl(row.item.owner)) {
+                <img class="metric-tile-owner-avatar" [src]="auth.avatarUrl(row.item.owner)!" [alt]="row.item.owner.username" />
+              } @else {
+                <span class="metric-tile-owner-avatar metric-tile-owner-fallback">{{ row.item.owner.username[0].toUpperCase() }}</span>
+              }
+              {{ row.item.owner.username }}
+            </span>
+          </div>
+
+          <div class="metric-tile-chart-area">
+            <button
+              type="button"
+              class="metric-tile-flip-btn metric-tile-flip-left"
+              [title]="row.view === 'gauge' ? 'Show trend chart' : 'Show gauge'"
+              (click)="toggleView(row)">
+              <i class="bi bi-caret-left-fill"></i>
+            </button>
+            <button
+              type="button"
+              class="metric-tile-flip-btn metric-tile-flip-right"
+              [title]="row.view === 'gauge' ? 'Show trend chart' : 'Show gauge'"
+              (click)="toggleView(row)">
+              <i class="bi bi-caret-right-fill"></i>
+            </button>
+
+            @if (row.loading) {
+              <div class="metric-tile-gauge-loading"><span class="spinner-border spinner-border-sm"></span></div>
+            } @else if (row.error) {
+              <div class="metric-tile-error">{{ row.error }}</div>
+            } @else if (row.view === 'gauge') {
+              <app-gauge-chart [percent]="percentFor(row)"></app-gauge-chart>
+              <div class="metric-tile-values">
+                @if (percentFor(row) === null) {
+                  <span class="metric-tile-no-target">No target set this period</span>
+                } @else {
+                  <span>{{ formatValue(row.actual, row.item.dataType) }} of {{ formatValue(row.target, row.item.dataType) }}</span>
+                  @if (percentFor(row)! > 100) {
+                    <span class="metric-tile-exceeded"><i class="bi bi-trophy-fill me-1"></i>Target exceeded</span>
+                  }
+                }
+              </div>
+            } @else if (row.trendLoading) {
+              <div class="metric-tile-gauge-loading"><span class="spinner-border spinner-border-sm"></span></div>
+            } @else if (row.trendError) {
+              <div class="metric-tile-error">{{ row.trendError }}</div>
+            } @else {
+              <app-trend-chart
+                class="metric-tile-trend"
+                [categories]="row.trendCategories"
+                [series]="row.trendSeries"
+                emptyMessage="No tracking data yet for this metric.">
+              </app-trend-chart>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+}
+
+<app-metric-form-modal
+  [open]="formOpen"
+  [mode]="formMode"
+  [initial]="formInitial"
+  [departments]="departmentService.departments()"
+  [categories]="categoryService.categories()"
+  [users]="userService.users()"
+  [parentOptions]="parentOptions"
+  [loading]="formLoading"
+  [error]="formError"
+  [deleteLoading]="deleteLoading"
+  (closed)="closeForm()"
+  (submitted)="submitForm($event)"
+  (deleteConfirmed)="onDeleteConfirmed()">
+</app-metric-form-modal>
