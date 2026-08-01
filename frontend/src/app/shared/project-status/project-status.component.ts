@@ -11,6 +11,7 @@ interface StatusCounts {
 }
 
 interface WorkloadRow {
+  key: string;
   user: User | null;
   count: number;
   percent: number;
@@ -148,6 +149,7 @@ export class ProjectStatusComponent {
     const rows: WorkloadRow[] = Array.from(byUser.values())
       .sort((a, b) => b.count - a.count)
       .map((r, i) => ({
+        key: `user-${r.user.id}`,
         user: r.user,
         count: r.count,
         percent: total ? Math.round((r.count / total) * 100) : 0,
@@ -156,6 +158,7 @@ export class ProjectStatusComponent {
 
     if (unassignedCount > 0) {
       rows.push({
+        key: 'unassigned',
         user: null,
         count: unassignedCount,
         percent: total ? Math.round((unassignedCount / total) * 100) : 0,

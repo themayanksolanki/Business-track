@@ -80,7 +80,7 @@
           <span class="workload-col-percent">Percentage</span>
           <span class="workload-col-count">Count</span>
         </div>
-        @for (row of workload; track row.user?.id ?? 'unassigned') {
+        @for (row of workload; track row.key) {
           <div class="workload-row">
             <div class="workload-assignee">
               @if (row.user) {
