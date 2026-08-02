@@ -1,4 +1,4 @@
-<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="closed.emit()">
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="closed.emit()" (shown.bs.modal)="focusTitleInput()">
   <div class="modal-dialog modal-dialog-centered event-modal-dialog">
   @if (open) {
     <div class="modal-content event-modal-content">
@@ -64,31 +64,93 @@
 
                 <div class="event-field">
                   <label class="field-label">Department</label>
-                  <select class="form-select field-input" formControlName="departmentId">
-                    <option [ngValue]="null">No department</option>
-                    @for (dept of departmentService.departments(); track dept.id) {
-                      <option [ngValue]="dept.id">{{ dept.name }}</option>
+                  <div class="dropdown">
+                    <button type="button" class="field-select-trigger dropdown-toggle" [class.disabled]="!canManage"
+                            [attr.data-bs-toggle]="canManage ? 'dropdown' : null" aria-expanded="false">
+                      @if (selectedDepartment) {
+                        <span class="field-dot" [style.background]="selectedDepartment.color"></span>
+                        <span class="field-select-value">{{ selectedDepartment.name }}</span>
+                      } @else {
+                        <i class="bi bi-building field-select-icon"></i>
+                        <span class="field-select-value field-select-empty">No department</span>
+                      }
+                    </button>
+                    @if (canManage) {
+                      <ul class="dropdown-menu field-dropdown-menu">
+                        <li>
+                          <a class="field-dropdown-item" [class.active]="!selectedDepartment" (click)="selectDepartment(null)">
+                            <i class="bi bi-dash-circle"></i>No department
+                          </a>
+                        </li>
+                        @for (dept of departmentService.departments(); track dept.id) {
+                          <li>
+                            <a class="field-dropdown-item" [class.active]="selectedDepartment?.id === dept.id" (click)="selectDepartment(dept.id)">
+                              <span class="field-dot" [style.background]="dept.color"></span>{{ dept.name }}
+                            </a>
+                          </li>
+                        }
+                      </ul>
                     }
-                  </select>
+                  </div>
                 </div>
 
                 <div class="event-field">
                   <label class="field-label">Category</label>
-                  <select class="form-select field-input" formControlName="categoryId">
-                    <option [ngValue]="null">No category</option>
-                    @for (cat of categoryService.categories(); track cat.id) {
-                      <option [ngValue]="cat.id">{{ cat.name }}</option>
+                  <div class="dropdown">
+                    <button type="button" class="field-select-trigger dropdown-toggle" [class.disabled]="!canManage"
+                            [attr.data-bs-toggle]="canManage ? 'dropdown' : null" aria-expanded="false">
+                      @if (selectedCategory) {
+                        <span class="field-dot" [style.background]="selectedCategory.color"></span>
+                        <span class="field-select-value">{{ selectedCategory.name }}</span>
+                      } @else {
+                        <i class="bi bi-dash-circle field-select-icon"></i>
+                        <span class="field-select-value field-select-empty">No category</span>
+                      }
+                    </button>
+                    @if (canManage) {
+                      <ul class="dropdown-menu field-dropdown-menu">
+                        <li>
+                          <a class="field-dropdown-item" [class.active]="!selectedCategory" (click)="selectCategory(null)">
+                            <i class="bi bi-dash-circle"></i>No category
+                          </a>
+                        </li>
+                        @for (cat of categoryService.categories(); track cat.id) {
+                          <li>
+                            <a class="field-dropdown-item" [class.active]="selectedCategory?.id === cat.id" (click)="selectCategory(cat.id)">
+                              <span class="field-dot" [style.background]="cat.color"></span>{{ cat.name }}
+                            </a>
+                          </li>
+                        }
+                      </ul>
                     }
-                  </select>
+                  </div>
                 </div>
 
                 <div class="event-field">
                   <label class="field-label">Calendar</label>
-                  <select class="form-select field-input" formControlName="calendarId">
-                    @for (cal of calendars; track cal.id) {
-                      <option [ngValue]="cal.id">{{ cal.name }}</option>
+                  <div class="dropdown">
+                    <button type="button" class="field-select-trigger dropdown-toggle" [class.disabled]="!canManage"
+                            [attr.data-bs-toggle]="canManage ? 'dropdown' : null" aria-expanded="false">
+                      @if (selectedCalendar) {
+                        <span class="field-dot" [style.background]="selectedCalendar.color"></span>
+                        <span class="field-select-value">{{ selectedCalendar.name }}</span>
+                      } @else {
+                        <i class="bi bi-calendar3 field-select-icon"></i>
+                        <span class="field-select-value field-select-empty">Select calendar</span>
+                      }
+                    </button>
+                    @if (canManage) {
+                      <ul class="dropdown-menu field-dropdown-menu">
+                        @for (cal of calendars; track cal.id) {
+                          <li>
+                            <a class="field-dropdown-item" [class.active]="selectedCalendar?.id === cal.id" (click)="selectCalendar(cal.id)">
+                              <span class="field-dot" [style.background]="cal.color"></span>{{ cal.name }}
+                            </a>
+                          </li>
+                        }
+                      </ul>
                     }
-                  </select>
+                  </div>
                 </div>
 
                 <div class="event-field">
@@ -180,11 +242,24 @@
                     <div class="event-field-row">
                       <div class="flex-grow-1">
                         <label class="field-label">Frequency</label>
-                        <select class="form-select field-input" formControlName="recurrenceFrequency">
-                          @for (opt of frequencyOptions; track opt.value) {
-                            <option [ngValue]="opt.value">{{ opt.label }}</option>
+                        <div class="dropdown">
+                          <button type="button" class="field-select-trigger dropdown-toggle" [class.disabled]="!canManage"
+                                  [attr.data-bs-toggle]="canManage ? 'dropdown' : null" aria-expanded="false">
+                            <i class="bi {{ selectedFrequencyOption.icon }} field-select-icon"></i>
+                            <span class="field-select-value">{{ selectedFrequencyOption.label }}</span>
+                          </button>
+                          @if (canManage) {
+                            <ul class="dropdown-menu field-dropdown-menu">
+                              @for (opt of frequencyOptions; track opt.value) {
+                                <li>
+                                  <a class="field-dropdown-item" [class.active]="selectedFrequencyOption.value === opt.value" (click)="selectFrequency(opt.value)">
+                                    <i class="bi {{ opt.icon }}"></i>{{ opt.label }}
+                                  </a>
+                                </li>
+                              }
+                            </ul>
                           }
-                        </select>
+                        </div>
                       </div>
                       <div class="flex-grow-1">
                         <label class="field-label">Every</label>
@@ -224,11 +299,24 @@
                   <label class="field-label">Reminders</label>
                   @for (r of remindersArray.controls; track $index; let i = $index) {
                     <div class="d-flex gap-2 align-items-center mb-2" [formGroupName]="i">
-                      <select class="form-select field-input reminder-method-select" formControlName="method">
-                        @for (opt of reminderMethodOptions; track opt.value) {
-                          <option [ngValue]="opt.value">{{ opt.label }}</option>
+                      <div class="dropdown reminder-method-select">
+                        <button type="button" class="field-select-trigger dropdown-toggle" [class.disabled]="!canManage"
+                                [attr.data-bs-toggle]="canManage ? 'dropdown' : null" aria-expanded="false">
+                          <i class="bi {{ reminderMethodOption(r).icon }} field-select-icon"></i>
+                          <span class="field-select-value">{{ reminderMethodOption(r).label }}</span>
+                        </button>
+                        @if (canManage) {
+                          <ul class="dropdown-menu field-dropdown-menu">
+                            @for (opt of reminderMethodOptions; track opt.value) {
+                              <li>
+                                <a class="field-dropdown-item" [class.active]="reminderMethodOption(r).value === opt.value" (click)="selectReminderMethod(r, opt.value)">
+                                  <i class="bi {{ opt.icon }}"></i>{{ opt.label }}
+                                </a>
+                              </li>
+                            }
+                          </ul>
                         }
-                      </select>
+                      </div>
                       <div class="input-group reminder-minutes-group">
                         <input type="number" min="0" class="form-control field-input" formControlName="minutesBefore" />
                         <span class="input-group-text">min before</span>
@@ -242,11 +330,24 @@
                 <div class="event-field-row">
                   <div class="flex-grow-1">
                     <label class="field-label">Visibility</label>
-                    <select class="form-select field-input" formControlName="visibility">
-                      @for (opt of visibilityOptions; track opt.value) {
-                        <option [ngValue]="opt.value">{{ opt.label }}</option>
+                    <div class="dropdown">
+                      <button type="button" class="field-select-trigger dropdown-toggle" [class.disabled]="!canManage"
+                              [attr.data-bs-toggle]="canManage ? 'dropdown' : null" aria-expanded="false">
+                        <i class="bi {{ selectedVisibilityOption.icon }} field-select-icon"></i>
+                        <span class="field-select-value">{{ selectedVisibilityOption.label }}</span>
+                      </button>
+                      @if (canManage) {
+                        <ul class="dropdown-menu field-dropdown-menu">
+                          @for (opt of visibilityOptions; track opt.value) {
+                            <li>
+                              <a class="field-dropdown-item" [class.active]="selectedVisibilityOption.value === opt.value" (click)="selectVisibility(opt.value)">
+                                <i class="bi {{ opt.icon }}"></i>{{ opt.label }}
+                              </a>
+                            </li>
+                          }
+                        </ul>
                       }
-                    </select>
+                    </div>
                   </div>
                   <div class="flex-grow-1">
                     <label class="field-label">Busy / Free</label>

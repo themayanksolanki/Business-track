@@ -47,28 +47,47 @@ const DEFAULT_DECIMAL_POINTS = 2;
 interface DataTypeOption {
   value: MetricDataType;
   label: string;
+  icon: string;
 }
 
 const DATA_TYPE_OPTIONS: DataTypeOption[] = [
-  { value: 'number', label: 'Default' },
-  { value: 'weight', label: 'Weight' },
-  { value: 'currency', label: 'Currency' },
-  { value: 'percentage', label: 'Percentage' },
+  { value: 'number', label: 'Number', icon: 'bi-hash' },
+  { value: 'weight', label: 'Weight', icon: 'bi-box-seam' },
+  { value: 'currency', label: 'Currency', icon: 'bi-currency-dollar' },
+  { value: 'percentage', label: 'Percentage', icon: 'bi-percent' },
 ];
 
 interface FrequencyOption {
   value: MetricFrequency;
   label: string;
+  icon: string;
 }
 
 // Every frequency with real tracking support in the Bowling View (see
 // backend/utils/metricPeriods.ts's FREQUENCY_CONFIG) belongs on this list.
 const FREQUENCY_OPTIONS: FrequencyOption[] = [
-  { value: 'daily', label: 'Daily' },
-  { value: 'weekly', label: 'Weekly' },
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'quarterly', label: 'Quarterly' },
-  { value: 'yearly', label: 'Yearly' },
+  { value: 'daily', label: 'Daily', icon: 'bi-calendar-day' },
+  { value: 'weekly', label: 'Weekly', icon: 'bi-calendar-week' },
+  { value: 'monthly', label: 'Monthly', icon: 'bi-calendar-month' },
+  { value: 'quarterly', label: 'Quarterly', icon: 'bi-calendar3' },
+  { value: 'yearly', label: 'Yearly', icon: 'bi-calendar-range' },
+];
+
+interface StatusOption {
+  value: MetricStatus;
+  label: string;
+  icon: string;
+  color: string;
+}
+
+// 'deleted' is never user-selectable from this dropdown (deletion happens
+// via the dedicated Delete button/confirm flow) — it's only ever rendered
+// as a disabled entry so an already-deleted metric's status still displays
+// correctly here.
+const STATUS_OPTIONS: StatusOption[] = [
+  { value: 'active', label: 'Active', icon: 'bi-check-circle-fill', color: '#22c55e' },
+  { value: 'archived', label: 'Archived', icon: 'bi-archive-fill', color: '#f59e0b' },
+  { value: 'deleted', label: 'Deleted', icon: 'bi-trash3-fill', color: '#ef4444' },
 ];
 
 @Component({
@@ -86,6 +105,7 @@ export class MetricFormModalComponent implements OnChanges {
 
   readonly dataTypeOptions = DATA_TYPE_OPTIONS;
   readonly frequencyOptions = FREQUENCY_OPTIONS;
+  readonly statusOptions = STATUS_OPTIONS;
   readonly tabs: TabDef[] = [
     { key: 'statistics', label: 'Statistics', icon: 'bi-bar-chart' },
     { key: 'details', label: 'Details', icon: 'bi-info-circle' },
@@ -174,6 +194,70 @@ export class MetricFormModalComponent implements OnChanges {
     return this.parentOptions.filter((m) => m.id !== this.initial!.id);
   }
 
+  // Lookups backing the Details tab's dropdown triggers — each dropdown
+  // stores just the selected id (department/category/owner/parentId), same
+  // as the <select>s it replaced, so the trigger button re-derives the
+  // full object to render.
+  get selectedDepartment(): Department | null {
+    return this.departments.find((d) => d.id === this.department) ?? null;
+  }
+
+  get selectedCategoryObj(): Category | null {
+    return this.category !== null ? (this.categories.find((c) => c.id === this.category) ?? null) : null;
+  }
+
+  get selectedOwnerUser(): User | null {
+    return this.users.find((u) => u.id === this.owner) ?? null;
+  }
+
+  get selectedParent(): MetricParentLite | null {
+    return this.parentId !== null ? (this.availableParents.find((m) => m.id === this.parentId) ?? null) : null;
+  }
+
+  get selectedDataTypeOption(): DataTypeOption {
+    return DATA_TYPE_OPTIONS.find((o) => o.value === this.dataType) ?? DATA_TYPE_OPTIONS[0];
+  }
+
+  get selectedFrequencyOption(): FrequencyOption {
+    return FREQUENCY_OPTIONS.find((o) => o.value === this.frequency) ?? FREQUENCY_OPTIONS[0];
+  }
+
+  get selectedStatusOption(): StatusOption {
+    return STATUS_OPTIONS.find((o) => o.value === this.status) ?? STATUS_OPTIONS[0];
+  }
+
+  ownerAvatarUrl(user: User): string | null {
+    return this.auth.avatarUrl(user);
+  }
+
+  selectDepartment(id: number) {
+    this.department = id;
+  }
+
+  selectCategory(id: number | null) {
+    this.category = id;
+  }
+
+  selectOwner(id: number) {
+    this.owner = id;
+  }
+
+  selectParent(id: number | null) {
+    this.parentId = id;
+  }
+
+  selectDataType(value: MetricDataType) {
+    this.dataType = value;
+  }
+
+  selectFrequency(value: MetricFrequency) {
+    this.frequency = value;
+  }
+
+  selectStatus(value: MetricStatus) {
+    this.status = value;
+  }
+
   ngOnChanges(changes: SimpleChanges) {
     if (changes['open'] && this.open) {
       this.title = this.initial?.title ?? '';
@@ -199,11 +283,17 @@ export class MetricFormModalComponent implements OnChanges {
       this.gaugePercent = null;
       this.gaugeActual = null;
       this.gaugeTarget = null;
-      // Deferred a tick — the header's title input hasn't rendered yet on
-      // this same change-detection pass (the modal's @if (open) block, and
-      // the underlying Bootstrap fade-in, haven't necessarily settled).
-      setTimeout(() => this.titleInput?.nativeElement.focus());
     }
+  }
+
+  // Bound to the modal element's `shown.bs.modal` event rather than run
+  // from ngOnChanges: Bootstrap's own Modal (see modal.service.ts's
+  // `focus: true`) grabs focus for itself once its fade-in transition
+  // finishes, which happens after ngOnChanges — an early focus() call there
+  // just gets stolen back. `shown.bs.modal` fires right after Bootstrap's
+  // own focus grab, so calling focus() here reliably wins.
+  focusTitleInput() {
+    this.titleInput?.nativeElement.focus();
   }
 
   setActiveTab(tab: string) {

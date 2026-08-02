@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { forkJoin, Subscription, filter } from 'rxjs';
 import { FormsModule } from '@angular/forms';
+import { NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
 import { UserService } from '../../core/services/user.service';
 import { OrganizationService } from '../../core/services/organization.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -16,7 +17,7 @@ import { NotificationService } from '../../shared/notification.service';
 @Component({
   selector: 'app-user-list',
   standalone: true,
-  imports: [FormsModule, ModalDirective, ConfirmDialogComponent],
+  imports: [FormsModule, NgbDropdownModule, ModalDirective, ConfirmDialogComponent],
   templateUrl: './user-list.component.html',
   styleUrls: ['./user-list.component.css'],
 })
@@ -75,6 +76,19 @@ export class UserListComponent implements OnInit, OnDestroy {
   reassignToId: number | null = null;
   reassignLoading = false;
   reassignError = '';
+
+  // ── Bulk actions (active users only) ──
+  selectedIds = new Set<number>();
+
+  bulkDeactivateConfirmOpen = false;
+  bulkActionLoading = false;
+
+  bulkDeleteChecking = false;
+  bulkDeleteOpen = false;
+  bulkReassignWork: ReassignableWork | null = null;
+  bulkReassignToId: number | null = null;
+  bulkReassignLoading = false;
+  bulkReassignError = '';
 
   get departments(): Department[] {
     return this.departmentService.departments();
@@ -163,6 +177,7 @@ export class UserListComponent implements OnInit, OnDestroy {
         this.currentPage = res.page;
         this.totalItems = res.total;
         this.totalPages = res.totalPages;
+        this.selectedIds.clear();
       },
       error: (err) => (this.error = err.error?.message || 'Failed to load users'),
     });
@@ -427,22 +442,30 @@ export class UserListComponent implements OnInit, OnDestroy {
     return this.activeUsers.filter((u) => u.id !== this.reassignTarget?.id);
   }
 
-  openDeactivate(user: User) {
+  // "Deactivate" — quick, no reassignment prompt. Leaves any currently
+  // assigned work exactly where it is (still pointing at the now-disabled
+  // account) — for when the admin already knows there's nothing to hand off,
+  // or wants to disable login immediately without dealing with reassignment
+  // right now. Contrast with openDelete below.
+  openQuickDeactivate(user: User) {
+    this.deactivateConfirmTarget = user;
+  }
+
+  // "Delete" — always asks who should take over the user's work, even if
+  // they currently have none (the reassign-work summary just renders empty
+  // in that case — see the "No open work" fallback in the template). This
+  // is the explicit, deliberate deletion path; "Deactivate" above is the
+  // quick one that skips this prompt entirely.
+  openDelete(user: User) {
     this.reassignChecking = true;
     this.error = '';
     this.userService.getReassignableWork(user.id).subscribe({
       next: (work) => {
         this.reassignChecking = false;
-        const hasWork =
-          work.assignedTasks + work.assignedProjectItems + work.ownedProjects + work.projectMemberships > 0;
-        if (hasWork) {
-          this.reassignTarget = user;
-          this.reassignWork = work;
-          this.reassignToId = null;
-          this.reassignError = '';
-        } else {
-          this.deactivateConfirmTarget = user;
-        }
+        this.reassignTarget = user;
+        this.reassignWork = work;
+        this.reassignToId = null;
+        this.reassignError = '';
       },
       error: (err) => {
         this.reassignChecking = false;
@@ -473,6 +496,11 @@ export class UserListComponent implements OnInit, OnDestroy {
         this.notifications.error(err.error?.message || 'Failed to deactivate user');
       },
     });
+  }
+
+  get hasReassignableWork(): boolean {
+    const w = this.reassignWork;
+    return !!w && w.assignedTasks + w.assignedProjectItems + w.ownedProjects + w.projectMemberships > 0;
   }
 
   cancelReassign() {
@@ -525,5 +553,175 @@ export class UserListComponent implements OnInit, OnDestroy {
       User: 'bi-person-fill',
     };
     return icons[role] ?? 'bi-person-fill';
+  }
+
+  selectInviteRole(role: Role) {
+    this.inviteRole = role;
+  }
+
+  selectEditRole(role: Role) {
+    this.editRole = role;
+  }
+
+  get reassignToUser(): User | null {
+    return this.reassignHandlerOptions.find((u) => u.id === this.reassignToId) ?? null;
+  }
+
+  selectReassignTo(id: number) {
+    this.reassignToId = id;
+  }
+
+  // ── Bulk actions (active users only) ──
+  get selectableActiveUsers(): User[] {
+    return this.activeUsers.filter((u) => this.canManageUser(u));
+  }
+
+  get allSelected(): boolean {
+    const selectable = this.selectableActiveUsers;
+    return selectable.length > 0 && selectable.every((u) => this.selectedIds.has(u.id));
+  }
+
+  isSelected(id: number): boolean {
+    return this.selectedIds.has(id);
+  }
+
+  toggleSelect(id: number, checked: boolean) {
+    if (checked) this.selectedIds.add(id);
+    else this.selectedIds.delete(id);
+  }
+
+  toggleSelectAll(checked: boolean) {
+    for (const u of this.selectableActiveUsers) {
+      if (checked) this.selectedIds.add(u.id);
+      else this.selectedIds.delete(u.id);
+    }
+  }
+
+  clearSelection() {
+    this.selectedIds.clear();
+  }
+
+  openBulkDeactivate() {
+    if (this.selectedIds.size === 0) return;
+    this.bulkDeactivateConfirmOpen = true;
+  }
+
+  cancelBulkDeactivate() {
+    this.bulkDeactivateConfirmOpen = false;
+  }
+
+  // Bulk "Deactivate" mirrors the per-row quick deactivate — no reassignment
+  // prompt, work already assigned to these users is left as-is.
+  confirmBulkDeactivate() {
+    const ids = Array.from(this.selectedIds);
+    if (ids.length === 0) return;
+    this.bulkActionLoading = true;
+
+    forkJoin(ids.map((id) => this.userService.deactivateUser(id))).subscribe({
+      next: (results) => {
+        this.bulkActionLoading = false;
+        this.bulkDeactivateConfirmOpen = false;
+        ids.forEach((id) => this.removeActiveUser(id));
+        this.selectedIds.clear();
+        this.userService.refreshUsers().subscribe();
+        this.notifications.success(`${results.length} user${results.length !== 1 ? 's' : ''} deactivated`);
+      },
+      error: (err) => {
+        this.bulkActionLoading = false;
+        this.notifications.error(err.error?.message || 'Failed to deactivate selected users');
+      },
+    });
+  }
+
+  get bulkReassignHandlerOptions(): User[] {
+    return this.activeUsers.filter((u) => !this.selectedIds.has(u.id));
+  }
+
+  // Bulk "Delete" mirrors the per-row reassign-and-delete flow: check
+  // combined open work across every selected user, then require a single
+  // handler to take it all over before deleting.
+  openBulkDelete() {
+    const ids = Array.from(this.selectedIds);
+    if (ids.length === 0) return;
+    this.bulkDeleteChecking = true;
+    this.error = '';
+
+    forkJoin(ids.map((id) => this.userService.getReassignableWork(id))).subscribe({
+      next: (works) => {
+        this.bulkDeleteChecking = false;
+        this.bulkReassignWork = works.reduce(
+          (acc, w) => ({
+            assignedTasks: acc.assignedTasks + w.assignedTasks,
+            assignedProjectItems: acc.assignedProjectItems + w.assignedProjectItems,
+            ownedProjects: acc.ownedProjects + w.ownedProjects,
+            projectMemberships: acc.projectMemberships + w.projectMemberships,
+          }),
+          { assignedTasks: 0, assignedProjectItems: 0, ownedProjects: 0, projectMemberships: 0 },
+        );
+        this.bulkReassignToId = null;
+        this.bulkReassignError = '';
+        this.bulkDeleteOpen = true;
+      },
+      error: (err) => {
+        this.bulkDeleteChecking = false;
+        this.notifications.error(err.error?.message || 'Failed to check assigned work');
+      },
+    });
+  }
+
+  cancelBulkDelete() {
+    this.bulkDeleteOpen = false;
+    this.bulkReassignWork = null;
+  }
+
+  get bulkHasReassignableWork(): boolean {
+    const w = this.bulkReassignWork;
+    return !!w && w.assignedTasks + w.assignedProjectItems + w.ownedProjects + w.projectMemberships > 0;
+  }
+
+  get bulkReassignToUser(): User | null {
+    return this.bulkReassignHandlerOptions.find((u) => u.id === this.bulkReassignToId) ?? null;
+  }
+
+  selectBulkReassignTo(id: number) {
+    this.bulkReassignToId = id;
+  }
+
+  confirmBulkReassignAndDelete() {
+    if (!this.bulkReassignToId) return;
+    const ids = Array.from(this.selectedIds);
+    const targetId = this.bulkReassignToId;
+    this.bulkReassignLoading = true;
+    this.bulkReassignError = '';
+
+    forkJoin(ids.map((id) => this.userService.deactivateUser(id, targetId))).subscribe({
+      next: (results) => {
+        this.bulkReassignLoading = false;
+        this.bulkDeleteOpen = false;
+        this.bulkReassignWork = null;
+        this.selectedIds.clear();
+
+        const queuedCount = results.filter((r) => r.queued).length;
+        const doneCount = results.length - queuedCount;
+        if (doneCount > 0) {
+          ids.forEach((id, i) => {
+            if (!results[i].queued) this.removeActiveUser(id);
+          });
+          this.userService.refreshUsers().subscribe();
+        }
+        if (queuedCount > 0) {
+          this.notifications.success(
+            `${queuedCount} deletion${queuedCount !== 1 ? 's' : ''} queued — you'll be notified when done`,
+          );
+        }
+        if (doneCount > 0) {
+          this.notifications.success(`${doneCount} user${doneCount !== 1 ? 's' : ''} deleted`);
+        }
+      },
+      error: (err) => {
+        this.bulkReassignLoading = false;
+        this.bulkReassignError = err.error?.message || 'Failed to delete selected users';
+      },
+    });
   }
 }

@@ -18,10 +18,12 @@ const METRIC_INCLUDE = {
 };
 
 // Lightweight include for the list view — only what the Metrics page table
-// actually renders (name, department, owner), mirroring how projectController
-// keeps a reduced ACCESS_INCLUDE separate from the full PROJECT_INCLUDE.
+// actually renders (name, department, category, owner), mirroring how
+// projectController keeps a reduced ACCESS_INCLUDE separate from the full
+// PROJECT_INCLUDE.
 const METRIC_LIST_INCLUDE = {
   department: { select: { id: true, name: true, color: true } },
+  category: { select: { id: true, name: true, color: true } },
   owner: { select: USER_SELECT },
 };
 

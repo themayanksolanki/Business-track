@@ -65,7 +65,7 @@
           </button>
         </div>
         <div class="bowling-day-cells">
-          <span class="mx-1">{{ lens === 'daily' ? selectedMonthStr : selectedYear }}</span>
+          <span class="mx-1 px-2">{{ lens === 'daily' ? selectedMonthStr : selectedYear }}</span>
           @for (day of visibleDays; track day) {
             <span class="bowling-day-cell">{{ columnLabel(day) }}</span>
           }

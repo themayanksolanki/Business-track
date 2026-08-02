@@ -87,6 +87,14 @@
 .picker-clear:hover { background: var(--bg-muted); color: #dc2626; }
 .picker-clear svg { width: 12px; height: 12px; }
 
+/* Purely a JS handle for ngAfterViewChecked to move into <body> — see the
+   .ts. `display: contents` drops its own box entirely so it has zero layout
+   effect and doesn't become a containing block for its fixed-position
+   children itself. */
+.picker-host {
+  display: contents;
+}
+
 .picker-backdrop {
   position: fixed;
   inset: 0;

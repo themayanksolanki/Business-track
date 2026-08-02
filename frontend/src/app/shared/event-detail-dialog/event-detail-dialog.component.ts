@@ -46,6 +46,8 @@ import {
   GuestInput,
 } from '../../models/event.model';
 import { Calendar } from '../../models/calendar.model';
+import { Department } from '../../models/department.model';
+import { Category } from '../../models/category.model';
 
 export type EventDialogMode = 'create' | 'edit';
 type RecurrenceEndType = 'never' | 'on' | 'after';
@@ -57,22 +59,22 @@ const RECURRENCE_UNIT_LABEL: Record<RecurrenceFrequency, string> = {
   yearly: 'year',
 };
 
-const FREQUENCY_OPTIONS: { value: RecurrenceFrequency; label: string }[] = [
-  { value: 'daily', label: 'Daily' },
-  { value: 'weekly', label: 'Weekly' },
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'yearly', label: 'Yearly' },
+const FREQUENCY_OPTIONS: { value: RecurrenceFrequency; label: string; icon: string }[] = [
+  { value: 'daily', label: 'Daily', icon: 'bi-calendar-day' },
+  { value: 'weekly', label: 'Weekly', icon: 'bi-calendar-week' },
+  { value: 'monthly', label: 'Monthly', icon: 'bi-calendar-month' },
+  { value: 'yearly', label: 'Yearly', icon: 'bi-calendar-range' },
 ];
 
-const VISIBILITY_OPTIONS: { value: EventVisibility; label: string }[] = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'private', label: 'Private' },
-  { value: 'public', label: 'Public' },
+const VISIBILITY_OPTIONS: { value: EventVisibility; label: string; icon: string }[] = [
+  { value: 'standard', label: 'Standard', icon: 'bi-eye' },
+  { value: 'private', label: 'Private', icon: 'bi-lock-fill' },
+  { value: 'public', label: 'Public', icon: 'bi-globe2' },
 ];
 
-const REMINDER_METHOD_OPTIONS: { value: ReminderMethod; label: string }[] = [
-  { value: 'notification', label: 'Notification' },
-  { value: 'email', label: 'Email' },
+const REMINDER_METHOD_OPTIONS: { value: ReminderMethod; label: string; icon: string }[] = [
+  { value: 'notification', label: 'Notification', icon: 'bi-bell-fill' },
+  { value: 'email', label: 'Email', icon: 'bi-envelope-fill' },
 ];
 
 // Single dialog covering both Create and Edit — no separate read-only
@@ -284,6 +286,69 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
     return !!user && (user.role === 'Admin' || user.id === this.loadedEvent.owner.id);
   }
 
+  // Lookups backing the Details tab's dropdown triggers — each dropdown's
+  // control still just stores the selected id/value, same as the <select>
+  // it replaced; the trigger button re-derives the full object to render.
+  get selectedDepartment(): Department | null {
+    const id = this.form.get('departmentId')?.value ?? null;
+    return id !== null ? (this.departmentService.departments().find((d) => d.id === id) ?? null) : null;
+  }
+
+  get selectedCategory(): Category | null {
+    const id = this.form.get('categoryId')?.value ?? null;
+    return id !== null ? (this.categoryService.categories().find((c) => c.id === id) ?? null) : null;
+  }
+
+  get selectedCalendar(): Calendar | null {
+    const id = this.form.get('calendarId')?.value ?? null;
+    return id !== null ? (this.calendars.find((c) => c.id === id) ?? null) : null;
+  }
+
+  get selectedFrequencyOption() {
+    const value = this.form.get('recurrenceFrequency')?.value;
+    return FREQUENCY_OPTIONS.find((o) => o.value === value) ?? FREQUENCY_OPTIONS[0];
+  }
+
+  get selectedVisibilityOption() {
+    const value = this.form.get('visibility')?.value;
+    return VISIBILITY_OPTIONS.find((o) => o.value === value) ?? VISIBILITY_OPTIONS[0];
+  }
+
+  reminderMethodOption(group: FormGroup) {
+    const value = group.get('method')?.value;
+    return REMINDER_METHOD_OPTIONS.find((o) => o.value === value) ?? REMINDER_METHOD_OPTIONS[0];
+  }
+
+  selectDepartment(id: number | null) {
+    if (!this.canManage) return;
+    this.form.patchValue({ departmentId: id });
+  }
+
+  selectCategory(id: number | null) {
+    if (!this.canManage) return;
+    this.form.patchValue({ categoryId: id });
+  }
+
+  selectCalendar(id: number) {
+    if (!this.canManage) return;
+    this.form.patchValue({ calendarId: id });
+  }
+
+  selectFrequency(value: RecurrenceFrequency) {
+    if (!this.canManage) return;
+    this.form.patchValue({ recurrenceFrequency: value });
+  }
+
+  selectVisibility(value: EventVisibility) {
+    if (!this.canManage) return;
+    this.form.patchValue({ visibility: value });
+  }
+
+  selectReminderMethod(group: FormGroup, value: ReminderMethod) {
+    if (!this.canManage) return;
+    group.patchValue({ method: value });
+  }
+
   // A viewer without manage rights sees the description's saved HTML
   // rendered directly rather than inside the CKEditor editable region —
   // CKEditor's editing view intercepts clicks on links (so the cursor can be
@@ -371,14 +436,6 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
         },
       });
 
-      // Deferred a tick so the title <input> exists in the DOM — the modal's
-      // @if (open) block (and the underlying Bootstrap fade-in) hasn't
-      // necessarily rendered/settled yet on this same change-detection pass.
-      // The title input sits in the header, outside the loading/tab-gated
-      // body, so it's already there for both create and edit (even edit's
-      // async load hasn't resolved yet).
-      setTimeout(() => this.titleInput?.nativeElement.focus());
-
       if (this.mode === 'create') {
         this.internalMode = 'create';
         this.loadedEvent = null;
@@ -398,6 +455,16 @@ export class EventDetailDialogComponent implements OnChanges, OnDestroy {
       this.scopeChoiceKind = null;
       this.pendingPayload = null;
     }
+  }
+
+  // Bound to the modal element's `shown.bs.modal` event rather than run
+  // from ngOnChanges: Bootstrap's own Modal (see modal.service.ts's
+  // `focus: true`) grabs focus for itself once its fade-in transition
+  // finishes, which happens after ngOnChanges — an early focus() call there
+  // just gets stolen back. `shown.bs.modal` fires right after Bootstrap's
+  // own focus grab, so calling focus() here reliably wins.
+  focusTitleInput() {
+    this.titleInput?.nativeElement.focus();
   }
 
   private load(id: number) {

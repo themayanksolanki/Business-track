@@ -109,6 +109,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     { key: 'status', label: 'Status', icon: 'bi-graph-up' },
     { key: 'teams', label: 'Teams', icon: 'bi-people' },
     { key: 'meetings', label: 'Meetings', icon: 'bi-camera-video' },
+    { key: 'status-report', label: 'Status Report', icon: 'bi-graph-up' },
   ];
   activeTab = 'tasks';
 

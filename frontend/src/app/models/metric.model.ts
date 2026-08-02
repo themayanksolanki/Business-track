@@ -36,9 +36,9 @@ export interface Metric {
   updatedAt: string;
 }
 
-// Metrics-list row shape — only what the table renders (name/department/owner),
+// Metrics-list row shape — only what the table renders (name/department/category/owner),
 // plus frequency since the Bowling View's per-row lens filter needs it.
-export type MetricListItem = Pick<Metric, 'id' | 'sequenceId' | 'title' | 'department' | 'owner' | 'status' | 'dataType' | 'frequency'>;
+export type MetricListItem = Pick<Metric, 'id' | 'sequenceId' | 'title' | 'department' | 'category' | 'owner' | 'status' | 'dataType' | 'frequency'>;
 
 // Tiles View row shape — MetricListItem plus what a tile grid needs on top:
 // `order`/`parentId` to group and persist drag-drop, `parent` for a

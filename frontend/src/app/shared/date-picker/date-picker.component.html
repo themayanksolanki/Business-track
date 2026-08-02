@@ -24,32 +24,36 @@
   </div>
 
   @if (open) {
-    <div class="picker-backdrop" (click)="close()"></div>
-    <div class="picker-panel"
-         [style.top.px]="panelTop" [style.bottom.px]="panelBottom" [style.left.px]="panelLeft" [style.right.px]="panelRight"
-         (click)="$event.stopPropagation()">
-      <ngb-datepicker
-        [(ngModel)]="ngbModel"
-        (dateSelect)="onDateSelect($event)"
-        navigation="select"
-        [minDate]="$any(minDate)"
-        [startDate]="startDate"
-        [firstDayOfWeek]="7">
-      </ngb-datepicker>
+    <div #panelHost class="picker-host">
+      <div class="picker-backdrop" (click)="close()"></div>
+      <div class="picker-panel"
+           [style.top.px]="panelTop" [style.bottom.px]="panelBottom" [style.left.px]="panelLeft" [style.right.px]="panelRight"
+           (click)="$event.stopPropagation()">
+        <ngb-datepicker
+          [(ngModel)]="ngbModel"
+          (dateSelect)="onDateSelect($event)"
+          navigation="select"
+          [minDate]="$any(minDate)"
+          [startDate]="startDate"
+          [firstDayOfWeek]="7">
+        </ngb-datepicker>
 
-      @if (error) {
-        <div class="picker-panel-error">{{ error }}</div>
-      }
+        @if (error) {
+          <div class="picker-panel-error">{{ error }}</div>
+        }
 
-      <div class="picker-panel-footer">
-        <button type="button" class="picker-footer-btn" (click)="selectToday()">Today</button>
-        <button type="button" class="picker-footer-btn picker-footer-btn-muted" (click)="clear()">Clear</button>
+        <div class="picker-panel-footer">
+          <button type="button" class="picker-footer-btn" (click)="selectToday()">Today</button>
+          <button type="button" class="picker-footer-btn picker-footer-btn-muted" (click)="clear()">Clear</button>
+        </div>
       </div>
     </div>
   } @else if (error) {
-    <div class="picker-error-banner"
-         [style.top.px]="panelTop" [style.bottom.px]="panelBottom" [style.left.px]="panelLeft" [style.right.px]="panelRight">
-      {{ error }}
+    <div #errorHost class="picker-host">
+      <div class="picker-error-banner"
+           [style.top.px]="panelTop" [style.bottom.px]="panelBottom" [style.left.px]="panelLeft" [style.right.px]="panelRight">
+        {{ error }}
+      </div>
     </div>
   }
 </div>

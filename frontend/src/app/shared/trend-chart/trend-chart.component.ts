@@ -14,7 +14,8 @@ echarts.use([LineChart, GridComponent, TooltipComponent, LegendComponent, Canvas
 export interface TrendChartSeries {
   name: string;
   color: string;
-  // `null` entries render as a gap rather than joining across missing data.
+  // `null` entries are skipped — the line joins the nearest surrounding
+  // non-null points instead of breaking.
   data: (number | null)[];
 }
 
@@ -112,7 +113,7 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
           type: 'line' as const,
           data: s.data,
           color: s.color,
-          connectNulls: false,
+          connectNulls: true,
           symbol: 'circle' as const,
           symbolSize: 6,
         })),

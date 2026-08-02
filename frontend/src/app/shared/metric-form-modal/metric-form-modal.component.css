@@ -99,6 +99,98 @@
   max-width: 220px;
 }
 
+/* ── Bootstrap-dropdown replacement for the Details tab's <select>s ── */
+.field-select-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.field-select-trigger:hover,
+.field-select-trigger.show {
+  border-color: #94a3b8;
+  background: var(--bg-card);
+}
+
+.field-select-trigger::after { margin-left: auto; color: var(--text-muted); flex-shrink: 0; }
+
+.field-select-icon { width: 18px; text-align: center; flex-shrink: 0; color: var(--text-muted); font-size: 0.9rem; }
+
+.field-select-value {
+  flex: 1;
+  font-size: 0.875rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.field-select-value.field-select-empty { color: var(--text-dim); font-weight: 400; }
+
+.field-dropdown-menu {
+  width: 100%;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: var(--shadow-lg);
+  background: var(--bg-card);
+}
+
+.field-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.field-dropdown-item i { width: 18px; text-align: center; flex-shrink: 0; }
+
+.field-dropdown-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.field-dropdown-item.active { background: var(--bg-hover); color: var(--text-primary); font-weight: 600; }
+.field-dropdown-item.disabled { cursor: default; opacity: 0.6; pointer-events: none; }
+
+.field-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.field-select-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.field-select-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
 .field-hint {
   font-size: 0.72rem;
   color: var(--text-muted);

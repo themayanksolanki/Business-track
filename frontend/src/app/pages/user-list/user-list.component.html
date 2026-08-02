@@ -35,22 +35,58 @@
       <p class="fs-5 mb-0">No users found.</p>
     </div>
   } @else {
+    @if (selectedIds.size > 0) {
+      <div class="bulk-action-bar d-flex align-items-center justify-content-between mb-3 px-3 py-2">
+        <span class="bulk-selected-count">{{ selectedIds.size }} selected</span>
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="bulk-btn bulk-btn-deactivate" (click)="openBulkDeactivate()">
+            <i class="bi bi-person-dash-fill me-1"></i>Deactivate
+          </button>
+          <button
+            type="button"
+            class="bulk-btn bulk-btn-delete"
+            [disabled]="bulkDeleteChecking"
+            (click)="openBulkDelete()">
+            @if (bulkDeleteChecking) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+            } @else {
+              <i class="bi bi-trash3-fill me-1"></i>
+            }
+            Delete
+          </button>
+          <button type="button" class="bulk-btn-clear" (click)="clearSelection()">
+            <i class="bi bi-x-lg me-1"></i>Clear
+          </button>
+        </div>
+      </div>
+    }
     <div class="card user-table-card shadow-sm overflow-hidden">
       <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
           <thead>
             <tr class="table-dark-header">
-              <th style="width: 8%">ID</th>
-              <th class="ps-4" style="width: 26%">Member</th>
-              <th style="width: 26%">Email</th>
-              <th style="width: 16%">Role</th>
-              <th style="width: 12%">Status</th>
-              <th style="width: 12%"></th>
+              <th style="width: 4%">
+                @if (selectableActiveUsers.length > 0) {
+                  <input
+                    type="checkbox"
+                    class="bulk-checkbox"
+                    [checked]="allSelected"
+                    (change)="toggleSelectAll($any($event.target).checked)"
+                    title="Select all" />
+                }
+              </th>
+              <th style="width: 7%">#Id</th>
+              <th class="ps-4" style="width: 24%">Member</th>
+              <th style="width: 24%">Email</th>
+              <th style="width: 15%">Role</th>
+              <th style="width: 11%">Status</th>
+              <th style="width: 11%">Action</th>
             </tr>
           </thead>
           <tbody>
             @for (invite of invitedUsers; track invite.id) {
               <tr class="user-row invited-row">
+                <td></td>
                 <td><span class="text-muted">—</span></td>
                 <td class="ps-4">
                   <div class="d-flex align-items-center gap-3">
@@ -76,6 +112,7 @@
             }
             @for (user of pendingUsers; track user.id) {
               <tr class="user-row pending-row">
+                <td></td>
                 <td><span class="text-muted">{{ user.sequenceId ? '#' + user.sequenceId : '—' }}</span></td>
                 <td class="ps-4">
                   <div class="d-flex align-items-center gap-3">
@@ -108,7 +145,16 @@
               </tr>
             }
             @for (user of activeUsers; track user.id) {
-              <tr class="user-row">
+              <tr class="user-row" [class.row-selected]="isSelected(user.id)">
+                <td>
+                  @if (canManageUser(user)) {
+                    <input
+                      type="checkbox"
+                      class="bulk-checkbox"
+                      [checked]="isSelected(user.id)"
+                      (change)="toggleSelect(user.id, $any($event.target).checked)" />
+                  }
+                </td>
                 <td><span class="text-muted">{{ user.sequenceId ? '#' + user.sequenceId : '—' }}</span></td>
                 <td class="ps-4">
                   <div class="d-flex align-items-center gap-3">
@@ -126,25 +172,42 @@
                 </td>
                 <td><span class="status-badge status-active">Active</span></td>
                 <td class="text-end pe-3">
-                  <div class="d-flex justify-content-end gap-2">
-                    @if (canEditPassword(user)) {
-                      <button class="btn btn-sm btn-edit-pass" (click)="openPassEdit(user)" title="Change password">
-                        <i class="bi bi-key-fill me-1"></i>Password
+                  @if (canEditPassword(user) || canManageUser(user)) {
+                    <div ngbDropdown class="d-inline-block" (click)="$event.stopPropagation()">
+                      <button type="button" class="action-menu-btn" ngbDropdownToggle title="Actions">
+                        <i class="bi bi-three-dots-vertical"></i>
                       </button>
-                    }
-                    @if (canManageUser(user)) {
-                      <button class="btn btn-sm btn-edit-user" (click)="openEdit(user)" title="Edit user">
-                        <i class="bi bi-pencil-fill me-1"></i>Edit
-                      </button>
-                      <button
-                        class="btn btn-sm btn-deactivate-user"
-                        (click)="openDeactivate(user)"
-                        [disabled]="reassignChecking"
-                        title="Deactivate user">
-                        <i class="bi bi-person-dash-fill me-1"></i>Deactivate
-                      </button>
-                    }
-                  </div>
+                      <ul ngbDropdownMenu class="dropdown-menu action-dropdown-menu shadow-sm">
+                        @if (canEditPassword(user)) {
+                          <li>
+                            <a class="dropdown-item action-opt" (click)="openPassEdit(user)">
+                              <i class="bi bi-key-fill me-2"></i>Change Password
+                            </a>
+                          </li>
+                        }
+                        @if (canManageUser(user)) {
+                          <li>
+                            <a class="dropdown-item action-opt" (click)="openEdit(user)">
+                              <i class="bi bi-pencil-fill me-2"></i>Edit User
+                            </a>
+                          </li>
+                          <li><hr class="dropdown-divider my-1"></li>
+                          <li>
+                            <a class="dropdown-item action-opt" (click)="openQuickDeactivate(user)">
+                              <i class="bi bi-person-dash-fill me-2"></i>Deactivate
+                            </a>
+                          </li>
+                          <li>
+                            <a class="dropdown-item action-opt action-opt-danger"
+                               [class.disabled]="reassignChecking"
+                               (click)="!reassignChecking && openDelete(user)">
+                              <i class="bi bi-trash3-fill me-2"></i>Delete
+                            </a>
+                          </li>
+                        }
+                      </ul>
+                    </div>
+                  }
                 </td>
               </tr>
             }
@@ -348,11 +411,21 @@
 
         <div class="mb-3">
           <label class="field-label">Role</label>
-          <select class="form-select field-input" [(ngModel)]="inviteRole" name="inviteRole">
-            @for (r of invitableRoles; track r) {
-              <option [value]="r">{{ r }}</option>
-            }
-          </select>
+          <div class="dropdown">
+            <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="bi {{ roleIcon(inviteRole) }} field-select-icon"></i>
+              <span class="field-select-value">{{ inviteRole }}</span>
+            </button>
+            <ul class="dropdown-menu field-dropdown-menu">
+              @for (r of invitableRoles; track r) {
+                <li>
+                  <a class="field-dropdown-item" [class.active]="inviteRole === r" (click)="selectInviteRole(r)">
+                    <i class="bi {{ roleIcon(r) }}"></i>{{ r }}
+                  </a>
+                </li>
+              }
+            </ul>
+          </div>
         </div>
 
         @if (departments.length > 0) {
@@ -421,11 +494,21 @@
 
         <div class="mb-3">
           <label class="field-label">Role</label>
-          <select class="form-select field-input" [(ngModel)]="editRole" name="editRole">
-            @for (r of editableRolesFor(editUserTarget); track r) {
-              <option [value]="r">{{ r }}</option>
-            }
-          </select>
+          <div class="dropdown">
+            <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="bi {{ roleIcon(editRole) }} field-select-icon"></i>
+              <span class="field-select-value">{{ editRole }}</span>
+            </button>
+            <ul class="dropdown-menu field-dropdown-menu">
+              @for (r of editableRolesFor(editUserTarget); track r) {
+                <li>
+                  <a class="field-dropdown-item" [class.active]="editRole === r" (click)="selectEditRole(r)">
+                    <i class="bi {{ roleIcon(r) }}"></i>{{ r }}
+                  </a>
+                </li>
+              }
+            </ul>
+          </div>
         </div>
 
         @if (departments.length > 0) {
@@ -476,36 +559,40 @@
   (cancelled)="cancelDeactivateConfirm()">
 </app-confirm-dialog>
 
-<!-- Deactivate: reassign work modal (target has open assigned work) -->
+
+<!-- Delete: always asks who takes over the user's work (see openDelete) -->
 <div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="!!reassignTarget" (appModalClosed)="cancelReassign()">
   <div class="modal-dialog modal-dialog-centered pass-dialog">
     @if (reassignTarget && reassignWork) {
       <div class="modal-content pass-content">
 
         <div class="pass-icon-wrap">
-          <i class="bi bi-person-dash-fill pass-icon"></i>
+          <i class="bi bi-trash3-fill pass-icon"></i>
         </div>
 
-        <h5 class="pass-title">Reassign Work &amp; Deactivate</h5>
+        <h5 class="pass-title">Delete User</h5>
         <p class="pass-subtitle">
-          <strong>{{ reassignTarget.username }}</strong> currently has open work. Choose who should take it over
-          before deactivating their account.
+          Choose who should take over <strong>{{ reassignTarget.username }}</strong>'s work before deleting their account.
         </p>
 
-        <ul class="reassign-summary mb-3">
-          @if (reassignWork.assignedTasks > 0) {
-            <li>{{ reassignWork.assignedTasks }} assigned task{{ reassignWork.assignedTasks !== 1 ? 's' : '' }}</li>
-          }
-          @if (reassignWork.assignedProjectItems > 0) {
-            <li>{{ reassignWork.assignedProjectItems }} assigned project item{{ reassignWork.assignedProjectItems !== 1 ? 's' : '' }}</li>
-          }
-          @if (reassignWork.ownedProjects > 0) {
-            <li>{{ reassignWork.ownedProjects }} owned project{{ reassignWork.ownedProjects !== 1 ? 's' : '' }}</li>
-          }
-          @if (reassignWork.projectMemberships > 0) {
-            <li>{{ reassignWork.projectMemberships }} project membership{{ reassignWork.projectMemberships !== 1 ? 's' : '' }}</li>
-          }
-        </ul>
+        @if (hasReassignableWork) {
+          <ul class="reassign-summary mb-3">
+            @if (reassignWork.assignedTasks > 0) {
+              <li>{{ reassignWork.assignedTasks }} assigned task{{ reassignWork.assignedTasks !== 1 ? 's' : '' }}</li>
+            }
+            @if (reassignWork.assignedProjectItems > 0) {
+              <li>{{ reassignWork.assignedProjectItems }} assigned project item{{ reassignWork.assignedProjectItems !== 1 ? 's' : '' }}</li>
+            }
+            @if (reassignWork.ownedProjects > 0) {
+              <li>{{ reassignWork.ownedProjects }} owned project{{ reassignWork.ownedProjects !== 1 ? 's' : '' }}</li>
+            }
+            @if (reassignWork.projectMemberships > 0) {
+              <li>{{ reassignWork.projectMemberships }} project membership{{ reassignWork.projectMemberships !== 1 ? 's' : '' }}</li>
+            }
+          </ul>
+        } @else {
+          <p class="reassign-summary reassign-summary-empty mb-3">No open work currently assigned.</p>
+        }
 
         @if (reassignError) {
           <div class="alert alert-danger py-2 mb-3">{{ reassignError }}</div>
@@ -513,12 +600,28 @@
 
         <div class="mb-4">
           <label class="field-label">Reassign to</label>
-          <select class="form-select field-input" [(ngModel)]="reassignToId" name="reassignToId">
-            <option [ngValue]="null">-- Select a user --</option>
-            @for (u of reassignHandlerOptions; track u.id) {
-              <option [ngValue]="u.id">{{ u.username }} ({{ u.role }})</option>
-            }
-          </select>
+          <div class="dropdown">
+            <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+              @if (reassignToUser) {
+                <span class="user-avatar" [class]="'avatar-' + roleClass(reassignToUser.role)">{{ reassignToUser.username[0].toUpperCase() }}</span>
+                <span class="field-select-value">{{ reassignToUser.username }}</span>
+              } @else {
+                <i class="bi bi-person field-select-icon"></i>
+                <span class="field-select-value field-select-empty">Select a user</span>
+              }
+            </button>
+            <ul class="dropdown-menu field-dropdown-menu">
+              @for (u of reassignHandlerOptions; track u.id) {
+                <li>
+                  <a class="field-dropdown-item" [class.active]="reassignToId === u.id" (click)="selectReassignTo(u.id)">
+                    <span class="user-avatar" [class]="'avatar-' + roleClass(u.role)">{{ u.username[0].toUpperCase() }}</span>
+                    {{ u.username }}
+                    <span class="role-badge" [class]="'role-' + roleClass(u.role)">{{ u.role }}</span>
+                  </a>
+                </li>
+              }
+            </ul>
+          </div>
         </div>
 
         <div class="pass-actions">
@@ -533,7 +636,103 @@
             @if (reassignLoading) {
               <span class="spinner-border spinner-border-sm me-1"></span>
             }
-            Reassign &amp; Deactivate
+            Reassign &amp; Delete
+          </button>
+        </div>
+
+      </div>
+    }
+  </div>
+</div>
+
+<!-- Bulk deactivate: simple confirm -->
+<app-confirm-dialog
+  [open]="bulkDeactivateConfirmOpen"
+  title="Deactivate Users"
+  [message]="'Deactivate ' + selectedIds.size + ' user' + (selectedIds.size !== 1 ? 's' : '') + '? They will no longer be able to log in.'"
+  confirmLabel="Deactivate"
+  [loading]="bulkActionLoading"
+  (confirmed)="confirmBulkDeactivate()"
+  (cancelled)="cancelBulkDeactivate()">
+</app-confirm-dialog>
+
+<!-- Bulk delete: combined reassign-and-delete for every selected user -->
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="bulkDeleteOpen" (appModalClosed)="cancelBulkDelete()">
+  <div class="modal-dialog modal-dialog-centered pass-dialog">
+    @if (bulkDeleteOpen && bulkReassignWork) {
+      <div class="modal-content pass-content">
+
+        <div class="pass-icon-wrap">
+          <i class="bi bi-trash3-fill pass-icon"></i>
+        </div>
+
+        <h5 class="pass-title">Delete {{ selectedIds.size }} User{{ selectedIds.size !== 1 ? 's' : '' }}</h5>
+        <p class="pass-subtitle">
+          Choose who should take over the selected users' combined work before deleting their accounts.
+        </p>
+
+        @if (bulkHasReassignableWork) {
+          <ul class="reassign-summary mb-3">
+            @if (bulkReassignWork.assignedTasks > 0) {
+              <li>{{ bulkReassignWork.assignedTasks }} assigned task{{ bulkReassignWork.assignedTasks !== 1 ? 's' : '' }}</li>
+            }
+            @if (bulkReassignWork.assignedProjectItems > 0) {
+              <li>{{ bulkReassignWork.assignedProjectItems }} assigned project item{{ bulkReassignWork.assignedProjectItems !== 1 ? 's' : '' }}</li>
+            }
+            @if (bulkReassignWork.ownedProjects > 0) {
+              <li>{{ bulkReassignWork.ownedProjects }} owned project{{ bulkReassignWork.ownedProjects !== 1 ? 's' : '' }}</li>
+            }
+            @if (bulkReassignWork.projectMemberships > 0) {
+              <li>{{ bulkReassignWork.projectMemberships }} project membership{{ bulkReassignWork.projectMemberships !== 1 ? 's' : '' }}</li>
+            }
+          </ul>
+        } @else {
+          <p class="reassign-summary reassign-summary-empty mb-3">No open work currently assigned.</p>
+        }
+
+        @if (bulkReassignError) {
+          <div class="alert alert-danger py-2 mb-3">{{ bulkReassignError }}</div>
+        }
+
+        <div class="mb-4">
+          <label class="field-label">Reassign to</label>
+          <div class="dropdown">
+            <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+              @if (bulkReassignToUser) {
+                <span class="user-avatar" [class]="'avatar-' + roleClass(bulkReassignToUser.role)">{{ bulkReassignToUser.username[0].toUpperCase() }}</span>
+                <span class="field-select-value">{{ bulkReassignToUser.username }}</span>
+              } @else {
+                <i class="bi bi-person field-select-icon"></i>
+                <span class="field-select-value field-select-empty">Select a user</span>
+              }
+            </button>
+            <ul class="dropdown-menu field-dropdown-menu">
+              @for (u of bulkReassignHandlerOptions; track u.id) {
+                <li>
+                  <a class="field-dropdown-item" [class.active]="bulkReassignToId === u.id" (click)="selectBulkReassignTo(u.id)">
+                    <span class="user-avatar" [class]="'avatar-' + roleClass(u.role)">{{ u.username[0].toUpperCase() }}</span>
+                    {{ u.username }}
+                    <span class="role-badge" [class]="'role-' + roleClass(u.role)">{{ u.role }}</span>
+                  </a>
+                </li>
+              }
+            </ul>
+          </div>
+        </div>
+
+        <div class="pass-actions">
+          <button type="button" class="pass-btn pass-btn-cancel" (click)="cancelBulkDelete()" [disabled]="bulkReassignLoading">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="pass-btn pass-btn-confirm"
+            (click)="confirmBulkReassignAndDelete()"
+            [disabled]="bulkReassignLoading || !bulkReassignToId">
+            @if (bulkReassignLoading) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+            }
+            Reassign &amp; Delete
           </button>
         </div>
 

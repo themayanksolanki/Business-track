@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges, ElementRef, ViewChild, forwardRef } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, AfterViewChecked, SimpleChanges, ElementRef, ViewChild, forwardRef } from '@angular/core';
 import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { NgbDatepickerModule, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
 import dayjs from 'dayjs/esm';
@@ -29,7 +29,7 @@ function structToIso(s: NgbDateStruct): string {
     { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => DatePickerComponent), multi: true },
   ],
 })
-export class DatePickerComponent implements ControlValueAccessor, OnChanges, OnDestroy {
+export class DatePickerComponent implements ControlValueAccessor, OnChanges, AfterViewChecked, OnDestroy {
   @Input() value: string | null = null; // 'YYYY-MM-DD'
   // '' means "use the user's configured date format as the placeholder"
   // (see effectivePlaceholder) — pass an explicit string (e.g. "None") to override.
@@ -42,6 +42,10 @@ export class DatePickerComponent implements ControlValueAccessor, OnChanges, OnD
   @Output() valueChange = new EventEmitter<string | null>();
 
   @ViewChild('trigger') triggerRef!: ElementRef<HTMLElement>;
+  // Only present while their `@if` is true — read in ngAfterViewChecked to
+  // move them to <body> (see there for why).
+  @ViewChild('panelHost') panelHostRef?: ElementRef<HTMLDivElement>;
+  @ViewChild('errorHost') errorHostRef?: ElementRef<HTMLDivElement>;
 
   open = false;
   ngbModel: NgbDateStruct | null = null;
@@ -63,7 +67,41 @@ export class DatePickerComponent implements ControlValueAccessor, OnChanges, OnD
   private onChange: (value: string | null) => void = () => {};
   private onTouched: () => void = () => {};
 
+  // Tracks which host div is currently parented under <body> — see
+  // ngAfterViewChecked. Compared by reference (not a plain boolean) since
+  // `@if` tears down and recreates a fresh element each time the panel
+  // opens/closes, so "already moved" has to mean *this exact node*.
+  private movedPanelHost: HTMLElement | null = null;
+  private movedErrorHost: HTMLElement | null = null;
+
   constructor(private dateFormat: DateFormatService) {}
+
+  // The panel/error-banner host is position:fixed and normally computed
+  // relative to the viewport (see updatePanelPosition) — but if this
+  // component is nested inside anything that gets positioned with a CSS
+  // `transform` (e.g. an ngbDropdown configured with `container: 'body'`,
+  // which Popper.js positions via `transform: translate(...)`), that
+  // ancestor becomes the containing block for our fixed-position elements
+  // instead of the viewport, throwing the panel wildly off its intended
+  // spot. Reparenting the host to <body> once it's rendered sidesteps that
+  // entirely — the same trick ngbDropdown itself uses for its own menu.
+  // Angular's renderer looks up a node's parent live off the DOM (not a
+  // cached reference) when tearing down the `@if` view, so this is safe:
+  // the eventual removal correctly targets <body>, wherever the node was
+  // declared in the template.
+  ngAfterViewChecked() {
+    const panelEl = this.panelHostRef?.nativeElement ?? null;
+    if (panelEl && panelEl !== this.movedPanelHost) {
+      document.body.appendChild(panelEl);
+      this.movedPanelHost = panelEl;
+    }
+
+    const errorEl = this.errorHostRef?.nativeElement ?? null;
+    if (errorEl && errorEl !== this.movedErrorHost) {
+      document.body.appendChild(errorEl);
+      this.movedErrorHost = errorEl;
+    }
+  }
 
   ngOnDestroy() {
     this.removePositionListeners();

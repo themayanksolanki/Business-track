@@ -32,15 +32,27 @@
 } @else {
   <div class="metrics-table">
     <div class="metrics-table-header">
+      <span>#Id</span>
       <span>Name</span>
+      <span>Frequency</span>
       <span>Department</span>
+      <span>Category</span>
       <span>Owner</span>
     </div>
     @for (m of metrics; track m.id) {
       <div class="metrics-row" (click)="openEdit(m)">
+        <span class="metric-id">#{{ m.sequenceId }}</span>
         <span class="metric-title">{{ m.title }}</span>
+        <span class="metric-frequency">{{ m.frequency }}</span>
         <span class="metric-dept">
           <span class="dept-dot" [style.background]="m.department.color"></span>{{ m.department.name }}
+        </span>
+        <span class="metric-category">
+          @if (m.category) {
+            <span class="dept-dot" [style.background]="m.category.color"></span>{{ m.category.name }}
+          } @else {
+            <span class="text-muted">—</span>
+          }
         </span>
         <span class="metric-owner">
           @if (auth.avatarUrl(m.owner)) {

@@ -1,4 +1,4 @@
-<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="closed.emit()">
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="closed.emit()" (shown.bs.modal)="focusTitleInput()">
   <div class="modal-dialog modal-dialog-centered modal-lg">
   @if (open) {
     <div class="modal-content metric-modal-content">
@@ -60,32 +60,75 @@
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label class="field-label">Department <span class="text-danger">*</span></label>
-                <select class="form-select field-input" [(ngModel)]="department" name="department">
-                  <option [ngValue]="null" disabled>Select department</option>
-                  @for (dept of departments; track dept.id) {
-                    <option [ngValue]="dept.id">{{ dept.name }}</option>
-                  }
-                </select>
+                <div class="dropdown">
+                  <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    @if (selectedDepartment) {
+                      <span class="field-dot" [style.background]="selectedDepartment.color"></span>
+                      <span class="field-select-value">{{ selectedDepartment.name }}</span>
+                    } @else {
+                      <i class="bi bi-building field-select-icon"></i>
+                      <span class="field-select-value field-select-empty">Select department</span>
+                    }
+                  </button>
+                  <ul class="dropdown-menu field-dropdown-menu">
+                    @for (dept of departments; track dept.id) {
+                      <li>
+                        <a class="field-dropdown-item" [class.active]="department === dept.id" (click)="selectDepartment(dept.id)">
+                          <span class="field-dot" [style.background]="dept.color"></span>{{ dept.name }}
+                        </a>
+                      </li>
+                    }
+                  </ul>
+                </div>
               </div>
               <div class="col-md-6 mb-3">
                 <label class="field-label">Category</label>
-                <select class="form-select field-input" [(ngModel)]="category" name="category">
-                  <option [ngValue]="null">No category</option>
-                  @for (cat of categories; track cat.id) {
-                    <option [ngValue]="cat.id">{{ cat.name }}</option>
-                  }
-                </select>
+                <div class="dropdown">
+                  <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    @if (selectedCategoryObj) {
+                      <span class="field-dot" [style.background]="selectedCategoryObj.color"></span>
+                      <span class="field-select-value">{{ selectedCategoryObj.name }}</span>
+                    } @else {
+                      <i class="bi bi-dash-circle field-select-icon"></i>
+                      <span class="field-select-value field-select-empty">No category</span>
+                    }
+                  </button>
+                  <ul class="dropdown-menu field-dropdown-menu">
+                    <li>
+                      <a class="field-dropdown-item" [class.active]="category === null" (click)="selectCategory(null)">
+                        <i class="bi bi-dash-circle"></i>No category
+                      </a>
+                    </li>
+                    @for (cat of categories; track cat.id) {
+                      <li>
+                        <a class="field-dropdown-item" [class.active]="category === cat.id" (click)="selectCategory(cat.id)">
+                          <span class="field-dot" [style.background]="cat.color"></span>{{ cat.name }}
+                        </a>
+                      </li>
+                    }
+                  </ul>
+                </div>
               </div>
             </div>
 
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label class="field-label">Unit <span class="text-danger">*</span></label>
-                <select class="form-select field-input" [(ngModel)]="dataType" name="dataType">
-                  @for (opt of dataTypeOptions; track opt.value) {
-                    <option [ngValue]="opt.value">{{ opt.label }}</option>
-                  }
-                </select>
+                <div class="dropdown">
+                  <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi {{ selectedDataTypeOption.icon }} field-select-icon"></i>
+                    <span class="field-select-value">{{ selectedDataTypeOption.label }}</span>
+                  </button>
+                  <ul class="dropdown-menu field-dropdown-menu">
+                    @for (opt of dataTypeOptions; track opt.value) {
+                      <li>
+                        <a class="field-dropdown-item" [class.active]="dataType === opt.value" (click)="selectDataType(opt.value)">
+                          <i class="bi {{ opt.icon }}"></i>{{ opt.label }}
+                        </a>
+                      </li>
+                    }
+                  </ul>
+                </div>
                 <p class="field-hint">
                   Decides how values look in the Bowling View (read mode only, never while editing a cell) —
                   Weight/Currency show your organization's unit/currency (set once at signup, same for everyone),
@@ -96,11 +139,21 @@
               </div>
               <div class="col-md-6 mb-3">
                 <label class="field-label">Frequency <span class="text-danger">*</span></label>
-                <select class="form-select field-input" [(ngModel)]="frequency" name="frequency">
-                  @for (opt of frequencyOptions; track opt.value) {
-                    <option [ngValue]="opt.value">{{ opt.label }}</option>
-                  }
-                </select>
+                <div class="dropdown">
+                  <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi {{ selectedFrequencyOption.icon }} field-select-icon"></i>
+                    <span class="field-select-value">{{ selectedFrequencyOption.label }}</span>
+                  </button>
+                  <ul class="dropdown-menu field-dropdown-menu">
+                    @for (opt of frequencyOptions; track opt.value) {
+                      <li>
+                        <a class="field-dropdown-item" [class.active]="frequency === opt.value" (click)="selectFrequency(opt.value)">
+                          <i class="bi {{ opt.icon }}"></i>{{ opt.label }}
+                        </a>
+                      </li>
+                    }
+                  </ul>
+                </div>
                 <p class="field-hint">
                   Which lens this metric shows up under in the Bowling View — Daily tracks one value per day of a
                   selected month, Weekly tracks one value per week of a selected year, Monthly tracks one value per
@@ -113,21 +166,63 @@
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label class="field-label">Owner <span class="text-danger">*</span></label>
-                <select class="form-select field-input" [(ngModel)]="owner" name="owner">
-                  <option [ngValue]="null" disabled>Select owner</option>
-                  @for (u of users; track u.id) {
-                    <option [ngValue]="u.id">{{ u.username }}</option>
-                  }
-                </select>
+                <div class="dropdown">
+                  <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    @if (selectedOwnerUser) {
+                      @if (ownerAvatarUrl(selectedOwnerUser)) {
+                        <img class="field-select-avatar" [src]="ownerAvatarUrl(selectedOwnerUser)!" [alt]="selectedOwnerUser.username" />
+                      } @else {
+                        <span class="field-select-avatar field-select-avatar-fallback">{{ selectedOwnerUser.username[0].toUpperCase() }}</span>
+                      }
+                      <span class="field-select-value">{{ selectedOwnerUser.username }}</span>
+                    } @else {
+                      <i class="bi bi-person field-select-icon"></i>
+                      <span class="field-select-value field-select-empty">Select owner</span>
+                    }
+                  </button>
+                  <ul class="dropdown-menu field-dropdown-menu">
+                    @for (u of users; track u.id) {
+                      <li>
+                        <a class="field-dropdown-item" [class.active]="owner === u.id" (click)="selectOwner(u.id)">
+                          @if (ownerAvatarUrl(u)) {
+                            <img class="field-select-avatar" [src]="ownerAvatarUrl(u)!" [alt]="u.username" />
+                          } @else {
+                            <span class="field-select-avatar field-select-avatar-fallback">{{ u.username[0].toUpperCase() }}</span>
+                          }
+                          {{ u.username }}
+                        </a>
+                      </li>
+                    }
+                  </ul>
+                </div>
               </div>
               <div class="col-md-6 mb-3">
                 <label class="field-label">Parent metric</label>
-                <select class="form-select field-input" [(ngModel)]="parentId" name="parentId">
-                  <option [ngValue]="null">None (top-level)</option>
-                  @for (m of availableParents; track m.id) {
-                    <option [ngValue]="m.id">{{ m.title }}</option>
-                  }
-                </select>
+                <div class="dropdown">
+                  <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    @if (selectedParent) {
+                      <i class="bi bi-diagram-2 field-select-icon"></i>
+                      <span class="field-select-value">{{ selectedParent.title }}</span>
+                    } @else {
+                      <i class="bi bi-dash-circle field-select-icon"></i>
+                      <span class="field-select-value field-select-empty">None (top-level)</span>
+                    }
+                  </button>
+                  <ul class="dropdown-menu field-dropdown-menu">
+                    <li>
+                      <a class="field-dropdown-item" [class.active]="parentId === null" (click)="selectParent(null)">
+                        <i class="bi bi-dash-circle"></i>None (top-level)
+                      </a>
+                    </li>
+                    @for (m of availableParents; track m.id) {
+                      <li>
+                        <a class="field-dropdown-item" [class.active]="parentId === m.id" (click)="selectParent(m.id)">
+                          <i class="bi bi-diagram-2"></i>{{ m.title }}
+                        </a>
+                      </li>
+                    }
+                  </ul>
+                </div>
               </div>
             </div>
 
@@ -145,16 +240,28 @@
             @if (mode === 'edit') {
               <div class="mb-3">
                 <label class="field-label">Status</label>
-                <select class="form-select field-input metric-status-select" [(ngModel)]="status" name="status">
-                  <option value="active">Active</option>
-                  <option value="archived">Archived</option>
-                  @if (status === 'deleted') {
-                    <!-- Only shown so an already-deleted metric's current status
-                         still displays correctly; deleting happens via the
-                         button below, not by picking this from the list. -->
-                    <option value="deleted" disabled>Deleted</option>
-                  }
-                </select>
+                <div class="dropdown">
+                  <button type="button" class="field-select-trigger dropdown-toggle metric-status-select" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi {{ selectedStatusOption.icon }} field-select-icon" [style.color]="selectedStatusOption.color"></i>
+                    <span class="field-select-value">{{ selectedStatusOption.label }}</span>
+                  </button>
+                  <ul class="dropdown-menu field-dropdown-menu">
+                    @for (opt of statusOptions; track opt.value) {
+                      <!-- 'deleted' is only rendered when already the current
+                           status, so it displays correctly — it's never
+                           user-selectable here (deleting happens via the
+                           button below). -->
+                      @if (opt.value !== 'deleted' || status === 'deleted') {
+                        <li>
+                          <a class="field-dropdown-item" [class.active]="status === opt.value" [class.disabled]="opt.value === 'deleted'"
+                             (click)="opt.value !== 'deleted' && selectStatus(opt.value)">
+                            <i class="bi {{ opt.icon }}" [style.color]="opt.color"></i>{{ opt.label }}
+                          </a>
+                        </li>
+                      }
+                    }
+                  </ul>
+                </div>
               </div>
             }
           }

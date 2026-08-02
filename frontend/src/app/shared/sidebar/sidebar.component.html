@@ -162,19 +162,7 @@
         </button>
       </div>
     </div>
-    <a
-      routerLink="/calendar"
-      class="nav-item"
-      routerLinkActive="active"
-      [title]="labelsVisible() ? '' : 'Calendar'"
-      (click)="closeMobile()"
-    >
-      <span class="nav-icon"><app-icon name="calendar" [size]="18" /></span>
-      @if (labelsVisible()) {
-        <span class="nav-label">Calendar</span>
-      }
-    </a>
-    <div
+        <div
       class="nav-item-group"
       ngbDropdown
       #metricsDd="ngbDropdown"
@@ -228,6 +216,18 @@
         </a>
       </div>
     </div>
+    <a
+      routerLink="/calendar"
+      class="nav-item"
+      routerLinkActive="active"
+      [title]="labelsVisible() ? '' : 'Calendar'"
+      (click)="closeMobile()"
+    >
+      <span class="nav-icon"><app-icon name="calendar" [size]="18" /></span>
+      @if (labelsVisible()) {
+        <span class="nav-label">Calendar</span>
+      }
+    </a>
     <a
       routerLink="/chat"
       class="nav-item"
