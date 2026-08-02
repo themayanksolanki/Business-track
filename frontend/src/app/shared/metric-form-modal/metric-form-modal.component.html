@@ -1,5 +1,5 @@
 <div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="closed.emit()" (shown.bs.modal)="focusTitleInput()">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
   @if (open) {
     <div class="modal-content metric-modal-content">
       <div class="modal-body p-4 metric-modal-body">
@@ -33,23 +33,120 @@
                   <span class="spinner-border spinner-border-sm me-2"></span>Loading…
                 </div>
               } @else {
-                <div class="metric-stats-summary">
-                  <app-gauge-chart class="metric-stats-gauge" [percent]="gaugePercent" [size]="120"></app-gauge-chart>
-                  <div class="metric-stats-summary-text">
-                    <p class="field-hint mb-1">Current period Actual vs Target</p>
-                    @if (gaugePercent === null) {
-                      <p class="mb-0 text-muted fst-italic">No target set for this period.</p>
-                    } @else {
-                      <p class="mb-0">{{ gaugeValueLabel(gaugeActual) }} of {{ gaugeValueLabel(gaugeTarget) }}</p>
-                      @if (gaugePercent > 100) {
-                        <p class="mb-0 metric-stats-exceeded"><i class="bi bi-trophy-fill me-1"></i>Target exceeded</p>
+                <div class="metric-stats-card">
+                  <p class="metric-stats-card-title">Performance overview</p>
+                  <div class="metric-stats-overview">
+                    <div class="metric-stats-gauge-wrap">
+                      <app-gauge-chart class="metric-stats-gauge" [percent]="gaugePercent" [size]="104"></app-gauge-chart>
+                      <p class="metric-stats-gauge-caption">of Target</p>
+                    </div>
+
+                    <div class="metric-stats-summary-text">
+                      <p class="field-hint mb-1">Actual vs Target (YTD)</p>
+                      @if (gaugePercent === null) {
+                        <p class="mb-0 text-muted fst-italic">No target set yet.</p>
+                      } @else {
+                        <p class="metric-stats-value mb-1">{{ gaugeValueLabel(ytdActual) }} / {{ gaugeValueLabel(ytdTarget) }}</p>
+                        @if (achievementDirection === 'behind') {
+                          <p class="mb-0 metric-stats-delta metric-stats-delta-behind">
+                            <i class="bi bi-caret-down-fill me-1"></i>{{ achievementDeltaPercent }}% behind target
+                          </p>
+                        } @else if (achievementDirection === 'ahead') {
+                          <p class="mb-0 metric-stats-delta metric-stats-delta-ahead">
+                            <i class="bi bi-caret-up-fill me-1"></i>{{ achievementDeltaPercent }}% ahead of target
+                          </p>
+                        } @else {
+                          <p class="mb-0 metric-stats-delta metric-stats-delta-ahead">
+                            <i class="bi bi-check-circle-fill me-1"></i>On target
+                          </p>
+                        }
                       }
-                    }
+                    </div>
+
+                    <div class="metric-stats-legend">
+                      <div class="metric-stats-legend-row">
+                        <span class="field-dot" [style.background]="trendActualColor"></span>
+                        <span class="metric-stats-legend-label">Actual (YTD)</span>
+                        <span class="metric-stats-legend-value">{{ gaugeValueLabel(ytdActual) }}</span>
+                      </div>
+                      <div class="metric-stats-legend-row">
+                        <span class="field-dot" [style.background]="trendTargetColor"></span>
+                        <span class="metric-stats-legend-label">Target (YTD)</span>
+                        <span class="metric-stats-legend-value">{{ gaugeValueLabel(ytdTarget) }}</span>
+                      </div>
+
+                      @if (gaugePercent !== null) {
+                        <div class="metric-stats-achievement">
+                          <div class="metric-stats-achievement-header">
+                            <span class="field-hint mb-0">Achievement</span>
+                            <span class="metric-stats-achievement-percent">{{ achievementPercentRounded }}%</span>
+                          </div>
+                          <div class="metric-stats-meter">
+                            <div class="metric-stats-meter-fill" [style.width.%]="achievementMeterWidth"></div>
+                          </div>
+                        </div>
+                      }
+                    </div>
                   </div>
                 </div>
 
-                <p class="field-hint mb-2">Last {{ trendCategories.length }} {{ initial.frequency }} periods — Actual vs Target.</p>
-                <app-trend-chart [categories]="trendCategories" [series]="trendSeries" emptyMessage="No tracking data yet for this metric."></app-trend-chart>
+                <div class="metric-stats-card">
+                  <p class="metric-stats-card-title">
+                    Trend – last {{ trendCategories.length }} {{ frequencyUnitLabel }}{{ trendCategories.length === 1 ? '' : 's' }}
+                  </p>
+                  <app-trend-chart [categories]="trendCategories" [series]="trendSeries" emptyMessage="No tracking data yet for this metric."></app-trend-chart>
+                </div>
+
+                <div class="metric-stats-tiles">
+                  <div class="metric-stats-tile">
+                    <span class="metric-stats-tile-icon metric-stats-tile-icon-actual"><i class="bi bi-graph-up-arrow"></i></span>
+                    <div class="metric-stats-tile-body">
+                      <p class="metric-stats-tile-label">Best {{ frequencyUnitLabel }} (Actual)</p>
+                      @if (bestActualValue !== null) {
+                        <p class="metric-stats-tile-period">{{ bestActualPeriodLabel }}</p>
+                        <p class="metric-stats-tile-value metric-stats-tile-value-actual">{{ gaugeValueLabel(bestActualValue) }}</p>
+                      } @else {
+                        <p class="metric-stats-tile-value text-muted">—</p>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="metric-stats-tile">
+                    <span class="metric-stats-tile-icon metric-stats-tile-icon-target"><i class="bi bi-bullseye"></i></span>
+                    <div class="metric-stats-tile-body">
+                      <p class="metric-stats-tile-label">Best {{ frequencyUnitLabel }} (Target)</p>
+                      @if (bestTargetValue !== null) {
+                        <p class="metric-stats-tile-period">{{ bestTargetPeriodLabel }}</p>
+                        <p class="metric-stats-tile-value metric-stats-tile-value-target">{{ gaugeValueLabel(bestTargetValue) }}</p>
+                      } @else {
+                        <p class="metric-stats-tile-value text-muted">—</p>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="metric-stats-tile">
+                    <span class="metric-stats-tile-icon metric-stats-tile-icon-actual"><i class="bi bi-graph-up-arrow"></i></span>
+                    <div class="metric-stats-tile-body">
+                      <p class="metric-stats-tile-label">Total Actual ({{ trendCategories.length }}{{ frequencyUnitAbbr }})</p>
+                      <p class="metric-stats-tile-period metric-stats-tile-period-placeholder">&nbsp;</p>
+                      <p class="metric-stats-tile-value">{{ gaugeValueLabel(trendTotalActual) }}</p>
+                    </div>
+                  </div>
+
+                  <div class="metric-stats-tile">
+                    <span class="metric-stats-tile-icon metric-stats-tile-icon-target"><i class="bi bi-bullseye"></i></span>
+                    <div class="metric-stats-tile-body">
+                      <p class="metric-stats-tile-label">Total Target ({{ trendCategories.length }}{{ frequencyUnitAbbr }})</p>
+                      <p class="metric-stats-tile-period metric-stats-tile-period-placeholder">&nbsp;</p>
+                      <p class="metric-stats-tile-value">{{ gaugeValueLabel(trendTotalTarget) }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="metric-stats-card bowling">
+                  <p class="metric-stats-card-title">Tracking</p>
+                  <app-metric-tracking-grid [metric]="initial" (saved)="loadTrend()"></app-metric-tracking-grid>
+                </div>
               }
             } @else {
               <p class="text-muted small">Save the metric first to see statistics.</p>

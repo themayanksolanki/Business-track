@@ -1,0 +1,73 @@
+<div class="tracking-grid-header">
+  <div class="tracking-grid-nav">
+    <button type="button" class="tracking-grid-nav-btn" (click)="prevWindow()" [disabled]="windowIndex === 0">
+      <i class="bi bi-chevron-left"></i> Prev {{ navUnitLabel }}
+    </button>
+    <span class="tracking-grid-window-label">{{ windowLabel }}</span>
+    <button type="button" class="tracking-grid-nav-btn" (click)="nextWindow()" [disabled]="windowIndex === totalWindows - 1">
+      Next {{ navUnitLabel }} <i class="bi bi-chevron-right"></i>
+    </button>
+  </div>
+  @if (metric.frequency === 'daily') {
+    <input type="month" class="form-control tracking-grid-picker" [(ngModel)]="selectedMonthStr" (change)="onMonthChange()" />
+  } @else {
+    <input type="number" class="form-control tracking-grid-picker" [(ngModel)]="selectedYear" (change)="onYearChange()" />
+  }
+</div>
+
+@if (error) {
+  <div class="alert alert-danger py-2 mb-2">{{ error }}</div>
+}
+
+@if (loading) {
+  <div class="text-center py-4 text-muted">
+    <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+  </div>
+} @else {
+  <div class="tracking-grid">
+    <div class="tracking-grid-cells">
+      <span class="tracking-grid-row-label"></span>
+      @for (day of visibleDays; track day) {
+        <span class="tracking-grid-day-cell">{{ columnLabel(day) }}</span>
+      }
+      <span class="tracking-grid-total-cell">Total</span>
+    </div>
+
+    <div class="tracking-grid-values-row">
+      <span class="tracking-grid-row-label">Actual</span>
+      @for (day of visibleDays; track day) {
+        <div class="tracking-grid-cell" (click)="startEdit('actual', day)">
+          @if (isEditing('actual', day)) {
+            <input #activeInput type="text" inputmode="decimal" class="tracking-grid-cell-input"
+                   [class.tracking-grid-cell-input-error]="editError" [(ngModel)]="editValue"
+                   [title]="metric.dataType === 'percentage' ? 'Enter as a fraction — e.g. 0.7 for 70%' : ''"
+                   (keydown)="onCellKeydown($event)" (blur)="onCellBlur()" />
+          } @else {
+            <span class="tracking-grid-cell-value">{{ formatRead('actual', day) }}</span>
+          }
+        </div>
+      }
+      <div class="tracking-grid-total-value">
+        {{ formatTotal('actual') }}
+        @if (saving) { <span class="spinner-border spinner-border-sm ms-1"></span> }
+      </div>
+    </div>
+
+    <div class="tracking-grid-values-row">
+      <span class="tracking-grid-row-label">Target</span>
+      @for (day of visibleDays; track day) {
+        <div class="tracking-grid-cell" (click)="startEdit('target', day)">
+          @if (isEditing('target', day)) {
+            <input #activeInput type="text" inputmode="decimal" class="tracking-grid-cell-input"
+                   [class.tracking-grid-cell-input-error]="editError" [(ngModel)]="editValue"
+                   [title]="metric.dataType === 'percentage' ? 'Enter as a fraction — e.g. 0.7 for 70%' : ''"
+                   (keydown)="onCellKeydown($event)" (blur)="onCellBlur()" />
+          } @else {
+            <span class="tracking-grid-cell-value">{{ formatRead('target', day) }}</span>
+          }
+        </div>
+      }
+      <div class="tracking-grid-total-value">{{ formatTotal('target') }}</div>
+    </div>
+  </div>
+}

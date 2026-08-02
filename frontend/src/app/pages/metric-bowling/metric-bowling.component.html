@@ -8,159 +8,338 @@
       <i class="bi bi-plus-lg me-1"></i>Create Metric
     </button>
     <div class="dropdown bowling-lens-dropdown">
-      <button type="button" class="bowling-lens-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+      <button type="button" class="bowling-lens-trigger dropdown-toggle" data-bs-toggle="dropdown"
+        aria-expanded="false">
         <app-frequency-icon [name]="lens" [size]="16"></app-frequency-icon>
         {{ lensLabel }}
       </button>
       <ul class="dropdown-menu bowling-lens-menu">
         @for (opt of lensOptions; track opt) {
-          <li>
-            <a class="dropdown-item bowling-lens-item" [class.active]="lens === opt" (click)="setLens(opt)">
-              <app-frequency-icon [name]="opt" [size]="16"></app-frequency-icon>
-              {{ lensLabels[opt] }}
-            </a>
-          </li>
+        <li>
+          <a class="dropdown-item bowling-lens-item" [class.active]="lens === opt" (click)="setLens(opt)">
+            <app-frequency-icon [name]="opt" [size]="16"></app-frequency-icon>
+            {{ lensLabels[opt] }}
+          </a>
+        </li>
         }
       </ul>
     </div>
     @if (lens === 'daily') {
-      <input type="month" class="form-control bowling-month-input" [(ngModel)]="selectedMonthStr" (change)="onMonthChange()" />
+    <input type="month" class="form-control bowling-month-input" [(ngModel)]="selectedMonthStr"
+      (change)="onMonthChange()" />
     } @else {
-      <input type="number" class="form-control bowling-month-input" [(ngModel)]="selectedYear" (change)="onYearChange()" />
+    <input type="number" class="form-control bowling-month-input" [(ngModel)]="selectedYear"
+      (change)="onYearChange()" />
     }
   </div>
 </div>
 
 @if (error) {
-  <div class="alert alert-danger py-2">{{ error }}</div>
+<div class="alert alert-danger py-2">{{ error }}</div>
 }
 
 @if (loading) {
-  <div class="text-center py-5 text-muted">
-    <span class="spinner-border spinner-border-sm me-2"></span>Loading…
-  </div>
+<div class="text-center py-5 text-muted">
+  <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+</div>
 } @else if (rows.length === 0) {
-  <div class="empty-state text-center py-5 text-muted">
-    <i class="bi bi-graph-up-arrow display-5 d-block mb-3"></i>
-    <p class="mb-0">No metrics yet — create one to get started.</p>
-  </div>
+<div class="empty-state text-center py-5 text-muted">
+  <i class="bi bi-graph-up-arrow display-5 d-block mb-3"></i>
+  <p class="mb-0">No metrics yet — create one to get started.</p>
+</div>
 } @else if (!hasVisibleRows) {
-  <div class="empty-state text-center py-5 text-muted">
-    <i class="bi bi-graph-up-arrow display-5 d-block mb-3"></i>
-    <p class="mb-0">No {{ lens }} metrics yet — switch lenses, or set a metric's Frequency to {{ lensLabel }} to see it here.</p>
-  </div>
+<div class="empty-state text-center py-5 text-muted">
+  <i class="bi bi-graph-up-arrow display-5 d-block mb-3"></i>
+  <p class="mb-0">No {{ lens }} metrics yet — switch lenses, or set a metric's Frequency to {{ lensLabel }} to see it
+    here.</p>
+</div>
 } @else {
-  <div class="bowling-grid">
-    <!-- Shared header: one Month/Date row for the whole page, per lens -->
-    <div class="bowling-row bowling-header-row">
-      <div class="bowling-info-col">Metric</div>
-      <div class="bowling-days-col">
-        <div class="bowling-window-nav">
-          <button type="button" class="bowling-nav-btn" (click)="prevWindow()" [disabled]="windowIndex === 0">
-            <i class="bi bi-chevron-left"></i> Prev {{ navUnitLabel }}
-          </button>
-          <span class="bowling-window-label">{{ windowLabel }}</span>
-          <button type="button" class="bowling-nav-btn" (click)="nextWindow()" [disabled]="windowIndex === totalWindows - 1">
-            Next {{ navUnitLabel }} <i class="bi bi-chevron-right"></i>
-          </button>
-        </div>
-        <div class="bowling-day-cells">
-          <span class="mx-1 px-2">{{ lens === 'daily' ? selectedMonthStr : selectedYear }}</span>
-          @for (day of visibleDays; track day) {
-            <span class="bowling-day-cell">{{ columnLabel(day) }}</span>
-          }
-        </div>
+<div class="bowling-grid">
+  <!-- Shared header: one Month/Date row for the whole page, per lens -->
+  <div class="bowling-row bowling-header-row">
+    <div class="bowling-info-col">Metric</div>
+    <div class="bowling-days-col">
+      <div class="bowling-window-nav">
+        <button type="button" class="bowling-nav-btn" (click)="prevWindow()" [disabled]="windowIndex === 0">
+          <i class="bi bi-chevron-left"></i> Prev {{ navUnitLabel }}
+        </button>
+        <span class="bowling-window-label">{{ windowLabel }}</span>
+        <button type="button" class="bowling-nav-btn" (click)="nextWindow()"
+          [disabled]="windowIndex === totalWindows - 1">
+          Next {{ navUnitLabel }} <i class="bi bi-chevron-right"></i>
+        </button>
       </div>
-      <div class="bowling-total-col">Total</div>
+      <div class="bowling-day-cells">
+        <span class="mx-1 px-2">{{ lens === 'daily' ? selectedMonthStr : selectedYear }}</span>
+        @for (day of visibleDays; track day) {
+        <span class="bowling-day-cell">{{ columnLabel(day) }}</span>
+        }
+      </div>
     </div>
+    <div class="bowling-total-col">Total</div>
+  </div>
 
-    <!-- One section per metric — only the row(s) matching the active lens
+  <!-- One section per metric — only the row(s) matching the active lens
          are rendered (see MetricBowlingComponent's `lens`), but the loop
          still walks the full `rows` array so `rowIndex` keeps lining up
          with the component's underlying array. -->
-    @for (row of rows; track row.item.id; let rowIndex = $index) {
-      @if (row.item.frequency === lens) {
-      <div class="bowling-row">
-        <div class="bowling-info-col">
-          @if (auth.avatarUrl(row.item.owner)) {
-            <img class="bowling-owner-avatar" [src]="auth.avatarUrl(row.item.owner)!" [alt]="row.item.owner.username" [title]="row.item.owner.username" />
-          } @else {
-            <span class="bowling-owner-avatar bowling-owner-avatar-fallback" [title]="row.item.owner.username">{{ row.item.owner.username[0].toUpperCase() }}</span>
-          }
-          <div class="bowling-info-text">
-            <div class="bowling-metric-name" (click)="openEdit(rowIndex)">{{ row.item.title }}</div>
-            <div class="bowling-metric-dept">
-              <span class="dept-dot" [style.background]="row.item.department.color"></span>{{ row.item.department.name }}
-            </div>
-            @if (row.error) {
-              <div class="bowling-row-error">{{ row.error }}</div>
-            }
-          </div>
+  @for (row of rows; track row.item.id; let rowIndex = $index) {
+  @if (row.item.frequency === lens) {
+  <div class="bowling-row">
+    <div class="bowling-info-col">
+      @if (auth.avatarUrl(row.item.owner)) {
+      <img class="bowling-owner-avatar" [src]="auth.avatarUrl(row.item.owner)!" [alt]="row.item.owner.username"
+        [title]="row.item.owner.username" />
+      } @else {
+      <span class="bowling-owner-avatar bowling-owner-avatar-fallback" [title]="row.item.owner.username">{{
+        row.item.owner.username[0].toUpperCase() }}</span>
+      }
+      <div class="bowling-info-text">
+
+        <!-- Metric name -->
+        <div class="bowling-metric-name" (click)="openEdit(rowIndex)" [ngbPopover]="metricInfoPopover"
+          [popoverTitle]="null" triggers="mouseenter:mouseleave" placement="bottom" [openDelay]="200" [closeDelay]="100"
+          container="body" popoverClass="metric-info-popover">
+          {{ row.item.title }}
         </div>
 
-        <div class="bowling-days-col bowling-days-scroll">
-          @if (row.loading) {
-            <div class="bowling-row-loading"><span class="spinner-border spinner-border-sm"></span></div>
-          } @else {
-            <div class="bowling-values-row">
-              <span class="bowling-row-label">Actual</span>
-              @for (day of visibleDays; track day) {
-                <div class="bowling-cell" (click)="startEdit(rowIndex, 'actual', day)">
-                  @if (isEditing(rowIndex, 'actual', day)) {
-                    <input #activeInput type="text" inputmode="decimal" class="bowling-cell-input"
-                           [class.bowling-cell-input-error]="editError" [(ngModel)]="editValue"
-                           [title]="row.item.dataType === 'percentage' ? 'Enter as a fraction — e.g. 0.7 for 70%' : ''"
-                           (keydown)="onCellKeydown($event)" (blur)="onCellBlur()" />
-                  } @else {
-                    <span class="bowling-cell-value">{{ formatRead(rowIndex, 'actual', day) }}</span>
-                  }
-                </div>
-              }
-            </div>
-            <div class="bowling-values-row">
-              <span class="bowling-row-label">Target</span>
-              @for (day of visibleDays; track day) {
-                <div class="bowling-cell" (click)="startEdit(rowIndex, 'target', day)">
-                  @if (isEditing(rowIndex, 'target', day)) {
-                    <input #activeInput type="text" inputmode="decimal" class="bowling-cell-input"
-                           [class.bowling-cell-input-error]="editError" [(ngModel)]="editValue"
-                           [title]="row.item.dataType === 'percentage' ? 'Enter as a fraction — e.g. 0.7 for 70%' : ''"
-                           (keydown)="onCellKeydown($event)" (blur)="onCellBlur()" />
-                  } @else {
-                    <span class="bowling-cell-value">{{ formatRead(rowIndex, 'target', day) }}</span>
-                  }
-                </div>
-              }
-            </div>
-          }
+        <!-- Department -->
+        <div class="bowling-metric-dept">
+          <span class="dept-dot" [style.background]="row.item.department.color">
+          </span>
+
+          {{ row.item.department.name || 'N/A' }}
         </div>
 
-        <div class="bowling-total-col">
-          <div class="bowling-total-value">
-            {{ formatTotal(rowIndex, 'actual') }}
-            @if (row.saving) { <span class="spinner-border spinner-border-sm ms-1"></span> }
-          </div>
-          <div class="bowling-total-value">{{ formatTotal(rowIndex, 'target') }}</div>
+        <!-- Error -->
+        @if (row.error) {
+        <div class="bowling-row-error">
+          {{ row.error }}
         </div>
+        }
+
+
+        <!-- ========================= -->
+        <!-- Metric information popover -->
+        <!-- ========================= -->
+
+        <ng-template #metricInfoPopover>
+
+          <div class="metric-popover-card">
+
+            <!-- Header -->
+            <div class="metric-popover-header">
+
+              <div class="metric-heading">
+
+                <!-- Metric initial -->
+                <div class="metric-icon">
+                  {{ row.item.title.charAt(0).toUpperCase() || 'M' }}
+                </div>
+
+                <div class="metric-heading-content">
+
+                  <div class="metric-title" [title]="row.item.title">
+                    {{ row.item.title }}
+                  </div>
+
+                  <div class="metric-header-department">
+
+                    <span class="dept-dot" [style.background]="row.item.department.color">
+                    </span>
+
+                    {{ row.item.department.name || 'No department' }}
+
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              <!-- Status -->
+              <span class="metric-status" [class.metric-status-active]="row.item.status === 'active'">
+
+                <span class="metric-status-dot"></span>
+
+                {{ row.item.status || 'N/A' }}
+
+              </span>
+
+            </div>
+
+
+            <!-- Divider -->
+            <div class="metric-divider"></div>
+
+
+            <!-- Details -->
+            <div class="metric-details">
+
+              <!-- Category -->
+              <div class="metric-detail">
+
+                <span class="detail-label">
+                  Category:
+                </span>
+
+                <span class="detail-value" [title]="row.item.category?.name || 'N/A'">
+
+                  {{ row.item.category?.name || 'N/A' }}
+
+                </span>
+
+              </div>
+
+
+              <!-- Department -->
+              <div class="metric-detail">
+
+                <span class="detail-label">
+                  Department:
+                </span>
+
+                <span class="detail-value department-value">
+
+                  <span class="dept-dot" [style.background]="row.item.department.color">
+                  </span>
+
+                  <span class="text-truncate" [title]="row.item.department.name || 'N/A'">
+
+                    {{ row.item.department.name || 'N/A' }}
+
+                  </span>
+
+                </span>
+
+              </div>
+
+
+              <!-- Owner -->
+              <div class="metric-detail">
+
+                <span class="detail-label">
+                  Owner:
+                </span>
+
+                <span class="detail-value owner-value">
+
+                  <span class="owner-avatar">
+                    {{ row.item.owner.username.charAt(0).toUpperCase() || '?' }}
+                  </span>
+
+                  <span class="text-truncate" [title]="row.item.owner.username || 'N/A'">
+
+                    {{ row.item.owner.username || 'N/A' }}
+
+                  </span>
+
+                </span>
+
+              </div>
+
+
+              <!-- Frequency -->
+              <div class="metric-detail">
+
+                <span class="detail-label">
+                  Frequency:
+                </span>
+
+                <span class="detail-value">
+                  {{ row.item.frequency || 'N/A' }}
+                </span>
+
+              </div>
+
+
+              <!-- Data type -->
+              <div class="metric-detail">
+
+                <span class="detail-label">
+                  Data Type:
+                </span>
+
+                <span class="detail-value">
+                  {{ row.item.dataType || 'N/A' }}
+                </span>
+
+              </div>
+
+            </div>
+
+
+            <!-- Footer -->
+            <div class="metric-popover-footer">
+
+              <span>
+                Click metric to view details
+              </span>
+
+              <i class="bi bi-arrow-right"></i>
+
+            </div>
+
+          </div>
+
+        </ng-template>
+
+      </div>
+    </div>
+
+    <div class="bowling-days-col bowling-days-scroll">
+      @if (row.loading) {
+      <div class="bowling-row-loading"><span class="spinner-border spinner-border-sm"></span></div>
+      } @else {
+      <div class="bowling-values-row">
+        <span class="bowling-row-label">Actual</span>
+        @for (day of visibleDays; track day) {
+        <div class="bowling-cell" (click)="startEdit(rowIndex, 'actual', day)">
+          @if (isEditing(rowIndex, 'actual', day)) {
+          <input #activeInput type="text" inputmode="decimal" class="bowling-cell-input"
+            [class.bowling-cell-input-error]="editError" [(ngModel)]="editValue"
+            [title]="row.item.dataType === 'percentage' ? 'Enter as a fraction — e.g. 0.7 for 70%' : ''"
+            (keydown)="onCellKeydown($event)" (blur)="onCellBlur()" />
+          } @else {
+          <span class="bowling-cell-value">{{ formatRead(rowIndex, 'actual', day) }}</span>
+          }
+        </div>
+        }
+      </div>
+      <div class="bowling-values-row">
+        <span class="bowling-row-label">Target</span>
+        @for (day of visibleDays; track day) {
+        <div class="bowling-cell" (click)="startEdit(rowIndex, 'target', day)">
+          @if (isEditing(rowIndex, 'target', day)) {
+          <input #activeInput type="text" inputmode="decimal" class="bowling-cell-input"
+            [class.bowling-cell-input-error]="editError" [(ngModel)]="editValue"
+            [title]="row.item.dataType === 'percentage' ? 'Enter as a fraction — e.g. 0.7 for 70%' : ''"
+            (keydown)="onCellKeydown($event)" (blur)="onCellBlur()" />
+          } @else {
+          <span class="bowling-cell-value">{{ formatRead(rowIndex, 'target', day) }}</span>
+          }
+        </div>
+        }
       </div>
       }
-    }
+    </div>
+
+    <div class="bowling-total-col">
+      <div class="bowling-total-value">
+        {{ formatTotal(rowIndex, 'actual') }}
+        @if (row.saving) { <span class="spinner-border spinner-border-sm ms-1"></span> }
+      </div>
+      <div class="bowling-total-value">{{ formatTotal(rowIndex, 'target') }}</div>
+    </div>
   </div>
+  }
+  }
+</div>
 }
 
-<app-metric-form-modal
-  [open]="formOpen"
-  [mode]="formMode"
-  [initial]="formInitial"
-  [departments]="departmentService.departments()"
-  [categories]="categoryService.categories()"
-  [users]="userService.users()"
-  [parentOptions]="parentOptions"
-  [defaultFrequency]="lens"
-  [loading]="formLoading"
-  [error]="formError"
-  [deleteLoading]="deleteLoading"
-  (closed)="closeForm()"
-  (submitted)="submitForm($event)"
+<app-metric-form-modal [open]="formOpen" [mode]="formMode" [initial]="formInitial"
+  [departments]="departmentService.departments()" [categories]="categoryService.categories()"
+  [users]="userService.users()" [parentOptions]="parentOptions" [defaultFrequency]="lens" [loading]="formLoading"
+  [error]="formError" [deleteLoading]="deleteLoading" (closed)="closeForm()" (submitted)="submitForm($event)"
   (deleteConfirmed)="onDeleteConfirmed()">
 </app-metric-form-modal>

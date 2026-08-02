@@ -1,3 +1,8 @@
+/* Fixed height (not just a max) so the modal stays the same size across
+   every tab — Details/Notes/Attachments are short enough to fit this with
+   room to spare, Statistics is the tallest tab and defines the budget;
+   without a fixed height the modal would visibly grow/shrink on every tab
+   switch. */
 .metric-modal-content {
   border-radius: 14px;
   border: none;
@@ -5,7 +10,7 @@
   color: var(--text-primary);
   display: flex;
   flex-direction: column;
-  max-height: 85vh;
+  height: 92vh;
 }
 
 /* Header/error/tabs stay fixed size; only .metric-modal-scroll below grows
@@ -295,27 +300,111 @@
   min-width: 96px;
 }
 
-.metric-stats-summary {
-  display: flex;
+/* ── Statistics tab: card chrome ── */
+.metric-stats-card {
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+
+  &.bowling {
+    margin-top: 10px
+  }
+}
+
+.metric-stats-card-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+
+/* ── Performance overview: gauge | summary text | legend+meter ── */
+.metric-stats-overview {
+  display: grid;
+  /* Fixed first column (not "auto") — an "auto" track relies on the gauge's
+     own content-based size contribution, and the nested ECharts canvas
+     doesn't contribute one reliably as a grid item; a fixed track guarantees
+     the gauge actually gets its intended width. */
+  grid-template-columns: 104px 1fr auto;
   align-items: center;
   gap: 16px;
-  padding: 12px 16px;
-  margin-bottom: 12px;
+}
+
+.metric-stats-gauge-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.metric-stats-gauge { width: 104px; flex-shrink: 0; }
+.metric-stats-gauge-caption { font-size: 0.68rem; color: var(--text-muted); margin: 0; }
+.metric-stats-summary-text { min-width: 0; }
+
+.metric-stats-value { font-size: 1.15rem; font-weight: 700; color: var(--text-primary); }
+
+.metric-stats-delta { font-size: 0.8rem; font-weight: 600; }
+.metric-stats-delta-behind { color: #ef4444; }
+.metric-stats-delta-ahead { color: #22c55e; }
+
+.metric-stats-legend { min-width: 200px; display: flex; flex-direction: column; gap: 8px; }
+.metric-stats-legend-row { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-secondary); }
+.metric-stats-legend-label { color: var(--text-muted); }
+.metric-stats-legend-value { margin-left: auto; padding-left: 12px; font-weight: 600; color: var(--text-primary); }
+
+.metric-stats-achievement { margin-top: 8px; }
+.metric-stats-achievement-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+.metric-stats-achievement-percent { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); }
+
+/* Meter: fill = the fixed Actual series color; track = a lighter step of
+   the same blue (per this app's meter convention — same #3b82f6 already
+   hardcoded elsewhere in this file for the fixed Actual series). */
+.metric-stats-meter { height: 6px; border-radius: 3px; background: rgba(59, 130, 246, 0.18); overflow: hidden; }
+.metric-stats-meter-fill { height: 100%; border-radius: 3px; background: #3b82f6; transition: width 0.3s ease; }
+
+/* ── Stat tiles row ── */
+.metric-stats-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+
+.metric-stats-tile {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   background: var(--bg-muted);
-  border-radius: 10px;
-}
-
-.metric-stats-gauge {
-  width: 120px;
-  flex-shrink: 0;
-}
-
-.metric-stats-summary-text {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
   min-width: 0;
 }
 
-.metric-stats-exceeded {
-  color: #22c55e;
-  font-weight: 600;
-  font-size: 0.8rem;
+.metric-stats-tile-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  font-size: 0.95rem;
+  background: rgba(59, 130, 246, 0.14);
+  color: #3b82f6;
 }
+.metric-stats-tile-icon-target { background: rgba(245, 158, 11, 0.14); color: #f59e0b; }
+
+.metric-stats-tile-body { min-width: 0; }
+.metric-stats-tile-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; color: var(--text-muted); margin: 0 0 2px; }
+.metric-stats-tile-period { font-size: 0.72rem; color: var(--text-secondary); margin: 0 0 2px; }
+/* Reserves the same line height as a real period label — the "Total"
+   tiles have no period of their own, but the grid row stretches all 4
+   tiles to the tallest one's height, so without this placeholder their
+   content sits flush at the top with a stray gap of blank space below it
+   where the "Best <period>" tiles' extra line is. */
+.metric-stats-tile-period-placeholder { visibility: hidden; }
+.metric-stats-tile-value { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.metric-stats-tile-value-actual { color: #3b82f6; }
+.metric-stats-tile-value-target { color: #f59e0b; }
+
+/* Safety net if the modal is ever viewed narrow (modal-lg is fixed today). */
+@media (max-width: 576px) {
+  .metric-stats-overview { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .metric-stats-legend { width: 100%; }
+  .metric-stats-tiles { grid-template-columns: repeat(2, 1fr); }
+}
+
