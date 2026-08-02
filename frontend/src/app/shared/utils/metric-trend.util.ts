@@ -21,3 +21,18 @@ export function trendWindow(currentPeriod: number, points: number): number[] {
   const start = Math.max(1, currentPeriod - points + 1);
   return Array.from({ length: currentPeriod - start + 1 }, (_, i) => start + i);
 }
+
+export const FREQUENCY_UNIT_LABEL: Record<MetricFrequency, string> = {
+  daily: 'Day', weekly: 'Week', monthly: 'Month', quarterly: 'Quarter', yearly: 'Year',
+};
+export const FREQUENCY_UNIT_ABBR: Record<MetricFrequency, string> = {
+  daily: 'D', weekly: 'W', monthly: 'M', quarterly: 'Q', yearly: 'Y',
+};
+
+// Same as trendPeriodLabel but with the year appended (ambiguous otherwise
+// across a year boundary in a "Best Month" stat tile); yearly already
+// returns an absolute year so it's left alone.
+export function trendPeriodFullLabel(frequency: MetricFrequency, period: number, year: number): string {
+  const label = trendPeriodLabel(frequency, period, year);
+  return frequency === 'yearly' ? label : `${label} ${year}`;
+}

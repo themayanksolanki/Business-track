@@ -22,6 +22,7 @@ import { CURRENCY_SYMBOLS, MEASUREMENT_UNIT_SYMBOLS } from '../../models/user.mo
 import { MetricFormModalComponent, MetricFormMode } from '../../shared/metric-form-modal/metric-form-modal.component';
 import { MONTH_LABELS, isoWeekInfo } from '../../shared/utils/metric-period.util';
 import { FrequencyIconComponent, FrequencyIconName } from '../../shared/frequency-icon/frequency-icon.component';
+import { NgbPopover } from '@ng-bootstrap/ng-bootstrap';
 
 const DEFAULT_DECIMAL_POINTS = 2;
 
@@ -78,7 +79,7 @@ const YEARLY_BLOCK_SIZE = 5;
 @Component({
   selector: 'app-metric-bowling',
   standalone: true,
-  imports: [FormsModule, MetricFormModalComponent, FrequencyIconComponent],
+  imports: [FormsModule, MetricFormModalComponent, FrequencyIconComponent, NgbPopover],
   templateUrl: './metric-bowling.component.html',
   styleUrl: './metric-bowling.component.css',
 })
@@ -754,5 +755,18 @@ export class MetricBowlingComponent implements OnInit {
         return of(null);
       })
     );
+  }
+
+  showMetricInfoCardHtml(row: MetricListItem) {
+    // show title, category, department, owner, frequency, dataType, and status in a popover card — mirrors MetricsComponent's info card, but this page doesn't
+    return `<div class="metric-info-card">
+      <div><strong>Title:</strong> ${row.title}</div>
+      <div><strong>Category:</strong> ${row.category?.name || 'N/A'}</div>
+      <div><strong>Department:</strong> ${row.department?.name || 'N/A'}</div>
+      <div><strong>Owner:</strong> ${row.owner?.username || 'N/A'}</div>
+      <div><strong>Frequency:</strong> ${row.frequency}</div>
+      <div><strong>Data Type:</strong> ${row.dataType}</div>
+      <div><strong>Status:</strong> ${row.status}</div>
+    </div>`;
   }
 }

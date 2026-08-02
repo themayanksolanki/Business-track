@@ -91,7 +91,12 @@ export class GaugeChartComponent implements AfterViewInit, OnChanges, OnDestroy 
   private render() {
     if (!this.chart) return;
 
-    const track = this.cssVar('--bg-muted', '#e2e8f0');
+    // --border-strong rather than --bg-muted: callers commonly place this
+    // gauge on a --bg-muted card (see metric-form-modal's Statistics tab),
+    // and a track color equal to its own background disappears entirely —
+    // --border-strong stays visibly distinct from both --bg-card and
+    // --bg-muted in light and dark theme.
+    const track = this.cssVar('--border-strong', '#e2e8f0');
     const color = this.color;
     const percent = this.percent;
     const formatter = this.valueFormatter;

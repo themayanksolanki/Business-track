@@ -115,7 +115,7 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
           color: s.color,
           connectNulls: true,
           symbol: 'circle' as const,
-          symbolSize: 6,
+          symbolSize: 8,
         })),
       },
       true

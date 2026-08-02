@@ -99,6 +99,7 @@
   align-items: center;
   gap: 12px;
   border-right: 1px solid var(--border);
+  max-width: 240px;
 }
 
 .bowling-days-col {
@@ -336,4 +337,565 @@
 }
 .bowling-total-value:nth-of-type(2) {
   background: var(--bg-muted);
+}
+
+/* ============================================================
+   METRIC INFO POPOVER
+   Used with:
+   popoverClass="metric-info-popover"
+   container="body"
+   ============================================================ */
+
+.metric-info-popover {
+  --bs-popover-max-width: 380px;
+
+  width: 380px;
+  max-width: calc(100vw - 24px);
+
+  padding: 0;
+
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+
+  background: #ffffff;
+
+  box-shadow:
+    0 10px 30px rgba(15, 23, 42, 0.12),
+    0 2px 8px rgba(15, 23, 42, 0.06);
+
+  box-sizing: border-box;
+  overflow: hidden;
+
+  /* Bootstrap popover body */
+  .popover-body {
+    width: 100%;
+    max-width: 100%;
+
+    padding: 0;
+
+    box-sizing: border-box;
+    overflow: hidden;
+
+    color: #0f172a;
+  }
+}
+
+
+/* ============================================================
+   MAIN CARD
+   IMPORTANT:
+   Do NOT give this a fixed pixel width.
+   Parent popover controls the width.
+   ============================================================ */
+
+.metric-popover-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+
+  margin: 0;
+  padding: 0;
+
+  box-sizing: border-box;
+  overflow: hidden;
+
+  background: #ffffff;
+  color: #0f172a;
+}
+
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+
+.metric-popover-header {
+  width: 100%;
+  max-width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  padding: 14px 16px;
+
+  box-sizing: border-box;
+}
+
+
+/* Left side */
+
+.metric-heading {
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  flex: 1;
+
+  min-width: 0;
+  max-width: 100%;
+}
+
+
+/* ============================================================
+   METRIC INITIAL ICON
+   ============================================================ */
+
+.metric-icon {
+  width: 36px;
+  height: 36px;
+
+  min-width: 36px;
+  flex: 0 0 36px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 9px;
+
+  background: #eff6ff;
+  color: #2563eb;
+
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 700;
+
+  box-sizing: border-box;
+}
+
+
+/* ============================================================
+   TITLE + DEPARTMENT
+   ============================================================ */
+
+.metric-heading-content {
+  flex: 1;
+
+  min-width: 0;
+  max-width: 100%;
+
+  overflow: hidden;
+}
+
+
+.metric-title {
+  display: block;
+
+  width: 100%;
+  max-width: 100%;
+
+  overflow: hidden;
+
+  white-space: nowrap;
+  text-overflow: ellipsis;
+
+  color: #0f172a;
+
+  font-size: 14px;
+  line-height: 19px;
+  font-weight: 600;
+}
+
+
+/* Department below title */
+
+.metric-header-department {
+  display: flex;
+  align-items: center;
+
+  gap: 6px;
+
+  min-width: 0;
+
+  margin-top: 3px;
+
+  color: #64748b;
+
+  font-size: 11px;
+  line-height: 15px;
+
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+
+/* ============================================================
+   DEPARTMENT DOT
+   ============================================================ */
+
+.dept-dot {
+  display: inline-block;
+
+  width: 7px;
+  height: 7px;
+
+  min-width: 7px;
+  flex: 0 0 7px;
+
+  border-radius: 50%;
+
+  vertical-align: middle;
+}
+
+
+/* ============================================================
+   STATUS
+   ============================================================ */
+
+.metric-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 5px;
+
+  flex: 0 0 auto;
+
+  padding: 4px 9px;
+
+  border-radius: 999px;
+
+  background: #f1f5f9;
+  color: #64748b;
+
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 600;
+
+  white-space: nowrap;
+
+  text-transform: capitalize;
+
+  box-sizing: border-box;
+}
+
+
+.metric-status-dot {
+  width: 6px;
+  height: 6px;
+
+  min-width: 6px;
+
+  border-radius: 50%;
+
+  background: currentColor;
+}
+
+
+/* Active */
+
+.metric-status-active {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+
+/* Inactive */
+
+.metric-status-inactive {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+
+/* ============================================================
+   DIVIDER
+   ============================================================ */
+
+.metric-divider {
+  width: auto;
+  height: 1px;
+
+  margin: 0 16px;
+
+  background: #e2e8f0;
+}
+
+
+/* ============================================================
+   DETAILS GRID
+   ============================================================ */
+
+.metric-details {
+  width: 100%;
+  max-width: 100%;
+
+  display: grid;
+
+  /*
+   * minmax(0, 1fr) is important.
+   * It prevents long content from increasing column width
+   * and causing horizontal overflow.
+   */
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(0, 1fr);
+
+  column-gap: 20px;
+  row-gap: 14px;
+
+  padding: 14px 16px 16px;
+
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+
+/* Individual detail */
+
+.metric-detail {
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+
+  min-width: 0;
+  max-width: 100%;
+
+  overflow: hidden;
+}
+
+
+/* ============================================================
+   DETAIL LABEL
+   ============================================================ */
+
+.detail-label {
+  display: block;
+
+  width: 100%;
+
+  color: #94a3b8;
+
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 600;
+
+  white-space: nowrap;
+}
+
+
+/* ============================================================
+   DETAIL VALUE
+   ============================================================ */
+
+.detail-value {
+  display: flex;
+  align-items: center;
+
+  gap: 6px;
+
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+
+  color: #334155;
+
+  font-size: 12px;
+  line-height: 17px;
+  font-weight: 500;
+
+  box-sizing: border-box;
+
+  overflow: hidden;
+}
+
+
+/* ============================================================
+   OWNER
+   ============================================================ */
+
+.owner-value {
+  min-width: 0;
+  max-width: 100%;
+}
+
+
+.owner-avatar {
+  width: 20px;
+  height: 20px;
+
+  min-width: 20px;
+  flex: 0 0 20px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #dbeafe;
+  color: #2563eb;
+
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+
+/* ============================================================
+   DEPARTMENT VALUE
+   ============================================================ */
+
+.department-value {
+  min-width: 0;
+  max-width: 100%;
+}
+
+
+.department-value .dept-dot {
+  width: 6px;
+  height: 6px;
+
+  min-width: 6px;
+  flex: 0 0 6px;
+}
+
+
+/* ============================================================
+   TEXT TRUNCATION
+   ============================================================ */
+
+.metric-popover-card .text-truncate {
+  display: block;
+
+  flex: 1;
+
+  min-width: 0;
+  max-width: 100%;
+
+  overflow: hidden;
+
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+
+/*
+ * Also truncate plain values if they don't have
+ * .text-truncate applied.
+ */
+
+.detail-value > span:not(.dept-dot):not(.owner-avatar) {
+  min-width: 0;
+
+  overflow: hidden;
+
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+
+.metric-popover-footer {
+  width: 100%;
+  max-width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 6px;
+
+  padding: 8px 16px;
+
+  border-top: 1px solid #f1f5f9;
+
+  background: #f8fafc;
+
+  color: #64748b;
+
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 400;
+
+  box-sizing: border-box;
+
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+
+.metric-popover-footer i {
+  flex: 0 0 auto;
+
+  font-size: 10px;
+
+  transition: transform 0.15s ease;
+}
+
+
+.metric-popover-footer:hover i {
+  transform: translateX(2px);
+}
+
+
+/* ============================================================
+   POPOVER ARROW
+   ============================================================ */
+
+.metric-info-popover.bs-popover-bottom > .popover-arrow::before {
+  border-bottom-color: #e2e8f0;
+}
+
+
+.metric-info-popover.bs-popover-bottom > .popover-arrow::after {
+  border-bottom-color: #ffffff;
+}
+
+
+.metric-info-popover.bs-popover-top > .popover-arrow::before {
+  border-top-color: #e2e8f0;
+}
+
+
+.metric-info-popover.bs-popover-top > .popover-arrow::after {
+  border-top-color: #ffffff;
+}
+
+
+/* ============================================================
+   MOBILE / SMALL SCREEN
+   ============================================================ */
+
+@media (max-width: 480px) {
+
+  .metric-info-popover {
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+  }
+
+
+  .metric-details {
+    grid-template-columns: minmax(0, 1fr);
+
+    row-gap: 12px;
+  }
+
+
+  .metric-popover-header {
+    padding: 3px 14px;
+  }
+
+
+  .metric-details {
+    padding: 12px 14px 14px;
+  }
+
+
+  .metric-divider {
+    margin: 0 14px;
+  }
+
+
+  .metric-popover-footer {
+    padding: 8px 14px;
+  }
 }
