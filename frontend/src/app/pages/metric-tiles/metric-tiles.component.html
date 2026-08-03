@@ -31,15 +31,24 @@
 
     <div class="tiles-grid" cdkDropList (cdkDropListDropped)="onDrop(group, $event)">
       @for (row of group.rows; track row.item.id) {
-        <div class="metric-tile" cdkDrag>
+        <div class="metric-tile" cdkDrag [cdkDragDisabled]="!canEditTile(row)">
           <div class="metric-tile-placeholder" *cdkDragPlaceholder></div>
 
           <div class="metric-tile-header">
             <span class="metric-tile-drag-handle" cdkDragHandle title="Drag to reorder">
               <i class="bi bi-grip-vertical"></i>
             </span>
-            <span class="metric-tile-title" (click)="openEdit(row)" title="{{ row.item.title }}">{{ row.item.title }}</span>
+            <span class="metric-tile-title" (click)="openEdit(row)" [ngbPopover]="metricInfoPopover"
+              [popoverTitle]="null" triggers="mouseenter:mouseleave" placement="bottom" [openDelay]="200" [closeDelay]="100"
+              container="body" popoverClass="metric-info-popover">{{ row.item.title }}</span>
           </div>
+
+          <!-- Metric information popover — shared/metric-info-popover owns
+               the card markup+styling; only the wiring (trigger + template
+               ref) stays per-page. -->
+          <ng-template #metricInfoPopover>
+            <app-metric-info-popover [item]="row.item"></app-metric-info-popover>
+          </ng-template>
 
           <div class="metric-tile-meta">
             <span class="metric-tile-chip">
@@ -113,7 +122,7 @@
   [departments]="departmentService.departments()"
   [categories]="categoryService.categories()"
   [users]="userService.users()"
-  [parentOptions]="parentOptions"
+  [linkCandidates]="parentOptions"
   [loading]="formLoading"
   [error]="formError"
   [deleteLoading]="deleteLoading"

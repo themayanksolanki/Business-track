@@ -21,8 +21,10 @@ import { MetricFrequency, PeriodMap, PeriodValue, TrackingDiff } from '../../mod
 import { CURRENCY_SYMBOLS, MEASUREMENT_UNIT_SYMBOLS } from '../../models/user.model';
 import { MetricFormModalComponent, MetricFormMode } from '../../shared/metric-form-modal/metric-form-modal.component';
 import { MONTH_LABELS, isoWeekInfo } from '../../shared/utils/metric-period.util';
+import { canEditMetricListItem } from '../../shared/utils/metric-value.util';
 import { FrequencyIconComponent, FrequencyIconName } from '../../shared/frequency-icon/frequency-icon.component';
 import { NgbPopover } from '@ng-bootstrap/ng-bootstrap';
+import { MetricInfoPopoverComponent } from '../../shared/metric-info-popover/metric-info-popover.component';
 
 const DEFAULT_DECIMAL_POINTS = 2;
 
@@ -79,7 +81,7 @@ const YEARLY_BLOCK_SIZE = 5;
 @Component({
   selector: 'app-metric-bowling',
   standalone: true,
-  imports: [FormsModule, MetricFormModalComponent, FrequencyIconComponent, NgbPopover],
+  imports: [FormsModule, MetricFormModalComponent, FrequencyIconComponent, NgbPopover, MetricInfoPopoverComponent],
   templateUrl: './metric-bowling.component.html',
   styleUrl: './metric-bowling.component.css',
 })
@@ -383,6 +385,7 @@ export class MetricBowlingComponent implements OnInit {
             status: res.metric.status,
             dataType: res.metric.dataType,
             frequency: res.metric.frequency,
+            members: res.metric.members?.map((m) => ({ userId: m.user.id, role: m.role })),
           };
           this.rows.push({
             item,
@@ -426,6 +429,7 @@ export class MetricBowlingComponent implements OnInit {
             status: res.metric.status,
             dataType: res.metric.dataType,
             frequency: res.metric.frequency,
+            members: res.metric.members?.map((m) => ({ userId: m.user.id, role: m.role })),
           };
           // The row's already-loaded periods were fetched under the OLD
           // frequency's axis (days vs weeks) — re-fetch under the new one
@@ -581,7 +585,15 @@ export class MetricBowlingComponent implements OnInit {
     return dataType === 'percentage' ? entered * 100 : entered;
   }
 
+  // A Viewer on this specific metric's team can't enter its Bowling View
+  // cells — mirrors the metric-form-modal's own canEditMetric gate, just
+  // per-row since this page shows many metrics at once.
+  canEditRow(row: BowlingRow): boolean {
+    return canEditMetricListItem(this.auth.currentUser(), row.item);
+  }
+
   startEdit(rowIndex: number, row: RowKey, day: number) {
+    if (!this.canEditRow(this.rows[rowIndex])) return;
     const current = this.cellValue(rowIndex, row, day);
     this.editing = { rowIndex, row, day };
     const dataType = this.rows[rowIndex].item.dataType;

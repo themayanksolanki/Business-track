@@ -2,6 +2,7 @@ import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from
 import { FormsModule } from '@angular/forms';
 import { ModalDirective } from '../modal.directive';
 import { MemberPickerComponent } from '../member-picker/member-picker.component';
+import { ProjectService } from '../../core/services/project.service';
 import { ProjectRoleService } from '../../core/services/project-role.service';
 import { ProjectRole } from '../../models/project-role.model';
 import { User } from '../../models/user.model';
@@ -36,7 +37,13 @@ export class AddMemberModalComponent implements OnChanges {
     return this.localError || this.error;
   }
 
-  constructor(private projectRoleService: ProjectRoleService) {}
+  constructor(
+    private projectRoleService: ProjectRoleService,
+    private projectService: ProjectService
+  ) {}
+
+  fetchCandidates = (page: number, limit: number, search: string) =>
+    this.projectService.getMemberCandidates(this.projectId, page, limit, search);
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['open'] && this.open) {

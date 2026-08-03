@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import AppError from '../utils/AppError.js';
-import { METRIC_FREQUENCIES } from '../models/metricTracking.model.js';
-import type { MetricFrequency } from '../models/metricTracking.model.js';
+import { METRIC_FREQUENCIES, METRIC_RAG_STATUSES } from '../models/metricTracking.model.js';
+import type { MetricFrequency, MetricRagStatus } from '../models/metricTracking.model.js';
 import { periodCount, IMPLEMENTED_METRIC_FREQUENCIES, frequencyRequiresMonth } from '../utils/metricPeriods.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -651,9 +651,14 @@ export const validateMemberId = validateParamId('memberId');
 
 const VALID_METRIC_STATUSES = ['active', 'archived', 'deleted'];
 const VALID_METRIC_DATA_TYPES = ['number', 'weight', 'currency', 'percentage'];
+// Keys a metric's columnLabels JSON may override — the Sheet tab's fixed
+// column set (see MetricSheetComponent). Unknown keys are rejected rather
+// than silently dropped, so a typo/renamed key surfaces immediately.
+const VALID_METRIC_COLUMN_LABEL_KEYS = ['actual', 'target', 'lowest', 'medium', 'upper', 'status', 'note'];
+const MAX_METRIC_COLUMN_LABEL_LENGTH = 40;
 
 export const validateMetric = (req: Request, res: Response, next: NextFunction) => {
-  const { title, department, category, owner, parentId, startDate, dueDate, notes, status, dataType, frequency } = req.body;
+  const { title, department, category, owner, parentId, startDate, dueDate, notes, status, dataType, frequency, columnLabels } = req.body;
 
   if (req.method === 'POST') {
     if (!title || !title.trim()) return next(new AppError('Title is required', 400));
@@ -689,6 +694,21 @@ export const validateMetric = (req: Request, res: Response, next: NextFunction) 
   if (frequency !== undefined && !IMPLEMENTED_METRIC_FREQUENCIES.includes(frequency))
     return next(new AppError(`frequency must be one of: ${IMPLEMENTED_METRIC_FREQUENCIES.join(', ')}`, 400));
 
+  if (columnLabels !== undefined && columnLabels !== null) {
+    if (typeof columnLabels !== 'object' || Array.isArray(columnLabels))
+      return next(new AppError('columnLabels must be an object', 400));
+    for (const [key, value] of Object.entries(columnLabels)) {
+      if (!VALID_METRIC_COLUMN_LABEL_KEYS.includes(key))
+        return next(new AppError(`columnLabels key "${key}" is not a recognized column`, 400));
+      if (value !== undefined && value !== null) {
+        if (typeof value !== 'string' || !value.trim())
+          return next(new AppError(`columnLabels.${key} must be a non-empty string`, 400));
+        if (value.trim().length > MAX_METRIC_COLUMN_LABEL_LENGTH)
+          return next(new AppError(`columnLabels.${key} must be ${MAX_METRIC_COLUMN_LABEL_LENGTH} characters or fewer`, 400));
+      }
+    }
+  }
+
   const dateError = validateDateRange(startDate, dueDate, 'startDate', 'dueDate');
   if (dateError) return next(new AppError(dateError, 400));
 
@@ -696,6 +716,40 @@ export const validateMetric = (req: Request, res: Response, next: NextFunction) 
 };
 
 export const validateMetricId = validateParamId('metricId');
+export const validateSubMetricId = validateParamId('subMetricId');
+
+export const validateMetricLink = (req: Request, res: Response, next: NextFunction) => {
+  const { subMetricId } = req.body;
+  if (!subMetricId || !isValidId(subMetricId)) return next(new AppError('subMetricId is required and must be a valid ID', 400));
+  next();
+};
+
+// Fixed 3-value role — same list as MetricMemberRole in metric.prisma /
+// VALID_METRIC_MEMBER_ROLES in metricMemberController.ts.
+const VALID_METRIC_MEMBER_ROLES = ['owner', 'editor', 'viewer'];
+
+export const validateAddMetricMember = (req: Request, res: Response, next: NextFunction) => {
+  const { userId, role } = req.body;
+
+  if (!userId || !isValidId(userId))
+    return next(new AppError('userId is not a valid ID', 400));
+
+  if (!role || !VALID_METRIC_MEMBER_ROLES.includes(role))
+    return next(new AppError(`role must be one of: ${VALID_METRIC_MEMBER_ROLES.join(', ')}`, 400));
+
+  next();
+};
+
+export const validateUpdateMetricMemberRole = (req: Request, res: Response, next: NextFunction) => {
+  const { role } = req.body;
+
+  if (!role || !VALID_METRIC_MEMBER_ROLES.includes(role))
+    return next(new AppError(`role must be one of: ${VALID_METRIC_MEMBER_ROLES.join(', ')}`, 400));
+
+  next();
+};
+
+export const validateMetricMemberId = validateParamId('memberId');
 
 export const validateMetricReorder = (req: Request, res: Response, next: NextFunction) => {
   const { parentId, orderedIds } = req.body;
@@ -710,6 +764,7 @@ export const validateMetricReorder = (req: Request, res: Response, next: NextFun
 };
 
 const VALID_METRIC_FREQUENCIES: string[] = METRIC_FREQUENCIES;
+const MAX_METRIC_NOTE_LENGTH = 2000;
 
 export const validateTrackingParams = (req: Request, res: Response, next: NextFunction) => {
   const frequency = String(req.params.frequency);
@@ -754,11 +809,25 @@ export const validateTrackingDiff = (req: Request, res: Response, next: NextFunc
     if (!value || typeof value !== 'object' || Array.isArray(value))
       return next(new AppError(`diff["${key}"] must be an object`, 400));
 
-    const { actual, target } = value as { actual?: unknown; target?: unknown };
+    const { actual, target, lowest, medium, upper, status, note } = value as {
+      actual?: unknown; target?: unknown; lowest?: unknown; medium?: unknown; upper?: unknown; status?: unknown; note?: unknown;
+    };
     if (actual !== undefined && actual !== null && typeof actual !== 'number')
       return next(new AppError(`diff["${key}"].actual must be a number or null`, 400));
     if (target !== undefined && target !== null && typeof target !== 'number')
       return next(new AppError(`diff["${key}"].target must be a number or null`, 400));
+    if (lowest !== undefined && lowest !== null && typeof lowest !== 'number')
+      return next(new AppError(`diff["${key}"].lowest must be a number or null`, 400));
+    if (medium !== undefined && medium !== null && typeof medium !== 'number')
+      return next(new AppError(`diff["${key}"].medium must be a number or null`, 400));
+    if (upper !== undefined && upper !== null && typeof upper !== 'number')
+      return next(new AppError(`diff["${key}"].upper must be a number or null`, 400));
+    if (status !== undefined && status !== null && !METRIC_RAG_STATUSES.includes(status as MetricRagStatus))
+      return next(new AppError(`diff["${key}"].status must be one of: ${METRIC_RAG_STATUSES.join(', ')}, or null`, 400));
+    if (note !== undefined && typeof note !== 'string')
+      return next(new AppError(`diff["${key}"].note must be a string`, 400));
+    if (typeof note === 'string' && note.length > MAX_METRIC_NOTE_LENGTH)
+      return next(new AppError(`diff["${key}"].note must be ${MAX_METRIC_NOTE_LENGTH} characters or fewer`, 400));
   }
 
   next();

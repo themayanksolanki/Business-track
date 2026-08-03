@@ -16,6 +16,52 @@ export function isoWeekInfo(date: Date): { year: number; week: number } {
   return { year: d.getUTCFullYear(), week };
 }
 
+// Client-side mirror of backend/utils/metricPeriods.ts's FREQUENCY_CONFIG —
+// kept in sync by hand, same convention metric-tracking-grid.component.ts
+// already follows for its own daysInMonth/weeksInYear getters (see its
+// comment). Needed by MetricSheetComponent to size the full period range
+// it renders (no day-windowing there, unlike the tracking grid/bowling
+// view — Handsontable scrolls the whole range natively).
+export function periodCount(frequency: MetricFrequency, year: number, month?: number | null): number {
+  switch (frequency) {
+    case 'daily':
+      if (!month) throw new Error('periodCount: month is required for daily frequency');
+      return new Date(year, month, 0).getDate();
+    case 'weekly':
+      return isoWeeksInYear(year);
+    case 'monthly':
+      return 12;
+    case 'quarterly':
+      return 4;
+    case 'yearly':
+      // `year` is the block's anchor/start year, not a single calendar year
+      // — period 1 is that year, period 5 is anchor+4 (mirrors the backend).
+      return 5;
+  }
+}
+
+// ISO 8601: a year has 53 weeks iff Jan 1 falls on a Thursday, or it's a
+// leap year and Jan 1 falls on a Wednesday — mirrors isoWeeksInYear in
+// backend/utils/metricPeriods.ts.
+function isoWeeksInYear(year: number): number {
+  const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const jan1Day = new Date(year, 0, 1).getDay();
+  if (jan1Day === 4) return 53;
+  if (jan1Day === 3 && isLeap) return 53;
+  return 52;
+}
+
+// The same weekly→quarter window boundaries metric-bowling/metric-tracking-
+// grid use for Prev/Next paging — promoted here since MetricSheetComponent's
+// rollup view needs the same boundaries for actual aggregation (grouping
+// weeks into a quarter bucket), not just windowing. Returns 4 inclusive
+// [startWeek, endWeek] ranges covering every week of `year`.
+const WEEKLY_QUARTER_STARTS = [1, 14, 27, 40];
+export function weeklyQuarterRanges(year: number): [number, number][] {
+  const total = isoWeeksInYear(year);
+  return WEEKLY_QUARTER_STARTS.map((start, i) => [start, i < 3 ? WEEKLY_QUARTER_STARTS[i + 1] - 1 : total] as [number, number]);
+}
+
 export interface CurrentPeriodInfo {
   year: number;
   month: number | null;

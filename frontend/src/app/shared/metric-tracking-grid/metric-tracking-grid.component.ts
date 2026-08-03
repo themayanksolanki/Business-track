@@ -43,6 +43,18 @@ const YEARLY_BLOCK_SIZE = 5;
 })
 export class MetricTrackingGridComponent implements OnChanges, OnDestroy {
   @Input({ required: true }) metric!: Metric;
+  // Driven by the metric-form-modal's single shared year/month switcher
+  // (visible above the tab strip, drives this grid + the Sheet tab + the
+  // Statistics charts all at once) — already frequency-resolved by the
+  // parent's own year/month getters: for a Daily metric this is the
+  // selected calendar month; for every other frequency `month` is always
+  // null and `year` is the selected year (the block's start year for
+  // Yearly — see YEARLY_BLOCK_SIZE).
+  @Input({ required: true }) year!: number;
+  @Input() month: number | null = null;
+  // Set by the owning modal for a Viewer (see canEditMetric there) — blocks
+  // startEdit() so cells stay display-only; totals/window nav still work.
+  @Input() readOnly = false;
   // Fired after a successful save so the parent can refresh whatever it
   // derives from the same tracking data (gauge/YTD totals/trend chart).
   @Output() saved = new EventEmitter<void>();
@@ -57,11 +69,6 @@ export class MetricTrackingGridComponent implements OnChanges, OnDestroy {
   saving = false;
   error = '';
 
-  // 'YYYY-MM', bound directly to <input type="month"> — daily only.
-  selectedMonthStr = this.defaultMonthStr();
-  // Weekly/Monthly/Quarterly/Yearly — for yearly this is the block's start
-  // year, not "the" year (see YEARLY_BLOCK_SIZE).
-  selectedYear = new Date().getFullYear();
   windowIndex = 0;
 
   editing: CellCoord | null = null;
@@ -88,9 +95,7 @@ export class MetricTrackingGridComponent implements OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if (changes['metric'] && this.metric) {
-      this.selectedMonthStr = this.defaultMonthStr();
-      this.selectedYear = new Date().getFullYear();
+    if ((changes['metric'] && this.metric) || changes['year'] || changes['month']) {
       this.windowIndex = this.initialWindowIndex();
       this.editing = null;
       this.editError = '';
@@ -102,31 +107,29 @@ export class MetricTrackingGridComponent implements OnChanges, OnDestroy {
     this.saveSub.unsubscribe();
   }
 
-  private defaultMonthStr(): string {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  }
-
   // Positions the initial window on "today" rather than always the first
   // page — daily/weekly are the only lenses with more than one window, and
   // landing on whichever page contains the current day/week is far more
-  // useful than always opening on day 1 / week 1.
+  // useful than always opening on day 1 / week 1. Only applies when the
+  // switcher is actually showing the real current year/month — otherwise
+  // (browsing a past/future period) "today"'s day-of-month/ISO-week has no
+  // relevance to the selected window, so default to the first page instead.
   private initialWindowIndex(): number {
-    if (this.metric.frequency === 'daily') return Math.floor((new Date().getDate() - 1) / DAILY_WINDOW_SIZE);
-    if (this.metric.frequency === 'weekly') return this.quarterIndexForWeek(isoWeekInfo(new Date()).week);
+    const now = new Date();
+    if (this.metric.frequency === 'daily') {
+      if (this.year !== now.getFullYear() || this.month !== now.getMonth() + 1) return 0;
+      return Math.floor((now.getDate() - 1) / DAILY_WINDOW_SIZE);
+    }
+    if (this.metric.frequency === 'weekly') {
+      const info = isoWeekInfo(now);
+      if (this.year !== info.year) return 0;
+      return this.quarterIndexForWeek(info.week);
+    }
     return 0;
   }
 
-  get year(): number {
-    return Number(this.selectedMonthStr.split('-')[0]);
-  }
-
-  get month(): number {
-    return Number(this.selectedMonthStr.split('-')[1]);
-  }
-
   get daysInMonth(): number {
-    return new Date(this.year, this.month, 0).getDate();
+    return new Date(this.year, this.month ?? 1, 0).getDate();
   }
 
   // ISO 8601: a year has 53 weeks iff Jan 1 falls on a Thursday, or it's a
@@ -134,7 +137,7 @@ export class MetricTrackingGridComponent implements OnChanges, OnDestroy {
   // metricPeriods.ts's isoWeeksInYear so client-side windowing agrees with
   // what the server will actually accept.
   get weeksInYear(): number {
-    const year = this.selectedYear;
+    const year = this.year;
     const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
     const jan1Day = new Date(year, 0, 1).getDay();
     if (jan1Day === 4) return 53;
@@ -178,8 +181,8 @@ export class MetricTrackingGridComponent implements OnChanges, OnDestroy {
   get windowLabel(): string {
     const frequency = this.metric.frequency;
     const days = this.visibleDays;
-    if (frequency === 'yearly') return `${this.selectedYear}–${this.selectedYear + YEARLY_BLOCK_SIZE - 1}`;
-    if (frequency === 'monthly' || frequency === 'quarterly') return String(this.selectedYear);
+    if (frequency === 'yearly') return `${this.year}–${this.year + YEARLY_BLOCK_SIZE - 1}`;
+    if (frequency === 'monthly' || frequency === 'quarterly') return String(this.year);
     if (frequency === 'weekly') {
       const range = days.length === 1 ? `Week ${days[0]}` : `Weeks ${days[0]}–${days[days.length - 1]}`;
       return `Q${this.windowIndex + 1} · ${range}`;
@@ -196,9 +199,9 @@ export class MetricTrackingGridComponent implements OnChanges, OnDestroy {
   }
 
   private weekStartDate(week: number): Date {
-    const jan4 = new Date(this.selectedYear, 0, 4);
+    const jan4 = new Date(this.year, 0, 4);
     const jan4DayMon1 = jan4.getDay() || 7; // Mon=1..Sun=7
-    const week1Monday = new Date(this.selectedYear, 0, 4 - (jan4DayMon1 - 1));
+    const week1Monday = new Date(this.year, 0, 4 - (jan4DayMon1 - 1));
     return new Date(week1Monday.getFullYear(), week1Monday.getMonth(), week1Monday.getDate() + (week - 1) * 7);
   }
 
@@ -215,7 +218,7 @@ export class MetricTrackingGridComponent implements OnChanges, OnDestroy {
   }
 
   yearLabel(period: number): string {
-    return String(this.selectedYear + period - 1);
+    return String(this.year + period - 1);
   }
 
   columnLabel(period: number): string {
@@ -225,16 +228,6 @@ export class MetricTrackingGridComponent implements OnChanges, OnDestroy {
     if (frequency === 'quarterly') return this.quarterLabel(period);
     if (frequency === 'yearly') return this.yearLabel(period);
     return this.monthLabel(period);
-  }
-
-  onMonthChange() {
-    this.windowIndex = 0;
-    this.load();
-  }
-
-  onYearChange() {
-    this.windowIndex = this.metric.frequency === 'weekly' ? this.initialWindowIndex() : 0;
-    this.load();
   }
 
   prevWindow() {
@@ -249,9 +242,7 @@ export class MetricTrackingGridComponent implements OnChanges, OnDestroy {
     this.loading = true;
     this.error = '';
     const frequency = this.metric.frequency;
-    const year = frequency === 'daily' ? this.year : this.selectedYear;
-    const month = frequency === 'daily' ? this.month : null;
-    this.metricSvc.getTracking(this.metric.id, frequency, year, month).subscribe({
+    this.metricSvc.getTracking(this.metric.id, frequency, this.year, this.month).subscribe({
       next: (data) => {
         this.periods = data.periods;
         this.originalPeriods = cloneDeep(data.periods);
@@ -317,6 +308,7 @@ export class MetricTrackingGridComponent implements OnChanges, OnDestroy {
   }
 
   startEdit(row: RowKey, day: number) {
+    if (this.readOnly) return;
     const current = this.cellValue(row, day);
     this.editing = { row, day };
     const dataType = this.metric.dataType;
@@ -356,10 +348,7 @@ export class MetricTrackingGridComponent implements OnChanges, OnDestroy {
     this.periods = { ...this.periods, [key]: { ...existing, [row]: value } };
     this.actualTotal = this.sumField(this.periods, 'actual');
     this.targetTotal = this.sumField(this.periods, 'target');
-    const frequency = this.metric.frequency;
-    const year = frequency === 'daily' ? this.year : this.selectedYear;
-    const saveMonth = frequency === 'daily' ? this.month : null;
-    this.saveTrigger.next({ year, month: saveMonth });
+    this.saveTrigger.next({ year: this.year, month: this.month });
     return true;
   }
 

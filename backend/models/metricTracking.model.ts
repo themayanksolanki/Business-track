@@ -9,10 +9,26 @@ export type MetricFrequency = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'ye
 
 export const METRIC_FREQUENCIES: MetricFrequency[] = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'];
 
+export type MetricRagStatus = 'Red' | 'Yellow' | 'Green';
+export const METRIC_RAG_STATUSES: MetricRagStatus[] = ['Red', 'Yellow', 'Green'];
+
 // 'daily', 'weekly', 'monthly', 'quarterly', and 'yearly' are all implemented
-// (see utils/metricPeriods.ts).
+// (see utils/metricPeriods.ts). lowest/medium/upper/status/note back the
+// Bowling "Sheet" tab's richer per-period columns — added alongside the
+// original actual/target pair, not replacing them. This is a strict
+// Mongoose subschema, so any field not declared here is silently dropped on
+// save; keep this in sync with validateTrackingDiff (backend/middleware/
+// validate.ts) and the frontend's PeriodValue (metric-tracking.model.ts).
 const periodValueSchema = new mongoose.Schema(
-  { actual: { type: Number, default: null }, target: { type: Number, default: null } },
+  {
+    actual: { type: Number, default: null },
+    target: { type: Number, default: null },
+    lowest: { type: Number, default: null },
+    medium: { type: Number, default: null },
+    upper: { type: Number, default: null },
+    status: { type: String, enum: METRIC_RAG_STATUSES, default: null },
+    note: { type: String, default: '' },
+  },
   { _id: false }
 );
 

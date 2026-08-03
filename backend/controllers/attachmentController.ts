@@ -6,7 +6,7 @@ import { destroyBlob, cloudinaryDownloadUrl } from '../utils/blobStorage.js';
 import { getS3DownloadUrl } from '../lib/s3.js';
 import { canAccessProject, canEditProject } from './projectController.js';
 import { canAccessEvent, canEditEvent } from './eventController.js';
-import { canAccessMetric } from './metricController.js';
+import { canAccessMetric, canEditMetric } from './metricController.js';
 import { getTaskAccessLevel } from '../utils/access.js';
 
 // Relaying the file through this server (fetch from the provider, then
@@ -180,8 +180,8 @@ const EVENT_ACCESS_SELECT = {
 };
 
 // Matches metricController.ts's MetricForAccess shape — enough to run
-// canAccessMetric without pulling in the full METRIC_INCLUDE join.
-const METRIC_ACCESS_SELECT = { organizationId: true, departmentId: true };
+// canAccessMetric/canEditMetric without pulling in the full METRIC_INCLUDE join.
+const METRIC_ACCESS_SELECT = { organizationId: true, departmentId: true, members: { select: { userId: true, role: true } } };
 
 type AuthUser = { id: number; role: string; organizationId: number | null };
 type AccessTask = { organizationId: number | null; assignedToId: number; createdById: number };
@@ -845,6 +845,8 @@ export const uploadMetricAttachment = async (req: Request, res: Response, next: 
     if (!metric) return next(new AppError('Metric not found', 404));
     if (!(await canAccessMetric(req.user! as AuthUser, metric)))
       return next(new AppError('You do not have access to this metric', 403));
+    if (!canEditMetric(req.user! as AuthUser, metric))
+      return next(new AppError('You do not have edit access to this metric', 403));
 
     if (!req.file) return next(new AppError('No file uploaded', 400));
 
@@ -877,6 +879,8 @@ export const addMetricAttachmentLink = async (req: Request, res: Response, next:
     if (!metric) return next(new AppError('Metric not found', 404));
     if (!(await canAccessMetric(req.user! as AuthUser, metric)))
       return next(new AppError('You do not have access to this metric', 403));
+    if (!canEditMetric(req.user! as AuthUser, metric))
+      return next(new AppError('You do not have edit access to this metric', 403));
 
     const url = req.body.url.trim();
     const fileName = (req.body.fileName || '').trim() || url;
@@ -932,6 +936,8 @@ export const deleteMetricAttachment = async (req: Request, res: Response, next: 
     if (!metric) return next(new AppError('Metric not found', 404));
     if (!(await canAccessMetric(req.user! as AuthUser, metric)))
       return next(new AppError('You do not have access to this metric', 403));
+    if (!canEditMetric(req.user! as AuthUser, metric))
+      return next(new AppError('You do not have edit access to this metric', 403));
 
     const attachment = await prisma.attachment.findFirst({
       where: { id: Number(req.params.attachmentId), metricId: Number(req.params.metricId) },
@@ -965,6 +971,8 @@ export const undoMetricAttachment = async (req: Request, res: Response, next: Ne
     if (!metric) return next(new AppError('Metric not found', 404));
     if (!(await canAccessMetric(req.user! as AuthUser, metric)))
       return next(new AppError('You do not have access to this metric', 403));
+    if (!canEditMetric(req.user! as AuthUser, metric))
+      return next(new AppError('You do not have edit access to this metric', 403));
 
     const attachment = await prisma.attachment.findFirst({
       where: { id: Number(req.params.attachmentId), metricId: Number(req.params.metricId) },

@@ -1,8 +1,8 @@
 import { Component, ElementRef, EventEmitter, Input, OnDestroy, Output, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Observable } from 'rxjs';
 import { debounce, throttle } from 'lodash-es';
-import { ProjectService } from '../../core/services/project.service';
-import { User } from '../../models/user.model';
+import { PaginatedUsers, User } from '../../models/user.model';
 
 const PAGE_SIZE = 20;
 
@@ -14,7 +14,10 @@ const PAGE_SIZE = 20;
   styleUrl: './member-picker.component.css',
 })
 export class MemberPickerComponent implements OnDestroy {
-  @Input({ required: true }) projectId!: string;
+  // Caller-supplied candidate fetcher — e.g. Project's
+  // `(page, limit, search) => projectService.getMemberCandidates(projectId, page, limit, search)`
+  // or Metric's equivalent — so this component isn't hard-coupled to one entity type.
+  @Input({ required: true }) fetchCandidates!: (page: number, limit: number, search: string) => Observable<PaginatedUsers>;
   @Input() selectedUser: User | null = null;
   @Output() picked = new EventEmitter<User>();
 
@@ -49,8 +52,6 @@ export class MemberPickerComponent implements OnDestroy {
   // refetches (debounce: waits for the user to pause typing).
   private readonly throttledLoadMore = throttle(() => this.loadMore(), 400, { leading: true, trailing: false });
   private readonly debouncedSearch = debounce(() => this.resetAndLoad(), 350);
-
-  constructor(private projectService: ProjectService) {}
 
   ngOnDestroy() {
     this.intersectionObserver?.disconnect();
@@ -93,7 +94,7 @@ export class MemberPickerComponent implements OnDestroy {
     this.loading = this.users.length === 0;
     this.error = '';
 
-    this.projectService.getMemberCandidates(this.projectId, this.page, PAGE_SIZE, this.query.trim()).subscribe({
+    this.fetchCandidates(this.page, PAGE_SIZE, this.query.trim()).subscribe({
       next: (res) => {
         this.users = [...this.users, ...res.users];
         this.hasMore = this.page < res.totalPages;

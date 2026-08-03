@@ -6,6 +6,11 @@ import {
   validateMetricReorder,
   validateTrackingParams,
   validateTrackingDiff,
+  validateMetricLink,
+  validateSubMetricId,
+  validateAddMetricMember,
+  validateUpdateMetricMemberRole,
+  validateMetricMemberId,
 } from '../middleware/validate.js';
 import {
   getMetrics,
@@ -16,6 +21,14 @@ import {
   reorderMetrics,
 } from '../controllers/metricController.js';
 import { getPeriodData, savePeriodDiff } from '../controllers/metricTrackingController.js';
+import { getSubMetrics, addSubMetric, removeSubMetric } from '../controllers/metricLinkController.js';
+import {
+  getMembers,
+  getMemberCandidates,
+  addMember,
+  updateMemberRole,
+  removeMember,
+} from '../controllers/metricMemberController.js';
 import {
   getMetricAttachments,
   uploadMetricAttachment,
@@ -68,5 +81,22 @@ router.put(
   validateTrackingDiff,
   savePeriodDiff
 );
+
+router.get('/:metricId/links', protect, validateMetricId, getSubMetrics);
+router.post('/:metricId/links', protect, validateMetricId, validateMetricLink, addSubMetric);
+router.delete('/:metricId/links/:subMetricId', protect, validateMetricId, validateSubMetricId, removeSubMetric);
+
+router.get('/:metricId/members', protect, validateMetricId, getMembers);
+router.get('/:metricId/members/candidates', protect, validateMetricId, getMemberCandidates);
+router.post('/:metricId/members', protect, validateMetricId, validateAddMetricMember, addMember);
+router.patch(
+  '/:metricId/members/:memberId',
+  protect,
+  validateMetricId,
+  validateMetricMemberId,
+  validateUpdateMetricMemberRole,
+  updateMemberRole
+);
+router.delete('/:metricId/members/:memberId', protect, validateMetricId, validateMetricMemberId, removeMember);
 
 export default router;

@@ -8,11 +8,6 @@
       Next {{ navUnitLabel }} <i class="bi bi-chevron-right"></i>
     </button>
   </div>
-  @if (metric.frequency === 'daily') {
-    <input type="month" class="form-control tracking-grid-picker" [(ngModel)]="selectedMonthStr" (change)="onMonthChange()" />
-  } @else {
-    <input type="number" class="form-control tracking-grid-picker" [(ngModel)]="selectedYear" (change)="onYearChange()" />
-  }
 </div>
 
 @if (error) {

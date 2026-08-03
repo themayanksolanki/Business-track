@@ -41,6 +41,11 @@ model Metric {
   depth          Int          @default(0)
   startDate      DateTime?
   dueDate        DateTime?
+  // Per-metric custom header labels for the Bowling "Sheet" tab's tracking
+  // grid columns — keys are a subset of actual/target/lowest/medium/upper/
+  // status/note, values are the display label to use instead of the
+  // built-in default. Absent/omitted keys fall back to the default label.
+  columnLabels   Json?
   ownerId        Int
   createdById    Int
   updatedById    Int?
@@ -57,6 +62,18 @@ model Metric {
   updatedBy    User?         @relation("MetricUpdatedBy", fields: [updatedById], references: [id])
   periodTotals MetricPeriodTotal[]
   attachments  Attachment[]
+  // "Linked" tab (metric-form-modal) — a many-to-many, directed graph of
+  // sub-metrics, separate from the parentId/children tree above (that one
+  // stays single-parent, used only for Tiles View grouping). Cycle
+  // prevention is enforced in metricLinkController.ts, not by the schema.
+  linkedSubMetrics    MetricLink[] @relation("MetricLinkParent")
+  linkedAsSubMetricOf MetricLink[] @relation("MetricLinkChild")
+  // "Team" tab (metric-form-modal) — who can access/edit this metric beyond
+  // the department-based default. See canAccessMetric/canEditMetric/
+  // canManageMetricMembers in metricController.ts for exactly how this
+  // interacts with the pre-existing department-based access (a metric with
+  // zero rows here behaves identically to before this feature existed).
+  members MetricMember[]
 
   @@index([organizationId])
   @@index([departmentId])
@@ -64,6 +81,60 @@ model Metric {
   @@index([parentId, order])
   @@unique([organizationId, sequenceId])
   @@map("metrics")
+}
+
+// Fixed 3-value role — not a ProjectRole-style custom/org-defined table.
+// Owner = Editor's full content-edit rights + can manage this list; Editor
+// can edit metric content but not the Team tab; Viewer is read-only. See
+// canEditMetric/canManageMetricMembers in metricController.ts.
+enum MetricMemberRole {
+  owner
+  editor
+  viewer
+}
+
+// One row per (metric, user) explicit team grant. A metric with no rows
+// here behaves exactly as before this feature existed — department-based
+// access stays full-edit; only an explicit `viewer` row here downgrades
+// someone to read-only, and only an explicit row (any role) lets someone
+// outside the metric's department see/reach it at all.
+model MetricMember {
+  id        Int              @id @default(autoincrement())
+  metricId  Int
+  userId    Int
+  role      MetricMemberRole @default(editor)
+  addedAt   DateTime         @default(now())
+  addedById Int?
+
+  metric  Metric @relation(fields: [metricId], references: [id], onDelete: Cascade)
+  user    User   @relation("MetricMemberUser", fields: [userId], references: [id])
+  addedBy User?  @relation("MetricMemberAddedBy", fields: [addedById], references: [id])
+
+  @@unique([metricId, userId])
+  @@index([metricId])
+  @@map("metric_members")
+}
+
+// One directed edge: `metric` shows `subMetric` on its "Linked" tab.
+// Deliberately its own table rather than an implicit Prisma M:N (like
+// Tag<->ProjectItem) since each edge needs createdById/createdAt for the
+// same lightweight audit trail every other "who added this" relation in
+// this app carries.
+model MetricLink {
+  id          Int      @id @default(autoincrement())
+  metricId    Int
+  subMetricId Int
+  createdById Int
+  createdAt   DateTime @default(now())
+
+  metric      Metric @relation("MetricLinkParent", fields: [metricId], references: [id], onDelete: Cascade)
+  subMetric   Metric @relation("MetricLinkChild", fields: [subMetricId], references: [id], onDelete: Cascade)
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  @@unique([metricId, subMetricId])
+  @@index([metricId])
+  @@index([subMetricId])
+  @@map("metric_links")
 }
 
 // Mirrors MetricFrequency in backend/models/metricTracking.model.ts (the

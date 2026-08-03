@@ -145,3 +145,48 @@ body { background: var(--bg-page); }
 .cal-event-cancelled .cal-event-title {
   text-decoration: line-through;
 }
+
+/* ngb-popover wrapper for the metric title hover card (shared/
+   metric-info-popover) — used by the Bowling View and Tiles View via
+   popoverClass="metric-info-popover" + container="body". Has to live here
+   rather than in metric-info-popover.component.css: ng-bootstrap mounts
+   the actual `.popover` element as a sibling of <body>'s children
+   (container="body"), outside any component's own encapsulated view, so a
+   component-scoped stylesheet can never reach it — same reasoning as the
+   angular-calendar dark-mode overrides above. Only the CARD CONTENT inside
+   it (`.metric-popover-card` and everything nested in it) is owned by that
+   component's own stylesheet. */
+.metric-info-popover {
+  --bs-popover-max-width: 320px;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  padding: 0;
+  border: 1px solid var(--border-strong) !important;
+  border-radius: 12px !important;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.metric-info-popover .popover-body {
+  padding: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+}
+.metric-info-popover.bs-popover-bottom > .popover-arrow::before {
+  border-bottom-color: var(--border-strong);
+}
+.metric-info-popover.bs-popover-bottom > .popover-arrow::after {
+  border-bottom-color: var(--bg-card);
+}
+.metric-info-popover.bs-popover-top > .popover-arrow::before {
+  border-top-color: var(--border-strong);
+}
+.metric-info-popover.bs-popover-top > .popover-arrow::after {
+  border-top-color: var(--bg-card);
+}
+@media (max-width: 480px) {
+  .metric-info-popover {
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+  }
+}

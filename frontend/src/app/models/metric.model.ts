@@ -14,6 +14,38 @@ export interface MetricParentLite {
   title: string;
 }
 
+export type MetricMemberRole = 'owner' | 'editor' | 'viewer';
+
+export interface MetricMember {
+  id: number;
+  user: User;
+  role: MetricMemberRole;
+  addedAt: string;
+  addedBy?: User | null;
+}
+
+// Lightweight membership shape returned by the list endpoints (getMetrics/
+// getMetricTiles' METRIC_LIST_INCLUDE) — just enough for canEditMetric-style
+// client-side gating, unlike MetricMember's full nested-user shape (used by
+// the Team tab, from METRIC_INCLUDE/metricMemberController.ts).
+export interface MetricMembershipLite {
+  userId: number;
+  role: MetricMemberRole;
+}
+
+// Per-metric custom header labels for the Sheet tab's tracking grid columns
+// (shared/metric-sheet/) — any key left unset falls back to the built-in
+// default label (e.g. "Actual").
+export interface MetricColumnLabels {
+  actual?: string;
+  target?: string;
+  lowest?: string;
+  medium?: string;
+  upper?: string;
+  status?: string;
+  note?: string;
+}
+
 export interface Metric {
   id: number;
   sequenceId?: number | null;
@@ -26,6 +58,7 @@ export interface Metric {
   depth: number;
   startDate: string | null;
   dueDate: string | null;
+  columnLabels?: MetricColumnLabels | null;
   department: Pick<Department, 'id' | 'name' | 'color'>;
   category: Pick<Category, 'id' | 'name' | 'color'> | null;
   parent: MetricParentLite | null;
@@ -34,11 +67,20 @@ export interface Metric {
   updatedBy?: User | null;
   createdAt: string;
   updatedAt: string;
+  members?: MetricMember[];
 }
 
 // Metrics-list row shape — only what the table renders (name/department/category/owner),
 // plus frequency since the Bowling View's per-row lens filter needs it.
-export type MetricListItem = Pick<Metric, 'id' | 'sequenceId' | 'title' | 'department' | 'category' | 'owner' | 'status' | 'dataType' | 'frequency'>;
+// `members` is an optional add-on (only the Metrics/Tiles list endpoints'
+// METRIC_LIST_INCLUDE return it, in its lightweight userId+role shape) so
+// canEditMetric can be mirrored client-side (see metric-value.util.ts's
+// canEditMetricListItem) to gate Create/Edit/Delete buttons and Bowling's
+// inline click-to-edit for a Viewer, without breaking existing call sites
+// that build a MetricListItem without it (e.g. the Linked tab's SUB_METRIC_INCLUDE).
+export type MetricListItem = Pick<Metric, 'id' | 'sequenceId' | 'title' | 'department' | 'category' | 'owner' | 'status' | 'dataType' | 'frequency'> & {
+  members?: MetricMembershipLite[];
+};
 
 // Tiles View row shape — MetricListItem plus what a tile grid needs on top:
 // `order`/`parentId` to group and persist drag-drop, `parent` for a
@@ -60,6 +102,7 @@ export interface CreateMetricPayload {
   notes?: string;
   dataType?: MetricDataType;
   frequency?: MetricFrequency;
+  columnLabels?: MetricColumnLabels | null;
 }
 
 export interface UpdateMetricPayload {
@@ -74,6 +117,7 @@ export interface UpdateMetricPayload {
   status?: MetricStatus;
   dataType?: MetricDataType;
   frequency?: MetricFrequency;
+  columnLabels?: MetricColumnLabels | null;
 }
 
 export interface PaginatedMetrics {

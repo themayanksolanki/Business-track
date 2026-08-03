@@ -1,6 +1,8 @@
 import { Component, ElementRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { Observable, forkJoin, of } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
 import { CKEditorModule } from '@ckeditor/ckeditor5-angular';
 import {
   ClassicEditor,
@@ -24,15 +26,18 @@ import { DatePickerComponent } from '../date-picker/date-picker.component';
 import { TabStripComponent, TabDef } from '../tab-strip/tab-strip.component';
 import { AttachmentsComponent } from '../attachments/attachments.component';
 import { TrendChartComponent, TrendChartSeries } from '../trend-chart/trend-chart.component';
+import { AreaChartComponent, AreaChartSeries } from '../area-chart/area-chart.component';
 import { GaugeChartComponent } from '../gauge-chart/gauge-chart.component';
 import { MetricTrackingGridComponent } from '../metric-tracking-grid/metric-tracking-grid.component';
-import { currentPeriodInfo } from '../utils/metric-period.util';
+import { MetricSheetComponent } from '../metric-sheet/metric-sheet.component';
+import { MetricTeamsComponent } from '../metric-teams/metric-teams.component';
+import { currentPeriodInfo, periodCount } from '../utils/metric-period.util';
 import { FREQUENCY_UNIT_ABBR, FREQUENCY_UNIT_LABEL, TREND_ACTUAL_COLOR, TREND_TARGET_COLOR, trendPeriodFullLabel, trendPeriodLabel, trendWindow } from '../utils/metric-trend.util';
-import { formatMetricValue, percentOfTarget } from '../utils/metric-value.util';
+import { formatMetricValue, percentOfTarget, metricColumnLabel } from '../utils/metric-value.util';
 import { Department } from '../../models/department.model';
 import { Category } from '../../models/category.model';
 import { User } from '../../models/user.model';
-import { Metric, MetricStatus, MetricDataType, MetricParentLite, CreateMetricPayload, UpdateMetricPayload } from '../../models/metric.model';
+import { Metric, MetricStatus, MetricDataType, MetricParentLite, MetricListItem, MetricMember, CreateMetricPayload, UpdateMetricPayload } from '../../models/metric.model';
 import { MetricFrequency } from '../../models/metric-tracking.model';
 import { MetricService } from '../../core/services/metric.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -91,10 +96,17 @@ const STATUS_OPTIONS: StatusOption[] = [
   { value: 'deleted', label: 'Deleted', icon: 'bi-trash3-fill', color: '#ef4444' },
 ];
 
+// Linked tab's gauge cards need each linked metric's own YTD Actual/Target
+// ratio — same `percentOfTarget` semantics loadTrend() computes for
+// `initial`, just per sub/linked-from metric instead of just one.
+interface LinkedMetricItem extends MetricListItem {
+  gaugePercent: number | null;
+}
+
 @Component({
   selector: 'app-metric-form-modal',
   standalone: true,
-  imports: [FormsModule, RouterLink, ModalDirective, ConfirmDialogComponent, DatePickerComponent, CKEditorModule, TabStripComponent, AttachmentsComponent, TrendChartComponent, GaugeChartComponent, MetricTrackingGridComponent],
+  imports: [FormsModule, RouterLink, ModalDirective, ConfirmDialogComponent, DatePickerComponent, CKEditorModule, TabStripComponent, AttachmentsComponent, TrendChartComponent, AreaChartComponent, GaugeChartComponent, MetricTrackingGridComponent, MetricSheetComponent, MetricTeamsComponent],
   templateUrl: './metric-form-modal.component.html',
   styleUrl: './metric-form-modal.component.css',
 })
@@ -110,6 +122,9 @@ export class MetricFormModalComponent implements OnChanges {
   readonly tabs: TabDef[] = [
     { key: 'statistics', label: 'Statistics', icon: 'bi-bar-chart' },
     { key: 'details', label: 'Details', icon: 'bi-info-circle' },
+    { key: 'team', label: 'Team', icon: 'bi-people' },
+    { key: 'linked', label: 'Linked', icon: 'bi-diagram-3' },
+    { key: 'sheet', label: 'Sheet', icon: 'bi-grid-3x3' },
     { key: 'notes', label: 'Notes', icon: 'bi-journal-text' },
     { key: 'attachments', label: 'Attachments', icon: 'bi-paperclip' },
   ];
@@ -125,10 +140,11 @@ export class MetricFormModalComponent implements OnChanges {
   @Input() departments: Department[] = [];
   @Input() categories: Category[] = [];
   @Input() users: User[] = [];
-  // Existing metrics for the "Parent" picker — excludes itself in edit mode
-  // via `excludeId` rather than the caller pre-filtering, so the same
-  // flat list loaded for the page table can be reused as-is.
-  @Input() parentOptions: MetricParentLite[] = [];
+  // Existing metrics for the Linked tab's "Add sub-metric" picker — excludes
+  // itself and already-linked metrics client-side rather than the caller
+  // pre-filtering, so the same flat list loaded for the page table can be
+  // reused as-is. (Formerly fed the single-parent dropdown this replaced.)
+  @Input() linkCandidates: MetricParentLite[] = [];
   @Input() loading = false;
   @Input() error = '';
   @Input() deleteLoading = false;
@@ -160,7 +176,6 @@ export class MetricFormModalComponent implements OnChanges {
   department: number | null = null;
   category: number | null = null;
   owner: number | null = null;
-  parentId: number | null = null;
   startDate: string | null = null;
   dueDate: string | null = null;
   notes = '';
@@ -200,23 +215,104 @@ export class MetricFormModalComponent implements OnChanges {
   readonly trendActualColor = TREND_ACTUAL_COLOR;
   readonly trendTargetColor = TREND_TARGET_COLOR;
 
+  // Second Statistics-tab chart, alongside (not replacing) the Actual/
+  // Target trend line above — plots all 5 Sheet-tab numeric columns
+  // together over the same trendCategories window, using each metric's own
+  // columnLabels overrides (via metricColumnLabel()) for the series names,
+  // same as the Sheet tab's own headers.
+  areaChartSeries: AreaChartSeries[] = [];
+
+  // Linked tab — sub-metrics (this metric's own outgoing links, add/remove-
+  // able here) and linkedFrom (other metrics that link to this one as their
+  // sub-metric — shown here too, per the user's ask that A->B be visible
+  // from both A's and B's side; still removable from here, see
+  // removeLinkedFrom()).
+  subMetrics: LinkedMetricItem[] = [];
+  linkedFromMetrics: LinkedMetricItem[] = [];
+  subMetricsLoading = false;
+  subMetricsError = '';
+  addSubMetricFilter = '';
+
+  // Single year/month switcher, shown above the tab strip (visible on every
+  // tab) — drives the Statistics tab's charts/gauge/tiles (loadTrend, below),
+  // the Statistics tab's embedded tracking grid, and the Sheet tab's
+  // Handsontable grid all at once, via [year]/[month] @Inputs on the two
+  // child components. Same 'YYYY-MM'-string-for-daily/plain-year-otherwise
+  // convention those two components used to each keep independently.
+  selectedMonthStr = this.defaultMonthStr();
+  selectedYear = new Date().getFullYear();
+
+  get year(): number {
+    return this.initial?.frequency === 'daily' ? Number(this.selectedMonthStr.split('-')[0]) : this.selectedYear;
+  }
+
+  get month(): number | null {
+    return this.initial?.frequency === 'daily' ? Number(this.selectedMonthStr.split('-')[1]) : null;
+  }
+
+  private defaultMonthStr(): string {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  // The two child components pick up the new year/month reactively via
+  // their own @Input ngOnChanges — this only needs to explicitly refresh
+  // Statistics' own charts/gauge/tiles, which aren't input-driven.
+  onPeriodChange() {
+    this.loadTrend();
+  }
+
   get displayError(): string {
     return this.localError || this.error;
+  }
+
+  // Frontend mirror of backend's canEditMetric (metricController.ts) — no
+  // explicit membership row means unchanged, full-edit access (the same
+  // "don't lock out existing metrics" safety net the backend enforces);
+  // 'create' mode has no `initial` to check membership against, so it's
+  // always editable. This only gates the UI — the backend re-checks on
+  // every write regardless.
+  get canEditMetric(): boolean {
+    if (!this.initial) return true;
+    const user = this.auth.currentUser();
+    if (!user) return false;
+    if (user.role === 'Admin') return true;
+    const membership = this.initial.members?.find((m) => m.user.id === user.id);
+    if (membership) return membership.role !== 'viewer';
+    return true;
+  }
+
+  // Frontend mirror of backend's canManageMetricMembers.
+  get canManageMetricMembers(): boolean {
+    if (!this.initial) return true;
+    const user = this.auth.currentUser();
+    if (!user) return false;
+    if (user.role === 'Admin' || user.role === 'Manager') return true;
+    if (this.initial.createdBy?.id === user.id || this.initial.owner?.id === user.id) return true;
+    return this.initial.members?.some((m) => m.user.id === user.id && m.role === 'owner') ?? false;
+  }
+
+  onMetricMembersChanged(members: MetricMember[]) {
+    if (!this.initial) return;
+    this.initial = { ...this.initial, members };
   }
 
   get deleteConfirmMessage(): string {
     return `Delete "${this.title}" — it will be hidden from the Metrics page by default, but can still be found and restored to Active from the "All" filter.`;
   }
 
-  get availableParents(): MetricParentLite[] {
-    if (!this.initial) return this.parentOptions;
-    return this.parentOptions.filter((m) => m.id !== this.initial!.id);
+  // Candidates for "Add sub-metric" — excludes self, anything already
+  // linked either direction, and filters by the dropdown's search box.
+  get availableLinkCandidates(): MetricParentLite[] {
+    const excludeIds = new Set<number>([...(this.initial ? [this.initial.id] : []), ...this.subMetrics.map((m) => m.id), ...this.linkedFromMetrics.map((m) => m.id)]);
+    const term = this.addSubMetricFilter.trim().toLowerCase();
+    return this.linkCandidates.filter((m) => !excludeIds.has(m.id) && (!term || m.title.toLowerCase().includes(term)));
   }
 
   // Lookups backing the Details tab's dropdown triggers — each dropdown
-  // stores just the selected id (department/category/owner/parentId), same
-  // as the <select>s it replaced, so the trigger button re-derives the
-  // full object to render.
+  // stores just the selected id (department/category/owner), same as the
+  // <select>s it replaced, so the trigger button re-derives the full object
+  // to render.
   get selectedDepartment(): Department | null {
     return this.departments.find((d) => d.id === this.department) ?? null;
   }
@@ -227,10 +323,6 @@ export class MetricFormModalComponent implements OnChanges {
 
   get selectedOwnerUser(): User | null {
     return this.users.find((u) => u.id === this.owner) ?? null;
-  }
-
-  get selectedParent(): MetricParentLite | null {
-    return this.parentId !== null ? (this.availableParents.find((m) => m.id === this.parentId) ?? null) : null;
   }
 
   get selectedDataTypeOption(): DataTypeOption {
@@ -261,10 +353,6 @@ export class MetricFormModalComponent implements OnChanges {
     this.owner = id;
   }
 
-  selectParent(id: number | null) {
-    this.parentId = id;
-  }
-
   selectDataType(value: MetricDataType) {
     this.dataType = value;
   }
@@ -283,7 +371,6 @@ export class MetricFormModalComponent implements OnChanges {
       this.department = this.initial?.department?.id ?? null;
       this.category = this.initial?.category?.id ?? null;
       this.owner = this.initial?.owner?.id ?? null;
-      this.parentId = this.initial?.parent?.id ?? null;
       this.startDate = this.initial?.startDate ?? null;
       this.dueDate = this.initial?.dueDate ?? null;
       this.notes = this.initial?.notes ?? '';
@@ -292,6 +379,8 @@ export class MetricFormModalComponent implements OnChanges {
       this.frequency = this.initial?.frequency ?? this.defaultFrequency ?? 'daily';
       this.localError = '';
       this.confirmDeleteOpen = false;
+      this.selectedMonthStr = this.defaultMonthStr();
+      this.selectedYear = new Date().getFullYear();
       // Statistics has nothing to show yet in 'create' mode (no metric id
       // to fetch tracking data for) — default to Details there instead.
       this.activeTab = this.mode === 'edit' ? 'statistics' : 'details';
@@ -312,6 +401,11 @@ export class MetricFormModalComponent implements OnChanges {
       this.bestTargetValue = null;
       this.trendTotalActual = null;
       this.trendTotalTarget = null;
+      this.areaChartSeries = [];
+      this.subMetrics = [];
+      this.linkedFromMetrics = [];
+      this.subMetricsError = '';
+      this.addSubMetricFilter = '';
       // Statistics is now the default-open tab, so its data has to load
       // eagerly here — setActiveTab()'s lazy load only fires on a later
       // tab *switch*, which never happens if the user never leaves it.
@@ -332,6 +426,28 @@ export class MetricFormModalComponent implements OnChanges {
   setActiveTab(tab: string) {
     this.activeTab = tab;
     if (tab === 'statistics' && this.mode === 'edit' && this.initial) this.loadTrend();
+    if (tab === 'linked' && this.mode === 'edit' && this.initial && !this.subMetrics.length && !this.linkedFromMetrics.length) this.loadSubMetrics();
+  }
+
+  // The Sheet tab's "Rename columns" popover saves columnLabels directly
+  // (mirrors the tracking grid owning its own tracking-data save calls),
+  // then emits the updated Metric so this modal's local `initial` reflects
+  // the new labels without needing a full reopen.
+  onSheetMetricUpdated(metric: Metric) {
+    this.initial = metric;
+  }
+
+  // Trailing-N-periods window ends at *today* when the switcher is showing
+  // the actual current year/month (unchanged behavior from before the
+  // switcher existed) — otherwise it ends at the LAST period of whatever
+  // year/month is selected, so browsing to a past/future window shows a
+  // full trailing window ending there instead of one anchored to an
+  // unrelated "today".
+  private anchorPeriodFor(frequency: MetricFrequency, year: number, month: number | null): number {
+    const now = new Date();
+    const { year: nowYear, month: nowMonth, period: nowPeriod } = currentPeriodInfo(frequency, now);
+    const isCurrentWindow = year === nowYear && (frequency !== 'daily' || month === nowMonth);
+    return isCurrentWindow ? nowPeriod : periodCount(frequency, year, month);
   }
 
   // Not private — also called directly from the Statistics tab's tracking
@@ -341,7 +457,9 @@ export class MetricFormModalComponent implements OnChanges {
     const metric = this.initial;
     if (!metric) return;
 
-    const { year, month, period: currentPeriod } = currentPeriodInfo(metric.frequency, new Date());
+    const year = this.year;
+    const month = this.month;
+    const currentPeriod = this.anchorPeriodFor(metric.frequency, year, month);
 
     this.trendLoading = true;
     this.trendError = '';
@@ -352,6 +470,15 @@ export class MetricFormModalComponent implements OnChanges {
         this.trendSeries = [
           { name: 'Actual', color: TREND_ACTUAL_COLOR, data: periodNums.map((p) => data.periods[String(p)]?.actual ?? null) },
           { name: 'Target', color: TREND_TARGET_COLOR, data: periodNums.map((p) => data.periods[String(p)]?.target ?? null) },
+        ];
+        // Second chart — all 5 Sheet-tab numeric columns together, series
+        // names respecting this metric's own columnLabels overrides.
+        this.areaChartSeries = [
+          { name: metricColumnLabel(metric.columnLabels, 'actual'), color: TREND_ACTUAL_COLOR, data: periodNums.map((p) => data.periods[String(p)]?.actual ?? null) },
+          { name: metricColumnLabel(metric.columnLabels, 'target'), color: TREND_TARGET_COLOR, data: periodNums.map((p) => data.periods[String(p)]?.target ?? null) },
+          { name: metricColumnLabel(metric.columnLabels, 'lowest'), color: '#ef4444', data: periodNums.map((p) => data.periods[String(p)]?.lowest ?? null) },
+          { name: metricColumnLabel(metric.columnLabels, 'medium'), color: '#8b5cf6', data: periodNums.map((p) => data.periods[String(p)]?.medium ?? null) },
+          { name: metricColumnLabel(metric.columnLabels, 'upper'), color: '#22c55e', data: periodNums.map((p) => data.periods[String(p)]?.upper ?? null) },
         ];
         this.trendLoading = false;
 
@@ -409,6 +536,91 @@ export class MetricFormModalComponent implements OnChanges {
     });
   }
 
+  // --- Linked tab ---------------------------------------------------------
+
+  loadSubMetrics() {
+    const metric = this.initial;
+    if (!metric) return;
+
+    this.subMetricsLoading = true;
+    this.subMetricsError = '';
+    this.metricSvc.getSubMetrics(metric.id).subscribe({
+      next: ({ subMetrics, linkedFrom }) => {
+        forkJoin([this.withGaugePercent(subMetrics), this.withGaugePercent(linkedFrom)]).subscribe(([sub, from]) => {
+          this.subMetrics = sub;
+          this.linkedFromMetrics = from;
+          this.subMetricsLoading = false;
+        });
+      },
+      error: (err) => {
+        this.subMetricsError = err.error?.message || 'Failed to load linked metrics';
+        this.subMetricsLoading = false;
+      },
+    });
+  }
+
+  // Fetches each item's own current-period tracking data and computes the
+  // same percentOfTarget(actualTotal, targetTotal) gauge ratio loadTrend()
+  // uses for `initial` — just applied to an arbitrary list of metrics
+  // instead of just the one this modal is editing. Empty list short-
+  // circuits (forkJoin([]) never emits).
+  private withGaugePercent(items: MetricListItem[]): Observable<LinkedMetricItem[]> {
+    if (!items.length) return of([]);
+    return forkJoin(
+      items.map((item) => {
+        const { year, month } = currentPeriodInfo(item.frequency, new Date());
+        return this.metricSvc.getTracking(item.id, item.frequency, year, month).pipe(
+          map((data) => ({ ...item, gaugePercent: percentOfTarget(data.actualTotal, data.targetTotal) })),
+          catchError(() => of({ ...item, gaugePercent: null }))
+        );
+      })
+    );
+  }
+
+  openAddSubMetric() {
+    this.addSubMetricFilter = '';
+  }
+
+  addSubMetric(candidate: MetricParentLite) {
+    const metric = this.initial;
+    if (!metric) return;
+    this.subMetricsError = '';
+    this.metricSvc.addSubMetric(metric.id, candidate.id).subscribe({
+      next: () => this.loadSubMetrics(),
+      error: (err) => {
+        this.subMetricsError = err.error?.message || 'Failed to link sub-metric';
+      },
+    });
+  }
+
+  removeSubMetric(subMetricId: number) {
+    const metric = this.initial;
+    if (!metric) return;
+    this.subMetricsError = '';
+    this.metricSvc.removeSubMetric(metric.id, subMetricId).subscribe({
+      next: () => (this.subMetrics = this.subMetrics.filter((m) => m.id !== subMetricId)),
+      error: (err) => {
+        this.subMetricsError = err.error?.message || 'Failed to unlink sub-metric';
+      },
+    });
+  }
+
+  // Unlinks an incoming link — the edge is stored as (otherMetricId ->
+  // this metric's id), so the call is scoped to the OTHER metric's id, not
+  // this modal's own `initial.id` (see metric.service.ts's removeSubMetric
+  // doc comment).
+  removeLinkedFrom(otherMetricId: number) {
+    const metric = this.initial;
+    if (!metric) return;
+    this.subMetricsError = '';
+    this.metricSvc.removeSubMetric(otherMetricId, metric.id).subscribe({
+      next: () => (this.linkedFromMetrics = this.linkedFromMetrics.filter((m) => m.id !== otherMetricId)),
+      error: (err) => {
+        this.subMetricsError = err.error?.message || 'Failed to unlink';
+      },
+    });
+  }
+
   // organization is typed loosely (Organization | number | null) since some
   // payloads elsewhere reference it by bare id — currentUser() always
   // carries the full nested object in practice (see authController.ts's
@@ -449,6 +661,7 @@ export class MetricFormModalComponent implements OnChanges {
   }
 
   submit() {
+    if (!this.canEditMetric) return;
     if (!this.title.trim()) {
       this.localError = 'Title is required';
       return;
@@ -468,7 +681,6 @@ export class MetricFormModalComponent implements OnChanges {
       department: this.department,
       category: this.category,
       owner: this.owner,
-      parentId: this.parentId,
       startDate: this.startDate,
       dueDate: this.dueDate,
       notes: this.notes,

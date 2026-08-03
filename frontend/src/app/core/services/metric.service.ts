@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { Metric, MetricStatus, CreateMetricPayload, UpdateMetricPayload, PaginatedMetrics, MetricTileItem } from '../../models/metric.model';
+import { Metric, MetricStatus, CreateMetricPayload, UpdateMetricPayload, PaginatedMetrics, MetricTileItem, MetricListItem, MetricMember, MetricMemberRole } from '../../models/metric.model';
 import { MetricFrequency, MetricTrackingData, TrackingDiff } from '../../models/metric-tracking.model';
 import { Attachment, AttachmentsAdapter, DownloadInfo } from '../../models/attachment.model';
+import { PaginatedUsers } from '../../models/user.model';
 
 @Injectable({ providedIn: 'root' })
 export class MetricService {
@@ -65,6 +66,25 @@ export class MetricService {
     );
   }
 
+  // Linked tab — a many-to-many, directed, cycle-checked graph of
+  // sub-metrics (separate from the parentId/children Tiles-grouping tree).
+  // `linkedFrom` is the reverse direction: other metrics that link to this
+  // one — shown (and removable) on this metric's own Linked tab too.
+  getSubMetrics(metricId: number | string) {
+    return this.http.get<{ subMetrics: MetricListItem[]; linkedFrom: MetricListItem[] }>(`${this.api}/${metricId}/links`);
+  }
+
+  addSubMetric(metricId: number | string, subMetricId: number) {
+    return this.http.post<{ message: string }>(`${this.api}/${metricId}/links`, { subMetricId });
+  }
+
+  // Unlinks the edge stored as (metricId -> subMetricId) exactly — to remove
+  // an incoming ("linked from") link, pass the OTHER metric's id as
+  // `metricId` and this metric's own id as `subMetricId`.
+  removeSubMetric(metricId: number | string, subMetricId: number) {
+    return this.http.delete<{ message: string }>(`${this.api}/${metricId}/links/${subMetricId}`);
+  }
+
   // Attachments — file upload or a pasted link, with a 10s undo-able pending
   // delete, mirroring EventService's attachment methods.
   getAttachments(metricId: number | string) {
@@ -103,6 +123,39 @@ export class MetricService {
     return this.http.post<{ message: string; attachment: Attachment }>(
       `${this.api}/${metricId}/attachments/${attachmentId}/undo`,
       {}
+    );
+  }
+
+  // Team tab — Owner/Editor/Viewer membership, mirroring ProjectService's
+  // own member methods (see project.service.ts) but keyed by a fixed
+  // 3-value role instead of a ProjectRole id.
+  getMetricMembers(metricId: number | string) {
+    return this.http.get<MetricMember[]>(`${this.api}/${metricId}/members`);
+  }
+
+  getMetricMemberCandidates(metricId: number | string, page: number, limit: number, search?: string) {
+    const params: Record<string, string | number> = { page, limit };
+    if (search) params['search'] = search;
+    return this.http.get<PaginatedUsers>(`${this.api}/${metricId}/members/candidates`, { params });
+  }
+
+  addMetricMember(metricId: number | string, userId: number, role: MetricMemberRole) {
+    return this.http.post<{ message: string; members: MetricMember[] }>(
+      `${this.api}/${metricId}/members`,
+      { userId, role }
+    );
+  }
+
+  updateMetricMemberRole(metricId: number | string, memberId: number, role: MetricMemberRole) {
+    return this.http.patch<{ message: string; members: MetricMember[] }>(
+      `${this.api}/${metricId}/members/${memberId}`,
+      { role }
+    );
+  }
+
+  removeMetricMember(metricId: number | string, memberId: number) {
+    return this.http.delete<{ message: string; members: MetricMember[] }>(
+      `${this.api}/${metricId}/members/${memberId}`
     );
   }
 

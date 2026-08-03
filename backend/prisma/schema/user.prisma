@@ -142,6 +142,9 @@ model User {
   ownedMetrics         Metric[]       @relation("MetricOwner")
   createdMetrics       Metric[]       @relation("MetricCreatedBy")
   updatedMetrics       Metric[]       @relation("MetricUpdatedBy")
+  createdMetricLinks   MetricLink[]
+  metricMemberships    MetricMember[] @relation("MetricMemberUser")
+  addedMetricMembers   MetricMember[] @relation("MetricMemberAddedBy")
   ownedCalendars           Calendar[]         @relation("CalendarOwner")
   createdCalendars         Calendar[]         @relation("CalendarCreatedBy")
   updatedCalendars         Calendar[]         @relation("CalendarUpdatedBy")

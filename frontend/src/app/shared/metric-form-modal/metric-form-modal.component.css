@@ -33,6 +33,31 @@
   flex-shrink: 0;
 }
 
+/* One shared switcher above the tab strip, visible on every tab — drives
+   the Statistics charts/gauge/tiles, the embedded tracking grid, and the
+   Sheet tab's grid all at once (see metric-form-modal.component.ts). */
+.metric-period-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.metric-period-switcher-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.metric-period-switcher-input {
+  width: auto;
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+}
+
 /* Borderless, auto-focused title field that replaces the old static "New
    Metric"/"Edit Metric" header text — reads as part of the header until
    focused. Same treatment as event-detail-dialog's .event-title-input. */
@@ -406,5 +431,69 @@
   .metric-stats-overview { grid-template-columns: 1fr; justify-items: center; text-align: center; }
   .metric-stats-legend { width: 100%; }
   .metric-stats-tiles { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* --- Linked tab --- */
+.linked-toolbar { margin-bottom: 14px; }
+
+.linked-add-menu { width: 260px; }
+
+.linked-add-list { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; }
+
+.linked-metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 8px; }
+
+.linked-metric-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  text-align: center;
+  min-width: 0;
+}
+
+.linked-metric-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  padding: 2px;
+  line-height: 1;
+}
+.linked-metric-remove:hover { color: #ef4444; }
+
+.linked-metric-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 6px 0 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.linked-metric-dept {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+@media (max-width: 576px) {
+  .linked-metric-grid { grid-template-columns: repeat(2, 1fr); }
 }
 

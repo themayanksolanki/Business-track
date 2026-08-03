@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
 import { getAccessibleDepartmentIds, canAccessDepartment } from '../utils/access.js';
@@ -8,6 +8,11 @@ import { MetricTracking } from '../models/metricTracking.model.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
 
+// Lightweight — just enough for canAccessMetric's membership bypass and
+// canEditMetric's role check. Full user info for the Team tab's own list
+// comes from metricMemberController.ts, not this.
+const METRIC_MEMBERSHIP_SELECT = { userId: true, role: true };
+
 const METRIC_INCLUDE = {
   department: { select: { id: true, name: true, color: true } },
   category: { select: { id: true, name: true, color: true } },
@@ -15,35 +20,78 @@ const METRIC_INCLUDE = {
   createdBy: { select: USER_SELECT },
   updatedBy: { select: USER_SELECT },
   parent: { select: { id: true, title: true } },
+  members: { select: { ...METRIC_MEMBERSHIP_SELECT, id: true, user: { select: USER_SELECT }, addedAt: true } },
 };
 
 // Lightweight include for the list view — only what the Metrics page table
 // actually renders (name, department, category, owner), mirroring how
 // projectController keeps a reduced ACCESS_INCLUDE separate from the full
-// PROJECT_INCLUDE.
+// PROJECT_INCLUDE. `members` here is the lightweight membership shape only
+// (no nested user) — just enough for the list pages' own canEditMetric-style
+// button gating, not a member list display.
 const METRIC_LIST_INCLUDE = {
   department: { select: { id: true, name: true, color: true } },
   category: { select: { id: true, name: true, color: true } },
   owner: { select: USER_SELECT },
+  members: { select: METRIC_MEMBERSHIP_SELECT },
 };
 
 type AuthUser = { id: number; role: string; organizationId: number | null };
 
+interface MetricMembershipForAccess {
+  userId: number;
+  role: string;
+}
+
 interface MetricForAccess {
   organizationId: number | null;
   departmentId: number;
+  members?: MetricMembershipForAccess[];
 }
 
-// Single access check reused for both read and write — Metric has no
-// membership/edit-vs-view concept (unlike Project's canAccessProject/
-// canEditProject split): anyone who can see a metric can also manage its
-// config and enter its data.
+// Base view-gate — broadened (beyond the original department-only check)
+// with a membership bypass: an explicit MetricMember (any role, including
+// Viewer) can see the metric even outside their normal department access,
+// mirroring canAccessProject's identical member bypass.
 export const canAccessMetric = async (user: AuthUser, metric: MetricForAccess) => {
   if (metric.organizationId !== user.organizationId) return false;
   if (user.role === 'Admin') return true;
+  if (metric.members?.some((m) => m.userId === user.id)) return true;
   const accessibleIds = await getAccessibleDepartmentIds(user);
   return canAccessDepartment(accessibleIds, metric.departmentId);
 };
+
+// Refines "can this user touch this metric" (canAccessMetric having already
+// passed) into edit-vs-view — mirrors canEditProject exactly. Department/
+// creator/owner-based access stays full-edit, unchanged; only an explicit
+// MetricMember whose role is 'viewer' is downgraded to view-only. A metric
+// with zero MetricMember rows (every metric before this feature existed)
+// behaves identically to before — nobody's edit access changes just because
+// this feature shipped.
+export const canEditMetric = (user: AuthUser, metric: MetricForAccess) => {
+  if (metric.organizationId !== user.organizationId) return false;
+  if (user.role === 'Admin') return true;
+  const membership = metric.members?.find((m) => m.userId === user.id);
+  if (membership) return membership.role !== 'viewer';
+  return true;
+};
+
+interface MetricForManage {
+  createdById: number;
+  ownerId: number;
+  members?: MetricMembershipForAccess[];
+}
+
+// Gates Team-tab administration (add/remove/re-role) specifically — mirrors
+// canManageProjectSettings. Narrower than canEditMetric: an Editor can edit
+// metric content but cannot manage who's on the team; only an explicit
+// 'owner' member, the metric's creator/business-owner, or Admin/Manager can.
+export const canManageMetricMembers = (user: AuthUser, metric: MetricForManage) =>
+  user.role === 'Admin' ||
+  user.role === 'Manager' ||
+  metric.createdById === user.id ||
+  metric.ownerId === user.id ||
+  (metric.members?.some((m) => m.userId === user.id && m.role === 'owner') ?? false);
 
 const VALID_METRIC_STATUSES = ['active', 'archived', 'deleted'];
 
@@ -67,9 +115,14 @@ export const getMetrics = async (req: Request, res: Response, next: NextFunction
       where.status = 'active';
     }
 
+    // Department access OR an explicit Team-tab membership — without the
+    // OR, a Viewer/Editor/Owner added to a metric outside their own
+    // department would never see it in this list at all, even though
+    // canAccessMetric itself already says they should (same membership
+    // bypass, just expressed as a query filter instead of a per-row check).
     if (req.user!.role !== 'Admin') {
       const accessibleIds = await getAccessibleDepartmentIds(req.user!);
-      where.departmentId = { in: accessibleIds ?? [] };
+      where.OR = [{ departmentId: { in: accessibleIds ?? [] } }, { members: { some: { userId: req.user!.id } } }];
     }
 
     const [metrics, total] = await Promise.all([
@@ -108,9 +161,10 @@ export const getMetricTiles = async (req: Request, res: Response, next: NextFunc
   try {
     const where: Prisma.MetricWhereInput = { organizationId: req.user!.organizationId, status: 'active' };
 
+    // Same department-OR-membership visibility as getMetrics.
     if (req.user!.role !== 'Admin') {
       const accessibleIds = await getAccessibleDepartmentIds(req.user!);
-      where.departmentId = { in: accessibleIds ?? [] };
+      where.OR = [{ departmentId: { in: accessibleIds ?? [] } }, { members: { some: { userId: req.user!.id } } }];
     }
 
     const metrics = await prisma.metric.findMany({
@@ -149,7 +203,10 @@ export const reorderMetrics = async (req: Request, res: Response, next: NextFunc
       where.departmentId = { in: accessibleIds ?? [] };
     }
 
-    const siblings = await prisma.metric.findMany({ where, select: { id: true } });
+    const siblings = await prisma.metric.findMany({
+      where,
+      select: { id: true, organizationId: true, departmentId: true, members: { select: METRIC_MEMBERSHIP_SELECT } },
+    });
     const siblingIds = new Set(siblings.map((m) => m.id));
     const numericIds = (orderedIds as (number | string)[]).map(Number);
     const uniqueIds = new Set(numericIds);
@@ -160,6 +217,13 @@ export const reorderMetrics = async (req: Request, res: Response, next: NextFunc
       !numericIds.every((id) => siblingIds.has(id))
     )
       return next(new AppError('orderedIds must match exactly the active metrics under this parent', 400));
+
+    // Reordering changes each metric's own `order` — a Viewer team member
+    // shouldn't be able to do that just because they also have department
+    // access, even though this endpoint is otherwise department-scoped
+    // (not membership-widened) like createMetric/updateMetric's own checks.
+    if (siblings.some((m) => !canEditMetric(req.user! as AuthUser, m)))
+      return next(new AppError('You do not have edit access to reorder one or more of these metrics', 403));
 
     await prisma.$transaction(
       numericIds.map((id, index) => prisma.metric.update({ where: { id }, data: { order: index } }))
@@ -173,7 +237,7 @@ export const reorderMetrics = async (req: Request, res: Response, next: NextFunc
 
 export const createMetric = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { title, department, category, owner, parentId, startDate, dueDate, notes, dataType, frequency } = req.body;
+    const { title, department, category, owner, parentId, startDate, dueDate, notes, dataType, frequency, columnLabels } = req.body;
 
     const departmentId = Number(department);
     if (req.user!.role !== 'Admin') {
@@ -184,7 +248,10 @@ export const createMetric = async (req: Request, res: Response, next: NextFuncti
 
     let depth = 0;
     if (parentId) {
-      const parent = await prisma.metric.findUnique({ where: { id: Number(parentId) } });
+      const parent = await prisma.metric.findUnique({
+        where: { id: Number(parentId) },
+        include: { members: { select: METRIC_MEMBERSHIP_SELECT } },
+      });
       if (!parent) return next(new AppError('Parent metric not found', 404));
       if (!(await canAccessMetric(req.user! as AuthUser, parent)))
         return next(new AppError('You do not have access to the parent metric', 403));
@@ -197,9 +264,11 @@ export const createMetric = async (req: Request, res: Response, next: NextFuncti
       where: { organizationId: req.user!.organizationId, parentId: parentId ? Number(parentId) : null },
     });
 
+    const ownerId = Number(owner);
+
     const metric = await prisma.$transaction(async (tx) => {
       const sequenceId = await nextSequenceId(tx, req.user!.organizationId, 'metric');
-      return tx.metric.create({
+      const created = await tx.metric.create({
         data: {
           title: title.trim(),
           departmentId,
@@ -212,13 +281,28 @@ export const createMetric = async (req: Request, res: Response, next: NextFuncti
           notes: notes ?? '',
           dataType: dataType ?? 'number',
           frequency: frequency ?? 'daily',
-          ownerId: Number(owner),
+          columnLabels: columnLabels ? (columnLabels as Prisma.InputJsonValue) : Prisma.JsonNull,
+          ownerId,
           createdById: req.user!.id,
           organizationId: req.user!.organizationId,
           sequenceId,
         },
-        include: METRIC_INCLUDE,
       });
+
+      // Seed the Team tab: the chosen Owner field's user becomes team
+      // role 'owner'; whoever actually clicked Create becomes 'editor' —
+      // skipped if they're the same person (they already got the 'owner'
+      // row, no need for a second, lower row for the same user).
+      await tx.metricMember.create({
+        data: { metricId: created.id, userId: ownerId, role: 'owner', addedById: req.user!.id },
+      });
+      if (req.user!.id !== ownerId) {
+        await tx.metricMember.create({
+          data: { metricId: created.id, userId: req.user!.id, role: 'editor', addedById: req.user!.id },
+        });
+      }
+
+      return tx.metric.findUniqueOrThrow({ where: { id: created.id }, include: METRIC_INCLUDE });
     });
 
     res.status(201).json({ message: 'Metric created', metric });
@@ -246,13 +330,18 @@ export const getMetricById = async (req: Request, res: Response, next: NextFunct
 
 export const updateMetric = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const metric = await prisma.metric.findUnique({ where: { id: Number(req.params.metricId) } });
+    const metric = await prisma.metric.findUnique({
+      where: { id: Number(req.params.metricId) },
+      include: { members: { select: METRIC_MEMBERSHIP_SELECT } },
+    });
     if (!metric) return next(new AppError('Metric not found', 404));
 
     if (!(await canAccessMetric(req.user! as AuthUser, metric)))
       return next(new AppError('You do not have access to this metric', 403));
+    if (!canEditMetric(req.user! as AuthUser, metric))
+      return next(new AppError('You do not have edit access to this metric', 403));
 
-    const { title, department, category, owner, parentId, startDate, dueDate, notes, status, dataType, frequency } = req.body;
+    const { title, department, category, owner, parentId, startDate, dueDate, notes, status, dataType, frequency, columnLabels } = req.body;
 
     // Switching frequency after Bowling View data has been entered would
     // silently strand it under the old (metricId, frequency) key with no
@@ -282,6 +371,10 @@ export const updateMetric = async (req: Request, res: Response, next: NextFuncti
     if (status !== undefined) data.status = status;
     if (dataType !== undefined) data.dataType = dataType;
     if (frequency !== undefined) data.frequency = frequency;
+    // The Sheet tab's "Rename columns" popover sends the full desired
+    // columnLabels object (or null to reset) — full-replace, same convention
+    // as Project.tags rather than a per-key merge.
+    if (columnLabels !== undefined) data.columnLabels = columnLabels ? (columnLabels as Prisma.InputJsonValue) : Prisma.JsonNull;
 
     if (parentId !== undefined) {
       if (parentId === null) {
@@ -290,7 +383,10 @@ export const updateMetric = async (req: Request, res: Response, next: NextFuncti
       } else {
         if (Number(parentId) === metric.id)
           return next(new AppError('A metric cannot be its own parent', 400));
-        const parent = await prisma.metric.findUnique({ where: { id: Number(parentId) } });
+        const parent = await prisma.metric.findUnique({
+          where: { id: Number(parentId) },
+          include: { members: { select: METRIC_MEMBERSHIP_SELECT } },
+        });
         if (!parent) return next(new AppError('Parent metric not found', 404));
         if (!(await canAccessMetric(req.user! as AuthUser, parent)))
           return next(new AppError('You do not have access to the parent metric', 403));

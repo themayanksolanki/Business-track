@@ -119,169 +119,11 @@
         }
 
 
-        <!-- ========================= -->
-        <!-- Metric information popover -->
-        <!-- ========================= -->
-
+        <!-- Metric information popover — shared/metric-info-popover owns
+             the card markup+styling; only the wiring (trigger + template
+             ref) stays per-page. -->
         <ng-template #metricInfoPopover>
-
-          <div class="metric-popover-card">
-
-            <!-- Header -->
-            <div class="metric-popover-header">
-
-              <div class="metric-heading">
-
-                <!-- Metric initial -->
-                <div class="metric-icon">
-                  {{ row.item.title.charAt(0).toUpperCase() || 'M' }}
-                </div>
-
-                <div class="metric-heading-content">
-
-                  <div class="metric-title" [title]="row.item.title">
-                    {{ row.item.title }}
-                  </div>
-
-                  <div class="metric-header-department">
-
-                    <span class="dept-dot" [style.background]="row.item.department.color">
-                    </span>
-
-                    {{ row.item.department.name || 'No department' }}
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              <!-- Status -->
-              <span class="metric-status" [class.metric-status-active]="row.item.status === 'active'">
-
-                <span class="metric-status-dot"></span>
-
-                {{ row.item.status || 'N/A' }}
-
-              </span>
-
-            </div>
-
-
-            <!-- Divider -->
-            <div class="metric-divider"></div>
-
-
-            <!-- Details -->
-            <div class="metric-details">
-
-              <!-- Category -->
-              <div class="metric-detail">
-
-                <span class="detail-label">
-                  Category:
-                </span>
-
-                <span class="detail-value" [title]="row.item.category?.name || 'N/A'">
-
-                  {{ row.item.category?.name || 'N/A' }}
-
-                </span>
-
-              </div>
-
-
-              <!-- Department -->
-              <div class="metric-detail">
-
-                <span class="detail-label">
-                  Department:
-                </span>
-
-                <span class="detail-value department-value">
-
-                  <span class="dept-dot" [style.background]="row.item.department.color">
-                  </span>
-
-                  <span class="text-truncate" [title]="row.item.department.name || 'N/A'">
-
-                    {{ row.item.department.name || 'N/A' }}
-
-                  </span>
-
-                </span>
-
-              </div>
-
-
-              <!-- Owner -->
-              <div class="metric-detail">
-
-                <span class="detail-label">
-                  Owner:
-                </span>
-
-                <span class="detail-value owner-value">
-
-                  <span class="owner-avatar">
-                    {{ row.item.owner.username.charAt(0).toUpperCase() || '?' }}
-                  </span>
-
-                  <span class="text-truncate" [title]="row.item.owner.username || 'N/A'">
-
-                    {{ row.item.owner.username || 'N/A' }}
-
-                  </span>
-
-                </span>
-
-              </div>
-
-
-              <!-- Frequency -->
-              <div class="metric-detail">
-
-                <span class="detail-label">
-                  Frequency:
-                </span>
-
-                <span class="detail-value">
-                  {{ row.item.frequency || 'N/A' }}
-                </span>
-
-              </div>
-
-
-              <!-- Data type -->
-              <div class="metric-detail">
-
-                <span class="detail-label">
-                  Data Type:
-                </span>
-
-                <span class="detail-value">
-                  {{ row.item.dataType || 'N/A' }}
-                </span>
-
-              </div>
-
-            </div>
-
-
-            <!-- Footer -->
-            <div class="metric-popover-footer">
-
-              <span>
-                Click metric to view details
-              </span>
-
-              <i class="bi bi-arrow-right"></i>
-
-            </div>
-
-          </div>
-
+          <app-metric-info-popover [item]="row.item"></app-metric-info-popover>
         </ng-template>
 
       </div>
@@ -339,7 +181,7 @@
 
 <app-metric-form-modal [open]="formOpen" [mode]="formMode" [initial]="formInitial"
   [departments]="departmentService.departments()" [categories]="categoryService.categories()"
-  [users]="userService.users()" [parentOptions]="parentOptions" [defaultFrequency]="lens" [loading]="formLoading"
+  [users]="userService.users()" [linkCandidates]="parentOptions" [defaultFrequency]="lens" [loading]="formLoading"
   [error]="formError" [deleteLoading]="deleteLoading" (closed)="closeForm()" (submitted)="submitForm($event)"
   (deleteConfirmed)="onDeleteConfirmed()">
 </app-metric-form-modal>

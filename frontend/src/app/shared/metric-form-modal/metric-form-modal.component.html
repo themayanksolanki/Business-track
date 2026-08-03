@@ -5,18 +5,31 @@
       <div class="modal-body p-4 metric-modal-body">
         <div class="d-flex align-items-center gap-2 mb-4 metric-modal-header">
           <i class="bi bi-graph-up-arrow metric-modal-header-icon"></i>
-          <input #titleInput type="text" class="metric-title-input flex-grow-1" [(ngModel)]="title" placeholder="Metric name" />
+          <input #titleInput type="text" class="metric-title-input flex-grow-1" [(ngModel)]="title" placeholder="Metric name" [disabled]="!canEditMetric" />
           <div class="d-flex gap-2 flex-shrink-0">
             <button type="button" class="btn btn-light modal-submit-btn-sm" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" form="metricForm" class="btn btn-primary modal-submit-btn-sm" [disabled]="loading">
-              @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
-              {{ loading ? 'Saving...' : 'Save' }}
-            </button>
+            @if (canEditMetric) {
+              <button type="submit" form="metricForm" class="btn btn-primary modal-submit-btn-sm" [disabled]="loading">
+                @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                {{ loading ? 'Saving...' : 'Save' }}
+              </button>
+            }
           </div>
         </div>
 
         @if (displayError) {
           <div class="alert alert-danger py-2 metric-modal-header">{{ displayError }}</div>
+        }
+
+        @if (mode === 'edit' && initial) {
+          <div class="metric-period-switcher metric-modal-header">
+            <span class="metric-period-switcher-label">Viewing:</span>
+            @if (initial.frequency === 'daily') {
+              <input type="month" class="form-control form-control-sm metric-period-switcher-input" [(ngModel)]="selectedMonthStr" (change)="onPeriodChange()" />
+            } @else {
+              <input type="number" class="form-control form-control-sm metric-period-switcher-input" [(ngModel)]="selectedYear" (change)="onPeriodChange()" />
+            }
+          </div>
         }
 
         <app-tab-strip class="metric-modal-header" [tabs]="tabs" [activeKey]="activeTab" (tabChange)="setActiveTab($event)"></app-tab-strip>
@@ -97,6 +110,13 @@
                   <app-trend-chart [categories]="trendCategories" [series]="trendSeries" emptyMessage="No tracking data yet for this metric."></app-trend-chart>
                 </div>
 
+                <div class="metric-stats-card">
+                  <p class="metric-stats-card-title">
+                    Actual vs Target vs Lowest/Medium/Upper – last {{ trendCategories.length }} {{ frequencyUnitLabel }}{{ trendCategories.length === 1 ? '' : 's' }}
+                  </p>
+                  <app-area-chart [categories]="trendCategories" [series]="areaChartSeries" emptyMessage="No tracking data yet for this metric."></app-area-chart>
+                </div>
+
                 <div class="metric-stats-tiles">
                   <div class="metric-stats-tile">
                     <span class="metric-stats-tile-icon metric-stats-tile-icon-actual"><i class="bi bi-graph-up-arrow"></i></span>
@@ -145,7 +165,7 @@
 
                 <div class="metric-stats-card bowling">
                   <p class="metric-stats-card-title">Tracking</p>
-                  <app-metric-tracking-grid [metric]="initial" (saved)="loadTrend()"></app-metric-tracking-grid>
+                  <app-metric-tracking-grid [metric]="initial" [year]="year" [month]="month" [readOnly]="!canEditMetric" (saved)="loadTrend()"></app-metric-tracking-grid>
                 </div>
               }
             } @else {
@@ -158,7 +178,7 @@
               <div class="col-md-6 mb-3">
                 <label class="field-label">Department <span class="text-danger">*</span></label>
                 <div class="dropdown">
-                  <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                  <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" [disabled]="!canEditMetric">
                     @if (selectedDepartment) {
                       <span class="field-dot" [style.background]="selectedDepartment.color"></span>
                       <span class="field-select-value">{{ selectedDepartment.name }}</span>
@@ -181,7 +201,7 @@
               <div class="col-md-6 mb-3">
                 <label class="field-label">Category</label>
                 <div class="dropdown">
-                  <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                  <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" [disabled]="!canEditMetric">
                     @if (selectedCategoryObj) {
                       <span class="field-dot" [style.background]="selectedCategoryObj.color"></span>
                       <span class="field-select-value">{{ selectedCategoryObj.name }}</span>
@@ -212,7 +232,7 @@
               <div class="col-md-6 mb-3">
                 <label class="field-label">Unit <span class="text-danger">*</span></label>
                 <div class="dropdown">
-                  <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                  <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" [disabled]="!canEditMetric">
                     <i class="bi {{ selectedDataTypeOption.icon }} field-select-icon"></i>
                     <span class="field-select-value">{{ selectedDataTypeOption.label }}</span>
                   </button>
@@ -237,7 +257,7 @@
               <div class="col-md-6 mb-3">
                 <label class="field-label">Frequency <span class="text-danger">*</span></label>
                 <div class="dropdown">
-                  <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                  <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" [disabled]="!canEditMetric">
                     <i class="bi {{ selectedFrequencyOption.icon }} field-select-icon"></i>
                     <span class="field-select-value">{{ selectedFrequencyOption.label }}</span>
                   </button>
@@ -261,10 +281,10 @@
             </div>
 
             <div class="row">
-              <div class="col-md-6 mb-3">
+              <div class="col-12 mb-3">
                 <label class="field-label">Owner <span class="text-danger">*</span></label>
                 <div class="dropdown">
-                  <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                  <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" [disabled]="!canEditMetric">
                     @if (selectedOwnerUser) {
                       @if (ownerAvatarUrl(selectedOwnerUser)) {
                         <img class="field-select-avatar" [src]="ownerAvatarUrl(selectedOwnerUser)!" [alt]="selectedOwnerUser.username" />
@@ -293,44 +313,16 @@
                   </ul>
                 </div>
               </div>
-              <div class="col-md-6 mb-3">
-                <label class="field-label">Parent metric</label>
-                <div class="dropdown">
-                  <button type="button" class="field-select-trigger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                    @if (selectedParent) {
-                      <i class="bi bi-diagram-2 field-select-icon"></i>
-                      <span class="field-select-value">{{ selectedParent.title }}</span>
-                    } @else {
-                      <i class="bi bi-dash-circle field-select-icon"></i>
-                      <span class="field-select-value field-select-empty">None (top-level)</span>
-                    }
-                  </button>
-                  <ul class="dropdown-menu field-dropdown-menu">
-                    <li>
-                      <a class="field-dropdown-item" [class.active]="parentId === null" (click)="selectParent(null)">
-                        <i class="bi bi-dash-circle"></i>None (top-level)
-                      </a>
-                    </li>
-                    @for (m of availableParents; track m.id) {
-                      <li>
-                        <a class="field-dropdown-item" [class.active]="parentId === m.id" (click)="selectParent(m.id)">
-                          <i class="bi bi-diagram-2"></i>{{ m.title }}
-                        </a>
-                      </li>
-                    }
-                  </ul>
-                </div>
-              </div>
             </div>
 
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label class="field-label">Start date</label>
-                <app-date-picker [value]="startDate" (valueChange)="onStartDateChange($event)"></app-date-picker>
+                <app-date-picker [value]="startDate" [disabled]="!canEditMetric" (valueChange)="onStartDateChange($event)"></app-date-picker>
               </div>
               <div class="col-md-6 mb-3">
                 <label class="field-label">Due date</label>
-                <app-date-picker [value]="dueDate" [min]="startDate" (valueChange)="onDueDateChange($event)"></app-date-picker>
+                <app-date-picker [value]="dueDate" [min]="startDate" [disabled]="!canEditMetric" (valueChange)="onDueDateChange($event)"></app-date-picker>
               </div>
             </div>
 
@@ -338,7 +330,7 @@
               <div class="mb-3">
                 <label class="field-label">Status</label>
                 <div class="dropdown">
-                  <button type="button" class="field-select-trigger dropdown-toggle metric-status-select" data-bs-toggle="dropdown" aria-expanded="false">
+                  <button type="button" class="field-select-trigger dropdown-toggle metric-status-select" data-bs-toggle="dropdown" aria-expanded="false" [disabled]="!canEditMetric">
                     <i class="bi {{ selectedStatusOption.icon }} field-select-icon" [style.color]="selectedStatusOption.color"></i>
                     <span class="field-select-value">{{ selectedStatusOption.label }}</span>
                   </button>
@@ -363,11 +355,112 @@
             }
           }
 
+          @if (activeTab === 'team') {
+            @if (mode === 'edit' && initial) {
+              <app-metric-teams
+                [metricId]="initial.id"
+                [members]="initial.members ?? []"
+                [canManage]="canManageMetricMembers"
+                (membersChanged)="onMetricMembersChanged($event)"
+              ></app-metric-teams>
+            } @else {
+              <p class="text-muted small">Save the metric first to manage its team.</p>
+            }
+          }
+
+          @if (activeTab === 'linked') {
+            @if (mode === 'edit' && initial) {
+              @if (canEditMetric) {
+                <div class="linked-toolbar">
+                  <div class="dropdown">
+                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" (click)="openAddSubMetric()">
+                      <i class="bi bi-plus-lg"></i> Add sub-metric
+                    </button>
+                    <div class="dropdown-menu linked-add-menu p-2">
+                      <input type="text" class="form-control form-control-sm mb-2" placeholder="Search metrics…" [(ngModel)]="addSubMetricFilter" [ngModelOptions]="{ standalone: true }" (click)="$event.stopPropagation()" />
+                      <ul class="linked-add-list">
+                        @for (c of availableLinkCandidates; track c.id) {
+                          <li>
+                            <a class="dropdown-item" (click)="addSubMetric(c)">
+                              <i class="bi bi-diagram-3 me-2"></i>{{ c.title }}
+                            </a>
+                          </li>
+                        } @empty {
+                          <li class="text-muted small px-2 py-1">No matching metrics</li>
+                        }
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              }
+
+              @if (subMetricsError) {
+                <div class="alert alert-danger py-2 mb-2">{{ subMetricsError }}</div>
+              }
+
+              @if (subMetricsLoading) {
+                <div class="text-center py-4 text-muted">
+                  <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+                </div>
+              } @else {
+                <p class="metric-stats-card-title">Sub-metrics</p>
+                @if (subMetrics.length) {
+                  <div class="linked-metric-grid">
+                    @for (sm of subMetrics; track sm.id) {
+                      <div class="linked-metric-card">
+                        @if (canEditMetric) {
+                          <button type="button" class="linked-metric-remove" title="Unlink" (click)="removeSubMetric(sm.id)">
+                            <i class="bi bi-x-lg"></i>
+                          </button>
+                        }
+                        <app-gauge-chart [percent]="sm.gaugePercent" [size]="90"></app-gauge-chart>
+                        <p class="linked-metric-title">{{ sm.title }}</p>
+                        <p class="linked-metric-dept"><span class="field-dot" [style.background]="sm.department.color"></span>{{ sm.department.name }}</p>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <p class="text-muted small">No sub-metrics linked yet.</p>
+                }
+
+                <p class="metric-stats-card-title mt-4">Linked from</p>
+                @if (linkedFromMetrics.length) {
+                  <div class="linked-metric-grid">
+                    @for (lm of linkedFromMetrics; track lm.id) {
+                      <div class="linked-metric-card">
+                        @if (canEditMetric) {
+                          <button type="button" class="linked-metric-remove" title="Unlink" (click)="removeLinkedFrom(lm.id)">
+                            <i class="bi bi-x-lg"></i>
+                          </button>
+                        }
+                        <app-gauge-chart [percent]="lm.gaugePercent" [size]="90"></app-gauge-chart>
+                        <p class="linked-metric-title">{{ lm.title }}</p>
+                        <p class="linked-metric-dept"><span class="field-dot" [style.background]="lm.department.color"></span>{{ lm.department.name }}</p>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <p class="text-muted small">Not linked from any other metric.</p>
+                }
+              }
+            } @else {
+              <p class="text-muted small">Save the metric first to link sub-metrics.</p>
+            }
+          }
+
+          @if (activeTab === 'sheet') {
+            @if (mode === 'edit' && initial) {
+              <app-metric-sheet [metric]="initial" [year]="year" [month]="month" [readOnly]="!canEditMetric" (saved)="loadTrend()" (metricUpdated)="onSheetMetricUpdated($event)"></app-metric-sheet>
+            } @else {
+              <p class="text-muted small">Save the metric first to enter tracking data.</p>
+            }
+          }
+
           @if (activeTab === 'notes') {
             <div class="metric-notes-field">
               <label class="field-label">Notes</label>
               <div class="metric-notes-resizable">
-                <ckeditor class="metric-notes-editor" [editor]="NotesEditor" [config]="notesEditorConfig" [(ngModel)]="notes" name="notes"></ckeditor>
+                <ckeditor class="metric-notes-editor" [editor]="NotesEditor" [config]="notesEditorConfig" [(ngModel)]="notes" name="notes" [disabled]="!canEditMetric"></ckeditor>
               </div>
             </div>
           }
@@ -376,7 +469,8 @@
             @if (mode === 'edit' && initial) {
               <app-attachments
                 [adapter]="metricSvc.attachmentsAdapter(initial.id)"
-                [reloadKey]="initial.id">
+                [reloadKey]="initial.id"
+                [canEdit]="canEditMetric">
               </app-attachments>
             } @else {
               <p class="text-muted small">Save the metric first to add attachments.</p>
@@ -384,7 +478,7 @@
           }
           </div>
 
-          @if (mode === 'edit') {
+          @if (mode === 'edit' && canManageMetricMembers) {
             <div class="metric-modal-footer">
               <button type="button" class="btn btn-outline-danger modal-submit-btn" (click)="requestDelete()">
                 <i class="bi bi-trash3 me-1"></i>Delete

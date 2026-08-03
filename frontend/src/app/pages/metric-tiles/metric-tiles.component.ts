@@ -1,5 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
+import { NgbPopover } from '@ng-bootstrap/ng-bootstrap';
+import { MetricInfoPopoverComponent } from '../../shared/metric-info-popover/metric-info-popover.component';
 import { MetricService } from '../../core/services/metric.service';
 import { DepartmentService } from '../../core/services/department.service';
 import { CategoryService } from '../../core/services/category.service';
@@ -18,7 +20,7 @@ import { GaugeChartComponent } from '../../shared/gauge-chart/gauge-chart.compon
 import { TrendChartComponent, TrendChartSeries } from '../../shared/trend-chart/trend-chart.component';
 import { currentPeriodInfo } from '../../shared/utils/metric-period.util';
 import { TREND_ACTUAL_COLOR, TREND_TARGET_COLOR, trendPeriodLabel, trendWindow } from '../../shared/utils/metric-trend.util';
-import { formatMetricValue, percentOfTarget } from '../../shared/utils/metric-value.util';
+import { formatMetricValue, percentOfTarget, canEditMetricListItem } from '../../shared/utils/metric-value.util';
 
 const DEFAULT_DECIMAL_POINTS = 2;
 // Same trailing-window size as the metric-form-modal's Statistics tab.
@@ -51,7 +53,7 @@ interface TileGroup {
 @Component({
   selector: 'app-metric-tiles',
   standalone: true,
-  imports: [DragDropModule, MetricFormModalComponent, GaugeChartComponent, TrendChartComponent],
+  imports: [DragDropModule, MetricFormModalComponent, GaugeChartComponent, TrendChartComponent, NgbPopover, MetricInfoPopoverComponent],
   templateUrl: './metric-tiles.component.html',
   styleUrl: './metric-tiles.component.css',
 })
@@ -174,6 +176,13 @@ export class MetricTilesComponent implements OnInit {
 
   percentFor(row: TileRow): number | null {
     return percentOfTarget(row.actual, row.target);
+  }
+
+  // A Viewer team member shouldn't be able to drag-reorder a tile they
+  // can't edit — mirrors the backend's own per-sibling canEditMetric check
+  // in reorderMetrics.
+  canEditTile(row: TileRow): boolean {
+    return canEditMetricListItem(this.auth.currentUser(), row.item);
   }
 
   // organization is typed loosely (Organization | number | null) since some

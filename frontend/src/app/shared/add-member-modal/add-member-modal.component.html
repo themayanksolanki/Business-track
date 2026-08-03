@@ -16,7 +16,7 @@
           <div class="mb-3">
             <label class="field-label">User <span class="text-danger">*</span></label>
             <app-member-picker
-              [projectId]="projectId"
+              [fetchCandidates]="fetchCandidates"
               [selectedUser]="selectedUser"
               (picked)="onUserPicked($event)"
             ></app-member-picker>

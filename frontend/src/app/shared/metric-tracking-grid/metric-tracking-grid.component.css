@@ -35,14 +35,6 @@
   color: var(--text-primary);
 }
 
-.tracking-grid-picker {
-  width: auto;
-  background: var(--bg-input);
-  border: 1px solid var(--border-strong);
-  color: var(--text-primary);
-  font-size: 0.82rem;
-  padding: 4px 10px;
-}
 
 /* ── Grid shell ── */
 .tracking-grid {

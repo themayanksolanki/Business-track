@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
-import { canAccessMetric } from './metricController.js';
+import { canAccessMetric, canEditMetric } from './metricController.js';
 import { MetricTracking } from '../models/metricTracking.model.js';
 import type { MetricFrequency } from '../models/metricTracking.model.js';
 
@@ -9,10 +9,16 @@ type AuthUser = { id: number; role: string; organizationId: number | null };
 
 // Shared by both endpoints below — loads the Postgres Metric row (config
 // lives there; only the daily/weekly/etc. numbers live in Mongo) and runs
-// the same access check the rest of metricController.ts uses. Returns null
-// (having already called `next`) on 404/403 so callers can just early-return.
+// the same VIEW access check the rest of metricController.ts uses. This is
+// deliberately view-only (canAccessMetric, not canEditMetric) since
+// getPeriodData (read) also goes through this — savePeriodDiff (write)
+// layers its own canEditMetric check on top, below. Returns null (having
+// already called `next`) on 404/403 so callers can just early-return.
 async function loadAccessibleMetric(req: Request, next: NextFunction) {
-  const metric = await prisma.metric.findUnique({ where: { id: Number(req.params.metricId) } });
+  const metric = await prisma.metric.findUnique({
+    where: { id: Number(req.params.metricId) },
+    include: { members: { select: { userId: true, role: true } } },
+  });
   if (!metric) {
     next(new AppError('Metric not found', 404));
     return null;
@@ -52,6 +58,8 @@ export const savePeriodDiff = async (req: Request, res: Response, next: NextFunc
   try {
     const metric = await loadAccessibleMetric(req, next);
     if (!metric) return;
+    if (!canEditMetric(req.user! as AuthUser, metric))
+      return next(new AppError('You do not have edit access to this metric', 403));
 
     const frequency = req.params.frequency as MetricFrequency;
     const year = Number(req.query.year);
