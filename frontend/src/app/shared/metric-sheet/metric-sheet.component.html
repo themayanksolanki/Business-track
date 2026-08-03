@@ -1,0 +1,87 @@
+<div class="sheet-tab">
+  <div class="sheet-toolbar">
+    <div class="sheet-toolbar-left">
+      @if (rollupOptions.length > 1) {
+        <div class="dropdown">
+          <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+            <app-frequency-icon [name]="selectedViewOption.value" [size]="14"></app-frequency-icon>
+            <span class="ms-1">{{ selectedViewOption.label }}</span>
+          </button>
+          <ul class="dropdown-menu sheet-dropdown-menu">
+            @for (opt of rollupOptions; track opt.value) {
+              <li>
+                <a class="dropdown-item" [class.active]="viewFrequency === opt.value" (click)="setViewFrequency(opt.value)">
+                  <app-frequency-icon [name]="opt.value" [size]="14"></app-frequency-icon>
+                  <span class="ms-2">{{ opt.label }}</span>
+                </a>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+      <div class="dropdown">
+        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="bi {{ selectedOrientationOption.icon }}"></i>
+          <span class="ms-1">{{ selectedOrientationOption.label }}</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-sm">
+          @for (opt of orientationOptions; track opt.value) {
+            <li>
+              <a class="dropdown-item" [class.active]="orientation === opt.value" (click)="setOrientation(opt.value)">
+                <i class="bi {{ opt.icon }} me-2"></i>{{ opt.label }}
+              </a>
+            </li>
+          }
+        </ul>
+      </div>
+    </div>
+    <div class="sheet-toolbar-right">
+      @if (saving) {
+        <span class="spinner-border spinner-border-sm me-2" title="Saving…"></span>
+      }
+      @if (!readOnly) {
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="openRename()">
+          <i class="bi bi-pencil-square"></i> Rename columns
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (isRollup) {
+    <p class="sheet-rollup-note text-muted small mb-2">
+      <i class="bi bi-eye"></i> Read-only rollup — Status and Notes aren't included.
+    </p>
+  }
+
+  @if (error) {
+    <div class="alert alert-danger py-2 mb-2">{{ error }}</div>
+  }
+
+  @if (loading) {
+    <div class="text-center py-4 text-muted">
+      <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+    </div>
+  } @else {
+    <div class="ht-theme-main sheet-grid-wrap">
+      <hot-table [data]="hotData" [settings]="hotSettings"></hot-table>
+    </div>
+  }
+
+  @if (renameOpen) {
+    <div class="sheet-rename-backdrop" (click)="closeRename()">
+      <div class="sheet-rename-panel" (click)="$event.stopPropagation()">
+        <h6 class="sheet-rename-title">Rename columns</h6>
+        @for (f of renameFields; track f.key) {
+          <div class="sheet-rename-row">
+            <label class="sheet-rename-label">{{ f.placeholder }}</label>
+            <input type="text" class="form-control form-control-sm" [placeholder]="f.placeholder" [(ngModel)]="renameLabels[f.key]" maxlength="40" />
+          </div>
+        }
+        <div class="sheet-rename-actions">
+          <button type="button" class="btn btn-sm btn-secondary" (click)="closeRename()">Cancel</button>
+          <button type="button" class="btn btn-sm btn-primary" (click)="saveRename()">Save</button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

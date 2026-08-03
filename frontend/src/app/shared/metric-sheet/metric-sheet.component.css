@@ -1,0 +1,110 @@
+@import 'handsontable/styles/handsontable.css';
+@import 'handsontable/styles/ht-theme-main.css';
+/* Deliberately component-scoped (not global, unlike ckeditor5.css/
+   angular-calendar.css in angular.json's "styles" array) — Handsontable
+   only backs this one deep, opt-in tab (Metric > Sheet), so keeping its
+   ~148kB stylesheet inside this component's lazy chunk means pages that
+   never open it never download it. The tradeoff: angular.json's
+   anyComponentStyle budget had to be raised to accommodate it (see the
+   comment there) — its default 36kB error threshold assumes ordinary
+   component-authored CSS, not a large deliberate vendor import. */
+
+.sheet-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.sheet-toolbar-left,
+.sheet-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sheet-toolbar-left .dropdown-toggle {
+  display: inline-flex;
+  align-items: center;
+}
+
+.sheet-dropdown-menu {
+  font-size: 0.82rem;
+  min-width: 10rem;
+}
+
+.sheet-dropdown-menu .dropdown-item {
+  display: flex;
+  align-items: center;
+}
+
+.sheet-grid-wrap {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* Handsontable's own theme CSS colors every readOnly cell's 'htDimmed'
+   class with `!important` (grey background/text) — the Status column is
+   always readOnly (see cellPropsForField in the .ts), so without this its
+   computed RAG color (set as --metric-status-bg/-fg custom properties by
+   statusCellRenderer) would never show, just the generic dimmed look.
+   ::ng-deep is needed at all because these <td> elements are rendered by
+   Handsontable directly, not by Angular's own template compiler, so
+   Angular's normal emulated view encapsulation never stamps them with this
+   component's scoping attribute — same reason CKEditor/ngb-datepicker
+   overrides elsewhere in this app go through ::ng-deep too. Falls back to
+   Handsontable's own read-only colors when there's no status to show. */
+.sheet-grid-wrap ::ng-deep td.metric-status-cell.htDimmed {
+  background-color: var(--metric-status-bg, var(--ht-cell-read-only-background-color)) !important;
+  color: var(--metric-status-fg, var(--ht-read-only-color)) !important;
+  font-weight: 700;
+}
+
+.sheet-rename-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1080;
+}
+
+.sheet-rename-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  width: 320px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.sheet-rename-title {
+  margin: 0 0 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sheet-rename-row {
+  margin-bottom: 10px;
+}
+
+.sheet-rename-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.sheet-rename-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
