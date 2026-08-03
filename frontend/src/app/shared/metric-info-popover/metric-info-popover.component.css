@@ -1,0 +1,189 @@
+/* Sizing/positioning (width, max-width) is controlled by the
+   .metric-info-popover wrapper class in the global stylesheet — this file
+   only owns colors/spacing of the content itself. box-sizing: border-box
+   is Bootstrap's own global reset, no need to repeat it per rule. */
+
+.metric-popover-card {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.metric-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.metric-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+}
+
+.metric-icon {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.14);
+  color: #3b82f6;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.metric-heading-content { flex: 1; min-width: 0; overflow: hidden; }
+
+.metric-title {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.metric-header-department {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 15px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dept-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.metric-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-transform: capitalize;
+}
+
+.metric-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+.metric-status-active { background: rgba(34, 197, 94, 0.14); color: #22c55e; }
+
+.metric-divider { height: 1px; margin: 0 14px; background: var(--border-strong); }
+
+.metric-details {
+  display: grid;
+  /* minmax(0, 1fr): stops long content from widening a column and causing
+     horizontal overflow. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 14px;
+  row-gap: 10px;
+  padding: 12px 14px 14px;
+}
+
+.metric-detail { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow: hidden; }
+
+.detail-label {
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.detail-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  overflow: hidden;
+}
+
+.owner-value, .department-value { min-width: 0; }
+
+.owner-avatar {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.14);
+  color: #3b82f6;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.department-value .dept-dot { width: 6px; height: 6px; flex: 0 0 6px; }
+
+/* Truncation: .text-truncate for values with a nested icon (owner/dept —
+   flex: 1 so the text fills the remaining row width), the :not() rule for
+   plain text values with no icon to make room for. */
+.metric-popover-card .text-truncate {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.detail-value > span:not(.dept-dot):not(.owner-avatar) {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.metric-popover-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 7px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.metric-popover-footer i { font-size: 10px; transition: transform 0.15s ease; }
+.metric-popover-footer:hover i { transform: translateX(2px); }
+
+@media (max-width: 480px) {
+  .metric-details { grid-template-columns: minmax(0, 1fr); row-gap: 10px; padding: 10px 12px 12px; }
+  .metric-popover-header { padding: 10px 12px; }
+  .metric-divider { margin: 0 12px; }
+  .metric-popover-footer { padding: 6px 12px; }
+}

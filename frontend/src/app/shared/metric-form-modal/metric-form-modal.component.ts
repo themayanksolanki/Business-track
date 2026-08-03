@@ -428,7 +428,6 @@ export class MetricFormModalComponent implements OnChanges {
     if (tab === 'statistics' && this.mode === 'edit' && this.initial) this.loadTrend();
     if (tab === 'linked' && this.mode === 'edit' && this.initial && !this.subMetrics.length && !this.linkedFromMetrics.length) this.loadSubMetrics();
   }
-
   // The Sheet tab's "Rename columns" popover saves columnLabels directly
   // (mirrors the tracking grid owning its own tracking-data save calls),
   // then emits the updated Metric so this modal's local `initial` reflects

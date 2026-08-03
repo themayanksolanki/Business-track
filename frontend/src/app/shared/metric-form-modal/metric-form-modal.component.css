@@ -496,4 +496,3 @@
 @media (max-width: 576px) {
   .linked-metric-grid { grid-template-columns: repeat(2, 1fr); }
 }
-

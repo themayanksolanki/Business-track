@@ -109,14 +109,12 @@
                   </p>
                   <app-trend-chart [categories]="trendCategories" [series]="trendSeries" emptyMessage="No tracking data yet for this metric."></app-trend-chart>
                 </div>
-
                 <div class="metric-stats-card">
                   <p class="metric-stats-card-title">
                     Actual vs Target vs Lowest/Medium/Upper – last {{ trendCategories.length }} {{ frequencyUnitLabel }}{{ trendCategories.length === 1 ? '' : 's' }}
                   </p>
                   <app-area-chart [categories]="trendCategories" [series]="areaChartSeries" emptyMessage="No tracking data yet for this metric."></app-area-chart>
                 </div>
-
                 <div class="metric-stats-tiles">
                   <div class="metric-stats-tile">
                     <span class="metric-stats-tile-icon metric-stats-tile-icon-actual"><i class="bi bi-graph-up-arrow"></i></span>

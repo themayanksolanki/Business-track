@@ -1,8 +1,6 @@
 import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, effect, inject } from '@angular/core';
-// Modular import instead of the full `echarts` bundle — mirrors
-// shared/tree-chart's reasoning: pulling in every chart type would balloon
-// whichever lazy chunk uses this for a component that only ever renders
-// line series.
+// Modular import, same reasoning as shared/trend-chart — only the line+area
+// combo this component draws is ever needed here.
 import * as echarts from 'echarts/core';
 import { LineChart } from 'echarts/charts';
 import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components';
@@ -11,29 +9,40 @@ import { ThemeService } from '../../core/services/theme.service';
 
 echarts.use([LineChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
 
-export interface TrendChartSeries {
+export interface AreaChartSeries {
   name: string;
   color: string;
   // `null` entries are skipped — the line joins the nearest surrounding
-  // non-null points instead of breaking.
+  // non-null points instead of breaking (same convention as TrendChart).
   data: (number | null)[];
 }
 
-// Generic named-line-series chart — categories on the x-axis, any number of
-// named series on the y-axis. No domain knowledge of what the lines
-// represent (Actual/Target, or anything else a future caller plots), so any
-// module can reuse it the same way shared/tree-chart is reused across
-// Departments/Categories.
+// Modeled on ECharts' "Stacked Area Chart" example (area-stack) — categories
+// on the x-axis, any number of named series drawn as filled line areas. No
+// domain knowledge of what the series represent (same "generic chart" rule
+// TrendChartComponent/GaugeChartComponent follow), so any caller can reuse
+// it — the first is the metric-form-modal Statistics tab plotting
+// Actual/Target/Lowest/Medium/Upper together.
 @Component({
-  selector: 'app-trend-chart',
+  selector: 'app-area-chart',
   standalone: true,
-  templateUrl: './trend-chart.component.html',
-  styleUrl: './trend-chart.component.css',
+  templateUrl: './area-chart.component.html',
+  styleUrl: './area-chart.component.css',
 })
-export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy {
+export class AreaChartComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() categories: string[] = [];
-  @Input() series: TrendChartSeries[] = [];
+  @Input() series: AreaChartSeries[] = [];
   @Input() emptyMessage = 'No data yet.';
+  // False by default: for series like Actual/Target/Lowest/Medium/Upper —
+  // which aren't parts of a whole — literal stacking (ECharts' `stack`
+  // option, each series drawn on top of the previous one's cumulative
+  // total) would visually sum them into a meaningless combined height.
+  // Independent, semi-transparent overlapping areas read correctly instead.
+  // Pass `true` for series that genuinely are parts of a whole (the kind of
+  // data the ECharts example itself plots — traffic by channel summing to
+  // a total).
+  @Input() stacked = false;
+  @Input() fillOpacity = 0.25;
 
   @ViewChild('chartHost', { static: true }) chartHost!: ElementRef<HTMLDivElement>;
 
@@ -51,7 +60,7 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if (changes['categories'] || changes['series']) this.render();
+    if (changes['categories'] || changes['series'] || changes['stacked'] || changes['fillOpacity']) this.render();
   }
 
   ngAfterViewInit() {
@@ -115,7 +124,10 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
           color: s.color,
           connectNulls: true,
           symbol: 'circle' as const,
-          symbolSize: 8,
+          symbolSize: 6,
+          stack: this.stacked ? 'total' : undefined,
+          areaStyle: { opacity: this.fillOpacity },
+          emphasis: { focus: 'series' as const },
         })),
       },
       true

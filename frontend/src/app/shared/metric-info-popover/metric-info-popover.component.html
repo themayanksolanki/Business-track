@@ -1,0 +1,95 @@
+<div class="metric-popover-card">
+
+  <!-- Header -->
+  <div class="metric-popover-header">
+
+    <div class="metric-heading">
+
+      <!-- Metric initial -->
+      <div class="metric-icon">
+        {{ item.title.charAt(0).toUpperCase() || 'M' }}
+      </div>
+
+      <div class="metric-heading-content">
+
+        <div class="metric-title" [title]="item.title">
+          {{ item.title }}
+        </div>
+
+        <div class="metric-header-department">
+
+          <span class="dept-dot" [style.background]="item.department.color"></span>
+
+          {{ item.department.name || 'No department' }}
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Status -->
+    <span class="metric-status" [class.metric-status-active]="item.status === 'active'">
+      <span class="metric-status-dot"></span>
+      {{ item.status || 'N/A' }}
+    </span>
+
+  </div>
+
+  <!-- Divider -->
+  <div class="metric-divider"></div>
+
+  <!-- Details -->
+  <div class="metric-details">
+
+    <!-- Category -->
+    <div class="metric-detail">
+      <span class="detail-label">Category:</span>
+      <span class="detail-value" [title]="item.category?.name || 'N/A'">
+        {{ item.category?.name || 'N/A' }}
+      </span>
+    </div>
+
+    <!-- Department -->
+    <div class="metric-detail">
+      <span class="detail-label">Department:</span>
+      <span class="detail-value department-value">
+        <span class="dept-dot" [style.background]="item.department.color"></span>
+        <span class="text-truncate" [title]="item.department.name || 'N/A'">
+          {{ item.department.name || 'N/A' }}
+        </span>
+      </span>
+    </div>
+
+    <!-- Owner -->
+    <div class="metric-detail">
+      <span class="detail-label">Owner:</span>
+      <span class="detail-value owner-value">
+        <span class="owner-avatar">{{ item.owner.username.charAt(0).toUpperCase() || '?' }}</span>
+        <span class="text-truncate" [title]="item.owner.username || 'N/A'">
+          {{ item.owner.username || 'N/A' }}
+        </span>
+      </span>
+    </div>
+
+    <!-- Frequency -->
+    <div class="metric-detail">
+      <span class="detail-label">Frequency:</span>
+      <span class="detail-value">{{ item.frequency || 'N/A' }}</span>
+    </div>
+
+    <!-- Data type -->
+    <div class="metric-detail">
+      <span class="detail-label">Data Type:</span>
+      <span class="detail-value">{{ item.dataType || 'N/A' }}</span>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="metric-popover-footer">
+    <span>Click metric to view details</span>
+    <i class="bi bi-arrow-right"></i>
+  </div>
+
+</div>

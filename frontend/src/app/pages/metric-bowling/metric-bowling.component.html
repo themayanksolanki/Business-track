@@ -117,14 +117,11 @@
           {{ row.error }}
         </div>
         }
-
-
         <!-- Metric information popover — shared/metric-info-popover owns
              the card markup+styling; only the wiring (trigger + template
              ref) stays per-page. -->
         <ng-template #metricInfoPopover>
           <app-metric-info-popover [item]="row.item"></app-metric-info-popover>
-        </ng-template>
 
       </div>
     </div>
