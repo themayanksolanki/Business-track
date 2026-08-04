@@ -121,10 +121,15 @@ video.mirrored { transform: scaleX(-1); }
   color: #60a5fa;
 }
 
-.tile-kick-btn {
+.tile-badge-muted {
+  left: 72px;
+  color: #f87171;
+}
+
+.tile-kick-btn,
+.tile-mute-btn {
   position: absolute;
   top: 8px;
-  right: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -134,12 +139,28 @@ video.mirrored { transform: scaleX(-1); }
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
-  color: #fca5a5;
   opacity: 0;
   transition: opacity 0.15s ease, background 0.15s ease;
 }
-.video-tile:hover .tile-kick-btn { opacity: 1; }
+.video-tile:hover .tile-kick-btn,
+.video-tile:hover .tile-mute-btn { opacity: 1; }
+
+.tile-kick-btn {
+  right: 8px;
+  color: #fca5a5;
+}
 .tile-kick-btn:hover {
   background: rgba(239, 68, 68, 0.9);
+  color: #fff;
+}
+
+/* Sits to the left of the kick button (28px width + 8px gap) — both can be
+   visible on the same tile at once (host viewing an unmuted participant). */
+.tile-mute-btn {
+  right: 44px;
+  color: #fcd34d;
+}
+.tile-mute-btn:hover {
+  background: rgba(245, 158, 11, 0.9);
   color: #fff;
 }

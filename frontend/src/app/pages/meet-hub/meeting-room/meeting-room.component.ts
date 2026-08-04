@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
-import { MeetingSessionService } from '../../../core/services/meeting-session.service';
+import { MeetingSessionService, RemoteTile } from '../../../core/services/meeting-session.service';
 import { Meeting, MeetingUser } from '../../../models/meeting.model';
 import { VideoTileComponent } from '../video-tile/video-tile.component';
 import { NotificationService } from '../../../shared/notification.service';
@@ -21,6 +21,11 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   @Input({ required: true }) meeting!: Meeting;
   @Input() initialMuted = false;
   @Input() initialCamOff = false;
+  // Set only for a guest session (see MeetingLobbyComponent) — its presence
+  // is what tells ngOnInit to call meetingSessionSvc.joinAsGuest() instead
+  // of the normal authenticated join().
+  @Input() guestToken: string | null = null;
+  @Input() guestDisplayName: string | null = null;
   @Output() left = new EventEmitter<void>();
 
   @ViewChild('chatInput') chatInputRef?: ElementRef<HTMLInputElement>;
@@ -41,7 +46,11 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     // Returning to this route after minimizing re-attaches to the still-live
     // session instead of re-joining the room from scratch.
     if (!this.meetingSessionSvc.hasActiveSession(this.meeting.roomCode)) {
-      this.meetingSessionSvc.join(this.meeting, this.initialMuted, this.initialCamOff);
+      if (this.guestToken) {
+        this.meetingSessionSvc.joinAsGuest(this.meeting, this.guestToken, this.initialMuted, this.initialCamOff);
+      } else {
+        this.meetingSessionSvc.join(this.meeting, this.initialMuted, this.initialCamOff);
+      }
     }
 
     // These fire on the session singleton, not this component — it's the one
@@ -52,6 +61,11 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       this.meetingSessionSvc.kicked$.subscribe(() => {
         this.notifications.error('You were removed from the meeting.');
         this.left.emit();
+      })
+    );
+    this.subs.add(
+      this.meetingSessionSvc.forceMuted$.subscribe(() => {
+        this.notifications.error('The host muted your microphone.');
       })
     );
     this.subs.add(
@@ -77,10 +91,14 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   }
 
   get myUsername(): string {
+    if (this.guestDisplayName) return this.guestDisplayName;
     return this.auth.getUser()?.username ?? 'You';
   }
 
   get myUser(): MeetingUser | null {
+    // A guest has no MeetingUser shape (no id/email/role) at all — the
+    // template's [user] binding already tolerates null (falls back to an
+    // initials placeholder), same as it would for any other null case here.
     const me = this.auth.getUser();
     if (!me) return null;
     return { id: me.id, username: me.username, email: me.email, role: me.role, profileImage: me.profileImage ?? null };
@@ -92,6 +110,22 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
   participantLabel(userId: number): string {
     return this.participantUser(userId)?.username ?? `Participant ${userId}`;
+  }
+
+  // Video-tile label/avatar for a *remote peer tile*, which may be a guest
+  // (no MeetingParticipant row at all — tile.userId is then a MeetingGuest.id,
+  // not a User.id — see RemoteTile's own comment) rather than a real
+  // participantUser/participantLabel lookup. Chat stays user-only (see
+  // chatSenderLabel below), so it keeps using the plain userId methods above
+  // unchanged — only the video tiles need this guest-aware variant.
+  tileUser(tile: RemoteTile): MeetingUser | null {
+    if (tile.kind === 'guest') return null;
+    return this.participantUser(tile.userId);
+  }
+
+  tileLabel(tile: RemoteTile): string {
+    if (tile.kind === 'guest') return tile.guestName ? `${tile.guestName} (Guest)` : 'Guest';
+    return this.participantLabel(tile.userId);
   }
 
   // Steps back out of the full-screen room to wherever the widget's
@@ -116,6 +150,13 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   kickTile(socketId: string) {
     if (!this.isHost) return;
     this.meetingSessionSvc.kickParticipant(socketId);
+  }
+
+  muteTile(socketId: string) {
+    // Template already hides the button once isPeerMuted (nothing to mute
+    // again) — double-checked here too, same convention as kickTile above.
+    if (!this.isHost || this.meetingSessionSvc.isPeerMuted(socketId)) return;
+    this.meetingSessionSvc.muteParticipant(socketId);
   }
 
   toggleChatPanel() {

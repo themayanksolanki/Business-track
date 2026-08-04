@@ -19,8 +19,14 @@
   <span class="tile-badge tile-badge-share" *ngIf="isScreenSharing" title="Presenting">
     <app-call-icon name="screen-mirror" [size]="14"></app-call-icon>
   </span>
+  <span class="tile-badge tile-badge-muted" *ngIf="micOff" title="Muted">
+    <i class="bi bi-mic-mute-fill"></i>
+  </span>
 
   <button class="tile-kick-btn" *ngIf="showKick" (click)="kick.emit()" title="Remove from meeting">
     <i class="bi bi-person-dash-fill"></i>
+  </button>
+  <button class="tile-mute-btn" *ngIf="showMute && !micOff" (click)="muteRequested.emit()" title="Mute for everyone">
+    <i class="bi bi-mic-mute-fill"></i>
   </button>
 </div>

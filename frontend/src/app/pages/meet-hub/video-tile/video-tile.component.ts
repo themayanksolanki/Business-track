@@ -37,6 +37,16 @@ export class VideoTileComponent implements OnChanges, AfterViewInit {
   // Host-only — the local tile never shows this (you can't kick yourself).
   @Input() showKick = false;
   @Output() kick = new EventEmitter<void>();
+  // Whether THIS tile's owner currently has their mic off — distinct from
+  // `muted` above (which controls the local <video> element's own audio
+  // playback, always true for the self tile to avoid echo, always false for
+  // a remote tile since you always want to hear them). Drives the mic-off
+  // badge below, shown for any tile (self or remote) whose mic is off.
+  @Input() micOff = false;
+  // Host-only, and only offered while the tile isn't already micOff — same
+  // reasoning as showKick (you can't mute yourself this way either).
+  @Input() showMute = false;
+  @Output() muteRequested = new EventEmitter<void>();
 
   @ViewChild('video') videoRef!: ElementRef<HTMLVideoElement>;
 

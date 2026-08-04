@@ -63,48 +63,27 @@
   font-weight: 700;
 }
 
-.sheet-rename-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1080;
+/* Header cells are rendered by Handsontable directly (see wireHeaderCell()
+   in the .ts, wired via afterGetColHeader/afterGetRowHeader) — ::ng-deep
+   needed for the same reason as .metric-status-cell above: these <th>
+   elements never get this component's Angular view-encapsulation attribute. */
+.sheet-grid-wrap ::ng-deep th.metric-header-renamable {
+  cursor: pointer;
 }
 
-.sheet-rename-panel {
+.sheet-grid-wrap ::ng-deep th.metric-header-renamable:hover {
+  background-color: rgba(59, 130, 246, 0.12);
+}
+
+.sheet-grid-wrap ::ng-deep .metric-header-rename-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font: inherit;
+  font-weight: 700;
   background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px;
-  width: 320px;
-  max-height: 80vh;
-  overflow-y: auto;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-}
-
-.sheet-rename-title {
-  margin: 0 0 12px;
-  font-weight: 700;
   color: var(--text-primary);
-}
-
-.sheet-rename-row {
-  margin-bottom: 10px;
-}
-
-.sheet-rename-label {
-  display: block;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-}
-
-.sheet-rename-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 8px;
+  outline: none;
 }

@@ -150,6 +150,12 @@ export class MetricFormModalComponent implements OnChanges {
   @Input() deleteLoading = false;
 
   @ViewChild('titleInput') titleInput?: ElementRef<HTMLInputElement>;
+  // Only exists while activeTab === 'sheet' (an @if in the template) —
+  // undefined the rest of the time, so every use below is optional-chained.
+  // Its own ngOnDestroy already flushes on a tab switch; this reference
+  // covers the other two triggers, where the Sheet tab stays mounted: the
+  // Save button and closing the modal.
+  @ViewChild(MetricSheetComponent) metricSheetRef?: MetricSheetComponent;
 
   @Output() closed = new EventEmitter<void>();
   @Output() submitted = new EventEmitter<CreateMetricPayload | UpdateMetricPayload>();
@@ -659,8 +665,21 @@ export class MetricFormModalComponent implements OnChanges {
     if (date && this.startDate && date < this.startDate) this.startDate = date;
   }
 
+  // Flushes any Sheet-tab edits that haven't been saved yet (see
+  // MetricSheetComponent.saveNow() — edits there only update its in-memory
+  // grid until this fires, a tab switch, or the modal closes).
+  private flushSheetEdits() {
+    this.metricSheetRef?.saveNow();
+  }
+
+  onModalClosed() {
+    this.flushSheetEdits();
+    this.closed.emit();
+  }
+
   submit() {
     if (!this.canEditMetric) return;
+    this.flushSheetEdits();
     if (!this.title.trim()) {
       this.localError = 'Title is required';
       return;

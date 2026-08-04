@@ -22,8 +22,24 @@ export interface MeetingSettings {
   meetingId: number;
   waitingRoomEnabled: boolean;
   allowGuestJoin: boolean;
+  // Distinct from allowGuestJoin above (which only relaxes access to "any
+  // other authenticated same-org member with the link") — this instead
+  // permits a fully unauthenticated visitor to join after typing a display
+  // name. See GuestSessionService/MeetingService.guestJoin.
+  allowExternalGuests: boolean;
   muteOnEntry: boolean;
   recordingEnabled: boolean;
+}
+
+// GET /meetings/public/:roomCode/info — deliberately minimal, no
+// participant list/emails, since the caller has no account at all.
+export interface PublicMeetingInfo {
+  meetingId: number;
+  title: string | null;
+  hostName: string;
+  callType: 'audio' | 'video';
+  status: 'scheduled' | 'live' | 'ended' | 'cancelled';
+  allowExternalGuests: boolean;
 }
 
 export interface MeetingCalendarEvent {

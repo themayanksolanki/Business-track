@@ -1,4 +1,4 @@
-<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="closed.emit()" (shown.bs.modal)="focusTitleInput()">
+<div class="modal fade" tabindex="-1" aria-hidden="true" [appModal]="open" (appModalClosed)="onModalClosed()" (shown.bs.modal)="focusTitleInput()">
   <div class="modal-dialog modal-dialog-centered modal-xl">
   @if (open) {
     <div class="modal-content metric-modal-content">
@@ -411,7 +411,7 @@
                             <i class="bi bi-x-lg"></i>
                           </button>
                         }
-                        <app-gauge-chart [percent]="sm.gaugePercent" [size]="90"></app-gauge-chart>
+                        <app-gauge-chart class="linked-metric-gauge" [percent]="sm.gaugePercent" [size]="90"></app-gauge-chart>
                         <p class="linked-metric-title">{{ sm.title }}</p>
                         <p class="linked-metric-dept"><span class="field-dot" [style.background]="sm.department.color"></span>{{ sm.department.name }}</p>
                       </div>
@@ -431,7 +431,7 @@
                             <i class="bi bi-x-lg"></i>
                           </button>
                         }
-                        <app-gauge-chart [percent]="lm.gaugePercent" [size]="90"></app-gauge-chart>
+                        <app-gauge-chart class="linked-metric-gauge" [percent]="lm.gaugePercent" [size]="90"></app-gauge-chart>
                         <p class="linked-metric-title">{{ lm.title }}</p>
                         <p class="linked-metric-dept"><span class="field-dot" [style.background]="lm.department.color"></span>{{ lm.department.name }}</p>
                       </div>

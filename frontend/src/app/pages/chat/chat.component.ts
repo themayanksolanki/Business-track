@@ -90,14 +90,16 @@ export class ChatComponent implements OnInit, OnDestroy {
   private pendingConfirmAction: (() => void) | null = null;
 
   // ── Sidebar tabs ──────────────────────────────────────────────
-  sidebarTab: 'chat' | 'groups' | 'calls' = 'chat';
+  sidebarTab: 'chat' | 'calls' = 'chat';
   callHistory: Message[] = [];
   callHistoryLoading = false;
 
   // ── Group chat ─────────────────────────────────────────────────
+  // Groups render as a collapsible section under Contacts (see chat-sidebar
+  // in the template) rather than their own tab, sharing contactSearchQuery.
   groups: GroupWithActivity[] = [];
   groupsLoading = false;
-  groupSearchQuery = '';
+  groupsExpanded = true;
   selectedGroup: GroupWithActivity | null = null;
   groupMessages: GroupMessage[] = [];
   reversedGroupMessages: GroupMessage[] = [];
@@ -161,11 +163,24 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   // ── Sidebar tabs ──────────────────────────────────────────────
-  switchTab(tab: 'chat' | 'groups' | 'calls') {
+  switchTab(tab: 'chat' | 'calls') {
     this.sidebarTab = tab;
     if (tab === 'calls' && this.callHistory.length === 0) {
       this.loadCallHistory();
     }
+  }
+
+  toggleGroupsSection() {
+    this.groupsExpanded = !this.groupsExpanded;
+  }
+
+  openCreateGroup(event: MouseEvent) {
+    event.stopPropagation();
+    this.createGroupOpen = true;
+  }
+
+  get sidebarTheme(): string {
+    return this.auth.currentUser()?.sidebarTheme || 'MIDNIGHT';
   }
 
   loadCallHistory() {
@@ -265,14 +280,15 @@ export class ChatComponent implements OnInit, OnDestroy {
     if (!groupParam) return;
     const group = this.groups.find((g) => g.id === Number(groupParam));
     if (group) {
-      this.switchTab('groups');
+      this.switchTab('chat');
+      this.groupsExpanded = true;
       this.selectGroup(group);
     }
     this.router.navigate([], { relativeTo: this.route, queryParams: { group: null }, queryParamsHandling: 'merge', replaceUrl: true });
   }
 
   get filteredGroups(): GroupWithActivity[] {
-    const q = this.groupSearchQuery.trim().toLowerCase();
+    const q = this.contactSearchQuery.trim().toLowerCase();
     if (!q) return this.groups;
     return this.groups.filter((g) => g.name.toLowerCase().includes(q));
   }
@@ -280,7 +296,8 @@ export class ChatComponent implements OnInit, OnDestroy {
   onGroupCreated(group: Group) {
     this.createGroupOpen = false;
     this.loadGroups();
-    this.switchTab('groups');
+    this.switchTab('chat');
+    this.groupsExpanded = true;
     const withActivity: GroupWithActivity = { ...group, lastMessage: null, unreadCount: 0 };
     this.selectGroup(withActivity);
   }

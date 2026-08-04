@@ -81,6 +81,7 @@ interface ClientToServerEvents {
   'meeting:mobile-device': (payload: { meetingId: number; mobile: boolean }) => void;
   'meeting:chat-message': (payload: { meetingId: number; message: string }) => void;
   'meeting:kick': (payload: { meetingId: number; targetSocketId: string }) => void;
+  'meeting:mute-participant': (payload: { meetingId: number; targetSocketId: string }) => void;
   'meeting:end': (payload: { meetingId: number }) => void;
 }
 
@@ -91,7 +92,27 @@ interface ServerToClientEvents {
   [event: string]: (...args: any[]) => void;
 }
 
-type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents> & { userId: string };
+// A guest connection has no `userId` at all — only `guestIdentity`, set by
+// io.use below when the handshake token verifies as a guest session token
+// (signGuestSessionToken) rather than a real user's access JWT. Every
+// non-meeting handler (chat, 1:1 calls, presence) is only ever registered
+// for a real-user connection — see the branch at the top of
+// io.on('connection') — so `userId` being meaningless for a guest never
+// actually gets exercised.
+type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents> & {
+  userId: string;
+  guestIdentity?: { meetingId: number; guestId: number; displayName: string };
+};
+
+// Normalizes "a real user" vs "a guest" into one shape the meeting-room
+// handlers (join/leave/signal/mute/etc.) can treat uniformly — see
+// registerMeetingHandlers. `id` is a User.id for 'user', a MeetingGuest.id
+// for 'guest' — the two id spaces are unrelated, so any comparison between
+// two identities must also compare `kind`, never just `id` (identityKey
+// below encodes both into one string precisely so that's hard to forget).
+type MeetingIdentity = { kind: 'user'; id: number } | { kind: 'guest'; id: number; displayName: string };
+
+const identityKey = (identity: MeetingIdentity) => `${identity.kind}:${identity.id}`;
 
 interface CallSession {
   caller: string;
@@ -104,17 +125,18 @@ const onlineUsers = new Map<string, Set<string>>(); // userId  → Set<socketId>
 const activeCalls = new Map<string, CallSession>(); // callId  → session
 const callStartTimes = new Map<string, number>(); // callId → Date.now() when state became 'active'
 
-// socketId → which meeting room it's in, so disconnect can clean it up.
-// Socket.IO's own room membership (io.sockets.adapter.rooms) is otherwise
-// authoritative for "who's currently in the room".
-const meetingSocketUsers = new Map<string, { meetingId: number; userId: number }>();
+// socketId → which meeting room it's in (and who, user or guest, holds it),
+// so disconnect can clean it up. Socket.IO's own room membership
+// (io.sockets.adapter.rooms) is otherwise authoritative for "who's
+// currently in the room".
+const meetingSocketUsers = new Map<string, { meetingId: number; identity: MeetingIdentity }>();
 
-// meetingId → userIds the host has kicked — otherwise a kick has zero
-// durable effect (the REST /join + socket meeting:join path has no other
-// memory of it), letting a kicked user just immediately rejoin. Session-only
-// by design (mesh WebRTC state itself is entirely in-memory too); cleared
-// whenever the meeting ends, same lifetime as meetingSocketUsers.
-const kickedFromMeeting = new Map<number, Set<number>>();
+// meetingId → identityKeys the host has kicked — otherwise a kick has zero
+// durable effect (the join path has no other memory of it), letting a
+// kicked user/guest just immediately rejoin. Session-only by design (mesh
+// WebRTC state itself is entirely in-memory too); cleared whenever the
+// meeting ends, same lifetime as meetingSocketUsers.
+const kickedFromMeeting = new Map<number, Set<string>>();
 
 // Set once setupSocket() runs; other modules (notification triggers in
 // controllers) import emitToUser rather than reaching into this directly.
@@ -147,12 +169,28 @@ export function setupSocket(server: HttpServer) {
     },
   });
 
+  // Accepts either a real user's long-lived access JWT (payload `{ id }`,
+  // from authController.ts) or a guest's session token (payload
+  // `{ kind: 'guest', meetingId, guestId, displayName }`, from
+  // signGuestSessionToken in meetingToken.ts) — both signed with the same
+  // JWT_SECRET, so one jwt.verify call authenticates either; the payload
+  // shape alone tells them apart.
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
     if (!token) return next(new Error('Unauthorized'));
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { id: number | string };
-      (socket as AppSocket).userId = decoded.id.toString();
+      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as Record<string, unknown>;
+      if (decoded['kind'] === 'guest') {
+        const { meetingId, guestId, displayName } = decoded as {
+          meetingId: number;
+          guestId: number;
+          displayName: string;
+        };
+        (socket as AppSocket).userId = '';
+        (socket as AppSocket).guestIdentity = { meetingId, guestId, displayName };
+      } else {
+        (socket as AppSocket).userId = String((decoded as { id: number | string }).id);
+      }
       next();
     } catch {
       next(new Error('Unauthorized'));
@@ -184,8 +222,268 @@ export function setupSocket(server: HttpServer) {
     } catch { /* non-critical */ }
   };
 
+  // ── Meeting room signaling shared state/helpers (N-way mesh) ─────────
+  // First use of native Socket.IO rooms in this codebase — 1:1 calls above
+  // route by userId via emitToUser instead. A meeting room needs broadcast
+  // to an arbitrary number of members, which rooms give for free. Hoisted
+  // to setupSocket level (rather than declared per-connection, as before)
+  // so both the real-user and guest connection paths can share them.
+
+  // Same DB transaction the REST endMeeting controller runs — duplicated
+  // rather than imported, since that handler needs an Express req/res and
+  // this fires from a plain leave/disconnect with neither.
+  const endMeetingRecord = async (meetingId: number) => {
+    await prisma.$transaction([
+      prisma.meeting.update({ where: { id: meetingId }, data: { status: 'ended', endedAt: new Date() } }),
+      prisma.meetingParticipant.updateMany({ where: { meetingId, leftAt: null }, data: { leftAt: new Date() } }),
+    ]);
+    kickedFromMeeting.delete(meetingId);
+  };
+
+  // Ends the meeting once the room is empty — the host leaving while
+  // other members (co-host or plain attendee, doesn't matter) are still on
+  // the call does NOT end it; they keep talking.
+  //
+  // Waits a short grace period and re-checks before actually committing:
+  // the room-emptiness check and the DB write are two separate ticks (the
+  // write awaits a real transaction), so a same-user reconnect — a tab
+  // refresh, a network blip — landing in that gap would otherwise get its
+  // rejoin silently overwritten by a now-stale "ended" status. The delay
+  // gives that reconnect time to land before the decision is finalized;
+  // it doesn't fully close the window, just shrinks it to something a
+  // real user's network hiccup will comfortably fit inside.
+  const AUTO_END_GRACE_MS = 3000;
+  const maybeAutoEndMeeting = (meetingId: number, room: string) => {
+    if ((io.sockets.adapter.rooms.get(room)?.size ?? 0) > 0) return; // someone's still in it
+    setTimeout(() => {
+      void (async () => {
+        try {
+          if ((io.sockets.adapter.rooms.get(room)?.size ?? 0) > 0) return; // someone reconnected during the grace period
+          await endMeetingRecord(meetingId);
+        } catch { /* non-critical */ }
+      })();
+    }, AUTO_END_GRACE_MS);
+  };
+
+  const leaveMeetingRoom = (socket: AppSocket, meetingId: number) => {
+    const room = meetingRoom(meetingId);
+    socket.leave(room);
+    meetingSocketUsers.delete(socket.id);
+    socket.to(room).emit('meeting:participant-left', { socketId: socket.id });
+    void maybeAutoEndMeeting(meetingId, room);
+  };
+
+  // Wires up the N-way mesh signaling for either a real user or a guest —
+  // both are just peers in the same Socket.IO room once past this point.
+  // Three actions stay user-only (kick, end, in-meeting chat — guests get
+  // video/audio/screen-share only, per the guest-join feature's scope):
+  // each bails out immediately for a 'guest' identity.
+  const registerMeetingHandlers = (socket: AppSocket, identity: MeetingIdentity) => {
+    socket.on('meeting:join', ({ roomToken }) => {
+      let payload;
+      try {
+        payload = verifyRoomToken(roomToken);
+      } catch {
+        socket.emit('meeting:join-error', { message: 'Invalid or expired room token' });
+        return;
+      }
+      const tokenIdentity: MeetingIdentity =
+        payload.kind === 'guest'
+          ? { kind: 'guest', id: payload.guestId, displayName: payload.displayName }
+          : { kind: 'user', id: payload.userId };
+      if (identityKey(tokenIdentity) !== identityKey(identity)) {
+        socket.emit('meeting:join-error', { message: 'Room token does not match this session' });
+        return;
+      }
+      if (kickedFromMeeting.get(payload.meetingId)?.has(identityKey(identity))) {
+        socket.emit('meeting:join-error', { message: 'You have been removed from this meeting.' });
+        return;
+      }
+
+      const room = meetingRoom(payload.meetingId);
+      const existingSocketIds = Array.from(io.sockets.adapter.rooms.get(room) ?? []);
+      if (existingSocketIds.length >= MEETING_ROOM_CAPACITY) {
+        socket.emit('meeting:room-full');
+        return;
+      }
+
+      const members = existingSocketIds
+        .map((sid) => {
+          const m = meetingSocketUsers.get(sid);
+          return m ? { socketId: sid, ...m.identity } : null;
+        })
+        .filter((m): m is { socketId: string } & MeetingIdentity => !!m);
+
+      socket.join(room);
+      meetingSocketUsers.set(socket.id, { meetingId: payload.meetingId, identity });
+
+      socket.emit('meeting:joined', { members });
+      socket.to(room).emit('meeting:participant-joined', { socketId: socket.id, ...identity });
+    });
+
+    socket.on('meeting:leave', ({ meetingId }) => {
+      if (!socket.rooms.has(meetingRoom(meetingId))) return;
+      leaveMeetingRoom(socket, meetingId);
+    });
+
+    socket.on('meeting:signal', ({ meetingId, toSocketId, sdp, candidate }) => {
+      if (!socket.rooms.has(meetingRoom(meetingId))) return;
+      io.to(toSocketId).emit('meeting:signal', { fromSocketId: socket.id, sdp, candidate });
+    });
+
+    socket.on('meeting:mute', ({ meetingId, muted }) => {
+      const room = meetingRoom(meetingId);
+      if (!socket.rooms.has(room)) return;
+      socket.to(room).emit('meeting:mute', { socketId: socket.id, muted });
+    });
+
+    socket.on('meeting:video-toggle', ({ meetingId, off }) => {
+      const room = meetingRoom(meetingId);
+      if (!socket.rooms.has(room)) return;
+      socket.to(room).emit('meeting:video-toggle', { socketId: socket.id, off });
+    });
+
+    socket.on('meeting:screen-share', ({ meetingId, sharing }) => {
+      const room = meetingRoom(meetingId);
+      if (!socket.rooms.has(room)) return;
+      socket.to(room).emit('meeting:screen-share', { socketId: socket.id, sharing });
+    });
+
+    socket.on('meeting:hand-raise', ({ meetingId, raised }) => {
+      const room = meetingRoom(meetingId);
+      if (!socket.rooms.has(room)) return;
+      socket.to(room).emit('meeting:hand-raise', { socketId: socket.id, raised });
+    });
+
+    socket.on('meeting:mobile-device', ({ meetingId, mobile }) => {
+      const room = meetingRoom(meetingId);
+      if (!socket.rooms.has(room)) return;
+      socket.to(room).emit('meeting:mobile-device', { socketId: socket.id, mobile });
+    });
+
+    // Ephemeral, in-room only — never persisted (distinct from the real
+    // Group/DM chat, which is Message/GroupMessage rows). Echoed to the
+    // sender too (io.to, not socket.to) so their own panel shows it in the
+    // same order as everyone else's, rather than optimistically local-only.
+    // User-only — see this function's own comment; a guest emitting this
+    // is simply ignored.
+    socket.on('meeting:chat-message', ({ meetingId, message }) => {
+      if (identity.kind !== 'user') return;
+      const room = meetingRoom(meetingId);
+      if (!socket.rooms.has(room)) return;
+      const trimmed = (message || '').slice(0, 2000).trim();
+      if (!trimmed) return;
+      io.to(room).emit('meeting:chat-message', {
+        socketId: socket.id,
+        userId: identity.id,
+        message: trimmed,
+        at: new Date().toISOString(),
+      });
+    });
+
+    // Host-only — re-verified against the DB rather than trusted from the
+    // client, unlike the state-broadcast events above (mute/hand-raise/etc.)
+    // which only ever reflect the caller's own state and can't affect anyone
+    // else's session even if spoofed. A guest can never be host, so this
+    // bails out immediately for one.
+    socket.on('meeting:kick', async ({ meetingId, targetSocketId }) => {
+      if (identity.kind !== 'user') return;
+      const room = meetingRoom(meetingId);
+      if (!socket.rooms.has(room)) return;
+      const meeting = await prisma.meeting.findUnique({ where: { id: Number(meetingId) }, select: { hostId: true } });
+      if (!meeting || meeting.hostId !== identity.id) return;
+
+      const targetSocket = io.sockets.sockets.get(targetSocketId) as AppSocket | undefined;
+      if (!targetSocket || !targetSocket.rooms.has(room)) return;
+
+      // Recorded BEFORE removing the socketId→identity mapping below — a
+      // kick that only drops the socket has no durable effect otherwise,
+      // since nothing stops the same identity immediately re-requesting a
+      // room/guest token and rejoining. See kickedFromMeeting's own comment.
+      const targetIdentity = meetingSocketUsers.get(targetSocketId)?.identity;
+      if (targetIdentity) {
+        const kicked = kickedFromMeeting.get(Number(meetingId)) ?? new Set<string>();
+        kicked.add(identityKey(targetIdentity));
+        kickedFromMeeting.set(Number(meetingId), kicked);
+      }
+
+      targetSocket.leave(room);
+      meetingSocketUsers.delete(targetSocketId);
+      targetSocket.emit('meeting:kicked');
+      socket.to(room).emit('meeting:participant-left', { socketId: targetSocketId });
+    });
+
+    // Host-only, same re-verification as meeting:kick above. "Soft" mute —
+    // this is a mesh (no SFU sitting between peers to cut anyone's audio
+    // track server-side), so the server can only relay a request to the
+    // target's own client, which mutes itself and then broadcasts that new
+    // state the same way a self-triggered meeting:mute already does. The
+    // target can unmute themselves again afterward; this is a one-shot
+    // "mute them right now," not a persisted lock.
+    socket.on('meeting:mute-participant', async ({ meetingId, targetSocketId }) => {
+      if (identity.kind !== 'user') return;
+      const room = meetingRoom(meetingId);
+      if (!socket.rooms.has(room)) return;
+      const meeting = await prisma.meeting.findUnique({ where: { id: Number(meetingId) }, select: { hostId: true } });
+      if (!meeting || meeting.hostId !== identity.id) return;
+
+      const targetSocket = io.sockets.sockets.get(targetSocketId);
+      if (!targetSocket || !targetSocket.rooms.has(room)) return;
+
+      targetSocket.emit('meeting:force-mute');
+    });
+
+    // Host, co-host, or org Admin — mirrors canEndMeeting exactly
+    // (meetingController.ts) so this broadcast can never be narrower than
+    // who the REST endMeeting endpoint actually allows to end the meeting.
+    // It used to check host-only, which meant a co-host/Admin ending the
+    // meeting via REST correctly flipped the DB but then had this socket
+    // relay silently dropped — everyone else's client sat in a "live" call
+    // that was already 'ended' underneath them. The REST PATCH-style status
+    // flip already happened via POST /meetings/:id/end before the client
+    // emits this — this is purely the real-time "everyone leave now"
+    // fan-out, including back to the initiator's own socket, so a single
+    // meeting:ended$ subscription handles cleanup/navigation identically
+    // for every participant. A guest can never be any of host/co-host/
+    // Admin, so this bails out immediately for one.
+    socket.on('meeting:end', async ({ meetingId }) => {
+      if (identity.kind !== 'user') return;
+      const room = meetingRoom(meetingId);
+      if (!socket.rooms.has(room)) return;
+      const meeting = await prisma.meeting.findUnique({
+        where: { id: Number(meetingId) },
+        select: { hostId: true, organizationId: true, participants: { select: { userId: true, role: true } } },
+      });
+      if (!meeting) return;
+      const me = await prisma.user.findUnique({ where: { id: identity.id }, select: { role: true, organizationId: true } });
+      if (!me || me.organizationId !== meeting.organizationId) return;
+
+      const isHost = meeting.hostId === identity.id;
+      const isCoHost = meeting.participants.some((p) => p.userId === identity.id && p.role === 'coHost');
+      const isAdmin = me.role === 'Admin';
+      if (!isHost && !isCoHost && !isAdmin) return;
+
+      io.to(room).emit('meeting:ended');
+    });
+  };
+
   io.on('connection', async (socket) => {
-    const userId = (socket as AppSocket).userId;
+    const appSocket = socket as AppSocket;
+
+    // A guest only ever needs the meeting-room mesh — no chat, no 1:1
+    // calls, no online-presence registration (onlineUsers is exclusively
+    // for DM/group presence, which guests have no access to at all).
+    if (appSocket.guestIdentity) {
+      const { guestId, displayName } = appSocket.guestIdentity;
+      registerMeetingHandlers(appSocket, { kind: 'guest', id: guestId, displayName });
+      socket.on('disconnect', () => {
+        const membership = meetingSocketUsers.get(socket.id);
+        if (membership) leaveMeetingRoom(appSocket, membership.meetingId);
+      });
+      return;
+    }
+
+    const userId = appSocket.userId;
     const myId = Number(userId);
     if (!onlineUsers.has(userId)) onlineUsers.set(userId, new Set());
     onlineUsers.get(userId)!.add(socket.id);
@@ -393,209 +691,7 @@ export function setupSocket(server: HttpServer) {
     socket.on('call:mobile-device',  ({ callId, mobile })     => { const o = otherParty(callId); if (o) emitToUser(o, 'call:mobile-device',  { mobile, callId }); });
 
     // ── Meeting room signaling (N-way mesh) ─────────────────────────
-    // First use of native Socket.IO rooms in this codebase — 1:1 calls above
-    // route by userId via emitToUser instead. A meeting room needs broadcast
-    // to an arbitrary number of members, which rooms give for free.
-
-    // Same DB transaction the REST endMeeting controller runs — duplicated
-    // rather than imported, since that handler needs an Express req/res and
-    // this fires from a plain leave/disconnect with neither.
-    const endMeetingRecord = async (meetingId: number) => {
-      await prisma.$transaction([
-        prisma.meeting.update({ where: { id: meetingId }, data: { status: 'ended', endedAt: new Date() } }),
-        prisma.meetingParticipant.updateMany({ where: { meetingId, leftAt: null }, data: { leftAt: new Date() } }),
-      ]);
-      kickedFromMeeting.delete(meetingId);
-    };
-
-    // Ends the meeting once the room is empty — the host leaving while
-    // other members (co-host or plain attendee, doesn't matter) are still on
-    // the call does NOT end it; they keep talking.
-    //
-    // Waits a short grace period and re-checks before actually committing:
-    // the room-emptiness check and the DB write are two separate ticks (the
-    // write awaits a real transaction), so a same-user reconnect — a tab
-    // refresh, a network blip — landing in that gap would otherwise get its
-    // rejoin silently overwritten by a now-stale "ended" status. The delay
-    // gives that reconnect time to land before the decision is finalized;
-    // it doesn't fully close the window, just shrinks it to something a
-    // real user's network hiccup will comfortably fit inside.
-    const AUTO_END_GRACE_MS = 3000;
-    const maybeAutoEndMeeting = (meetingId: number, room: string) => {
-      if ((io.sockets.adapter.rooms.get(room)?.size ?? 0) > 0) return; // someone's still in it
-      setTimeout(() => {
-        void (async () => {
-          try {
-            if ((io.sockets.adapter.rooms.get(room)?.size ?? 0) > 0) return; // someone reconnected during the grace period
-            await endMeetingRecord(meetingId);
-          } catch { /* non-critical */ }
-        })();
-      }, AUTO_END_GRACE_MS);
-    };
-
-    const leaveMeetingRoom = (meetingId: number) => {
-      const room = meetingRoom(meetingId);
-      socket.leave(room);
-      meetingSocketUsers.delete(socket.id);
-      socket.to(room).emit('meeting:participant-left', { socketId: socket.id });
-      void maybeAutoEndMeeting(meetingId, room);
-    };
-
-    socket.on('meeting:join', ({ roomToken }) => {
-      let payload;
-      try {
-        payload = verifyRoomToken(roomToken);
-      } catch {
-        socket.emit('meeting:join-error', { message: 'Invalid or expired room token' });
-        return;
-      }
-      if (payload.userId !== myId) {
-        socket.emit('meeting:join-error', { message: 'Room token does not match this session' });
-        return;
-      }
-      if (kickedFromMeeting.get(payload.meetingId)?.has(myId)) {
-        socket.emit('meeting:join-error', { message: 'You have been removed from this meeting.' });
-        return;
-      }
-
-      const room = meetingRoom(payload.meetingId);
-      const existingSocketIds = Array.from(io.sockets.adapter.rooms.get(room) ?? []);
-      if (existingSocketIds.length >= MEETING_ROOM_CAPACITY) {
-        socket.emit('meeting:room-full');
-        return;
-      }
-
-      const members = existingSocketIds
-        .map((sid) => {
-          const m = meetingSocketUsers.get(sid);
-          return m ? { socketId: sid, userId: m.userId } : null;
-        })
-        .filter((m): m is { socketId: string; userId: number } => !!m);
-
-      socket.join(room);
-      meetingSocketUsers.set(socket.id, { meetingId: payload.meetingId, userId: myId });
-
-      socket.emit('meeting:joined', { members });
-      socket.to(room).emit('meeting:participant-joined', { socketId: socket.id, userId: myId });
-    });
-
-    socket.on('meeting:leave', ({ meetingId }) => {
-      if (!socket.rooms.has(meetingRoom(meetingId))) return;
-      leaveMeetingRoom(meetingId);
-    });
-
-    socket.on('meeting:signal', ({ meetingId, toSocketId, sdp, candidate }) => {
-      if (!socket.rooms.has(meetingRoom(meetingId))) return;
-      io.to(toSocketId).emit('meeting:signal', { fromSocketId: socket.id, sdp, candidate });
-    });
-
-    socket.on('meeting:mute', ({ meetingId, muted }) => {
-      const room = meetingRoom(meetingId);
-      if (!socket.rooms.has(room)) return;
-      socket.to(room).emit('meeting:mute', { socketId: socket.id, muted });
-    });
-
-    socket.on('meeting:video-toggle', ({ meetingId, off }) => {
-      const room = meetingRoom(meetingId);
-      if (!socket.rooms.has(room)) return;
-      socket.to(room).emit('meeting:video-toggle', { socketId: socket.id, off });
-    });
-
-    socket.on('meeting:screen-share', ({ meetingId, sharing }) => {
-      const room = meetingRoom(meetingId);
-      if (!socket.rooms.has(room)) return;
-      socket.to(room).emit('meeting:screen-share', { socketId: socket.id, sharing });
-    });
-
-    socket.on('meeting:hand-raise', ({ meetingId, raised }) => {
-      const room = meetingRoom(meetingId);
-      if (!socket.rooms.has(room)) return;
-      socket.to(room).emit('meeting:hand-raise', { socketId: socket.id, raised });
-    });
-
-    socket.on('meeting:mobile-device', ({ meetingId, mobile }) => {
-      const room = meetingRoom(meetingId);
-      if (!socket.rooms.has(room)) return;
-      socket.to(room).emit('meeting:mobile-device', { socketId: socket.id, mobile });
-    });
-
-    // Ephemeral, in-room only — never persisted (distinct from the real
-    // Group/DM chat, which is Message/GroupMessage rows). Echoed to the
-    // sender too (io.to, not socket.to) so their own panel shows it in the
-    // same order as everyone else's, rather than optimistically local-only.
-    socket.on('meeting:chat-message', ({ meetingId, message }) => {
-      const room = meetingRoom(meetingId);
-      if (!socket.rooms.has(room)) return;
-      const trimmed = (message || '').slice(0, 2000).trim();
-      if (!trimmed) return;
-      io.to(room).emit('meeting:chat-message', {
-        socketId: socket.id,
-        userId: myId,
-        message: trimmed,
-        at: new Date().toISOString(),
-      });
-    });
-
-    // Host-only — re-verified against the DB rather than trusted from the
-    // client, unlike the state-broadcast events above (mute/hand-raise/etc.)
-    // which only ever reflect the caller's own state and can't affect anyone
-    // else's session even if spoofed.
-    socket.on('meeting:kick', async ({ meetingId, targetSocketId }) => {
-      const room = meetingRoom(meetingId);
-      if (!socket.rooms.has(room)) return;
-      const meeting = await prisma.meeting.findUnique({ where: { id: Number(meetingId) }, select: { hostId: true } });
-      if (!meeting || meeting.hostId !== myId) return;
-
-      const targetSocket = io.sockets.sockets.get(targetSocketId);
-      if (!targetSocket || !targetSocket.rooms.has(room)) return;
-
-      // Recorded BEFORE removing the socketId→userId mapping below — a kick
-      // that only drops the socket has no durable effect otherwise, since
-      // nothing stops the same user immediately re-requesting a room token
-      // and rejoining. See kickedFromMeeting's own comment.
-      const targetUserId = meetingSocketUsers.get(targetSocketId)?.userId;
-      if (targetUserId !== undefined) {
-        const kicked = kickedFromMeeting.get(Number(meetingId)) ?? new Set<number>();
-        kicked.add(targetUserId);
-        kickedFromMeeting.set(Number(meetingId), kicked);
-      }
-
-      targetSocket.leave(room);
-      meetingSocketUsers.delete(targetSocketId);
-      targetSocket.emit('meeting:kicked');
-      socket.to(room).emit('meeting:participant-left', { socketId: targetSocketId });
-    });
-
-    // Host, co-host, or org Admin — re-verified against the DB, mirroring
-    // canEndMeeting exactly (meetingController.ts) so this broadcast can
-    // never be narrower than who the REST endMeeting endpoint actually
-    // allows to end the meeting. It used to check host-only, which meant a
-    // co-host/Admin ending the meeting via REST correctly flipped the DB but
-    // then had this socket relay silently dropped — everyone else's client
-    // sat in a "live" call that was already 'ended' underneath them. The
-    // REST PATCH-style status flip already happened via POST
-    // /meetings/:id/end before the client emits this — this is purely the
-    // real-time "everyone leave now" fan-out, including back to the
-    // initiator's own socket, so a single meeting:ended$ subscription
-    // handles cleanup/navigation identically for every participant.
-    socket.on('meeting:end', async ({ meetingId }) => {
-      const room = meetingRoom(meetingId);
-      if (!socket.rooms.has(room)) return;
-      const meeting = await prisma.meeting.findUnique({
-        where: { id: Number(meetingId) },
-        select: { hostId: true, organizationId: true, participants: { select: { userId: true, role: true } } },
-      });
-      if (!meeting) return;
-      const me = await prisma.user.findUnique({ where: { id: myId }, select: { role: true, organizationId: true } });
-      if (!me || me.organizationId !== meeting.organizationId) return;
-
-      const isHost = meeting.hostId === myId;
-      const isCoHost = meeting.participants.some((p) => p.userId === myId && p.role === 'coHost');
-      const isAdmin = me.role === 'Admin';
-      if (!isHost && !isCoHost && !isAdmin) return;
-
-      io.to(room).emit('meeting:ended');
-    });
+    registerMeetingHandlers(appSocket, { kind: 'user', id: myId });
 
     // ── Read receipts ─────────────────────────────────────────────
     socket.on('message:seen', async ({ from }) => {
@@ -752,7 +848,7 @@ export function setupSocket(server: HttpServer) {
     // ── Disconnect ────────────────────────────────────────────────
     socket.on('disconnect', () => {
       const meetingMembership = meetingSocketUsers.get(socket.id);
-      if (meetingMembership) leaveMeetingRoom(meetingMembership.meetingId);
+      if (meetingMembership) leaveMeetingRoom(appSocket, meetingMembership.meetingId);
 
       for (const [callId, session] of activeCalls) {
         if (session.caller === userId || session.callee === userId) {

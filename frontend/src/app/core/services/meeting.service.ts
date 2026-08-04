@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { Meeting, MeetingParticipant, MeetingSettings } from '../../models/meeting.model';
+import { Meeting, MeetingParticipant, MeetingSettings, PublicMeetingInfo } from '../../models/meeting.model';
 
 @Injectable({ providedIn: 'root' })
 export class MeetingService {
@@ -23,6 +23,27 @@ export class MeetingService {
 
   getByRoomCode(roomCode: string) {
     return this.http.get<Meeting>(`${this.api}/${roomCode}`);
+  }
+
+  // Unauthenticated (no Authorization header needed/sent — the interceptor
+  // only attaches one when a token exists, so a logged-out call here is a
+  // non-issue) — backs the guest pre-join screen in MeetingLobbyComponent.
+  getPublicInfo(roomCode: string) {
+    return this.http.get<PublicMeetingInfo>(`${this.api}/public/${roomCode}/info`);
+  }
+
+  // `guestKey` is only passed on a rejoin (e.g. a page refresh while still
+  // in the lobby/call) so the backend reuses the same MeetingGuest row
+  // instead of creating a new one — see GuestSessionService.
+  guestJoin(roomCode: string, displayName: string, guestKey?: string) {
+    return this.http.post<{
+      message: string;
+      meetingId: number;
+      guestId: number;
+      guestKey: string;
+      displayName: string;
+      guestToken: string;
+    }>(`${this.api}/public/${roomCode}/guest-join`, { displayName, guestKey });
   }
 
   join(id: number) {

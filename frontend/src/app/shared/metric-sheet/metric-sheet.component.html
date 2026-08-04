@@ -39,17 +39,18 @@
       @if (saving) {
         <span class="spinner-border spinner-border-sm me-2" title="Saving…"></span>
       }
-      @if (!readOnly) {
-        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="openRename()">
-          <i class="bi bi-pencil-square"></i> Rename columns
-        </button>
-      }
     </div>
   </div>
 
   @if (isRollup) {
     <p class="sheet-rollup-note text-muted small mb-2">
       <i class="bi bi-eye"></i> Read-only rollup — Status and Notes aren't included.
+    </p>
+  }
+
+  @if (!readOnly) {
+    <p class="sheet-rename-hint text-muted small mb-2">
+      <i class="bi bi-pencil-square"></i> Click a column header to rename it.
     </p>
   }
 
@@ -62,26 +63,12 @@
       <span class="spinner-border spinner-border-sm me-2"></span>Loading…
     </div>
   } @else {
-    <div class="ht-theme-main sheet-grid-wrap">
+    <div
+      class="sheet-grid-wrap"
+      [class.ht-theme-main]="themeSvc.theme() !== 'dark'"
+      [class.ht-theme-main-dark]="themeSvc.theme() === 'dark'"
+    >
       <hot-table [data]="hotData" [settings]="hotSettings"></hot-table>
-    </div>
-  }
-
-  @if (renameOpen) {
-    <div class="sheet-rename-backdrop" (click)="closeRename()">
-      <div class="sheet-rename-panel" (click)="$event.stopPropagation()">
-        <h6 class="sheet-rename-title">Rename columns</h6>
-        @for (f of renameFields; track f.key) {
-          <div class="sheet-rename-row">
-            <label class="sheet-rename-label">{{ f.placeholder }}</label>
-            <input type="text" class="form-control form-control-sm" [placeholder]="f.placeholder" [(ngModel)]="renameLabels[f.key]" maxlength="40" />
-          </div>
-        }
-        <div class="sheet-rename-actions">
-          <button type="button" class="btn btn-sm btn-secondary" (click)="closeRename()">Cancel</button>
-          <button type="button" class="btn btn-sm btn-primary" (click)="saveRename()">Save</button>
-        </div>
-      </div>
     </div>
   }
 </div>

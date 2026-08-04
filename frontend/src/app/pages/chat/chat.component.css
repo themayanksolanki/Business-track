@@ -18,27 +18,30 @@
   background: var(--bg-muted);
 }
 
-/* ══ Sidebar ═════════════════════════════════════════════════════ */
+/* ══ Sidebar ═════════════════════════════════════════════════════
+   Themed to match the main nav sidebar (see sidebar.component.css) —
+   [data-sidebar-theme='X'] below mirrors that file's --sb-* variable
+   blocks 1:1 so both panels always agree on a theme. Selectors here stay
+   scoped under .chat-sidebar because .contact-row/.contact-avatar/etc.
+   are also reused by the (unthemed) profile button in the chat header. */
 .chat-sidebar {
   width: 300px;
   flex-shrink: 0;
-  background: var(--bg-card);
-  border-right: 1px solid var(--border-strong);
+  background: linear-gradient(180deg, var(--sb-bg-start, #0f172a) 0%, var(--sb-bg-end, #0b1220) 100%);
+  border-right: 1px solid var(--sb-border, rgba(255, 255, 255, 0.06));
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
 @media (min-width: 881px) {
-  .chat-sidebar { box-shadow: 2px 0 12px rgba(0,0,0,0.04); }
+  .chat-sidebar { box-shadow: 2px 0 12px rgba(0,0,0,0.2); }
 }
-[data-theme="dark"] .chat-sidebar { box-shadow: 2px 0 12px rgba(0,0,0,0.3); }
 
 /* ── Sidebar tab bar ── */
 .sidebar-tabs {
   display: flex;
-  border-bottom: 1px solid var(--border-strong);
-  background: var(--bg-card);
+  border-bottom: 1px solid var(--sb-border, rgba(255, 255, 255, 0.06));
   flex-shrink: 0;
 }
 
@@ -47,7 +50,7 @@
   padding: 12px 8px;
   border: none;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--sb-text, #94a3b8);
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
@@ -55,17 +58,17 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border-bottom: 2px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
+  border-radius: 9px;
+  margin: 6px 3px;
+  transition: color 0.15s, background 0.15s;
   letter-spacing: 0.01em;
 }
 
-.sidebar-tab:hover { color: var(--text-secondary); }
+.sidebar-tab:hover { color: var(--sb-text-hover, #fff); background: var(--sb-overlay-2, rgba(255, 255, 255, 0.07)); }
 
 .sidebar-tab-active {
-  color: #3b82f6;
-  border-bottom-color: #3b82f6;
-  background: var(--bg-card);
+  color: var(--sb-text-hover, #fff);
+  background: var(--sb-active-bg, rgba(59, 130, 246, 0.18));
 }
 
 /* ── Call history empty state ── */
@@ -75,7 +78,7 @@
   align-items: center;
   justify-content: center;
   padding: 48px 16px;
-  color: var(--text-dim);
+  color: var(--sb-muted, #64748b);
   gap: 10px;
 }
 
@@ -202,6 +205,150 @@
   font-size: 0.65rem;
   font-weight: 700;
   padding: 0 5px;
+}
+
+/* ══ Chat-sidebar theme overrides ══════════════════════════════════
+   .contact-row, .contact-avatar, .contact-name, .contact-preview,
+   .contact-time and .online-dot above are shared with the (unthemed)
+   profile button in the chat header, so theming lives here as
+   .chat-sidebar-scoped overrides rather than edits to those base rules. */
+.chat-sidebar .contact-list { scrollbar-color: var(--sb-overlay-2, rgba(255, 255, 255, 0.12)) transparent; }
+
+.chat-sidebar .contact-row { border-bottom: 1px solid var(--sb-overlay-1, rgba(255, 255, 255, 0.06)); }
+.chat-sidebar .contact-row:hover { background: var(--sb-overlay-2, rgba(255, 255, 255, 0.07)); }
+.chat-sidebar .contact-selected { background: var(--sb-active-bg, rgba(59, 130, 246, 0.18)) !important; }
+
+.chat-sidebar .contact-name { color: var(--sb-heading, #f1f5f9); }
+.chat-sidebar .contact-preview,
+.chat-sidebar .contact-time,
+.chat-sidebar .call-history-sub { color: var(--sb-muted, #64748b); }
+.chat-sidebar .online-dot { border-color: var(--sb-bg-start, #0f172a); }
+.chat-sidebar .contact-mute-icon { color: var(--sb-muted, #64748b); }
+.chat-sidebar .row-menu-btn { background: var(--sb-overlay-1, rgba(255, 255, 255, 0.06)); color: var(--sb-text, #94a3b8); }
+.chat-sidebar .row-menu-btn:hover { background: var(--sb-overlay-2, rgba(255, 255, 255, 0.12)); color: var(--sb-text-hover, #fff); }
+
+/* ── Groups section (collapsible, under Contacts) ── */
+.groups-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  cursor: pointer;
+  color: var(--sb-text, #94a3b8);
+  border-top: 1px solid var(--sb-overlay-1, rgba(255, 255, 255, 0.06));
+  border-bottom: 1px solid var(--sb-overlay-1, rgba(255, 255, 255, 0.06));
+  transition: background 0.15s, color 0.15s;
+}
+
+.groups-section-header:hover { background: var(--sb-overlay-2, rgba(255, 255, 255, 0.07)); color: var(--sb-text-hover, #fff); }
+
+.groups-section-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.groups-section-count { color: var(--sb-muted, #64748b); font-weight: 500; }
+
+.groups-section-add-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 7px;
+  background: var(--sb-overlay-1, rgba(255, 255, 255, 0.06));
+  color: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.groups-section-add-btn:hover { background: var(--sb-overlay-2, rgba(255, 255, 255, 0.12)); }
+
+.groups-section-chevron {
+  font-size: 0.75rem;
+  transition: transform 0.2s ease;
+}
+
+.groups-section-chevron.expanded { transform: rotate(180deg); }
+
+/* ── Sidebar theme presets — mirrors sidebar.component.css's
+   [data-sidebar-theme='X'] blocks 1:1 so this panel always matches the
+   main nav's theme; see that file for the single documented source. ── */
+.chat-sidebar[data-sidebar-theme='MIDNIGHT'] {
+  --sb-bg-start: #0f172a; --sb-bg-end: #0b1220; --sb-border: rgba(255, 255, 255, 0.06);
+  --sb-overlay-1: rgba(255, 255, 255, 0.06); --sb-overlay-2: rgba(255, 255, 255, 0.12);
+  --sb-active-bg: rgba(59, 130, 246, 0.18); --sb-text: #94a3b8; --sb-text-hover: #ffffff;
+  --sb-heading: #f1f5f9; --sb-muted: #64748b;
+}
+
+.chat-sidebar[data-sidebar-theme='CHARCOAL'] {
+  --sb-bg-start: #27272a; --sb-bg-end: #18181b; --sb-border: rgba(255, 255, 255, 0.06);
+  --sb-overlay-1: rgba(255, 255, 255, 0.06); --sb-overlay-2: rgba(255, 255, 255, 0.12);
+  --sb-active-bg: rgba(167, 139, 250, 0.2); --sb-text: #a1a1aa; --sb-text-hover: #ffffff;
+  --sb-heading: #fafafa; --sb-muted: #71717a;
+}
+
+.chat-sidebar[data-sidebar-theme='OCEAN'] {
+  --sb-bg-start: #063a4a; --sb-bg-end: #042a36; --sb-border: rgba(255, 255, 255, 0.07);
+  --sb-overlay-1: rgba(255, 255, 255, 0.07); --sb-overlay-2: rgba(255, 255, 255, 0.13);
+  --sb-active-bg: rgba(34, 211, 238, 0.2); --sb-text: #8bb4c0; --sb-text-hover: #ffffff;
+  --sb-heading: #e6f6fa; --sb-muted: #5c8a96;
+}
+
+.chat-sidebar[data-sidebar-theme='FOREST'] {
+  --sb-bg-start: #0f2b1e; --sb-bg-end: #0a1f15; --sb-border: rgba(255, 255, 255, 0.07);
+  --sb-overlay-1: rgba(255, 255, 255, 0.07); --sb-overlay-2: rgba(255, 255, 255, 0.13);
+  --sb-active-bg: rgba(52, 211, 153, 0.2); --sb-text: #8fb5a3; --sb-text-hover: #ffffff;
+  --sb-heading: #e7f7ef; --sb-muted: #5f8672;
+}
+
+.chat-sidebar[data-sidebar-theme='PLUM'] {
+  --sb-bg-start: #2e1140; --sb-bg-end: #1f0b2c; --sb-border: rgba(255, 255, 255, 0.07);
+  --sb-overlay-1: rgba(255, 255, 255, 0.07); --sb-overlay-2: rgba(255, 255, 255, 0.13);
+  --sb-active-bg: rgba(244, 114, 182, 0.2); --sb-text: #bfa1cc; --sb-text-hover: #ffffff;
+  --sb-heading: #f6e9fb; --sb-muted: #8a71a1;
+}
+
+.chat-sidebar[data-sidebar-theme='DAYLIGHT'] {
+  --sb-bg-start: #ffffff; --sb-bg-end: #f1f5f9; --sb-border: rgba(0, 0, 0, 0.08);
+  --sb-overlay-1: rgba(0, 0, 0, 0.05); --sb-overlay-2: rgba(0, 0, 0, 0.08);
+  --sb-active-bg: rgba(37, 99, 235, 0.12); --sb-text: #475569; --sb-text-hover: #0f172a;
+  --sb-heading: #0f172a; --sb-muted: #94a3b8;
+}
+
+.chat-sidebar[data-sidebar-theme='ROSE'] {
+  --sb-bg-start: #FFF1F2; --sb-bg-end: #FFE4E6; --sb-border: rgba(0, 0, 0, 0.08);
+  --sb-overlay-1: #FFE4E6; --sb-overlay-2: #FECDD3;
+  --sb-active-bg: #FECDD3; --sb-text: #9f1239; --sb-text-hover: #0f172a;
+  --sb-heading: #0f172a; --sb-muted: #94a3b8;
+}
+
+.chat-sidebar[data-sidebar-theme='SKY'] {
+  --sb-bg-start: #F0F9FF; --sb-bg-end: #E0F2FE; --sb-border: rgba(0, 0, 0, 0.08);
+  --sb-overlay-1: #E0F2FE; --sb-overlay-2: #BFDBFE;
+  --sb-active-bg: #BFDBFE; --sb-text: #1e40af; --sb-text-hover: #0f172a;
+  --sb-heading: #0f172a; --sb-muted: #94a3b8;
+}
+
+.chat-sidebar[data-sidebar-theme='SAND'] {
+  --sb-bg-start: #FAF7F2; --sb-bg-end: #F5EFE6; --sb-border: rgba(0, 0, 0, 0.08);
+  --sb-overlay-1: #F5EFE6; --sb-overlay-2: #EADBC8;
+  --sb-active-bg: #EADBC8; --sb-text: #92400e; --sb-text-hover: #0f172a;
+  --sb-heading: #0f172a; --sb-muted: #94a3b8;
+}
+
+.chat-sidebar[data-sidebar-theme='LEMON'] {
+  --sb-bg-start: #FEFCE8; --sb-bg-end: #FEF9C3; --sb-border: rgba(0, 0, 0, 0.08);
+  --sb-overlay-1: #FEF9C3; --sb-overlay-2: #FDE68A;
+  --sb-active-bg: #FDE68A; --sb-text: #854d0e; --sb-text-hover: #0f172a;
+  --sb-heading: #0f172a; --sb-muted: #94a3b8;
 }
 
 /* ══ Main chat area ══════════════════════════════════════════════ */
@@ -772,6 +919,11 @@
   font-weight: 700;
 }
 
+/* Re-assert sidebar theming over the unread-state colors above, which
+   otherwise win on specificity/source order for rows inside .chat-sidebar. */
+.chat-sidebar .has-unread .contact-name { color: var(--sb-heading, #f1f5f9); }
+.chat-sidebar .has-unread .contact-preview { color: var(--sb-text, #94a3b8); }
+
 /* ══ Clickable header contact area ══════════════════════════════ */
 .header-contact-btn {
   display: flex;
@@ -1279,19 +1431,20 @@
 }
 .profile-card-menu-btn:hover { background: var(--border-strong); color: var(--text-primary); }
 
-/* ══ Contact search (sidebar) ═══════════════════════════════════ */
+/* ══ Contact search (sidebar) — themed via --sb-* (see chat-sidebar theme
+   overrides above) since this lives inside .chat-sidebar only ══════════ */
 .contact-search-wrap {
   position: relative;
   display: flex;
   align-items: center;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--sb-border, rgba(255, 255, 255, 0.06));
 }
 
 .contact-search-icon {
   position: absolute;
   left: 26px;
-  color: var(--text-dim);
+  color: var(--sb-muted, #64748b);
   font-size: 0.8rem;
   pointer-events: none;
 }
@@ -1299,10 +1452,10 @@
 .contact-search-input {
   width: 100%;
   height: 36px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--sb-overlay-2, rgba(255, 255, 255, 0.12));
   border-radius: 10px;
-  background: var(--bg-muted);
-  color: var(--text-primary);
+  background: var(--sb-overlay-1, rgba(255, 255, 255, 0.06));
+  color: var(--sb-heading, #f1f5f9);
   font-size: 0.82rem;
   padding: 0 32px 0 30px;
   outline: none;
@@ -1310,20 +1463,20 @@
 }
 
 .contact-search-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
-.contact-search-input::placeholder { color: var(--text-dim); }
+.contact-search-input::placeholder { color: var(--sb-muted, #64748b); }
 
 .contact-search-clear {
   position: absolute;
   right: 22px;
   border: none;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--sb-muted, #64748b);
   font-size: 0.7rem;
   cursor: pointer;
   padding: 4px;
   display: inline-flex;
 }
-.contact-search-clear:hover { color: var(--text-primary); }
+.contact-search-clear:hover { color: var(--sb-text-hover, #fff); }
 
 /* ══ In-chat message search ══════════════════════════════════════ */
 .chat-search-toggle-btn { background: var(--bg-muted); color: var(--text-muted); }

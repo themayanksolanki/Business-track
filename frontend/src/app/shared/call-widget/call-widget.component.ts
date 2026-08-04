@@ -185,15 +185,26 @@ export class CallWidgetComponent implements OnInit, OnDestroy {
     return this.meetingSessionSvc.meeting?.participants.find((p) => p.userId === userId)?.user ?? null;
   }
 
-  get primaryMeetingTile(): { stream: MediaStream | null; label: string; user: MeetingUser | null; muted: boolean; camOff: boolean; isMobileDevice: boolean } {
+  get primaryMeetingTile(): { stream: MediaStream | null; label: string; user: MeetingUser | null; muted: boolean; camOff: boolean; micOff: boolean; isMobileDevice: boolean } {
     const remote = this.meetingSessionSvc.remoteTiles[0];
     if (remote) {
+      // A guest peer (remote.kind === 'guest') has no MeetingParticipant row
+      // — remote.userId is then a MeetingGuest.id, not a User.id, so it must
+      // never be looked up via meetingParticipantUser (see RemoteTile's own
+      // comment in meeting-session.service.ts). This widget is shown to a
+      // logged-in participant who minimized while someone else — possibly a
+      // guest — is in the call, so this path is genuinely reachable, not
+      // just a guest viewing their own widget (which never happens — see
+      // isOnMeetingRoute above, and guests have no "Minimize" control).
+      const user = remote.kind === 'guest' ? null : this.meetingParticipantUser(remote.userId);
+      const label = remote.kind === 'guest' ? (remote.guestName || 'Guest') : (user?.username ?? `Participant ${remote.userId}`);
       return {
         stream: remote.stream,
-        label: this.meetingParticipantUser(remote.userId)?.username ?? `Participant ${remote.userId}`,
-        user: this.meetingParticipantUser(remote.userId),
+        label,
+        user,
         muted: false,
         camOff: this.meetingSessionSvc.isPeerCamOff(remote.socketId),
+        micOff: this.meetingSessionSvc.isPeerMuted(remote.socketId),
         isMobileDevice: this.meetingSessionSvc.isPeerMobileDevice(remote.socketId),
       };
     }
@@ -204,6 +215,7 @@ export class CallWidgetComponent implements OnInit, OnDestroy {
       user: me ? { id: me.id, username: me.username, email: me.email, role: me.role, profileImage: me.profileImage ?? null } : null,
       muted: true,
       camOff: this.meetingSessionSvc.isCamOff,
+      micOff: this.meetingSessionSvc.isMuted,
       isMobileDevice: this.meetingSessionSvc.isMyMobileDevice,
     };
   }

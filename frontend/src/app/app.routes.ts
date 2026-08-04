@@ -139,8 +139,10 @@ export const routes: Routes = [
   {
     // Shareable meeting deep link — "New meeting"'s share link and
     // "Join with code" both resolve here regardless of entry point.
+    // Deliberately NOT behind authGuard — MeetingLobbyComponent handles
+    // both a logged-in visitor and an unauthenticated one (the guest-join
+    // name-entry flow, if the meeting allows it).
     path: 'meet/:roomCode',
-    canActivate: [authGuard],
     loadComponent: () =>
       import('./pages/meet-hub/meeting-lobby/meeting-lobby.component').then((m) => m.MeetingLobbyComponent),
   },

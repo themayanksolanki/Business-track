@@ -1,14 +1,21 @@
 import { Injectable } from '@angular/core';
 import { Subject, Subscription } from 'rxjs';
 import { MeetingService } from './meeting.service';
-import { SocketService } from './socket.service';
+import { SocketService, MeetingPeerIdentity } from './socket.service';
 import { WebrtcPeerService } from './webrtc-peer.service';
 import { Meeting } from '../../models/meeting.model';
 import { isMobileDevice } from '../../shared/utils/device.util';
 
 export interface RemoteTile {
   socketId: string;
+  // For kind === 'user' this is a real User.id, safe to look up in
+  // Meeting.participants. For kind === 'guest' it's a MeetingGuest.id —
+  // an unrelated id space with no MeetingParticipant row, so callers must
+  // check `kind` before treating it as a participant lookup key (use
+  // `guestName` instead, see meeting-room.component.ts's participantLabel).
   userId: number;
+  kind: 'user' | 'guest';
+  guestName?: string;
   stream: MediaStream | null;
 }
 
@@ -41,6 +48,12 @@ export class MeetingSessionService {
   // See device.util.ts's isMobileDevice() — sent once per join (see join()
   // below), not toggled like mute/camera/screen-share.
   readonly isMyMobileDevice = isMobileDevice();
+  // True for the duration of a session started via joinAsGuest() rather
+  // than join() — changes what leave() does (see there): no REST /leave
+  // call (a guest has no MeetingParticipant row, and no access token to
+  // call that protect-gated endpoint with anyway) and a full socket
+  // disconnect (a guest's socket has no other purpose once the call ends).
+  isGuest = false;
 
   // Fire when this client itself is removed from the session — the
   // component/floating widget subscribes to show a message and navigate
@@ -49,6 +62,10 @@ export class MeetingSessionService {
   // is a root singleton).
   readonly kicked$ = new Subject<void>();
   readonly ended$  = new Subject<void>();
+  // Fires once this client has actually acted on a host mute request (see
+  // muteParticipant()/meetingForceMute$ below) — the component subscribes
+  // to show a "the host muted you" toast, same pattern as kicked$/ended$.
+  readonly forceMuted$ = new Subject<void>();
 
   private mutedPeers = new Set<string>();
   private camOffPeers = new Set<string>();
@@ -98,6 +115,7 @@ export class MeetingSessionService {
   }
 
   join(meeting: Meeting, initialMuted: boolean, initialCamOff: boolean) {
+    this.isGuest = false;
     this.meeting     = meeting;
     this.localStream = this.webrtcSvc.getCurrentLocalStream();
     this.isMuted      = initialMuted;
@@ -118,15 +136,41 @@ export class MeetingSessionService {
     });
   }
 
+  // Guest counterpart of join() — the REST guest-join (and the socket
+  // connection authenticated with its guestToken) already happened in the
+  // lobby before this is called, so this only wires up the meeting-room
+  // mesh half (mirrors join()'s post-REST-response branch above), passing
+  // the same long-lived guestToken as the "room token" to join with.
+  joinAsGuest(meeting: Meeting, guestToken: string, initialMuted: boolean, initialCamOff: boolean) {
+    this.isGuest = true;
+    this.meeting     = meeting;
+    this.localStream = this.webrtcSvc.getCurrentLocalStream();
+    this.isMuted      = initialMuted;
+    this.isCamOff     = initialCamOff;
+    this.roomFull     = false;
+    this.joinError    = '';
+
+    this.socketSvc.joinMeetingRoom(guestToken);
+    if (this.isMuted) this.socketSvc.sendMeetingMute(meeting.id, true);
+    if (this.isCamOff) this.socketSvc.sendMeetingVideoToggle(meeting.id, true);
+    if (this.isMyMobileDevice) this.socketSvc.sendMeetingMobileDevice(meeting.id, true);
+  }
+
   leave() {
     if (!this.meeting) return;
     const meetingId = this.meeting.id;
+    const wasGuest = this.isGuest;
     this.socketSvc.leaveMeetingRoom(meetingId);
     this.remoteTiles.forEach((t) => this.webrtcSvc.closePeer(t.socketId));
     this.webrtcSvc.cleanupAll();
-    this.meetingSvc.leave(meetingId).subscribe({ error: () => {} });
+    if (!wasGuest) this.meetingSvc.leave(meetingId).subscribe({ error: () => {} });
+    // A guest's socket exists only for this one call — a real user's stays
+    // open app-wide afterward for chat/notifications, so only disconnect
+    // here for a guest.
+    if (wasGuest) this.socketSvc.disconnect();
 
     this.meeting        = null;
+    this.isGuest        = false;
     this.localStream    = null;
     this.remoteTiles    = [];
     this.isMuted        = false;
@@ -159,15 +203,24 @@ export class MeetingSessionService {
     this.socketSvc.kickMeetingParticipant(this.meeting.id, socketId);
   }
 
+  // Soft mute — only ever a request relayed to the target's own client (see
+  // socket.ts's meeting:mute-participant); this client's own meetingForceMute$
+  // handler below is what actually mutes itself and re-broadcasts the new
+  // state, same as any self-triggered toggleMute().
+  muteParticipant(socketId: string) {
+    if (!this.meeting) return;
+    this.socketSvc.muteMeetingParticipant(this.meeting.id, socketId);
+  }
+
   private subscribeToSocket() {
     this.subs.add(
       this.socketSvc.meetingJoined$.subscribe(({ members }) => {
-        members.forEach((m) => this.connectToPeer(m.socketId, m.userId, true));
+        members.forEach((m) => this.connectToPeer(m.socketId, m, true));
       })
     );
     this.subs.add(
-      this.socketSvc.meetingParticipantJoined$.subscribe(({ socketId, userId }) => {
-        this.connectToPeer(socketId, userId, false);
+      this.socketSvc.meetingParticipantJoined$.subscribe((identity) => {
+        this.connectToPeer(identity.socketId, identity, false);
       })
     );
     this.subs.add(
@@ -205,8 +258,10 @@ export class MeetingSessionService {
         this.roomFull = true;
         // REST /join already recorded us as a participant before we knew the
         // socket room was full — undo that so we don't look "joined" with no
-        // actual presence in the mesh.
-        if (this.meeting) this.meetingSvc.leave(this.meeting.id).subscribe({ error: () => {} });
+        // actual presence in the mesh. Skipped for a guest: that REST
+        // endpoint is protect-gated (would just 401), and a guest has no
+        // MeetingParticipant row for it to clean up in the first place.
+        if (this.meeting && !this.isGuest) this.meetingSvc.leave(this.meeting.id).subscribe({ error: () => {} });
       })
     );
     this.subs.add(
@@ -242,6 +297,19 @@ export class MeetingSessionService {
     this.subs.add(
       this.socketSvc.meetingChatMessage$.subscribe((entry) => {
         this.chatMessages.push(entry);
+      })
+    );
+    // Host asked this client to mute itself — soft mute, so this only forces
+    // isMuted to true once; nothing stops the participant unmuting again
+    // right after via the normal toggleMute() button. No-ops if already
+    // muted (nothing to re-broadcast).
+    this.subs.add(
+      this.socketSvc.meetingForceMute$.subscribe(() => {
+        if (this.isMuted || !this.meeting) return;
+        this.isMuted = true;
+        this.webrtcSvc.setMuted(true);
+        this.socketSvc.sendMeetingMute(this.meeting.id, true);
+        this.forceMuted$.next();
       })
     );
     this.subs.add(
@@ -289,12 +357,18 @@ export class MeetingSessionService {
 
   // Newly-joined socket initiates offers to each existing member it's told
   // about — avoids offer/answer glare without a separate negotiation role.
-  private async connectToPeer(socketId: string, userId: number, initiate: boolean) {
+  private async connectToPeer(socketId: string, identity: MeetingPeerIdentity, initiate: boolean) {
     if (!this.meeting || this.webrtcSvc.hasPeer(socketId)) return;
     // reserveVideoSlot: true — lets toggleScreenShare() below be a plain
     // replaceTrack() swap for every meeting peer, same as the 1:1 call path.
     this.webrtcSvc.createPeer(socketId, true);
-    this.remoteTiles.push({ socketId, userId, stream: null });
+    this.remoteTiles.push({
+      socketId,
+      userId: identity.id,
+      kind: identity.kind,
+      guestName: identity.kind === 'guest' ? identity.displayName : undefined,
+      stream: null,
+    });
 
     if (initiate) {
       const offer = await this.webrtcSvc.createOffer(socketId);

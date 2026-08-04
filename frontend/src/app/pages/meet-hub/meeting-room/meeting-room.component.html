@@ -10,6 +10,7 @@
         [user]="myUser"
         [muted]="true"
         [camOff]="meetingSessionSvc.isCamOff"
+        [micOff]="meetingSessionSvc.isMuted"
         [handRaised]="meetingSessionSvc.handRaised"
         [isScreenSharing]="meetingSessionSvc.isScreenSharing"
         [isMobileDevice]="meetingSessionSvc.isMyMobileDevice"
@@ -19,15 +20,18 @@
       <app-video-tile
         *ngFor="let tile of meetingSessionSvc.remoteTiles"
         [stream]="tile.stream"
-        [label]="participantLabel(tile.userId)"
-        [user]="participantUser(tile.userId)"
+        [label]="tileLabel(tile)"
+        [user]="tileUser(tile)"
         [muted]="false"
         [camOff]="meetingSessionSvc.isPeerCamOff(tile.socketId)"
+        [micOff]="meetingSessionSvc.isPeerMuted(tile.socketId)"
         [handRaised]="meetingSessionSvc.isPeerHandRaised(tile.socketId)"
         [isScreenSharing]="meetingSessionSvc.isPeerScreenSharing(tile.socketId)"
         [isMobileDevice]="meetingSessionSvc.isPeerMobileDevice(tile.socketId)"
         [showKick]="isHost"
+        [showMute]="isHost"
         (kick)="kickTile(tile.socketId)"
+        (muteRequested)="muteTile(tile.socketId)"
       ></app-video-tile>
     </div>
 
@@ -65,10 +69,10 @@
     <button class="ctrl-btn" [class.active]="meetingSessionSvc.handRaised" (click)="meetingSessionSvc.toggleHandRaise()" title="Raise hand">
       <i class="bi bi-hand-index-thumb-fill"></i>
     </button>
-    <button class="ctrl-btn" [class.active]="showChatPanel" (click)="toggleChatPanel()" title="Chat">
+    <button class="ctrl-btn" *ngIf="!meetingSessionSvc.isGuest" [class.active]="showChatPanel" (click)="toggleChatPanel()" title="Chat">
       <i class="bi bi-chat-dots-fill"></i>
     </button>
-    <button class="ctrl-btn" (click)="minimize()" title="Minimize">
+    <button class="ctrl-btn" *ngIf="!meetingSessionSvc.isGuest" (click)="minimize()" title="Minimize">
       <app-call-icon name="to-pip" [size]="20"></app-call-icon>
     </button>
     <button class="ctrl-btn ctrl-btn-leave" (click)="leaveMeeting()">

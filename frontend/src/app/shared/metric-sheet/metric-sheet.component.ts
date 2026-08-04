@@ -1,15 +1,15 @@
 import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { HotTableComponent, NON_COMMERCIAL_LICENSE, GridSettings } from '@handsontable/angular-wrapper';
 import { registerAllModules } from 'handsontable/registry';
 import { textRenderer } from 'handsontable/renderers';
-import { Subject, Subscription, of, forkJoin } from 'rxjs';
-import { debounceTime, concatMap, tap, catchError } from 'rxjs/operators';
+import { of, forkJoin } from 'rxjs';
+import { tap, catchError } from 'rxjs/operators';
 import { cloneDeep, isEqual } from 'lodash-es';
 import { MetricService } from '../../core/services/metric.service';
 import { DateFormatService } from '../../core/services/date-format.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ThemeService } from '../../core/services/theme.service';
 import { Metric, MetricColumnLabels } from '../../models/metric.model';
 import { PeriodValue, TrackingDiff, MetricRagStatus, MetricFrequency } from '../../models/metric-tracking.model';
 import { MONTH_LABELS, periodCount, isoWeekInfo, weeklyQuarterRanges } from '../utils/metric-period.util';
@@ -98,7 +98,7 @@ type Orientation = 'periods-as-rows' | 'periods-as-columns';
 @Component({
   selector: 'app-metric-sheet',
   standalone: true,
-  imports: [CommonModule, FormsModule, HotTableComponent, FrequencyIconComponent],
+  imports: [CommonModule, HotTableComponent, FrequencyIconComponent],
   templateUrl: './metric-sheet.component.html',
   styleUrl: './metric-sheet.component.css',
 })
@@ -162,24 +162,27 @@ export class MetricSheetComponent implements OnChanges, OnDestroy {
   hotData: unknown[][] = [];
   hotSettings: GridSettings = {};
 
-  renameOpen = false;
-  renameLabels: MetricColumnLabels = {};
-  readonly renameFields: { key: FieldKey; placeholder: string }[] = FIELD_KEYS.map((key) => ({ key, placeholder: DEFAULT_METRIC_COLUMN_LABELS[key] }));
+  // Which column/row header (if any) is currently showing its rename
+  // <input> in place of its plain label — see wireHeaderCell(). Only one at
+  // a time: clicking another header while this is set is ignored until the
+  // current edit resolves (Enter/blur/Escape), same as a normal form.
+  editingHeaderField: FieldKey | null = null;
+  private headerDraftValue = '';
+  private headerInputFocused = false;
+  private activeHeaderInput: HTMLInputElement | null = null;
 
-  // Captures {year, month} at edit time, same reasoning as
-  // metric-tracking-grid's identical saveTrigger — otherwise switching the
-  // picker within the 500ms debounce window would save against the wrong
-  // period document.
-  private readonly saveTrigger = new Subject<{ year: number; month: number | null }>();
-  private readonly saveSub: Subscription;
+  // "Was this exact cell already selected right before this click" tracker
+  // for the click-to-edit heuristic in onSelectionEnd() — reset by
+  // rebuildGrid() whenever the grid's shape changes.
+  private lastSelectedRow: number | null = null;
+  private lastSelectedCol: number | null = null;
 
   constructor(
     private metricSvc: MetricService,
     public dateFormat: DateFormatService,
-    private auth: AuthService
-  ) {
-    this.saveSub = this.saveTrigger.pipe(debounceTime(500), concatMap((t) => this.doSave(t.year, t.month))).subscribe();
-  }
+    private auth: AuthService,
+    public themeSvc: ThemeService
+  ) {}
 
   // Same lookups/fallbacks as metric-tracking-grid.component.ts's private
   // formatValue() — the org's currency/unit choice is org-wide (set once,
@@ -223,6 +226,11 @@ export class MetricSheetComponent implements OnChanges, OnDestroy {
   // (independent of a metric swap) does exactly what onYearChange() used to.
   ngOnChanges(changes: SimpleChanges) {
     if (changes['metric'] && this.metric) {
+      // Flush edits against whatever this component was just showing before
+      // load() below replaces this.rows outright — e.g. a column-rename save
+      // re-emits a refreshed Metric object, which re-fires this branch even
+      // though it's the same metric/period, and edits no longer auto-save.
+      this.saveNow();
       this.viewFrequency = this.metric.frequency;
       this.dailyRollupYear = null;
       this.dailyRollupDays = [];
@@ -231,6 +239,13 @@ export class MetricSheetComponent implements OnChanges, OnDestroy {
       return;
     }
     if (changes['year'] || changes['month']) {
+      // Same reasoning for the shared year/month switcher — save against the
+      // period being LEFT (previousValue) before switching, since edits only
+      // live in this.rows until saveNow() runs and load()/loadDailyRollup()
+      // below is about to overwrite this.rows for the newly-selected period.
+      const prevYear = changes['year'] ? changes['year'].previousValue : this.year;
+      const prevMonth = changes['month'] ? changes['month'].previousValue : this.month;
+      this.doSave(prevYear, prevMonth).subscribe();
       if (this.metric.frequency === 'daily' && this.isRollup) {
         this.loadDailyRollup();
       } else {
@@ -239,8 +254,21 @@ export class MetricSheetComponent implements OnChanges, OnDestroy {
     }
   }
 
+  // The owning modal's Sheet tab content only exists while activeTab ===
+  // 'sheet' (an @if, not a hide/show) — so switching to another tab tears
+  // this component down and runs this hook, making it the natural place to
+  // flush any edits that haven't been saved yet. The other two triggers
+  // (Save button, closing the modal while still on the Sheet tab) don't
+  // destroy this component, so the modal calls saveNow() directly for those.
   ngOnDestroy() {
-    this.saveSub.unsubscribe();
+    this.saveNow();
+  }
+
+  // Edits only update `this.rows` in memory (see onAfterChange) — no
+  // network call happens until this fires. Safe to call with nothing
+  // pending: doSave()'s computeDiff() short-circuits to a no-op then.
+  saveNow() {
+    this.doSave(this.year, this.month).subscribe();
   }
 
   // True whenever the "View as" dropdown is showing something coarser than
@@ -471,6 +499,17 @@ export class MetricSheetComponent implements OnChanges, OnDestroy {
   // requirement this rollup was built for).
   private rebuildRollupGrid() {
     const buckets = this.rollupData();
+    // cells/afterChange/afterSelectionEnd/afterOnCellMouseOver are all
+    // explicitly no-op'd here (rather than omitted) because Handsontable's
+    // updateSettings() only touches keys actually present on the object you
+    // pass it — omitting a key leaves whatever the PREVIOUS updateSettings
+    // call bound. Without this, switching from the native grid into a
+    // rollup left the native grid's `cells` callback (and its
+    // numericFieldRenderer, which reads this.rows by row position) and its
+    // afterSelectionEnd click-to-edit hook still active, so rollup cells
+    // rendered stale native values and were secretly still editable.
+    const noCells = () => ({});
+    const noop = () => {};
     if (this.orientation === 'periods-as-rows') {
       this.hotData = buckets.map((b, i) => [i + 1, b.label, ...ROLLUP_NUMERIC_FIELDS.map((f) => this.formatRollupValue(f, b.values[f] ?? null))]);
       this.hotSettings = {
@@ -484,6 +523,12 @@ export class MetricSheetComponent implements OnChanges, OnDestroy {
         stretchH: 'last',
         height: 480,
         width: '100%',
+        cells: noCells,
+        afterChange: noop,
+        afterSelectionEnd: noop,
+        afterOnCellMouseOver: noop,
+        afterGetColHeader: (col: number, th: HTMLElement) => this.onGetColHeader(col, th),
+        afterGetRowHeader: noop,
       };
     } else {
       this.hotData = ROLLUP_NUMERIC_FIELDS.map((f) => buckets.map((b) => this.formatRollupValue(f, b.values[f] ?? null)));
@@ -497,6 +542,12 @@ export class MetricSheetComponent implements OnChanges, OnDestroy {
         stretchH: 'all',
         height: 320,
         width: '100%',
+        cells: noCells,
+        afterChange: noop,
+        afterSelectionEnd: noop,
+        afterOnCellMouseOver: noop,
+        afterGetColHeader: noop,
+        afterGetRowHeader: (row: number, th: HTMLElement) => this.onGetRowHeader(row, th),
       };
     }
   }
@@ -524,6 +575,8 @@ export class MetricSheetComponent implements OnChanges, OnDestroy {
   // --- Grid construction ------------------------------------------------
 
   private rebuildGrid() {
+    this.lastSelectedRow = null;
+    this.lastSelectedCol = null;
     if (this.isRollup) {
       this.rebuildRollupGrid();
       this.applyGridToHotInstance();
@@ -576,6 +629,8 @@ export class MetricSheetComponent implements OnChanges, OnDestroy {
         afterSelectionEnd: (row: unknown, column: unknown, row2: unknown, column2: unknown) =>
           this.onSelectionEnd(row as number, column as number, row2 as number, column2 as number),
         afterOnCellMouseOver: (_event: unknown, coords: unknown, td: unknown) => this.onCellHover(coords as { row: number; col: number }, td as HTMLTableCellElement),
+        afterGetColHeader: (col: number, th: HTMLElement) => this.onGetColHeader(col, th),
+        afterGetRowHeader: () => {},
       };
     } else {
       this.hotData = FIELD_KEYS.map((key) => this.rows.map((r) => (this.isNumericField(key) ? this.toDisplayValue(key, r[key] as number | null) : r[key])));
@@ -601,6 +656,8 @@ export class MetricSheetComponent implements OnChanges, OnDestroy {
         afterSelectionEnd: (row: unknown, column: unknown, row2: unknown, column2: unknown) =>
           this.onSelectionEnd(row as number, column as number, row2 as number, column2 as number),
         afterOnCellMouseOver: (_event: unknown, coords: unknown, td: unknown) => this.onCellHover(coords as { row: number; col: number }, td as HTMLTableCellElement),
+        afterGetColHeader: () => {},
+        afterGetRowHeader: (row: number, th: HTMLElement) => this.onGetRowHeader(row, th),
       };
     }
     this.applyGridToHotInstance();
@@ -633,8 +690,19 @@ export class MetricSheetComponent implements OnChanges, OnDestroy {
     instance.loadData(this.hotData);
   }
 
-  // Single-click-to-edit — mirrors metric-tracking-grid's click-to-edit feel
-  // (Handsontable's own default requires a second click/double-click/Enter).
+  // Click-to-edit on an already-selected cell — mirrors Excel/Sheets: the
+  // FIRST click on a cell only selects it (so its fill handle — the small
+  // drag-to-copy square at the bottom-right corner — actually renders and
+  // stays draggable), and a SECOND click on that same, now-already-selected
+  // cell opens the editor. An editor open on a cell hides its fill handle
+  // entirely, so auto-editing on every single click (the previous behavior)
+  // meant the handle could never appear long enough to grab — this tracks
+  // lastSelectedRow/Col to tell "just selected this" apart from "clicked an
+  // already-selected cell" and only auto-edits on the latter. Reset to null
+  // by rebuildGrid() whenever the grid's shape changes (rollup/orientation/
+  // frequency/reload), since old row/col numbers could otherwise coincide
+  // with a cell in the new layout that was never actually clicked.
+  //
   // afterSelectionEnd (mouseup, once the click's own selection — and the
   // editor's prepare() against the newly active cell — has already
   // settled) rather than afterOnCellMouseDown: calling beginEditing() from
@@ -655,7 +723,18 @@ export class MetricSheetComponent implements OnChanges, OnDestroy {
   // blank on open — and then commit that blank over the real value on the
   // next outside click.
   private onSelectionEnd(row: number, column: number, row2: number, column2: number) {
-    if (row !== row2 || column !== column2) return;
+    if (row !== row2 || column !== column2) {
+      // A real drag-select (fill handle or shift-click range) — not a plain
+      // click, so it shouldn't count as "selected" for the next click's
+      // already-selected check either.
+      this.lastSelectedRow = null;
+      this.lastSelectedCol = null;
+      return;
+    }
+    const alreadySelected = this.lastSelectedRow === row && this.lastSelectedCol === column;
+    this.lastSelectedRow = row;
+    this.lastSelectedCol = column;
+    if (!alreadySelected) return;
     const instance = this.hotTableRef?.hotInstance;
     if (!instance) return;
     if (instance.getCellMeta(row, column)['readOnly']) return;
@@ -790,6 +869,22 @@ export class MetricSheetComponent implements OnChanges, OnDestroy {
     return FIELD_KEYS[row] ?? null;
   }
 
+  // Column headers only carry a renamable field name in 'periods-as-rows'
+  // (in 'periods-as-columns' they're period labels — Jan, Feb, ... — so
+  // this bails out rather than letting fieldAtCoord's other branch return a
+  // wrong field for the row axis it wasn't asked about).
+  private onGetColHeader(col: number, th: HTMLElement) {
+    if (this.orientation !== 'periods-as-rows') return;
+    this.wireHeaderCell(th, this.fieldAtCoord(0, col));
+  }
+
+  // Mirror of onGetColHeader for the transposed layout, where field names
+  // run down the row-header axis instead.
+  private onGetRowHeader(row: number, th: HTMLElement) {
+    if (this.orientation !== 'periods-as-columns') return;
+    this.wireHeaderCell(th, this.fieldAtCoord(row, 0));
+  }
+
   private periodAtCoord(row: number, col: number): number | null {
     const index = this.orientation === 'periods-as-rows' ? row : col;
     return this.rows[index]?.period ?? null;
@@ -819,10 +914,11 @@ export class MetricSheetComponent implements OnChanges, OnDestroy {
     if (touched) {
       // Handsontable already redraws the cell(s) it just edited on its own —
       // this covers the Status cell specifically, which was never the edit
-      // target itself but needs to reflect the recompute above immediately,
-      // not just after the debounced save round-trips.
+      // target itself but needs to reflect the recompute above immediately.
+      // No save call here — edits only land in `this.rows` until saveNow()
+      // is triggered (tab change/Save button/modal close, see ngOnDestroy
+      // and the owning modal), rather than firing an API call per keystroke.
       this.hotTableRef?.hotInstance?.render();
-      this.queueSave();
     }
   }
 
@@ -841,10 +937,6 @@ export class MetricSheetComponent implements OnChanges, OnDestroy {
     // (the fraction, for a Percentage metric's numeric fields) — convert
     // back to canonical/backend scale before it lands in `this.rows`.
     return this.fromDisplayValue(field, num);
-  }
-
-  private queueSave() {
-    this.saveTrigger.next({ year: this.year, month: this.month });
   }
 
   private toPeriodValue(row: SheetRow): PeriodValue {
@@ -882,34 +974,107 @@ export class MetricSheetComponent implements OnChanges, OnDestroy {
     );
   }
 
-  // --- Rename columns popover -------------------------------------------
+  // --- Rename columns by clicking their header ---------------------------
+  // afterGetColHeader/afterGetRowHeader (wired into every hotSettings object
+  // built by rebuildGrid()/rebuildRollupGrid()) fire on every header render
+  // — wireHeaderCell() below either attaches a click-to-edit listener to a
+  // plain header, or (while editingHeaderField matches) replaces the header
+  // cell's content with a live <input>, so the rename happens right in the
+  // header itself rather than a separate modal.
 
-  openRename() {
-    this.renameLabels = { ...(this.metric.columnLabels ?? {}) };
-    this.renameOpen = true;
+  private startHeaderEdit(field: FieldKey) {
+    if (this.readOnly || this.editingHeaderField) return;
+    this.editingHeaderField = field;
+    this.headerDraftValue = this.fieldLabel(field);
+    this.headerInputFocused = false;
+    this.error = '';
+    this.hotTableRef?.hotInstance?.render();
   }
 
-  closeRename() {
-    this.renameOpen = false;
+  private cancelHeaderRename() {
+    this.editingHeaderField = null;
+    this.activeHeaderInput = null;
+    this.error = '';
+    this.hotTableRef?.hotInstance?.render();
   }
 
-  saveRename() {
-    if (this.readOnly) return;
-    const cleaned: MetricColumnLabels = {};
-    for (const key of FIELD_KEYS) {
-      const value = this.renameLabels[key];
-      if (value && value.trim()) cleaned[key] = value.trim();
+  // Fires on Enter and on blur — guarded by the editingHeaderField check so
+  // a blur that follows an already-successful Enter commit (e.g. once the
+  // input is removed from the DOM by the render() below) is a harmless no-op
+  // rather than a second save attempt.
+  private commitHeaderRename(field: FieldKey) {
+    if (this.editingHeaderField !== field) return;
+    const trimmed = this.headerDraftValue.trim();
+    const finalLabel = trimmed || DEFAULT_METRIC_COLUMN_LABELS[field];
+    const duplicate = FIELD_KEYS.some((k) => k !== field && this.fieldLabel(k).trim().toLowerCase() === finalLabel.toLowerCase());
+    if (duplicate) {
+      this.error = `Another column is already named "${finalLabel}" — choose a different name.`;
+      // The blur that triggered this commit already moved focus away —
+      // reclaim it (next tick, since a browser won't refocus synchronously
+      // inside its own blur handler) so the user can just fix the text
+      // in place instead of having to click back into the header.
+      const input = this.activeHeaderInput;
+      if (input) setTimeout(() => { input.focus(); input.select(); });
+      return;
     }
+    this.error = '';
+    this.editingHeaderField = null;
+    this.activeHeaderInput = null;
+    const current = this.metric.columnLabels?.[field] ?? '';
+    if (trimmed === current) {
+      this.hotTableRef?.hotInstance?.render();
+      return;
+    }
+    const cleaned: MetricColumnLabels = { ...(this.metric.columnLabels ?? {}) };
+    if (trimmed) cleaned[field] = trimmed;
+    else delete cleaned[field];
     this.metricSvc.updateMetric(this.metric.id, { columnLabels: Object.keys(cleaned).length ? cleaned : null }).subscribe({
       next: (res) => {
         this.metric = res.metric;
-        this.renameOpen = false;
         this.rebuildGrid();
         this.metricUpdated.emit(res.metric);
       },
       error: (err) => {
-        this.error = err.error?.message || 'Failed to save column names';
+        this.error = err.error?.message || 'Failed to save column name';
+        this.rebuildGrid();
       },
     });
+  }
+
+  // Only ever called with a header th whose field maps to a renamable
+  // column (fieldAtCoord returns null for the Seq/Date/Period columns,
+  // which the caller already filters out before reaching here).
+  private wireHeaderCell(th: HTMLElement, field: FieldKey | null) {
+    if (!field) return;
+    if (this.editingHeaderField === field) {
+      th.replaceChildren();
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'metric-header-rename-input';
+      input.maxLength = 40;
+      input.value = this.headerDraftValue;
+      input.addEventListener('click', (e) => e.stopPropagation());
+      input.addEventListener('input', () => { this.headerDraftValue = input.value; });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          this.commitHeaderRename(field);
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          this.cancelHeaderRename();
+        }
+      });
+      input.addEventListener('blur', () => this.commitHeaderRename(field));
+      this.activeHeaderInput = input;
+      th.appendChild(input);
+      if (!this.headerInputFocused) {
+        this.headerInputFocused = true;
+        setTimeout(() => { input.focus(); input.select(); });
+      }
+      return;
+    }
+    if (this.readOnly) return;
+    th.classList.add('metric-header-renamable');
+    th.onclick = () => this.startHeaderEdit(field);
   }
 }

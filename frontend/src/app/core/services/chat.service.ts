@@ -55,6 +55,13 @@ export class ChatService {
     return this.http.get<{ iceServers: RTCIceServer[] }>(`${this.api}/ice-servers`);
   }
 
+  // Unauthenticated counterpart for Meet Hub's guest-join flow — same
+  // static, non-user-specific config, just not behind `protect` (a guest
+  // has no JWT and would otherwise 401 before ever seeing the join screen).
+  getPublicIceServers() {
+    return this.http.get<{ iceServers: RTCIceServer[] }>(`${this.api}/public/ice-servers`);
+  }
+
   uploadImage(file: File) {
     const form = new FormData();
     form.append('image', file);

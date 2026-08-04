@@ -3,54 +3,113 @@
     <div class="lobby-loading" *ngIf="loading">
       <span class="spinner-border spinner-border-sm me-2"></span>Loading meeting…
     </div>
-    <div class="lobby-error" *ngIf="error">
-      <i class="bi bi-exclamation-circle-fill"></i>
-      <span>{{ error }}</span>
-    </div>
 
-    <div class="lobby-card" *ngIf="!loading && !error && meeting">
-      <div class="lobby-icon-badge"><i class="bi bi-camera-video-fill"></i></div>
-      <h2>{{ meetingLabel() }}</h2>
+    <ng-container *ngIf="!loading">
+      <div class="lobby-card" *ngIf="guestLeftMeeting">
+        <div class="lobby-icon-badge"><i class="bi bi-check-circle-fill"></i></div>
+        <h2>You've left the meeting</h2>
+        <p class="text-muted mb-0">You can close this tab now.</p>
+      </div>
 
-      <div class="preview-wrap">
-        <video #previewVideo class="preview-video mirrored" playsinline [class.hidden]="isCamOff"></video>
-        <div class="preview-placeholder" *ngIf="isCamOff">
-          <i class="bi bi-camera-video-off-fill"></i>
+      <ng-container *ngIf="!guestLeftMeeting">
+        <div class="lobby-error" *ngIf="error">
+          <i class="bi bi-exclamation-circle-fill"></i>
+          <span>{{ error }}</span>
+          <a *ngIf="showLoginPrompt" class="login-link" [routerLink]="['/login']" [queryParams]="{ returnUrl: currentUrl }">Log in to join</a>
         </div>
 
-        <div class="preview-controls">
-          <button class="ctrl-btn" [class.active]="isMuted" (click)="toggleMute()">
-            <i class="bi" [class.bi-mic-fill]="!isMuted" [class.bi-mic-mute-fill]="isMuted"></i>
-          </button>
-          <button class="ctrl-btn" [class.active]="isCamOff" (click)="toggleCamera()">
-            <i class="bi" [class.bi-camera-video-fill]="!isCamOff" [class.bi-camera-video-off-fill]="isCamOff"></i>
-          </button>
-          <button class="ctrl-btn" [class.active]="showDevicePicker" (click)="toggleDevicePicker()" title="Choose camera/microphone">
-            <i class="bi bi-sliders"></i>
-          </button>
+        <div class="share-panel" *ngIf="!error && shareUrl">
+          <div class="share-link-row">
+            <input type="text" class="share-link-input" [value]="shareUrl" readonly (click)="$any($event.target).select()" />
+            <button type="button" class="share-icon-btn" (click)="copyLink()" title="Copy link">
+              <i class="bi bi-clipboard"></i>
+            </button>
+          </div>
+          <div class="share-qr-row" *ngIf="qrDataUrl">
+            <img [src]="qrDataUrl" alt="QR code to join this meeting" class="share-qr-img" />
+            <a [href]="qrDataUrl" download="meeting-qr.png" class="share-qr-download">
+              <i class="bi bi-download"></i> Download QR
+            </a>
+          </div>
         </div>
-      </div>
 
-      <div class="device-picker" *ngIf="showDevicePicker">
-        <label>
-          Camera
-          <select [(ngModel)]="selectedCameraId" (ngModelChange)="applyDeviceSelection()">
-            <option *ngFor="let d of cameras" [value]="d.deviceId">{{ d.label || 'Camera ' + d.deviceId.slice(0, 6) }}</option>
-          </select>
-        </label>
-        <label>
-          Microphone
-          <select [(ngModel)]="selectedMicId" (ngModelChange)="applyDeviceSelection()">
-            <option *ngFor="let d of microphones" [value]="d.deviceId">{{ d.label || 'Microphone ' + d.deviceId.slice(0, 6) }}</option>
-          </select>
-        </label>
-      </div>
+        <!-- Guest name entry — shown until a guest submits their name and
+             guestJoin succeeds (this.meeting stays null until then). -->
+        <div class="lobby-card" *ngIf="!error && isGuestFlow && !meeting">
+          <div class="lobby-icon-badge"><i class="bi bi-camera-video-fill"></i></div>
+          <h2>{{ publicInfo?.title || ('Meeting with ' + publicInfo?.hostName) }}</h2>
+          <p class="guest-intro text-muted">Enter your name to join as a guest.</p>
+          <input
+            type="text"
+            class="guest-name-input"
+            [(ngModel)]="guestDisplayNameInput"
+            placeholder="Your full name"
+            maxlength="60"
+            (keydown.enter)="submitGuestName()"
+          />
+          <div class="alert alert-danger py-2 mt-2" *ngIf="guestJoinError">{{ guestJoinError }}</div>
+          <div class="lobby-actions">
+            <button class="join-btn" (click)="submitGuestName()">Continue</button>
+          </div>
+        </div>
 
-      <div class="lobby-actions">
-        <button class="cancel-btn" (click)="leaveLobby()">{{ canCancelMeeting ? 'Cancel meeting' : 'Back' }}</button>
-        <button class="join-btn" (click)="join()" [disabled]="switchingDevice">Join meeting</button>
-      </div>
-    </div>
+        <!-- Camera/mic preview + join — same card for an authenticated
+             visitor and a guest who's already given their name. -->
+        <div class="lobby-card" *ngIf="!error && meeting">
+          <div class="lobby-icon-badge"><i class="bi bi-camera-video-fill"></i></div>
+          <h2>{{ meetingLabel() }}</h2>
+
+          <div class="preview-wrap">
+            <video #previewVideo class="preview-video mirrored" playsinline [class.hidden]="isCamOff"></video>
+            <div class="preview-placeholder" *ngIf="isCamOff">
+              <i class="bi bi-camera-video-off-fill"></i>
+            </div>
+
+            <div class="preview-controls">
+              <button class="ctrl-btn" [class.active]="isMuted" (click)="toggleMute()">
+                <i class="bi" [class.bi-mic-fill]="!isMuted" [class.bi-mic-mute-fill]="isMuted"></i>
+              </button>
+              <button class="ctrl-btn" [class.active]="isCamOff" (click)="toggleCamera()">
+                <i class="bi" [class.bi-camera-video-fill]="!isCamOff" [class.bi-camera-video-off-fill]="isCamOff"></i>
+              </button>
+              <button class="ctrl-btn" [class.active]="showDevicePicker" (click)="toggleDevicePicker()" title="Choose camera/microphone">
+                <i class="bi bi-sliders"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="device-picker" *ngIf="showDevicePicker">
+            <label>
+              Camera
+              <select [(ngModel)]="selectedCameraId" (ngModelChange)="applyDeviceSelection()">
+                <option *ngFor="let d of cameras" [value]="d.deviceId">{{ d.label || 'Camera ' + d.deviceId.slice(0, 6) }}</option>
+              </select>
+            </label>
+            <label>
+              Microphone
+              <select [(ngModel)]="selectedMicId" (ngModelChange)="applyDeviceSelection()">
+                <option *ngFor="let d of microphones" [value]="d.deviceId">{{ d.label || 'Microphone ' + d.deviceId.slice(0, 6) }}</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="guest-toggle" *ngIf="isHostViewer">
+            <input
+              type="checkbox"
+              [checked]="meeting.settings?.allowExternalGuests"
+              (change)="toggleAllowExternalGuests($any($event.target).checked)"
+              [disabled]="savingGuestSetting"
+            />
+            Allow guests without an account to join via this link
+          </label>
+
+          <div class="lobby-actions">
+            <button class="cancel-btn" (click)="leaveLobby()">{{ canCancelMeeting ? 'Cancel meeting' : 'Back' }}</button>
+            <button class="join-btn" (click)="join()" [disabled]="switchingDevice">Join meeting</button>
+          </div>
+        </div>
+      </ng-container>
+    </ng-container>
   </div>
 </ng-container>
 
@@ -59,6 +118,8 @@
     [meeting]="meeting!"
     [initialMuted]="isMuted"
     [initialCamOff]="isCamOff"
+    [guestToken]="guestToken"
+    [guestDisplayName]="guestDisplayName"
     (left)="onLeft()"
   ></app-meeting-room>
 </ng-template>

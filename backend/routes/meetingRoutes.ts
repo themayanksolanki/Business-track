@@ -4,6 +4,8 @@ import { validateObjectId } from '../middleware/validate.js';
 import {
   createMeeting,
   getMeetingByRoomCode,
+  getPublicMeetingInfo,
+  guestJoinMeeting,
   joinMeeting,
   leaveMeeting,
   endMeeting,
@@ -14,6 +16,14 @@ import {
 } from '../controllers/meetingController.js';
 
 const router = Router();
+
+// Deliberately NOT behind `protect` — the whole point is a visitor with no
+// account can reach these. '/public/...' is a distinct multi-segment prefix
+// from every other route below ('/upcoming', '/:roomCode', etc.), so unlike
+// those two it can't collide regardless of declaration order — kept first
+// anyway for readability (every unauthenticated route grouped together).
+router.get('/public/:roomCode/info', getPublicMeetingInfo);
+router.post('/public/:roomCode/guest-join', guestJoinMeeting);
 
 // '/upcoming' must be registered before '/:roomCode' — both are bare GETs on
 // this router, and Express matches route definitions in declaration order.

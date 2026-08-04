@@ -13,6 +13,16 @@ export interface IncomingCall {
   callId: string;
 }
 
+// A meeting-room peer's identity — 'id' is a real User.id for 'user', a
+// MeetingGuest.id for 'guest' (an unrelated id space; never treat a guest's
+// `id` as a User.id). displayName is only ever set for a guest — a real
+// user's name is resolved via Meeting.participants instead.
+export interface MeetingPeerIdentity {
+  kind: 'user' | 'guest';
+  id: number;
+  displayName?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class SocketService {
   private socket: Socket | null = null;
@@ -54,10 +64,10 @@ export class SocketService {
   readonly remoteMobileDevice$ = new Subject<boolean>();
   readonly callLogged$    = new Subject<Message>();
 
-  readonly meetingJoined$            = new Subject<{ members: { socketId: string; userId: number }[] }>();
+  readonly meetingJoined$            = new Subject<{ members: ({ socketId: string } & MeetingPeerIdentity)[] }>();
   readonly meetingJoinError$         = new Subject<{ message: string }>();
   readonly meetingRoomFull$          = new Subject<void>();
-  readonly meetingParticipantJoined$ = new Subject<{ socketId: string; userId: number }>();
+  readonly meetingParticipantJoined$ = new Subject<{ socketId: string } & MeetingPeerIdentity>();
   readonly meetingParticipantLeft$   = new Subject<{ socketId: string }>();
   readonly meetingSignal$            = new Subject<{ fromSocketId: string; sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit }>();
   readonly meetingMute$              = new Subject<{ socketId: string; muted: boolean }>();
@@ -67,6 +77,9 @@ export class SocketService {
   readonly meetingMobileDevice$      = new Subject<{ socketId: string; mobile: boolean }>();
   readonly meetingChatMessage$       = new Subject<{ socketId: string; userId: number; message: string; at: string }>();
   readonly meetingKicked$            = new Subject<void>();
+  // Host asked THIS client specifically to mute itself (soft mute — no lock,
+  // can unmute again after) — see socket.ts's meeting:mute-participant.
+  readonly meetingForceMute$         = new Subject<void>();
   readonly meetingEnded$             = new Subject<void>();
 
   readonly notification$ = new Subject<AppNotification>();
@@ -123,10 +136,10 @@ export class SocketService {
     this.socket.on('call:mobile-device',(d: { mobile: boolean })                                     => this.remoteMobileDevice$.next(d.mobile));
     this.socket.on('call:logged',       (m: Message)                                                 => this.callLogged$.next(m));
 
-    this.socket.on('meeting:joined',              (d: { members: { socketId: string; userId: number }[] })                       => this.meetingJoined$.next(d));
+    this.socket.on('meeting:joined',              (d: { members: ({ socketId: string } & MeetingPeerIdentity)[] })               => this.meetingJoined$.next(d));
     this.socket.on('meeting:join-error',          (d: { message: string })                                                       => this.meetingJoinError$.next(d));
     this.socket.on('meeting:room-full',           ()                                                                              => this.meetingRoomFull$.next());
-    this.socket.on('meeting:participant-joined',  (d: { socketId: string; userId: number })                                      => this.meetingParticipantJoined$.next(d));
+    this.socket.on('meeting:participant-joined',  (d: { socketId: string } & MeetingPeerIdentity)                                => this.meetingParticipantJoined$.next(d));
     this.socket.on('meeting:participant-left',    (d: { socketId: string })                                                      => this.meetingParticipantLeft$.next(d));
     this.socket.on('meeting:signal',              (d: { fromSocketId: string; sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit }) => this.meetingSignal$.next(d));
     this.socket.on('meeting:mute',                (d: { socketId: string; muted: boolean })                                      => this.meetingMute$.next(d));
@@ -136,6 +149,7 @@ export class SocketService {
     this.socket.on('meeting:mobile-device',       (d: { socketId: string; mobile: boolean })                                     => this.meetingMobileDevice$.next(d));
     this.socket.on('meeting:chat-message',        (d: { socketId: string; userId: number; message: string; at: string })         => this.meetingChatMessage$.next(d));
     this.socket.on('meeting:kicked',              ()                                                                              => this.meetingKicked$.next());
+    this.socket.on('meeting:force-mute',          ()                                                                              => this.meetingForceMute$.next());
     this.socket.on('meeting:ended',               ()                                                                              => this.meetingEnded$.next());
   }
 
@@ -272,6 +286,10 @@ export class SocketService {
 
   kickMeetingParticipant(meetingId: number, targetSocketId: string) {
     this.socket?.emit('meeting:kick', { meetingId, targetSocketId });
+  }
+
+  muteMeetingParticipant(meetingId: number, targetSocketId: string) {
+    this.socket?.emit('meeting:mute-participant', { meetingId, targetSocketId });
   }
 
   endMeetingForEveryone(meetingId: number) {

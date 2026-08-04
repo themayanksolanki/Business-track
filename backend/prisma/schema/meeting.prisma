@@ -58,6 +58,7 @@ model Meeting {
   updatedBy     User?          @relation("MeetingUpdatedBy", fields: [updatedById], references: [id])
 
   participants  MeetingParticipant[]
+  guests        MeetingGuest[]
   settings      MeetingSettings?
   notifications Notification[]
 
@@ -86,13 +87,42 @@ model MeetingParticipant {
   @@map("meeting_participants")
 }
 
+// An unauthenticated participant — no `userId`/User row at all, unlike
+// MeetingParticipant. `guestKey` is a random token the client mints on first
+// join and resends on rejoin (page refresh) so the same browser session
+// upserts the same row instead of spawning a new guest record every time;
+// this is why it's the unique key here rather than reusing MeetingParticipant
+// with a nullable userId, which would break that model's own
+// @@unique([meetingId, userId]) (every guest would collide on null).
+model MeetingGuest {
+  id          Int       @id @default(autoincrement())
+  meetingId   Int
+  guestKey    String
+  displayName String
+  joinedAt    DateTime  @default(now())
+  leftAt      DateTime?
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, guestKey])
+  @@index([meetingId])
+  @@map("meeting_guests")
+}
+
 model MeetingSettings {
-  id                 Int     @id @default(autoincrement())
-  meetingId          Int     @unique
-  waitingRoomEnabled Boolean @default(false)
-  allowGuestJoin     Boolean @default(true)
-  muteOnEntry        Boolean @default(false)
-  recordingEnabled   Boolean @default(false)
+  id                  Int     @id @default(autoincrement())
+  meetingId           Int     @unique
+  waitingRoomEnabled  Boolean @default(false)
+  allowGuestJoin      Boolean @default(true)
+  // Distinct from allowGuestJoin above, which only relaxes access to "any
+  // other authenticated same-org member with the link" — this instead
+  // permits a fully unauthenticated visitor (see MeetingGuest) to join.
+  // Defaults false: unlike allowGuestJoin, this changes a meeting's security
+  // posture (a leaked/forwarded link becomes joinable by anyone, no account
+  // needed), so it's opt-in per meeting rather than on by default.
+  allowExternalGuests Boolean @default(false)
+  muteOnEntry         Boolean @default(false)
+  recordingEnabled    Boolean @default(false)
 
   meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
 

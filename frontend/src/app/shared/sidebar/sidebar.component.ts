@@ -1,6 +1,7 @@
 import { Component, ElementRef, OnDestroy, ViewChild, inject } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { NgbDropdown, NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
+import { Subscription, filter } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { CallSessionService } from '../../core/services/call-session.service';
 import { ChatService } from '../../core/services/chat.service';
@@ -43,6 +44,35 @@ export class SidebarComponent implements OnDestroy {
   private readonly router = inject(Router);
 
   logoutConfirmOpen = false;
+
+  private readonly subs = new Subscription();
+  private wasOnChat = this.router.url.startsWith('/chat');
+
+  constructor() {
+    // Collapsing on entry is handled by onChatNavClick(); this only restores
+    // the sidebar once the user leaves /chat for another page, and only on
+    // desktop — mobile nav already collapses to the rail regardless.
+    this.subs.add(
+      this.router.events
+        .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+        .subscribe((e) => {
+          const nowOnChat = e.urlAfterRedirects.startsWith('/chat');
+          if (this.wasOnChat && !nowOnChat && this.isDesktopViewport()) {
+            this.svc.setCollapsed(false);
+          }
+          this.wasOnChat = nowOnChat;
+        }),
+    );
+  }
+
+  private isDesktopViewport(): boolean {
+    return window.innerWidth >= 768;
+  }
+
+  onChatNavClick() {
+    this.closeMobile();
+    this.svc.setCollapsed(true);
+  }
 
   private get inCallOrMeeting(): boolean {
     return this.callSvc.callState !== 'idle' || this.meetingSessionSvc.active;
@@ -181,6 +211,7 @@ export class SidebarComponent implements OnDestroy {
 
   ngOnDestroy() {
     this.stopDrag();
+    this.subs.unsubscribe();
     for (const timer of this.closeTimers.values()) {
       clearTimeout(timer);
     }

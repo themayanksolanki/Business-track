@@ -455,6 +455,17 @@
   min-width: 0;
 }
 
+/* align-items: center above means flex children size to their own content
+   rather than stretching — app-gauge-chart has no width of its own (its
+   inner .gauge-chart-host is width:100% of WHATEVER the caller gives it,
+   same as metric-stats-gauge on the Statistics tab), so without this it
+   collapses toward 0px and ECharts initializes an invisible, zero-width
+   canvas even though [percent] is correctly bound. */
+.linked-metric-gauge {
+  width: 90px;
+  flex-shrink: 0;
+}
+
 .linked-metric-remove {
   position: absolute;
   top: 6px;

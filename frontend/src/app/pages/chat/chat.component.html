@@ -1,7 +1,7 @@
 <div class="chat-page">
 
   <!-- ══ Contacts sidebar ══════════════════════════════════════════ -->
-  <aside class="chat-sidebar" [class.mobile-hidden]="mobileShowChat">
+  <aside class="chat-sidebar" [class.mobile-hidden]="mobileShowChat" [attr.data-sidebar-theme]="sidebarTheme">
 
     <!-- Tab bar -->
     <div class="sidebar-tabs">
@@ -9,21 +9,17 @@
               (click)="switchTab('chat')">
         <i class="bi bi-chat-dots-fill"></i> Chats
       </button>
-      <button class="sidebar-tab" [class.sidebar-tab-active]="sidebarTab === 'groups'"
-              (click)="switchTab('groups')">
-        <i class="bi bi-people-fill"></i> Groups
-      </button>
       <button class="sidebar-tab" [class.sidebar-tab-active]="sidebarTab === 'calls'"
               (click)="switchTab('calls')">
         <i class="bi bi-telephone-fill"></i> Calls
       </button>
     </div>
 
-    <!-- ── Chats tab ── -->
+    <!-- ── Chats tab (contacts + groups) ── -->
     @if (sidebarTab === 'chat') {
       <div class="contact-search-wrap">
         <i class="bi bi-search contact-search-icon"></i>
-        <input type="text" class="contact-search-input" placeholder="Search contacts"
+        <input type="text" class="contact-search-input" placeholder="Search chats & groups"
                [(ngModel)]="contactSearchQuery" />
         @if (contactSearchQuery) {
           <button class="contact-search-clear" (click)="contactSearchQuery = ''" title="Clear">
@@ -80,7 +76,7 @@
                     {{ (c.lastMessage.content || '') | slice:0:32 }}{{ (c.lastMessage.content || '').length > 32 ? '…' : '' }}
                   }
                 } @else {
-                  <span class="text-muted">No messages yet</span>
+                  <span>No messages yet</span>
                 }
               </div>
             </div>
@@ -99,75 +95,69 @@
             </button>
           </div>
         }
-      </div>
-    }
 
-    <!-- ── Groups tab ── -->
-    @if (sidebarTab === 'groups') {
-      <div class="contact-search-wrap">
-        <i class="bi bi-search contact-search-icon"></i>
-        <input type="text" class="contact-search-input" placeholder="Search groups"
-               [(ngModel)]="groupSearchQuery" />
-        @if (groupSearchQuery) {
-          <button class="contact-search-clear" (click)="groupSearchQuery = ''" title="Clear">
-            <i class="bi bi-x-lg"></i>
+        <!-- ── Groups section ── -->
+        <div class="groups-section-header" (click)="toggleGroupsSection()" role="button" tabindex="0">
+          <span class="groups-section-title">
+            <i class="bi bi-people-fill"></i> Groups
+            <span class="groups-section-count">({{ filteredGroups.length }})</span>
+          </span>
+          <button type="button" class="groups-section-add-btn" (click)="openCreateGroup($event)" title="New Group">
+            <i class="bi bi-plus-lg"></i>
           </button>
-        }
-      </div>
+          <i class="bi bi-chevron-down groups-section-chevron" [class.expanded]="groupsExpanded"></i>
+        </div>
 
-      <button type="button" class="btn btn-success btn-sm w-100 mb-2" style="margin: 0 12px; width: calc(100% - 24px);" (click)="createGroupOpen = true">
-        <i class="bi bi-plus-lg me-1"></i>New Group
-      </button>
-
-      <div class="contact-list">
-        @if (groupsLoading) {
-          <div class="d-flex justify-content-center align-items-center p-4">
-            <span class="spinner-border spinner-border-sm text-primary"></span>
-          </div>
-        } @else if (filteredGroups.length === 0) {
-          <div class="call-history-empty">
-            <i class="bi bi-people call-history-empty-icon"></i>
-            <p>No groups yet</p>
-          </div>
-        }
-        @for (g of filteredGroups; track g.id) {
-          <div class="contact-row"
-               [class.contact-selected]="selectedGroup && selectedGroup.id === g.id"
-               [class.has-unread]="g.unreadCount > 0"
-               (click)="selectGroup(g)">
-
-            <div class="contact-avatar-wrap">
-              @if (g.avatarUrl) {
-                <img class="contact-avatar-img" [src]="g.avatarUrl" [alt]="g.name" />
-              } @else {
-                <span class="contact-avatar ca-user">{{ g.name[0].toUpperCase() }}</span>
-              }
+        @if (groupsExpanded) {
+          @if (groupsLoading) {
+            <div class="d-flex justify-content-center align-items-center p-4">
+              <span class="spinner-border spinner-border-sm text-primary"></span>
             </div>
+          } @else if (filteredGroups.length === 0) {
+            <div class="call-history-empty">
+              <i class="bi bi-people call-history-empty-icon"></i>
+              <p>No groups yet</p>
+            </div>
+          }
+          @for (g of filteredGroups; track g.id) {
+            <div class="contact-row"
+                 [class.contact-selected]="selectedGroup && selectedGroup.id === g.id"
+                 [class.has-unread]="g.unreadCount > 0"
+                 (click)="selectGroup(g)">
 
-            <div class="contact-info">
-              <div class="contact-name">{{ g.name }}</div>
-              <div class="contact-preview">
-                @if (g.lastMessage) {
-                  @if (g.lastMessage.type === 'image') {
-                    <i class="bi bi-image-fill me-1"></i>{{ g.lastMessage.sender.username }}: Photo
-                  } @else {
-                    {{ g.lastMessage.sender.username }}: {{ (g.lastMessage.content || '') | slice:0:26 }}{{ (g.lastMessage.content || '').length > 26 ? '…' : '' }}
-                  }
+              <div class="contact-avatar-wrap">
+                @if (g.avatarUrl) {
+                  <img class="contact-avatar-img" [src]="g.avatarUrl" [alt]="g.name" />
                 } @else {
-                  <span class="text-muted">No messages yet</span>
+                  <span class="contact-avatar ca-user">{{ g.name[0].toUpperCase() }}</span>
+                }
+              </div>
+
+              <div class="contact-info">
+                <div class="contact-name">{{ g.name }}</div>
+                <div class="contact-preview">
+                  @if (g.lastMessage) {
+                    @if (g.lastMessage.type === 'image') {
+                      <i class="bi bi-image-fill me-1"></i>{{ g.lastMessage.sender.username }}: Photo
+                    } @else {
+                      {{ g.lastMessage.sender.username }}: {{ (g.lastMessage.content || '') | slice:0:26 }}{{ (g.lastMessage.content || '').length > 26 ? '…' : '' }}
+                    }
+                  } @else {
+                    <span>No messages yet</span>
+                  }
+                </div>
+              </div>
+
+              <div class="contact-meta">
+                @if (g.lastMessage) {
+                  <div class="contact-time">{{ formatTime(g.lastMessage.createdAt) }}</div>
+                }
+                @if (g.unreadCount > 0) {
+                  <span class="unread-badge">{{ g.unreadCount }}</span>
                 }
               </div>
             </div>
-
-            <div class="contact-meta">
-              @if (g.lastMessage) {
-                <div class="contact-time">{{ formatTime(g.lastMessage.createdAt) }}</div>
-              }
-              @if (g.unreadCount > 0) {
-                <span class="unread-badge">{{ g.unreadCount }}</span>
-              }
-            </div>
-          </div>
+          }
         }
       </div>
     }

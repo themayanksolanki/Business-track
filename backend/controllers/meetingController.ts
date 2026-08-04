@@ -1,10 +1,11 @@
+import crypto from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
 import type { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
 import { nextSequenceId } from '../utils/sequence.js';
 import { generateRoomCode } from '../utils/roomCode.js';
-import { signRoomToken } from '../utils/meetingToken.js';
+import { signRoomToken, signGuestSessionToken } from '../utils/meetingToken.js';
 import {
   type AuthUser,
   canAccessEvent,
@@ -49,6 +50,26 @@ export const canAccessMeeting = (user: AuthUser, meeting: MeetingForAccess) => {
   if (meeting.hostId === user.id) return true;
   if (meeting.participants.some((p) => p.userId === user.id)) return true;
   return meeting.settings?.allowGuestJoin ?? false;
+};
+
+interface MeetingForGuestAccess {
+  status: string;
+  host: { isActive: boolean };
+  settings: { allowExternalGuests: boolean } | null;
+}
+
+// Unlike canAccessMeeting above, this is for a visitor with NO account at
+// all — no organizationId to compare, so the check is purely: is the
+// meeting still joinable, has the host allowed it, and is the host still a
+// real active member (a deactivated host's meetings shouldn't stay
+// guest-joinable just because the settings row still says yes). There's no
+// equivalent "is the organization still active" check — organizations have
+// no deactivation/soft-delete concept anywhere in this schema, so
+// meeting.host's organizationId is always a real, permanent row.
+export const canGuestAccessMeeting = (meeting: MeetingForGuestAccess) => {
+  if (meeting.status === 'ended' || meeting.status === 'cancelled') return false;
+  if (!meeting.host.isActive) return false;
+  return meeting.settings?.allowExternalGuests ?? false;
 };
 
 // Cross-org check first, same as canAccessMeeting — an Admin/host match on
@@ -284,6 +305,100 @@ export const joinMeeting = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
+// ── Unauthenticated (no `protect`) — see meetingRoutes.ts's '/public' router.
+// Deliberately returns a minimal shape, never MEETING_INCLUDE's full
+// participant list/emails, since the caller here has no account at all.
+export const getPublicMeetingInfo = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const meeting = await prisma.meeting.findUnique({
+      where: { roomCode: req.params.roomCode as string },
+      select: {
+        id: true,
+        title: true,
+        callType: true,
+        status: true,
+        host: { select: { username: true, isActive: true } },
+        settings: { select: { allowExternalGuests: true } },
+      },
+    });
+    if (!meeting) return next(new AppError('Meeting not found', 404));
+
+    res.status(200).json({
+      meetingId: meeting.id,
+      title: meeting.title,
+      hostName: meeting.host.username,
+      callType: meeting.callType,
+      status: meeting.status,
+      allowExternalGuests: canGuestAccessMeeting(meeting),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Unauthenticated join — creates/reuses a MeetingGuest row (no User/
+// MeetingParticipant involved at all) and hands back a long-lived guest
+// token that doubles as this guest's Socket.IO handshake credential for the
+// rest of the call (see meetingToken.ts's signGuestSessionToken).
+export const guestJoinMeeting = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const displayName = typeof req.body?.displayName === 'string' ? req.body.displayName.trim() : '';
+    if (!displayName) return next(new AppError('Your name is required to join', 400));
+    if (displayName.length > 60) return next(new AppError('Name is too long', 400));
+    const { guestKey } = req.body as { guestKey?: string };
+
+    const meeting = await prisma.meeting.findUnique({
+      where: { roomCode: req.params.roomCode as string },
+      select: {
+        id: true,
+        status: true,
+        host: { select: { isActive: true } },
+        settings: { select: { allowExternalGuests: true } },
+      },
+    });
+    if (!meeting) return next(new AppError('Meeting not found', 404));
+    if (!canGuestAccessMeeting(meeting))
+      return next(new AppError('This meeting does not allow guest access', 403));
+
+    // Rejoin (e.g. a page refresh while still in the lobby/call) reuses the
+    // same MeetingGuest row via the guestKey the client already holds,
+    // rather than spawning a new guest record every time.
+    const existing = guestKey
+      ? await prisma.meetingGuest.findUnique({
+          where: { meetingId_guestKey: { meetingId: meeting.id, guestKey } },
+        })
+      : null;
+
+    const guest = existing
+      ? await prisma.meetingGuest.update({
+          where: { id: existing.id },
+          data: { displayName, joinedAt: new Date(), leftAt: null },
+        })
+      : await prisma.meetingGuest.create({
+          data: { meetingId: meeting.id, guestKey: crypto.randomUUID(), displayName },
+        });
+
+    if (meeting.status === 'scheduled') {
+      await prisma.meeting.update({
+        where: { id: meeting.id },
+        data: { status: 'live', startedAt: new Date() },
+      });
+    }
+
+    const guestToken = signGuestSessionToken(meeting.id, guest.id, guest.displayName);
+    res.status(200).json({
+      message: 'Joined as guest',
+      meetingId: meeting.id,
+      guestId: guest.id,
+      guestKey: guest.guestKey,
+      displayName: guest.displayName,
+      guestToken,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const leaveMeeting = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const meetingId = Number(req.params.id);
@@ -355,6 +470,7 @@ export const updateMeeting = async (req: Request, res: Response, next: NextFunct
                 update: {
                   waitingRoomEnabled: settings.waitingRoomEnabled,
                   allowGuestJoin: settings.allowGuestJoin,
+                  allowExternalGuests: settings.allowExternalGuests,
                   muteOnEntry: settings.muteOnEntry,
                   recordingEnabled: settings.recordingEnabled,
                 },

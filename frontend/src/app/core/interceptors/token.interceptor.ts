@@ -24,6 +24,8 @@ export const tokenInterceptor: HttpInterceptorFn = (req, next) => {
   // just fail CORS outright.
   if (!req.url.startsWith(environment.apiUrl)) return next(req);
 
+  const hadToken = !!auth.getToken();
+
   return next(addToken(req, auth.getToken())).pipe(
     catchError((err: HttpErrorResponse) => {
       const isRefresh = req.url.includes('/auth/refresh');
@@ -35,7 +37,13 @@ export const tokenInterceptor: HttpInterceptorFn = (req, next) => {
         return auth.refresh().pipe(
           switchMap((res: AuthResponse) => next(addToken(req, res.token))),
           catchError((refreshErr) => {
-            auth.clearSession();
+            // A visitor who was never logged in (no token on the original
+            // request) has no session to "expire" — a stray protected-
+            // endpoint call shouldn't yank them off whatever public page
+            // they're on (e.g. Meet Hub's guest-join screen). Only force
+            // the redirect-to-login when there was an actual session to lose.
+            if (hadToken) auth.clearSession();
+            else auth.clearSessionSilent();
             return throwError(() => refreshErr);
           })
         );
