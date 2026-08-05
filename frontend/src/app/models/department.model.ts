@@ -1,23 +1,4 @@
 import { User } from './user.model';
-import { Project } from './project.model';
-import { MetricDataType, MetricStatus } from './metric.model';
-
-export interface DepartmentMetricLite {
-  id: number;
-  sequenceId?: number | null;
-  title: string;
-  dataType: MetricDataType;
-  status: MetricStatus;
-}
-
-export interface DepartmentEventLite {
-  id: number;
-  sequenceId?: number | null;
-  title: string;
-  start: string;
-  end: string;
-  allDay: boolean;
-}
 
 export interface Department {
   id: number;
@@ -38,13 +19,15 @@ export interface Department {
   eventCount?: number;
 }
 
+// Projects/metrics/events are deliberately count-only here (see
+// Department.projectCount/.metricCount/.eventCount) — the detail panel
+// never fetches or renders their individual titles/names, only children
+// (sub-department navigation) and users (Team list + assignment) are full
+// item lists, see departmentController.ts's getDepartmentById.
 export interface DepartmentDetail {
   department: Department;
   children: Department[];
   users: User[];
-  projects: Project[];
-  metrics: DepartmentMetricLite[];
-  events: DepartmentEventLite[];
 }
 
 export interface CreateDepartmentPayload {

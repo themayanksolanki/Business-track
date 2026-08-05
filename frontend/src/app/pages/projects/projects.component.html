@@ -19,6 +19,27 @@
     </div>
   </div>
 
+  @if (stats) {
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-lg">
+        <app-stat-card icon="bi-kanban" [value]="stats.total" label="Total" variant="total" />
+      </div>
+      <div class="col-6 col-lg">
+        <app-stat-card icon="bi-play-circle" [value]="stats.active" label="Active" variant="active" />
+      </div>
+      <div class="col-6 col-lg">
+        <app-stat-card icon="bi-check2-all" [value]="stats.completed" label="Completed" variant="completed" />
+      </div>
+      <div class="col-6 col-lg">
+        <app-stat-card icon="bi-archive" [value]="stats.archived" label="Archived" variant="archived" />
+      </div>
+      <div class="col-6 col-lg">
+        <app-stat-card icon="bi-exclamation-circle" [value]="stats.overdue" label="Overdue"
+          [variant]="stats.overdue > 0 ? 'overdue' : 'muted'" />
+      </div>
+    </div>
+  }
+
   <div class="d-flex align-items-center flex-wrap gap-3 mb-3">
     <div class="btn-group status-filter-tabs" role="group" aria-label="Status filter">
       @for (s of statusFilterOptions; track s) {

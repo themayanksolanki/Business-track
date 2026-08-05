@@ -1,0 +1,57 @@
+.stat-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.stat-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+/* Colors mirror the existing status-badge palette (projects.component.css)
+   so the cards read as part of the same design language as the badges. */
+.stat-total     { background: #eff6ff; color: #3b82f6; }
+.stat-active    { background: #dbeafe; color: #1d4ed8; }
+.stat-completed { background: #dcfce7; color: #15803d; }
+.stat-archived  { background: #f1f5f9; color: #475569; }
+.stat-overdue   { background: #fef2f2; color: #dc2626; }
+.stat-muted     { background: var(--bg-hover, #f1f5f9); color: var(--text-dim); }
+
+.stat-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-number {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}

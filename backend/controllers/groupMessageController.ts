@@ -9,6 +9,21 @@ export const GROUP_MESSAGE_INCLUDE = {
   sender: { select: USER_SELECT },
   replyTo: { select: { id: true, content: true, type: true, sender: { select: { id: true, username: true } } } },
   reads: { select: { userId: true } },
+  // Only populated for type: 'call' — lets the frontend render the call
+  // card (in progress / ended) and, per viewer, whether THEY joined or
+  // missed it (meeting.participants[].joinedAt), without a second request.
+  meeting: {
+    select: {
+      id: true,
+      roomCode: true,
+      status: true,
+      callType: true,
+      startedAt: true,
+      endedAt: true,
+      hostId: true,
+      participants: { select: { userId: true, joinedAt: true } },
+    },
+  },
 };
 
 type AuthUser = { id: number; role: string; organizationId: number | null };

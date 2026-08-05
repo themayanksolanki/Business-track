@@ -251,22 +251,41 @@
   color: var(--text-muted);
 }
 
-.dept-project-list {
+/* Overview section — counts only (see DepartmentDetail's own comment on
+   why projects/metrics/events never fetch individual titles here). */
+.dept-count-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 10px;
+}
+
+.dept-count-tile {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 10px;
+  border-radius: 10px;
+  background: var(--bg-muted);
+  text-align: center;
 }
 
-.dept-project-row {
-  padding: 6px 8px;
-  border-radius: 8px;
+.dept-count-tile i {
+  font-size: 1.1rem;
+  color: var(--text-dim);
+}
+
+.dept-count-tile-value {
+  font-size: 1.3rem;
+  font-weight: 800;
   color: var(--text-primary);
-  text-decoration: none;
-  font-size: 0.86rem;
 }
 
-.dept-project-row:hover {
-  background: var(--bg-hover);
+.dept-count-tile-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .empty-state {

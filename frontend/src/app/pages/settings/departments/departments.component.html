@@ -206,48 +206,24 @@
       </div>
 
       <div class="dept-detail-section">
-        <h6 class="text-muted">Projects ({{ detail.projects.length }})</h6>
-        @if (detail.projects.length === 0) {
-          <p class="text-muted small mb-0">No projects assigned to this department.</p>
-        } @else {
-          <div class="dept-project-list">
-            @for (project of detail.projects; track project.id) {
-              <a [routerLink]="['/projects', project.id]" class="dept-project-row">
-                <i class="bi bi-kanban me-2"></i>{{ project.name }}
-              </a>
-            }
+        <h6 class="text-muted">Overview</h6>
+        <div class="dept-count-grid">
+          <div class="dept-count-tile">
+            <i class="bi bi-kanban-fill"></i>
+            <span class="dept-count-tile-value">{{ detail.department.projectCount ?? 0 }}</span>
+            <span class="dept-count-tile-label">Projects</span>
           </div>
-        }
-      </div>
-
-      <div class="dept-detail-section">
-        <h6 class="text-muted">Metrics ({{ detail.metrics.length }})</h6>
-        @if (detail.metrics.length === 0) {
-          <p class="text-muted small mb-0">No metrics assigned to this department.</p>
-        } @else {
-          <div class="dept-project-list">
-            @for (metric of detail.metrics; track metric.id) {
-              <span class="dept-project-row">
-                <i class="bi bi-graph-up-arrow me-2"></i>{{ metric.title }}
-              </span>
-            }
+          <div class="dept-count-tile">
+            <i class="bi bi-graph-up-arrow"></i>
+            <span class="dept-count-tile-value">{{ detail.department.metricCount ?? 0 }}</span>
+            <span class="dept-count-tile-label">Metrics</span>
           </div>
-        }
-      </div>
-
-      <div class="dept-detail-section">
-        <h6 class="text-muted">Events ({{ detail.events.length }})</h6>
-        @if (detail.events.length === 0) {
-          <p class="text-muted small mb-0">No events assigned to this department.</p>
-        } @else {
-          <div class="dept-project-list">
-            @for (event of detail.events; track event.id) {
-              <span class="dept-project-row">
-                <i class="bi bi-calendar-event me-2"></i>{{ event.title }}
-              </span>
-            }
+          <div class="dept-count-tile">
+            <i class="bi bi-calendar-event"></i>
+            <span class="dept-count-tile-value">{{ detail.department.eventCount ?? 0 }}</span>
+            <span class="dept-count-tile-label">Events</span>
           </div>
-        }
+        </div>
       </div>
     }
   </div>

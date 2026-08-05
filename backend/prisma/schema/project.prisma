@@ -46,24 +46,37 @@ model Project {
   links         Json @default("[]")
   detailsLayout Json @default("[]")
 
+  // Status Report tab — which template is currently selected, reloaded each
+  // time the tab is opened instead of re-prompting the picker every visit.
+  // Every Save/Save-and-Send is its own permanent StatusFormSubmission row
+  // (see statusForm.prisma) — this is only the "which template" choice, not
+  // a persisted in-progress draft (the compose form always starts blank).
+  activeStatusFormId     Int?
+  // Default recipients auto-filled into the send-to box when composing a
+  // report — validated (well-formed email) on write, see
+  // validateStatusReportRecipients (backend/middleware/validate.ts).
+  statusReportRecipients Json @default("[]")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  createdBy      User          @relation("ProjectCreatedBy", fields: [createdById], references: [id])
-  updatedBy      User?         @relation("ProjectUpdatedBy", fields: [updatedById], references: [id])
-  owner          User?         @relation("ProjectOwner", fields: [ownerId], references: [id])
-  planUploadedBy User?         @relation("ProjectPlanUploadedBy", fields: [planUploadedById], references: [id])
-  department     Department?   @relation(fields: [departmentId], references: [id])
-  category       Category?     @relation(fields: [categoryId], references: [id])
-  organization   Organization? @relation(fields: [organizationId], references: [id])
+  createdBy       User          @relation("ProjectCreatedBy", fields: [createdById], references: [id])
+  updatedBy       User?         @relation("ProjectUpdatedBy", fields: [updatedById], references: [id])
+  owner           User?         @relation("ProjectOwner", fields: [ownerId], references: [id])
+  planUploadedBy  User?         @relation("ProjectPlanUploadedBy", fields: [planUploadedById], references: [id])
+  department      Department?   @relation(fields: [departmentId], references: [id])
+  category        Category?     @relation(fields: [categoryId], references: [id])
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+  activeStatusForm StatusForm?  @relation("ProjectActiveStatusForm", fields: [activeStatusFormId], references: [id], onDelete: SetNull)
 
-  tags           Tag[]
-  members        ProjectMember[]
-  items          ProjectItem[]
-  attachments    Attachment[]
-  notifications  Notification[]
-  calendarEvents CalendarEvent[]
-  meetings       Meeting[]
+  tags                  Tag[]
+  members               ProjectMember[]
+  items                 ProjectItem[]
+  attachments           Attachment[]
+  notifications         Notification[]
+  calendarEvents        CalendarEvent[]
+  meetings              Meeting[]
+  statusFormSubmissions StatusFormSubmission[]
 
   @@index([organizationId])
   @@unique([organizationId, sequenceId])

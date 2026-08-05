@@ -57,10 +57,15 @@ model GroupMessage {
   groupId   Int
   senderId  Int
   content   String      @default("")
-  // Reuses Message's MessageType/CallType-free subset — group calls are
-  // Phase 6 territory, so no callType/callStatus/callDuration here yet.
   type      MessageType @default(text)
   fileUrl   String?
+  // Set only for type: call — the group-call announcement/log bubble (see
+  // meetingController.ts's createMeeting -> groupCallEvents.ts). Unlike
+  // Message.callStatus, there's no single callStatus here: a group call's
+  // outcome (joined vs missed) differs per member, so it's derived per
+  // viewer from `meeting.participants[].joinedAt` instead of stored once.
+  callType  CallType?
+  meetingId Int?
   isPinned  Boolean     @default(false)
   isEdited  Boolean     @default(false)
   editedAt  DateTime?
@@ -71,6 +76,7 @@ model GroupMessage {
 
   group   Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
   sender  User           @relation("GroupMessageSender", fields: [senderId], references: [id])
+  meeting Meeting?       @relation(fields: [meetingId], references: [id])
   replyTo GroupMessage?  @relation("GroupMessageReplyTo", fields: [replyToId], references: [id])
   replies GroupMessage[] @relation("GroupMessageReplyTo")
 
@@ -80,6 +86,7 @@ model GroupMessage {
   reads      GroupMessageRead[]
 
   @@index([groupId, createdAt])
+  @@index([meetingId])
   @@map("group_messages")
 }
 

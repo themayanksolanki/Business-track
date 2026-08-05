@@ -448,6 +448,14 @@
       </app-project-meetings>
     }
 
+    @if (activeTab === 'status-report' && project) {
+      <app-project-status-report
+        [projectId]="projectId"
+        [project]="project"
+        (projectPatched)="onStatusReportPatched($event)">
+      </app-project-status-report>
+    }
+
     @if (activeTab === 'detail') {
       <div class="details-grid" cdkDropList cdkDropListOrientation="mixed"
            [cdkDropListData]="orderedDetailCardIds" (cdkDropListDropped)="onDetailsDrop($event)">

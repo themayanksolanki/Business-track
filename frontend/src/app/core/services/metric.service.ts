@@ -12,8 +12,25 @@ export class MetricService {
 
   constructor(private http: HttpClient) {}
 
-  getMetrics(page: number, limit: number, status: MetricStatus | 'all' = 'active') {
-    return this.http.get<PaginatedMetrics>(this.api, { params: { page, limit, status } });
+  getMetrics(page: number, limit: number, status: MetricStatus | 'all' = 'active', search?: string) {
+    const params: Record<string, string | number> = { page, limit, status };
+    if (search?.trim()) params['search'] = search.trim();
+    return this.http.get<PaginatedMetrics>(this.api, { params });
+  }
+
+  // Bowling View's combined load — one request for the CURRENT lens's active
+  // metrics AND every one of their tracking data, instead of getMetrics()
+  // followed by one getTracking() per row. Scoped to a single frequency per
+  // call (switching lenses means a fresh call, not a client-side re-filter
+  // of an every-frequency batch) — month is only sent/meaningful for
+  // frequency 'daily'; every other frequency keys its period by year alone.
+  getBowlingMetrics(frequency: MetricFrequency, year: number, month: number | null, search?: string) {
+    const params: Record<string, string | number> = { frequency, year };
+    if (month != null) params['month'] = month;
+    if (search?.trim()) params['search'] = search.trim();
+    return this.http.get<{ metrics: (MetricListItem & { tracking: MetricTrackingData })[] }>(`${this.api}/bowling`, {
+      params,
+    });
   }
 
   getMetricById(metricId: number | string) {
@@ -26,6 +43,14 @@ export class MetricService {
 
   updateMetric(metricId: number | string, payload: UpdateMetricPayload) {
     return this.http.put<{ message: string; metric: Metric }>(`${this.api}/${metricId}`, payload);
+  }
+
+  // Owner/Admin-only toggle — freezes (or unfreezes) every field/tracking
+  // edit for everyone. Kept separate from updateMetric since it must stay
+  // callable even while the metric is already locked (see
+  // metricController.ts's lockMetric).
+  lockMetric(metricId: number | string, locked: boolean) {
+    return this.http.patch<{ message: string; metric: Metric }>(`${this.api}/${metricId}/lock`, { locked });
   }
 
   // Unpaginated, drag-drop-ordered feed for the Tiles View.

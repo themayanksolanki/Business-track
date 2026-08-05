@@ -532,6 +532,11 @@
         </div>
 
         <div class="chat-header-actions">
+          @if (showJoinNowButton) {
+            <button class="join-now-btn" (click)="joinLiveGroupCall()" title="Join the ongoing call">
+              <i class="bi bi-telephone-fill"></i> Join Now
+            </button>
+          }
           <button class="call-btn" (click)="openGroupMembers()" title="Group members">
             <i class="bi bi-people-fill"></i>
           </button>
@@ -553,8 +558,8 @@
       </div>
 
       <!-- Group messages (same newest-first / column-reverse convention as
-           the DM thread above — no call-event rows or reactions here, since
-           group calls (Phase 6) and group reactions aren't built yet). -->
+           the DM thread above — no group reactions yet, but call events
+           render the same call-event row/bubble the 1:1 thread uses). -->
       <div class="messages-area" #messagesArea>
         @if (groupMessagesLoading) {
           <div class="d-flex justify-content-center align-items-center h-100">
@@ -569,6 +574,22 @@
             </div>
           }
           @for (msg of reversedGroupMessages; track msg.id; let i = $index) {
+            @if (msg.type === 'call') {
+              <!-- Call event row -->
+              <div class="call-event-row" [class.call-event-mine]="isGroupMsgMine(msg)">
+                <div class="call-event-bubble" [class.call-missed-bubble]="groupCallMissed(msg)">
+                  <i class="bi me-1"
+                     [class.bi-telephone-fill]="msg.meeting?.callType === 'audio' && !groupCallMissed(msg)"
+                     [class.bi-camera-video-fill]="msg.meeting?.callType === 'video' && !groupCallMissed(msg)"
+                     [class.bi-telephone-missed-fill]="groupCallMissed(msg)"></i>
+                  <span class="call-event-label">{{ groupCallLabel(msg) }}</span>
+                  @if (groupCallDuration(msg); as duration) {
+                    <span class="call-event-duration">· {{ formatDuration(duration) }}</span>
+                  }
+                  <span class="call-event-time">{{ formatTime(msg.createdAt) }}</span>
+                </div>
+              </div>
+            } @else {
             <div class="msg-row" [id]="'msg-' + msg.id" [class.msg-row-mine]="isGroupMsgMine(msg)">
               <div class="msg-col" [class.msg-col-mine]="isGroupMsgMine(msg)">
               <div class="msg-bubble" [class.msg-mine]="isGroupMsgMine(msg)" [class.msg-theirs]="!isGroupMsgMine(msg)"
@@ -632,6 +653,7 @@
               </div>
               </div>
             </div>
+            }
 
             @if (showDateSeparatorReversed(reversedGroupMessages, i)) {
               <div class="date-separator">

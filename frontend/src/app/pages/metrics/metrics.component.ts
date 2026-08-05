@@ -1,4 +1,6 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { debounce } from 'lodash-es';
 import { MetricService } from '../../core/services/metric.service';
 import { DepartmentService } from '../../core/services/department.service';
 import { CategoryService } from '../../core/services/category.service';
@@ -10,11 +12,11 @@ import { MetricFormModalComponent, MetricFormMode } from '../../shared/metric-fo
 @Component({
   selector: 'app-metrics',
   standalone: true,
-  imports: [MetricFormModalComponent],
+  imports: [FormsModule, MetricFormModalComponent],
   templateUrl: './metrics.component.html',
   styleUrl: './metrics.component.css',
 })
-export class MetricsComponent implements OnInit {
+export class MetricsComponent implements OnInit, OnDestroy {
   metrics: MetricListItem[] = [];
   loading = false;
   error = '';
@@ -31,6 +33,13 @@ export class MetricsComponent implements OnInit {
   // browsable tab on this page.
   statusFilter: MetricStatus | 'all' = 'active';
   readonly statusFilterOptions: (MetricStatus | 'all')[] = ['active', 'deleted', 'all'];
+
+  // Server-side, case-insensitive partial-or-full title match (see
+  // getMetrics' `search` param) — debounced the same 350ms/lodash way
+  // member-picker.component.ts debounces its own live-typing search, so a
+  // request only fires once the user pauses typing rather than per keystroke.
+  search = '';
+  private readonly debouncedSearch = debounce(() => this.loadPage(1), 350);
 
   // Flat list of {id, title} for the form's "Parent metric" picker — loaded
   // once, independent of the current status filter/pagination, so a parent
@@ -72,11 +81,19 @@ export class MetricsComponent implements OnInit {
     this.loadPage(1);
   }
 
+  onSearchChange() {
+    this.debouncedSearch();
+  }
+
+  ngOnDestroy() {
+    this.debouncedSearch.cancel();
+  }
+
   loadPage(page: number) {
     if (page < 1 || (page > this.totalPages && this.totalItems > 0)) return;
     this.loading = true;
     this.error = '';
-    this.metricService.getMetrics(page, this.pageSize, this.statusFilter).subscribe({
+    this.metricService.getMetrics(page, this.pageSize, this.statusFilter, this.search).subscribe({
       next: (res) => {
         this.metrics = res.metrics;
         this.currentPage = res.page;

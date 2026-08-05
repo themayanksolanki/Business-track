@@ -13,6 +13,27 @@ export interface IncomingCall {
   callId: string;
 }
 
+// Group-call counterpart of IncomingCall — fanned out to every other group
+// member the instant a group call starts (see meetingController.ts's
+// startGroupCallAnnouncement), same idea as call:incoming but for N
+// recipients instead of one callee.
+export interface GroupCallIncoming {
+  groupId: number;
+  groupName: string;
+  meetingId: number;
+  roomCode: string;
+  callType: 'audio' | 'video';
+  fromUserId: number;
+  fromName: string;
+}
+
+export interface GroupCallEnded {
+  meetingId: number;
+  groupId: number;
+  endedAt: string | null;
+  participants: { userId: number; joinedAt: string | null }[];
+}
+
 // A meeting-room peer's identity — 'id' is a real User.id for 'user', a
 // MeetingGuest.id for 'guest' (an unrelated id space; never treat a guest's
 // `id` as a User.id). displayName is only ever set for a guest — a real
@@ -63,6 +84,9 @@ export class SocketService {
   // not toggled like the above.
   readonly remoteMobileDevice$ = new Subject<boolean>();
   readonly callLogged$    = new Subject<Message>();
+  // Ephemeral — just the emoji, no message/history involved (see
+  // shared/reaction-burst.component.ts).
+  readonly remoteReaction$ = new Subject<string>();
 
   readonly meetingJoined$            = new Subject<{ members: ({ socketId: string } & MeetingPeerIdentity)[] }>();
   readonly meetingJoinError$         = new Subject<{ message: string }>();
@@ -74,6 +98,7 @@ export class SocketService {
   readonly meetingVideoToggle$       = new Subject<{ socketId: string; off: boolean }>();
   readonly meetingScreenShare$       = new Subject<{ socketId: string; sharing: boolean }>();
   readonly meetingHandRaise$         = new Subject<{ socketId: string; raised: boolean }>();
+  readonly meetingReaction$          = new Subject<{ socketId: string; emoji: string }>();
   readonly meetingMobileDevice$      = new Subject<{ socketId: string; mobile: boolean }>();
   readonly meetingChatMessage$       = new Subject<{ socketId: string; userId: number; message: string; at: string }>();
   readonly meetingKicked$            = new Subject<void>();
@@ -81,6 +106,9 @@ export class SocketService {
   // can unmute again after) — see socket.ts's meeting:mute-participant.
   readonly meetingForceMute$         = new Subject<void>();
   readonly meetingEnded$             = new Subject<void>();
+
+  readonly groupCallIncoming$ = new Subject<GroupCallIncoming>();
+  readonly groupCallEnded$    = new Subject<GroupCallEnded>();
 
   readonly notification$ = new Subject<AppNotification>();
   // Fires on every reconnect (not the first connect) so listeners can re-sync
@@ -135,6 +163,7 @@ export class SocketService {
     this.socket.on('call:screen-share', (d: { sharing: boolean })                                   => this.remoteScreenSharing$.next(d.sharing));
     this.socket.on('call:mobile-device',(d: { mobile: boolean })                                     => this.remoteMobileDevice$.next(d.mobile));
     this.socket.on('call:logged',       (m: Message)                                                 => this.callLogged$.next(m));
+    this.socket.on('call:reaction',     (d: { emoji: string })                                       => this.remoteReaction$.next(d.emoji));
 
     this.socket.on('meeting:joined',              (d: { members: ({ socketId: string } & MeetingPeerIdentity)[] })               => this.meetingJoined$.next(d));
     this.socket.on('meeting:join-error',          (d: { message: string })                                                       => this.meetingJoinError$.next(d));
@@ -146,11 +175,15 @@ export class SocketService {
     this.socket.on('meeting:video-toggle',        (d: { socketId: string; off: boolean })                                        => this.meetingVideoToggle$.next(d));
     this.socket.on('meeting:screen-share',        (d: { socketId: string; sharing: boolean })                                    => this.meetingScreenShare$.next(d));
     this.socket.on('meeting:hand-raise',          (d: { socketId: string; raised: boolean })                                     => this.meetingHandRaise$.next(d));
+    this.socket.on('meeting:reaction',            (d: { socketId: string; emoji: string })                                       => this.meetingReaction$.next(d));
     this.socket.on('meeting:mobile-device',       (d: { socketId: string; mobile: boolean })                                     => this.meetingMobileDevice$.next(d));
     this.socket.on('meeting:chat-message',        (d: { socketId: string; userId: number; message: string; at: string })         => this.meetingChatMessage$.next(d));
     this.socket.on('meeting:kicked',              ()                                                                              => this.meetingKicked$.next());
     this.socket.on('meeting:force-mute',          ()                                                                              => this.meetingForceMute$.next());
     this.socket.on('meeting:ended',               ()                                                                              => this.meetingEnded$.next());
+
+    this.socket.on('group-call:incoming', (d: GroupCallIncoming) => this.groupCallIncoming$.next(d));
+    this.socket.on('group-call:ended',    (d: GroupCallEnded)    => this.groupCallEnded$.next(d));
   }
 
   disconnect() {
@@ -216,6 +249,10 @@ export class SocketService {
     this.socket?.emit('call:mobile-device', { callId, mobile });
   }
 
+  sendReaction(callId: string, emoji: string) {
+    this.socket?.emit('call:reaction', { callId, emoji });
+  }
+
   markSeen(from: string) {
     this.socket?.emit('message:seen', { from });
   }
@@ -274,6 +311,10 @@ export class SocketService {
 
   sendMeetingHandRaise(meetingId: number, raised: boolean) {
     this.socket?.emit('meeting:hand-raise', { meetingId, raised });
+  }
+
+  sendMeetingReaction(meetingId: number, emoji: string) {
+    this.socket?.emit('meeting:reaction', { meetingId, emoji });
   }
 
   sendMeetingMobileDevice(meetingId: number, mobile: boolean) {

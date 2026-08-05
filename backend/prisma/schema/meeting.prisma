@@ -61,6 +61,10 @@ model Meeting {
   guests        MeetingGuest[]
   settings      MeetingSettings?
   notifications Notification[]
+  // The group-call announcement/log bubble(s) this meeting backs — see
+  // GroupMessage.meetingId / groupCallEvents.ts. Only ever populated when
+  // groupId is set; a calendar/project meeting has none.
+  groupMessages GroupMessage[]
 
   @@index([organizationId])
   @@index([hostId])

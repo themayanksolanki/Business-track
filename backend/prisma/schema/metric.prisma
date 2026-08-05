@@ -46,6 +46,12 @@ model Metric {
   // status/note, values are the display label to use instead of the
   // built-in default. Absent/omitted keys fall back to the default label.
   columnLabels   Json?
+  // Freezes every field/tracking edit (Detail tab, Sheet tab, Bowling View
+  // cells) for EVERYONE — including the owner/Admin who locked it — until
+  // explicitly unlocked. Only the metric's own owner or an Admin may toggle
+  // it (canLockMetric, metricController.ts); the toggle itself always stays
+  // available to them regardless of the current lock state.
+  isLocked       Boolean      @default(false)
   ownerId        Int
   createdById    Int
   updatedById    Int?

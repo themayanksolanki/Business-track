@@ -19,6 +19,23 @@ export interface GroupMessageReplyTo {
   sender: { id?: number; username: string };
 }
 
+// Only present on a type: 'call' message — the group-call announcement/log
+// bubble. There's no single "missed"/"completed" status here the way a 1:1
+// Message has (see message.model.ts's Message.callStatus): a group call's
+// outcome differs per member, so the viewing user's own outcome is derived
+// from `participants` (find their own userId, missed iff joinedAt is null)
+// rather than stored once — see chat.component.ts's groupCallMissed().
+export interface GroupMessageMeeting {
+  id: number;
+  roomCode: string;
+  status: 'scheduled' | 'live' | 'ended' | 'cancelled';
+  callType: 'audio' | 'video';
+  startedAt: string | null;
+  endedAt: string | null;
+  hostId: number;
+  participants: { userId: number; joinedAt: string | null }[];
+}
+
 export interface GroupMessage {
   id: number;
   groupId: number;
@@ -26,6 +43,8 @@ export interface GroupMessage {
   content: string;
   type: MessageType;
   fileUrl?: string | null;
+  callType?: 'audio' | 'video' | null;
+  meeting?: GroupMessageMeeting | null;
   isPinned?: boolean;
   isEdited?: boolean;
   editedAt?: string | null;

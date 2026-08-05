@@ -1,0 +1,10 @@
+<div class="reaction-burst-layer">
+  @for (p of particles; track p.id) {
+    <span
+      class="reaction-particle"
+      [style.left.%]="p.leftPercent"
+      [style.--reaction-drift]="p.driftPx"
+      [style.animation-duration]="p.durationMs"
+    >{{ p.emoji }}</span>
+  }
+</div>

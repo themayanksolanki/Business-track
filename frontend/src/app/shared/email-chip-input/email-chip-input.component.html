@@ -1,0 +1,32 @@
+<div class="chip-input-wrap" [class.chip-input-disabled]="disabled">
+  @for (email of value; track email; let i = $index) {
+    <span class="chip">
+      {{ email }}
+      @if (!disabled) {
+        <button type="button" class="chip-remove" (click)="removeAt(i)" title="Remove">
+          <i class="bi bi-x"></i>
+        </button>
+      }
+    </span>
+  }
+  @if (!disabled) {
+    <input
+      type="text"
+      class="chip-text-input"
+      [placeholder]="value.length ? '' : placeholder"
+      [(ngModel)]="inputText"
+      (keydown)="onKeydown($event)"
+      (blur)="onBlur()"
+    />
+  }
+</div>
+
+@if (error) {
+  <div class="chip-input-error">{{ error }}</div>
+}
+
+@if (suggestion) {
+  <button type="button" class="chip-suggestion" (click)="applySuggestion()">
+    <i class="bi bi-magic me-1"></i>Use <strong>{{ suggestion }}</strong>
+  </button>
+}

@@ -1,8 +1,8 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subject, of } from 'rxjs';
 import { groupBy, mergeMap, debounceTime, concatMap, tap, catchError } from 'rxjs/operators';
-import { cloneDeep, transform, isEqual } from 'lodash-es';
+import { cloneDeep, debounce, transform, isEqual } from 'lodash-es';
 import { MetricService } from '../../core/services/metric.service';
 import { AuthService } from '../../core/services/auth.service';
 import { DateFormatService } from '../../core/services/date-format.service';
@@ -21,7 +21,7 @@ import { MetricFrequency, PeriodMap, PeriodValue, TrackingDiff } from '../../mod
 import { CURRENCY_SYMBOLS, MEASUREMENT_UNIT_SYMBOLS } from '../../models/user.model';
 import { MetricFormModalComponent, MetricFormMode } from '../../shared/metric-form-modal/metric-form-modal.component';
 import { MONTH_LABELS, isoWeekInfo } from '../../shared/utils/metric-period.util';
-import { canEditMetricListItem } from '../../shared/utils/metric-value.util';
+import { canEditMetricListItem, STATUS_COLORS } from '../../shared/utils/metric-value.util';
 import { FrequencyIconComponent, FrequencyIconName } from '../../shared/frequency-icon/frequency-icon.component';
 import { NgbPopover } from '@ng-bootstrap/ng-bootstrap';
 import { MetricInfoPopoverComponent } from '../../shared/metric-info-popover/metric-info-popover.component';
@@ -85,17 +85,25 @@ const YEARLY_BLOCK_SIZE = 5;
   templateUrl: './metric-bowling.component.html',
   styleUrl: './metric-bowling.component.css',
 })
-export class MetricBowlingComponent implements OnInit {
+export class MetricBowlingComponent implements OnInit, OnDestroy {
   @ViewChild('activeInput') activeInputRef?: ElementRef<HTMLInputElement>;
 
   rows: BowlingRow[] = [];
   loading = false;
   error = '';
 
+  // Server-side, case-insensitive partial-or-full title match — same
+  // debounced-350ms/lodash convention as MetricsComponent's own search, just
+  // triggering loadMetrics() (this page's per-lens combined fetch) instead
+  // of a plain paginated list reload.
+  search = '';
+  private readonly debouncedSearch = debounce(() => this.loadMetrics(), 350);
+
   // Flat list of {id, title} for the edit form's "Parent metric" picker —
-  // derived from the same active-metrics fetch loadMetrics() already makes,
-  // no separate request needed (mirrors MetricsComponent's parentOptions,
-  // just sourced from the list this page already loads).
+  // a metric can parent one of any frequency, so unlike loadMetrics() (now
+  // scoped to a single lens) this is its own small fetch of every active
+  // metric, refreshed after create/update/delete rather than derived from
+  // `rows` (mirrors MetricsComponent's own loadParentOptions).
   parentOptions: MetricParentLite[] = [];
 
   formOpen = false;
@@ -114,9 +122,10 @@ export class MetricBowlingComponent implements OnInit {
   // Which frequency's metrics are currently shown — the lenses have
   // different navigators (Daily: month+day-of-month; Weekly: year+week-of-
   // year; Monthly: year+month-of-year; Quarterly: year+quarter-of-year;
-  // Yearly: start-year+year-of-block) and can't share one header row, so
-  // only one is ever visible at a time (see rows filtered by
-  // `row.item.frequency === lens` in the template).
+  // Yearly: start-year+year-of-block) and can't share one header row.
+  // `rows` only ever holds this lens's metrics (loadMetrics() fetches
+  // exactly one frequency at a time — see MetricService.getBowlingMetrics),
+  // so switching lenses reloads rather than re-filtering a mixed batch.
   lens: FrequencyIconName = 'monthly';
 
   // 'YYYY-MM', bound directly to <input type="month"> — Daily lens only.
@@ -166,6 +175,15 @@ export class MetricBowlingComponent implements OnInit {
     this.categoryService.ensureCategoriesLoaded();
     this.userService.ensureUsersLoaded();
     this.loadMetrics();
+    this.loadParentOptions();
+  }
+
+  ngOnDestroy() {
+    this.debouncedSearch.cancel();
+  }
+
+  onSearchChange() {
+    this.debouncedSearch();
   }
 
   private defaultMonthStr(): string {
@@ -250,12 +268,6 @@ export class MetricBowlingComponent implements OnInit {
     return `${DAILY_WINDOW_SIZE} Days`;
   }
 
-  // Whether any loaded metric actually matches the current lens — drives the
-  // "switch lens or create one" empty state distinct from "no metrics at all".
-  get hasVisibleRows(): boolean {
-    return this.rows.some((r) => r.item.frequency === this.lens);
-  }
-
   // Monday of ISO week `week` in `selectedYear` — Jan 4th always falls in
   // week 1 (ISO 8601), so week 1's Monday is Jan 4th walked back to the
   // Monday of its own week; every other week is just +7 days from there.
@@ -319,6 +331,9 @@ export class MetricBowlingComponent implements OnInit {
     this.lens = lens;
     if (lens === 'weekly') this.jumpToCurrentWeek();
     else this.windowIndex = 0;
+    // rows only ever holds one lens's metrics now (see loadMetrics) — a
+    // switch needs a fresh fetch, not a re-filter of an already-loaded batch.
+    this.loadMetrics();
   }
 
   onMonthChange() {
@@ -375,30 +390,38 @@ export class MetricBowlingComponent implements OnInit {
         next: (res) => {
           this.formLoading = false;
           this.closeForm();
-          const item: MetricListItem = {
-            id: res.metric.id,
-            sequenceId: res.metric.sequenceId,
-            title: res.metric.title,
-            department: res.metric.department,
-            category: res.metric.category,
-            owner: res.metric.owner,
-            status: res.metric.status,
-            dataType: res.metric.dataType,
-            frequency: res.metric.frequency,
-            members: res.metric.members?.map((m) => ({ userId: m.user.id, role: m.role })),
-          };
-          this.rows.push({
-            item,
-            periods: {},
-            originalPeriods: {},
-            actualTotal: 0,
-            targetTotal: 0,
-            loading: true,
-            saving: false,
-            error: '',
-          });
-          this.parentOptions = this.rows.map((r) => ({ id: r.item.id, title: r.item.title }));
-          this.loadTracking(this.rows.length - 1);
+          // The form defaults to the current lens ([defaultFrequency]="lens"
+          // in the template) but the user can still change it before
+          // submitting — only add the row if it actually belongs on THIS
+          // lens's now-scoped `rows`; otherwise it exists, just under a
+          // different lens the user isn't currently viewing.
+          if (res.metric.frequency === this.lens) {
+            const item: MetricListItem = {
+              id: res.metric.id,
+              sequenceId: res.metric.sequenceId,
+              title: res.metric.title,
+              department: res.metric.department,
+              category: res.metric.category,
+              owner: res.metric.owner,
+              status: res.metric.status,
+              dataType: res.metric.dataType,
+              frequency: res.metric.frequency,
+              isLocked: res.metric.isLocked,
+              members: res.metric.members?.map((m) => ({ userId: m.user.id, role: m.role })),
+            };
+            this.rows.push({
+              item,
+              periods: {},
+              originalPeriods: {},
+              actualTotal: 0,
+              targetTotal: 0,
+              loading: true,
+              saving: false,
+              error: '',
+            });
+            this.loadTracking(this.rows.length - 1);
+          }
+          this.loadParentOptions();
         },
         error: (err) => {
           this.formError = err.error?.message || 'Failed to save metric';
@@ -414,11 +437,13 @@ export class MetricBowlingComponent implements OnInit {
       next: (res) => {
         this.formLoading = false;
         this.closeForm();
-        if (res.metric.status !== 'active') {
-          // No longer active — this view only shows active metrics.
+        // No longer active, or its frequency moved it out of the lens
+        // currently being viewed — either way it no longer belongs in
+        // `rows`. Otherwise its frequency (hence periods' day/week/etc.
+        // axis) is unchanged, so there's nothing to re-fetch.
+        if (res.metric.status !== 'active' || res.metric.frequency !== this.lens) {
           this.rows.splice(rowIndex, 1);
         } else {
-          const frequencyChanged = this.rows[rowIndex].item.frequency !== res.metric.frequency;
           this.rows[rowIndex].item = {
             id: res.metric.id,
             sequenceId: res.metric.sequenceId,
@@ -429,14 +454,11 @@ export class MetricBowlingComponent implements OnInit {
             status: res.metric.status,
             dataType: res.metric.dataType,
             frequency: res.metric.frequency,
+            isLocked: res.metric.isLocked,
             members: res.metric.members?.map((m) => ({ userId: m.user.id, role: m.role })),
           };
-          // The row's already-loaded periods were fetched under the OLD
-          // frequency's axis (days vs weeks) — re-fetch under the new one
-          // rather than leaving stale/mismatched data in place.
-          if (frequencyChanged) this.loadTracking(rowIndex);
         }
-        this.parentOptions = this.rows.map((r) => ({ id: r.item.id, title: r.item.title }));
+        this.loadParentOptions();
       },
       error: (err) => {
         this.formError = err.error?.message || 'Failed to save metric';
@@ -454,7 +476,7 @@ export class MetricBowlingComponent implements OnInit {
         this.deleteLoading = false;
         this.closeForm();
         this.rows.splice(rowIndex, 1);
-        this.parentOptions = this.rows.map((r) => ({ id: r.item.id, title: r.item.title }));
+        this.loadParentOptions();
       },
       error: (err) => {
         this.deleteLoading = false;
@@ -463,24 +485,29 @@ export class MetricBowlingComponent implements OnInit {
     });
   }
 
+  // Scoped to exactly one lens per call — the currently active `lens`, plus
+  // its own year/month (daily: selectedMonthStr's year+month; everything
+  // else: selectedYear, no month) and the current search text. Switching
+  // lens/year/month/search all re-call this rather than filtering an
+  // already-loaded everything-batch (see MetricService.getBowlingMetrics).
   private loadMetrics() {
     this.loading = true;
     this.error = '';
-    this.metricService.getMetrics(1, 100, 'active').subscribe({
+    const year = this.lens === 'daily' ? this.year : this.selectedYear;
+    const month = this.lens === 'daily' ? this.month : null;
+    this.metricService.getBowlingMetrics(this.lens, year, month, this.search).subscribe({
       next: (res) => {
-        this.rows = res.metrics.map((item) => ({
+        this.rows = res.metrics.map(({ tracking, ...item }) => ({
           item,
-          periods: {},
-          originalPeriods: {},
-          actualTotal: 0,
-          targetTotal: 0,
-          loading: true,
+          periods: tracking.periods,
+          originalPeriods: cloneDeep(tracking.periods),
+          actualTotal: tracking.actualTotal,
+          targetTotal: tracking.targetTotal,
+          loading: false,
           saving: false,
           error: '',
         }));
-        this.parentOptions = res.metrics.map((m) => ({ id: m.id, title: m.title }));
         this.loading = false;
-        this.loadAllTracking();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to load metrics';
@@ -489,15 +516,26 @@ export class MetricBowlingComponent implements OnInit {
     });
   }
 
+  // A metric can parent one of any frequency, so this deliberately loads
+  // every active metric regardless of the current lens/search — independent
+  // of loadMetrics() above, refreshed after create/update/delete instead of
+  // derived from `rows`.
+  private loadParentOptions() {
+    this.metricService.getMetrics(1, 100, 'active').subscribe({
+      next: (res) => (this.parentOptions = res.metrics.map((m) => ({ id: m.id, title: m.title }))),
+      error: () => {},
+    });
+  }
+
   private loadAllTracking() {
     this.rows.forEach((_, rowIndex) => this.loadTracking(rowIndex));
   }
 
-  // Every row loads regardless of which lens is currently visible (see
-  // `lens`) — each metric fetches under its OWN frequency using the
-  // matching navigator state (daily rows: year+month from selectedMonthStr;
-  // weekly rows: selectedYear, no month), so switching lenses never needs a
-  // reload, just a re-filter of already-loaded rows.
+  // Refreshes one row's tracking under its own frequency's matching
+  // navigator state (daily rows: year+month from selectedMonthStr;
+  // everything else: selectedYear, no month) — used by onMonthChange/
+  // onYearChange (every currently-loaded row already shares the active
+  // lens) and by submitForm/openEdit for a single just-created/edited row.
   private loadTracking(rowIndex: number) {
     const row = this.rows[rowIndex];
     row.loading = true;
@@ -522,6 +560,16 @@ export class MetricBowlingComponent implements OnInit {
 
   cellValue(rowIndex: number, row: RowKey, day: number): number | null {
     return this.rows[rowIndex].periods[String(day)]?.[row] ?? null;
+  }
+
+  // Same RAG status a period may carry from the Sheet tab (status is only
+  // ever derived/saved there — see calculateRagStatus in metric-value.util —
+  // Bowling never computes or edits it, just reflects whatever's already on
+  // the period). Reused on the Actual cell only, mirroring the Sheet tab's
+  // own Status column being keyed off Actual against lowest/medium/upper.
+  actualCellStatusColor(rowIndex: number, day: number): string | null {
+    const status = this.rows[rowIndex].periods[String(day)]?.status;
+    return status ? STATUS_COLORS[status] : null;
   }
 
   // Decimal-formats a raw number per the viewing user's own decimalPoints
@@ -587,9 +635,13 @@ export class MetricBowlingComponent implements OnInit {
 
   // A Viewer on this specific metric's team can't enter its Bowling View
   // cells — mirrors the metric-form-modal's own canEditMetric gate, just
-  // per-row since this page shows many metrics at once.
+  // per-row since this page shows many metrics at once. A locked metric
+  // blocks everyone, including whoever would otherwise pass
+  // canEditMetricListItem — see metric-value.util.ts's canLockMetricListItem
+  // for who may lock/unlock it (shown as a small lock icon next to the
+  // metric name below, see metric-bowling.component.html).
   canEditRow(row: BowlingRow): boolean {
-    return canEditMetricListItem(this.auth.currentUser(), row.item);
+    return !row.item.isLocked && canEditMetricListItem(this.auth.currentUser(), row.item);
   }
 
   startEdit(rowIndex: number, row: RowKey, day: number) {

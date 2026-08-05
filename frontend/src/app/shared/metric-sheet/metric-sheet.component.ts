@@ -13,7 +13,7 @@ import { ThemeService } from '../../core/services/theme.service';
 import { Metric, MetricColumnLabels } from '../../models/metric.model';
 import { PeriodValue, TrackingDiff, MetricRagStatus, MetricFrequency } from '../../models/metric-tracking.model';
 import { MONTH_LABELS, periodCount, isoWeekInfo, weeklyQuarterRanges } from '../utils/metric-period.util';
-import { formatMetricValue, metricColumnLabel, DEFAULT_METRIC_COLUMN_LABELS, calculateRagStatus } from '../utils/metric-value.util';
+import { formatMetricValue, metricColumnLabel, DEFAULT_METRIC_COLUMN_LABELS, calculateRagStatus, STATUS_COLORS } from '../utils/metric-value.util';
 import { FrequencyIconComponent } from '../frequency-icon/frequency-icon.component';
 
 const DEFAULT_DECIMAL_POINTS = 2;
@@ -66,7 +66,6 @@ registerAllModules();
 
 type FieldKey = 'actual' | 'target' | 'lowest' | 'medium' | 'upper' | 'status' | 'note';
 const FIELD_KEYS: FieldKey[] = ['actual', 'target', 'lowest', 'medium', 'upper', 'status', 'note'];
-const STATUS_COLORS: Record<string, string> = { Red: '#ef4444', Yellow: '#f59e0b', Green: '#22c55e' };
 // '#' only ever holds a 1-2 digit sequence number — narrow and fixed, unlike
 // every other column, which should share the rest of the grid's width. Used
 // with stretchH: 'last' (not 'all') on the periods-as-rows layouts below: with

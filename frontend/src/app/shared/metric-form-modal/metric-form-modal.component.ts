@@ -33,7 +33,7 @@ import { MetricSheetComponent } from '../metric-sheet/metric-sheet.component';
 import { MetricTeamsComponent } from '../metric-teams/metric-teams.component';
 import { currentPeriodInfo, periodCount } from '../utils/metric-period.util';
 import { FREQUENCY_UNIT_ABBR, FREQUENCY_UNIT_LABEL, TREND_ACTUAL_COLOR, TREND_TARGET_COLOR, trendPeriodFullLabel, trendPeriodLabel, trendWindow } from '../utils/metric-trend.util';
-import { formatMetricValue, percentOfTarget, metricColumnLabel } from '../utils/metric-value.util';
+import { formatMetricValue, percentOfTarget, metricColumnLabel, canLockMetricListItem } from '../utils/metric-value.util';
 import { Department } from '../../models/department.model';
 import { Category } from '../../models/category.model';
 import { User } from '../../models/user.model';
@@ -277,9 +277,12 @@ export class MetricFormModalComponent implements OnChanges {
   // "don't lock out existing metrics" safety net the backend enforces);
   // 'create' mode has no `initial` to check membership against, so it's
   // always editable. This only gates the UI — the backend re-checks on
-  // every write regardless.
+  // every write regardless. A locked metric overrides all of this — nothing
+  // is editable (not even for the owner/Admin who locked it) until
+  // canLockMetric below unlocks it again.
   get canEditMetric(): boolean {
     if (!this.initial) return true;
+    if (this.initial.isLocked) return false;
     const user = this.auth.currentUser();
     if (!user) return false;
     if (user.role === 'Admin') return true;
@@ -296,6 +299,33 @@ export class MetricFormModalComponent implements OnChanges {
     if (user.role === 'Admin' || user.role === 'Manager') return true;
     if (this.initial.createdBy?.id === user.id || this.initial.owner?.id === user.id) return true;
     return this.initial.members?.some((m) => m.user.id === user.id && m.role === 'owner') ?? false;
+  }
+
+  // Frontend mirror of backend's canLockMetric — narrower than
+  // canManageMetricMembers on purpose (owner/Admin only), and NOT gated by
+  // isLocked itself: this must stay true while locked, since toggling the
+  // lock back off is the only edit a locked metric ever allows.
+  get canLockMetric(): boolean {
+    if (!this.initial) return false;
+    return canLockMetricListItem(this.auth.currentUser(), this.initial);
+  }
+
+  lockLoading = false;
+
+  toggleLock() {
+    if (!this.initial || !this.canLockMetric || this.lockLoading) return;
+    const locked = !this.initial.isLocked;
+    this.lockLoading = true;
+    this.metricSvc.lockMetric(this.initial.id, locked).subscribe({
+      next: (res) => {
+        this.initial = res.metric;
+        this.lockLoading = false;
+      },
+      error: (err) => {
+        this.localError = err.error?.message || 'Failed to update lock';
+        this.lockLoading = false;
+      },
+    });
   }
 
   onMetricMembersChanged(members: MetricMember[]) {

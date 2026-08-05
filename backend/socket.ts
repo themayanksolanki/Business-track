@@ -57,6 +57,10 @@ interface ClientToServerEvents {
   'call:video': (payload: { callId: string; off: boolean }) => void;
   'call:screen-share': (payload: { callId: string; sharing: boolean }) => void;
   'call:mobile-device': (payload: { callId: string; mobile: boolean }) => void;
+  // Ephemeral, never persisted — purely a relay so the other party's screen
+  // can play the same floating-emoji burst animation (see
+  // shared/reaction-burst).
+  'call:reaction': (payload: { callId: string; emoji: string }) => void;
   'message:seen': (payload: { from: string | number }) => void;
   'group:message:send': (payload: {
     groupId: string | number;
@@ -78,6 +82,9 @@ interface ClientToServerEvents {
   'meeting:video-toggle': (payload: { meetingId: number; off: boolean }) => void;
   'meeting:screen-share': (payload: { meetingId: number; sharing: boolean }) => void;
   'meeting:hand-raise': (payload: { meetingId: number; raised: boolean }) => void;
+  // Ephemeral, never persisted — same idea as call:reaction above, fanned
+  // out to the whole room instead of a single other party.
+  'meeting:reaction': (payload: { meetingId: number; emoji: string }) => void;
   'meeting:mobile-device': (payload: { meetingId: number; mobile: boolean }) => void;
   'meeting:chat-message': (payload: { meetingId: number; message: string }) => void;
   'meeting:kick': (payload: { meetingId: number; targetSocketId: string }) => void;
@@ -233,11 +240,28 @@ export function setupSocket(server: HttpServer) {
   // rather than imported, since that handler needs an Express req/res and
   // this fires from a plain leave/disconnect with neither.
   const endMeetingRecord = async (meetingId: number) => {
-    await prisma.$transaction([
+    const [updatedMeeting] = await prisma.$transaction([
       prisma.meeting.update({ where: { id: meetingId }, data: { status: 'ended', endedAt: new Date() } }),
       prisma.meetingParticipant.updateMany({ where: { meetingId, leftAt: null }, data: { leftAt: new Date() } }),
     ]);
     kickedFromMeeting.delete(meetingId);
+
+    // Same group-call-ended fan-out meetingController.ts's REST endMeeting
+    // triggers (see utils/groupCallEvents.ts) — duplicated rather than
+    // imported: this path has no Express req/res, and importing from
+    // groupCallEvents.ts here would create a cycle (it already imports
+    // emitToUser from this file). Tells every group member, not just
+    // whoever was still in the mesh room, so an unopened "Join Now" button
+    // or ring elsewhere in the app clears once the room empties out.
+    if (updatedMeeting.groupId) {
+      const groupId = updatedMeeting.groupId;
+      const [participants, memberIds] = await Promise.all([
+        prisma.meetingParticipant.findMany({ where: { meetingId }, select: { userId: true, joinedAt: true } }),
+        prisma.groupMember.findMany({ where: { groupId }, select: { userId: true } }),
+      ]);
+      const payload = { meetingId, groupId, endedAt: updatedMeeting.endedAt, participants };
+      memberIds.forEach((m) => emitToUser(m.userId, 'group-call:ended', payload));
+    }
   };
 
   // Ends the meeting once the room is empty — the host leaving while
@@ -353,6 +377,16 @@ export function setupSocket(server: HttpServer) {
       const room = meetingRoom(meetingId);
       if (!socket.rooms.has(room)) return;
       socket.to(room).emit('meeting:hand-raise', { socketId: socket.id, raised });
+    });
+
+    // Ephemeral relay only, same as meeting:hand-raise above — the sender
+    // plays its own burst animation immediately client-side (see
+    // MeetingSessionService.sendReaction) rather than waiting on this to
+    // echo back, so this only ever needs to reach everyone ELSE in the room.
+    socket.on('meeting:reaction', ({ meetingId, emoji }) => {
+      const room = meetingRoom(meetingId);
+      if (!socket.rooms.has(room)) return;
+      socket.to(room).emit('meeting:reaction', { socketId: socket.id, emoji });
     });
 
     socket.on('meeting:mobile-device', ({ meetingId, mobile }) => {
@@ -689,6 +723,7 @@ export function setupSocket(server: HttpServer) {
     socket.on('call:video',          ({ callId, off })        => { const o = otherParty(callId); if (o) emitToUser(o, 'call:video',          { off, callId }); });
     socket.on('call:screen-share',   ({ callId, sharing })    => { const o = otherParty(callId); if (o) emitToUser(o, 'call:screen-share',   { sharing, callId }); });
     socket.on('call:mobile-device',  ({ callId, mobile })     => { const o = otherParty(callId); if (o) emitToUser(o, 'call:mobile-device',  { mobile, callId }); });
+    socket.on('call:reaction',       ({ callId, emoji })      => { const o = otherParty(callId); if (o) emitToUser(o, 'call:reaction',       { emoji, callId }); });
 
     // ── Meeting room signaling (N-way mesh) ─────────────────────────
     registerMeetingHandlers(appSocket, { kind: 'user', id: myId });

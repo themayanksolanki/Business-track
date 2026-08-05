@@ -10,6 +10,7 @@ import {
   UpdateProjectPayload,
   PaginatedProjects,
   PaginatedProjectPickerRows,
+  ProjectStats,
 } from '../../models/project.model';
 import { Attachment, AttachmentsAdapter, DownloadInfo } from '../../models/attachment.model';
 import { LinkedEvent } from '../../models/event.model';
@@ -85,6 +86,14 @@ export class ProjectService {
     if (status && status !== 'all') params['status'] = status;
     if (includeDrafts) params['includeDrafts'] = 'true';
     return this.http.get<PaginatedProjects>(this.api, { params });
+  }
+
+  // Status breakdown + overdue count for the Projects page's stats cards —
+  // `extra` is the same sort/filter query-param map buildQueryParams()
+  // builds for getProjects, minus status/includeDrafts (the backend ignores
+  // those for this endpoint so the cards stay tab-independent).
+  getProjectStats(extra?: Record<string, string>) {
+    return this.http.get<ProjectStats>(`${this.api}/stats`, { params: extra ?? {} });
   }
 
   // Narrow, paginated, server-searched project list for pickers (e.g. the

@@ -9,11 +9,13 @@ import { Meeting, MeetingUser } from '../../../models/meeting.model';
 import { VideoTileComponent } from '../video-tile/video-tile.component';
 import { NotificationService } from '../../../shared/notification.service';
 import { CallIconComponent } from '../../../shared/call-icon/call-icon.component';
+import { ReactionBurstComponent } from '../../../shared/reaction-burst/reaction-burst.component';
+import { QUICK_REACTIONS } from '../../../shared/utils/reactions';
 
 @Component({
   selector: 'app-meeting-room',
   standalone: true,
-  imports: [CommonModule, FormsModule, VideoTileComponent, CallIconComponent],
+  imports: [CommonModule, FormsModule, VideoTileComponent, CallIconComponent, ReactionBurstComponent],
   templateUrl: './meeting-room.component.html',
   styleUrl: './meeting-room.component.css',
 })
@@ -29,9 +31,12 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   @Output() left = new EventEmitter<void>();
 
   @ViewChild('chatInput') chatInputRef?: ElementRef<HTMLInputElement>;
+  @ViewChild(ReactionBurstComponent) reactionBurst?: ReactionBurstComponent;
 
   showChatPanel = false;
   chatText = '';
+  showReactionPicker = false;
+  readonly quickReactions = QUICK_REACTIONS;
 
   private subs = new Subscription();
 
@@ -74,6 +79,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         this.left.emit();
       })
     );
+    this.subs.add(this.meetingSessionSvc.reactions$.subscribe((emoji) => this.reactionBurst?.burst(emoji)));
   }
 
   ngOnDestroy() {
@@ -157,6 +163,11 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     // again) — double-checked here too, same convention as kickTile above.
     if (!this.isHost || this.meetingSessionSvc.isPeerMuted(socketId)) return;
     this.meetingSessionSvc.muteParticipant(socketId);
+  }
+
+  sendReaction(emoji: string) {
+    this.meetingSessionSvc.sendReaction(emoji);
+    this.showReactionPicker = false;
   }
 
   toggleChatPanel() {

@@ -2,6 +2,7 @@
    mode" like every video-call product (Zoom, Meet, Teams) uses, since a
    bright white call surface is genuinely worse for actually watching video. */
 .meeting-room {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -244,6 +245,50 @@
 .ctrl-btn:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-1px); }
 .ctrl-btn.active { background: #ef4444; }
 .ctrl-btn.active:hover { background: #dc2626; }
+
+/* ══ Reaction picker ═════════════════════════════════════════════ */
+.reaction-picker-wrap {
+  position: relative;
+}
+
+.reaction-picker {
+  position: absolute;
+  bottom: calc(100% + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px;
+  background: rgba(30, 41, 59, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  backdrop-filter: blur(18px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  animation: reaction-picker-in 0.15s ease;
+  white-space: nowrap;
+}
+
+@keyframes reaction-picker-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.reaction-picker-btn {
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.15s;
+}
+.reaction-picker-btn:hover  { background: rgba(255, 255, 255, 0.14); }
+.reaction-picker-btn:active { transform: scale(1.3); }
 
 .ctrl-btn-leave {
   width: auto;

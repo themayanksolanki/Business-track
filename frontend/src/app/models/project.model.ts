@@ -3,6 +3,7 @@ import { Department } from './department.model';
 import { Category } from './category.model';
 import { TagLite } from './tag.model';
 import { ProjectRoleLite } from './project-role.model';
+import { StatusForm } from './status-form.model';
 
 export type ProjectPriority = 'low' | 'medium' | 'high';
 export type ProjectEffort = 'low' | 'medium' | 'high';
@@ -63,6 +64,13 @@ export interface Project {
   tags: TagLite[];
   members: ProjectMember[];
   detailsLayout: ProjectDetailsLayoutEntry[];
+  // Status Report tab — which admin-authored template is currently selected
+  // (reloaded each visit instead of re-prompting the picker every time) and
+  // the default recipients auto-filled into the send-to box when composing
+  // a new report. See ProjectStatusReportComponent / StatusReportService.
+  activeStatusFormId: number | null;
+  activeStatusForm: StatusForm | null;
+  statusReportRecipients: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -103,6 +111,17 @@ export interface PaginatedProjects {
   page: number;
   limit: number;
   totalPages: number;
+}
+
+// Backs GET /projects/stats — status breakdown + overdue count for the
+// Projects page's stats cards; see ProjectService.getProjectStats.
+export interface ProjectStats {
+  total: number;
+  active: number;
+  completed: number;
+  archived: number;
+  draft: number;
+  overdue: number;
 }
 
 // Narrow row shape for pickers (e.g. the event "Tasks" tab's project search)

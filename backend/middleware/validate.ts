@@ -715,6 +715,12 @@ export const validateMetric = (req: Request, res: Response, next: NextFunction) 
   next();
 };
 
+export const validateMetricLock = (req: Request, res: Response, next: NextFunction) => {
+  const { locked } = req.body;
+  if (typeof locked !== 'boolean') return next(new AppError('locked must be a boolean', 400));
+  next();
+};
+
 export const validateMetricId = validateParamId('metricId');
 export const validateSubMetricId = validateParamId('subMetricId');
 
@@ -768,6 +774,30 @@ const MAX_METRIC_NOTE_LENGTH = 2000;
 
 export const validateTrackingParams = (req: Request, res: Response, next: NextFunction) => {
   const frequency = String(req.params.frequency);
+  const year = Number(req.query.year);
+  const month = req.query.month !== undefined ? Number(req.query.month) : undefined;
+
+  if (!VALID_METRIC_FREQUENCIES.includes(frequency))
+    return next(new AppError(`frequency must be one of: ${VALID_METRIC_FREQUENCIES.join(', ')}`, 400));
+
+  if (!IMPLEMENTED_METRIC_FREQUENCIES.includes(frequency))
+    return next(new AppError(`'${frequency}' tracking is not implemented yet`, 400));
+
+  if (!Number.isInteger(year) || year < 2000 || year > 2100)
+    return next(new AppError('year must be a valid 4-digit year', 400));
+
+  if (frequencyRequiresMonth(frequency) && (!Number.isInteger(month) || month! < 1 || month! > 12))
+    return next(new AppError(`month must be between 1 and 12 for ${frequency} frequency`, 400));
+
+  next();
+};
+
+// Bowling View's combined metrics+tracking load — scoped to exactly one
+// lens (frequency) per call now, so this checks frequency/year/month exactly
+// like validateTrackingParams does, just reading them from the query string
+// (?frequency=&year=&month=) instead of a :frequency route param.
+export const validateBowlingQuery = (req: Request, res: Response, next: NextFunction) => {
+  const frequency = String(req.query.frequency);
   const year = Number(req.query.year);
   const month = req.query.month !== undefined ? Number(req.query.month) : undefined;
 
@@ -1044,6 +1074,74 @@ export const validateStatusForm = (req: Request, res: Response, next: NextFuncti
         : 0;
       if (validOptionCount < 2) return next(new AppError(`"${q.label}" needs at least 2 options`, 400));
     }
+  }
+
+  next();
+};
+
+// Project Detail's Status Report tab — picking which admin-authored
+// StatusForm template is currently selected. null clears back to "No
+// Template Selected".
+export const validateStatusReportTemplate = (req: Request, res: Response, next: NextFunction) => {
+  const { statusFormId } = req.body;
+  if (statusFormId !== null && !isValidId(statusFormId))
+    return next(new AppError('statusFormId must be a valid ID or null', 400));
+  next();
+};
+
+const validateEmailList = (fieldName: string, emails: unknown): string | null => {
+  if (!Array.isArray(emails)) return `${fieldName} must be an array`;
+  for (const email of emails) {
+    if (typeof email !== 'string' || !EMAIL_REGEX.test(email)) return `"${email}" is not a valid email address`;
+  }
+  return null;
+};
+
+// Project's default Status Report recipients — auto-filled into the send-to
+// box when composing a new report (see statusReportController.ts).
+export const validateStatusReportRecipients = (req: Request, res: Response, next: NextFunction) => {
+  const error = validateEmailList('recipients', req.body.recipients);
+  if (error) return next(new AppError(error, 400));
+  next();
+};
+
+// A single Save/Save-and-Send on the Status Report tab — answers are a full
+// snapshot (not a live reference to StatusFormQuestion rows), so this checks
+// shape, not that questionIds still exist on the live template.
+export const validateStatusReportSubmission = (req: Request, res: Response, next: NextFunction) => {
+  const { statusFormId, subject, answers, send, recipients } = req.body;
+
+  if (!isValidId(statusFormId)) return next(new AppError('statusFormId is required and must be a valid ID', 400));
+
+  if (subject !== undefined && typeof subject !== 'string')
+    return next(new AppError('subject must be a string', 400));
+
+  if (!Array.isArray(answers)) return next(new AppError('answers must be an array', 400));
+  for (const a of answers) {
+    if (!a || typeof a !== 'object') return next(new AppError('Each answer must be an object', 400));
+    if (!isValidId(a.questionId)) return next(new AppError('Each answer needs a valid questionId', 400));
+    if (typeof a.label !== 'string' || !a.label)
+      return next(new AppError('Each answer needs a label', 400));
+    if (!VALID_STATUS_FORM_QUESTION_TYPES.includes(a.type))
+      return next(new AppError(`Each answer's type must be one of: ${VALID_STATUS_FORM_QUESTION_TYPES.join(', ')}`, 400));
+    // 'attachment' is a pasted link, not a real upload (see
+    // project-status-report.component.ts) — still worth the same http(s)-only
+    // check every other link field in this file enforces (e.g.
+    // validateAttachmentLink), rather than letting a `javascript:`/arbitrary
+    // string through into the rendered email as a clickable link.
+    if (a.type === 'attachment' && a.value != null && a.value !== '' && !URL_REGEX.test(String(a.value)))
+      return next(new AppError(`"${a.label}" must be a valid http(s) URL`, 400));
+  }
+
+  if (send !== undefined && typeof send !== 'boolean') return next(new AppError('send must be a boolean', 400));
+
+  if (send) {
+    if (!Array.isArray(recipients) || recipients.length === 0)
+      return next(new AppError('At least one recipient is required to send this report', 400));
+    const error = validateEmailList('recipients', recipients);
+    if (error) return next(new AppError(error, 400));
+  } else if (recipients !== undefined && !Array.isArray(recipients)) {
+    return next(new AppError('recipients must be an array', 400));
   }
 
   next();

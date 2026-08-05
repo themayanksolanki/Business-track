@@ -60,6 +60,10 @@ export const savePeriodDiff = async (req: Request, res: Response, next: NextFunc
     if (!metric) return;
     if (!canEditMetric(req.user! as AuthUser, metric))
       return next(new AppError('You do not have edit access to this metric', 403));
+    // Locking freezes tracking data too (Sheet tab, Bowling View cells) —
+    // same rule as updateMetric, see metricController.ts's lockMetric.
+    if (metric.isLocked)
+      return next(new AppError('This metric is locked and cannot be edited', 403));
 
     const frequency = req.params.frequency as MetricFrequency;
     const year = Number(req.query.year);

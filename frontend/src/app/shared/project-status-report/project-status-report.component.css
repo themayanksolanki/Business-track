@@ -1,0 +1,217 @@
+.status-report-tab {
+  max-width: 720px;
+}
+
+.status-report-readonly-banner {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  margin-bottom: 16px;
+}
+
+.status-report-template-select {
+  max-width: 360px;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.field-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin: 6px 0 0;
+}
+
+.status-report-empty {
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg-muted);
+}
+
+.status-report-form-card {
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg-card);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.status-report-form-title {
+  font-weight: 700;
+}
+
+.status-report-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.status-report-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.status-report-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.status-report-defaults-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border-strong);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.status-report-defaults-panel {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--bg-muted);
+}
+
+/* ── History list ─────────────────────────────────────────────── */
+.status-report-history-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.status-report-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  background: var(--bg-card);
+  transition: background 0.15s;
+}
+.status-report-history-row:hover {
+  background: var(--bg-hover);
+}
+
+.status-report-history-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.status-report-history-subject {
+  font-weight: 600;
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.status-report-history-form {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.status-report-history-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.status-report-sent-badge {
+  color: #16a34a;
+  font-weight: 600;
+}
+.status-report-notsent-badge {
+  color: #94a3b8;
+}
+
+/* ── Preview modal ────────────────────────────────────────────── */
+.status-report-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1080;
+  padding: 24px;
+}
+
+.status-report-preview-modal {
+  width: 100%;
+  max-width: 560px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.status-report-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.status-report-preview-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.status-report-preview-answer {
+  margin-bottom: 14px;
+}
+.status-report-preview-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.status-report-preview-value {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+.status-report-preview-text {
+  white-space: pre-wrap;
+}
+
+.status-report-preview-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-strong);
+}

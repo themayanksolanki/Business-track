@@ -1,10 +1,102 @@
+.page-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.page-sub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+}
+
+.section-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
 .org-card {
   padding: 20px 24px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
 }
 
+.org-logo-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ── Org detail grid (view mode) ── */
+.org-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.org-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--bg-muted);
+}
+
+.org-detail-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.org-detail-icon-blue  { background: rgba(59,130,246,0.14);  color: #3b82f6; }
+.org-detail-icon-green { background: rgba(34,197,94,0.14);   color: #16a34a; }
+.org-detail-icon-amber { background: rgba(245,158,11,0.14);  color: #d97706; }
+
+.org-detail-text {
+  min-width: 0;
+}
+
+.org-detail-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.org-detail-value {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .org-detail-icon-blue  { background: rgba(59,130,246,0.2);  color: #93c5fd; }
+[data-theme="dark"] .org-detail-icon-green { background: rgba(34,197,94,0.2);   color: #86efac; }
+[data-theme="dark"] .org-detail-icon-amber { background: rgba(245,158,11,0.2);  color: #fcd34d; }
+
+/* ── Edit form ── */
 .field-label {
   display: block;
   font-size: 0.8rem;
@@ -28,6 +120,21 @@
   margin-top: 5px;
 }
 
+/* Plain read-only text instead of a disabled <input> — a permanently-locked
+   fact (set once at signup) should read as static info, not a broken form
+   field a screen reader announces as disabled. */
+.org-readonly-field {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .org-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -40,6 +147,59 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.org-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+/* ── Member search ── */
+.org-search-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 180px;
+}
+
+.org-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.org-search-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 10px 0 30px;
+  border: 1px solid var(--border-strong);
+  border-radius: 99px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+}
+.org-search-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+/* ── Empty states ── */
+.org-empty-state {
+  text-align: center;
+  padding: 32px 12px;
+  color: var(--text-muted);
+}
+.org-empty-state-sm {
+  padding: 18px 12px;
+}
+.org-empty-state i {
+  color: var(--text-dim);
 }
 
 /* ── Member / invite rows ── */
@@ -47,7 +207,7 @@
 .org-invite-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .org-member-row,
@@ -55,8 +215,16 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 4px;
+  padding: 10px 8px;
+  margin: 0 -8px;
+  border-radius: 8px;
   border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+.org-member-row:hover,
+.org-invite-row:hover {
+  background: var(--bg-hover);
 }
 
 .org-member-row:last-child,
@@ -85,11 +253,17 @@
   font-size: 0.88rem;
   font-weight: 600;
   color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .org-member-email {
   font-size: 0.78rem;
   color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .org-role-badge {
@@ -98,6 +272,7 @@
   padding: 3px 10px;
   border-radius: 99px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .role-admin     { background: #fef3c7; color: #92400e; }
@@ -128,3 +303,31 @@
 [data-theme="dark"] .role-manager   { background: rgba(59,130,246,0.18); color: #93c5fd; }
 [data-theme="dark"] .role-team-lead { background: rgba(139,92,246,0.18); color: #c4b5fd; }
 [data-theme="dark"] .role-user      { background: rgba(34,197,94,0.18); color: #86efac; }
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .org-card,
+  .org-section {
+    padding: 16px 16px;
+  }
+  .org-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .org-search-wrap {
+    width: 100%;
+  }
+  .org-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .org-member-row,
+  .org-invite-row {
+    flex-wrap: wrap;
+  }
+  .org-role-badge {
+    margin-left: 48px;
+  }
+}

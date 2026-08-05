@@ -442,6 +442,34 @@
   box-shadow: 0 4px 14px rgba(59,130,246,0.4);
 }
 
+/* ══ "Join Now" — ongoing group call banner in the header ══════════ */
+.join-now-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 37px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 99px;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(34,197,94,0.4);
+  animation: join-now-in 0.25s ease, join-now-pulse 1.6s ease infinite 0.25s;
+}
+.join-now-btn:hover { transform: scale(1.04); }
+
+@keyframes join-now-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes join-now-pulse {
+  0%, 100% { box-shadow: 0 3px 10px rgba(34,197,94,0.4); }
+  50%      { box-shadow: 0 3px 16px rgba(34,197,94,0.7); }
+}
+
 /* ══ Messages area ═══════════════════════════════════════════════ */
 .messages-area {
   flex: 1;

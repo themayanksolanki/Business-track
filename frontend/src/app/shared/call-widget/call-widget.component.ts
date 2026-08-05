@@ -10,6 +10,8 @@ import { MeetingUser } from '../../models/meeting.model';
 import { VideoTileComponent } from '../../pages/meet-hub/video-tile/video-tile.component';
 import { NotificationService } from '../notification.service';
 import { CallIconComponent } from '../call-icon/call-icon.component';
+import { ReactionBurstComponent } from '../reaction-burst/reaction-burst.component';
+import { QUICK_REACTIONS } from '../utils/reactions';
 
 // Mounted once at the app root (see app.component.html), so it's in the DOM
 // on every route — that's what lets a call/meeting started elsewhere in the
@@ -20,7 +22,7 @@ import { CallIconComponent } from '../call-icon/call-icon.component';
 @Component({
   selector: 'app-call-widget',
   standalone: true,
-  imports: [CommonModule, VideoTileComponent, CallIconComponent],
+  imports: [CommonModule, VideoTileComponent, CallIconComponent, ReactionBurstComponent],
   templateUrl: './call-widget.component.html',
   styleUrl: './call-widget.component.css',
 })
@@ -28,11 +30,14 @@ export class CallWidgetComponent implements OnInit, OnDestroy {
   @ViewChild('localVideo')  localVideo?:  ElementRef<HTMLVideoElement>;
   @ViewChild('remoteVideo') remoteVideo?: ElementRef<HTMLVideoElement>;
   @ViewChild('callOverlay') callOverlay?: ElementRef<HTMLDivElement>;
+  @ViewChild(ReactionBurstComponent) reactionBurst?: ReactionBurstComponent;
 
   // ── Chat call — view-local chrome (not session state, so it isn't shared
   // across components; reset whenever the call ends) ────────────────────
   chatPipSwapped = false;
   isFullscreen = false;
+  showReactionPicker = false;
+  readonly quickReactions = QUICK_REACTIONS;
 
   private subs = new Subscription();
 
@@ -85,6 +90,15 @@ export class CallWidgetComponent implements OnInit, OnDestroy {
         this.notifications.success('The meeting was ended by the host.');
       })
     );
+    // Only the 1:1 overlay renders <app-reaction-burst> — the meeting mini-
+    // widget deliberately doesn't (see the template), so this only ever
+    // needs to cover callSvc.reactions$.
+    this.subs.add(this.callSvc.reactions$.subscribe((emoji) => this.reactionBurst?.burst(emoji)));
+  }
+
+  sendReaction(emoji: string) {
+    this.callSvc.sendReaction(emoji);
+    this.showReactionPicker = false;
   }
 
   ngOnDestroy() {

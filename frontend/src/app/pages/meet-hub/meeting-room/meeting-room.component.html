@@ -69,6 +69,14 @@
     <button class="ctrl-btn" [class.active]="meetingSessionSvc.handRaised" (click)="meetingSessionSvc.toggleHandRaise()" title="Raise hand">
       <i class="bi bi-hand-index-thumb-fill"></i>
     </button>
+    <div class="reaction-picker-wrap">
+      <div class="reaction-picker" *ngIf="showReactionPicker">
+        <button type="button" class="reaction-picker-btn" *ngFor="let emoji of quickReactions" (click)="sendReaction(emoji)">{{ emoji }}</button>
+      </div>
+      <button class="ctrl-btn" [class.active]="showReactionPicker" (click)="showReactionPicker = !showReactionPicker" title="Send a reaction">
+        <i class="bi bi-emoji-smile-fill"></i>
+      </button>
+    </div>
     <button class="ctrl-btn" *ngIf="!meetingSessionSvc.isGuest" [class.active]="showChatPanel" (click)="toggleChatPanel()" title="Chat">
       <i class="bi bi-chat-dots-fill"></i>
     </button>
@@ -82,4 +90,6 @@
       <i class="bi bi-x-octagon-fill"></i>
     </button>
   </div>
+
+  <app-reaction-burst></app-reaction-burst>
 </div>

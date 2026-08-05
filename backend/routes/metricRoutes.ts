@@ -6,6 +6,8 @@ import {
   validateMetricReorder,
   validateTrackingParams,
   validateTrackingDiff,
+  validateBowlingQuery,
+  validateMetricLock,
   validateMetricLink,
   validateSubMetricId,
   validateAddMetricMember,
@@ -19,6 +21,8 @@ import {
   updateMetric,
   getMetricTiles,
   reorderMetrics,
+  getBowlingMetrics,
+  lockMetric,
 } from '../controllers/metricController.js';
 import { getPeriodData, savePeriodDiff } from '../controllers/metricTrackingController.js';
 import { getSubMetrics, addSubMetric, removeSubMetric } from '../controllers/metricLinkController.js';
@@ -43,11 +47,13 @@ const router = Router();
 
 router.get('/', protect, getMetrics);
 router.post('/', protect, validateMetric, createMetric);
-// Both registered ahead of /:metricId so 'tiles'/'reorder' aren't captured as a metricId.
+// All registered ahead of /:metricId so 'tiles'/'reorder'/'bowling' aren't captured as a metricId.
 router.get('/tiles', protect, getMetricTiles);
 router.patch('/reorder', protect, validateMetricReorder, reorderMetrics);
+router.get('/bowling', protect, validateBowlingQuery, getBowlingMetrics);
 router.get('/:metricId', protect, validateMetricId, getMetricById);
 router.put('/:metricId', protect, validateMetricId, validateMetric, updateMetric);
+router.patch('/:metricId/lock', protect, validateMetricId, validateMetricLock, lockMetric);
 
 router.get('/:metricId/attachments', protect, validateMetricId, getMetricAttachments);
 router.post('/:metricId/attachments', protect, validateMetricId, attachmentUpload, uploadMetricAttachment);

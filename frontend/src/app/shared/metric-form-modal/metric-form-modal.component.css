@@ -78,6 +78,48 @@
   box-shadow: 0 1px 0 0 #3b82f6;
 }
 
+.metric-title-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.metric-title-lock-icon {
+  font-size: 0.95rem;
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+/* ── Details tab's Lock/Unlock row ───────────────────────────────── */
+.metric-lock-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-strong);
+}
+
+.metric-lock-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.metric-lock-status i { font-size: 0.95rem; }
+.metric-lock-status-locked {
+  color: #b45309;
+  font-weight: 600;
+}
+[data-theme="dark"] .metric-lock-status-locked { color: #f59e0b; }
+
+.metric-lock-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 /* Smaller variant of .modal-submit-btn for the Cancel/Save pair embedded in
    the header row next to the title, instead of a full-size footer button. */
 .modal-submit-btn-sm {
@@ -150,6 +192,22 @@
 .field-select-trigger.show {
   border-color: #94a3b8;
   background: var(--bg-card);
+}
+
+/* Mirrors date-picker.component.css's own .picker-trigger-disabled
+   convention — without this, a disabled dropdown trigger still shows the
+   same pointer cursor and hover highlight as an editable one, even though
+   Bootstrap's dropdown JS itself won't open it. :disabled:hover's extra
+   pseudo-class beats the plain :hover rule above on specificity, so this
+   wins regardless of source order. */
+.field-select-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  background: var(--bg-muted);
+}
+.field-select-trigger:disabled:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-muted);
 }
 
 .field-select-trigger::after { margin-left: auto; color: var(--text-muted); flex-shrink: 0; }

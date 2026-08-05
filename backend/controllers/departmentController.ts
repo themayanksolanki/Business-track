@@ -158,32 +158,22 @@ export const getDepartmentById = async (req: Request, res: Response, next: NextF
     if (!canAccessDepartment(accessibleIds, department.id))
       return next(new AppError('You do not have access to this department', 403));
 
-    const [children, users, projects, metrics, events] = await Promise.all([
+    // Projects/metrics/events are deliberately NOT fetched here — the detail
+    // panel shows only their counts (already on withCounts(department) via
+    // DEPARTMENT_INCLUDE's _count), not each item's title/name. children and
+    // users stay real fetches: children back the sub-department chips'
+    // navigation and users backs the Team section's own list (plus the
+    // Manager assignment checklist in departments.component.ts), neither of
+    // which reduces to a bare count.
+    const [children, users] = await Promise.all([
       prisma.department.findMany({ where: { parentId: department.id }, orderBy: { order: 'asc' } }),
       prisma.user.findMany({
         where: { departments: { some: { id: department.id } } },
         omit: { password: true },
       }),
-      prisma.project.findMany({
-        where: { departmentId: department.id },
-        include: {
-          createdBy: { select: USER_SELECT },
-          owner: { select: USER_SELECT },
-        },
-      }),
-      prisma.metric.findMany({
-        where: { departmentId: department.id },
-        select: { id: true, sequenceId: true, title: true, dataType: true, status: true },
-        orderBy: { title: 'asc' },
-      }),
-      prisma.calendarEvent.findMany({
-        where: { departmentId: department.id },
-        select: { id: true, sequenceId: true, title: true, start: true, end: true, allDay: true },
-        orderBy: { start: 'asc' },
-      }),
     ]);
 
-    res.status(200).json({ department: withCounts(department), children, users, projects, metrics, events });
+    res.status(200).json({ department: withCounts(department), children, users });
   } catch (err) {
     next(err);
   }

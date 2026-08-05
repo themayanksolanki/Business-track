@@ -10,6 +10,35 @@
   margin: 2px 0 0;
 }
 
+.bowling-search-wrap {
+  position: relative;
+  width: 220px;
+}
+
+.bowling-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.bowling-search-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 12px 0 32px;
+  border: 1px solid var(--border-strong);
+  border-radius: 99px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+}
+.bowling-search-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
 .bowling-month-input {
   width: auto;
   background: var(--bg-input);
@@ -226,6 +255,13 @@
   text-decoration: underline;
 }
 
+.bowling-metric-lock-icon {
+  font-size: 0.72rem;
+  margin-left: 5px;
+  color: #f59e0b;
+  vertical-align: 1px;
+}
+
 .bowling-metric-dept {
   display: inline-flex;
   align-items: center;
@@ -294,6 +330,22 @@
 }
 .bowling-cell:hover {
   background: var(--bg-hover);
+}
+
+/* A Viewer-restricted or locked metric's cells otherwise look identical to
+   an editable one (same text cursor, same hover highlight) even though
+   clicking silently does nothing — this is the visual signal that matches
+   date-picker.component.css's own disabled convention (opacity + not-allowed
+   cursor + muted background), just applied to a plain div instead of a
+   native disabled input/button. Compound selector (not just
+   .bowling-cell-readonly:hover) so it reliably beats .bowling-cell:hover's
+   own specificity regardless of source order. */
+.bowling-cell-readonly {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.bowling-cell.bowling-cell-readonly:hover {
+  background: var(--bg-muted);
 }
 
 .bowling-cell-value {

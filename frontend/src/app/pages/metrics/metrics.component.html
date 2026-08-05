@@ -8,12 +8,20 @@
   </button>
 </div>
 
-<div class="btn-group status-filter-tabs mb-3" role="group">
-  @for (s of statusFilterOptions; track s) {
-    <button type="button" class="btn status-filter-btn" [class.active]="statusFilter === s" (click)="setStatusFilter(s)">
-      {{ statusLabel(s) }}
-    </button>
-  }
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <div class="btn-group status-filter-tabs" role="group">
+    @for (s of statusFilterOptions; track s) {
+      <button type="button" class="btn status-filter-btn" [class.active]="statusFilter === s" (click)="setStatusFilter(s)">
+        {{ statusLabel(s) }}
+      </button>
+    }
+  </div>
+
+  <div class="metrics-search-wrap">
+    <i class="bi bi-search metrics-search-icon"></i>
+    <input type="text" class="metrics-search-input" placeholder="Search metrics…"
+           [(ngModel)]="search" (ngModelChange)="onSearchChange()" />
+  </div>
 </div>
 
 @if (error) {
@@ -27,7 +35,11 @@
 } @else if (metrics.length === 0) {
   <div class="empty-state text-center py-5 text-muted">
     <i class="bi bi-graph-up-arrow display-5 d-block mb-3"></i>
-    <p class="mb-0">No metrics yet.</p>
+    @if (search.trim()) {
+      <p class="mb-0">No metrics match "{{ search.trim() }}".</p>
+    } @else {
+      <p class="mb-0">No metrics yet.</p>
+    }
   </div>
 } @else {
   <div class="metrics-table">

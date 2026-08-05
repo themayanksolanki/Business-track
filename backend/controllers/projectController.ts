@@ -7,6 +7,7 @@ import { getS3DownloadUrl } from '../lib/s3.js';
 import { getAccessibleDepartmentIds, canAccessDepartment } from '../utils/access.js';
 import { nextSequenceId } from '../utils/sequence.js';
 import { notifyUser, notifyUsers } from '../utils/notifications.js';
+import { FORM_INCLUDE } from './statusFormController.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
 
@@ -23,6 +24,10 @@ const PROJECT_INCLUDE = {
       role: { select: { id: true, title: true, description: true, isDefault: true, rank: true, canEdit: true } },
     },
   },
+  // Status Report tab's currently-selected template, questions included so
+  // the tab can render it immediately without a second request — see
+  // statusReportController.ts.
+  activeStatusForm: { include: FORM_INCLUDE },
 };
 
 // Lightweight include for calls that only need to run canAccessProject /
@@ -128,6 +133,14 @@ export const canManageProjectSettings = (user: AuthUser, project: ProjectForSett
   project.createdById === user.id ||
   project.ownerId === user.id;
 
+// Narrower than canManageProjectSettings on purpose — the Status Report tab
+// (statusReportController.ts) is deliberately owner/Admin only, not
+// Manager/creator too: everyone else with canAccessProject sees the tab
+// read-only (selected template + past reports), but can't pick a template,
+// fill it in, save, send, or manage the project's default recipient emails.
+export const canManageStatusReport = (user: AuthUser, project: { ownerId?: number | null }) =>
+  user.role === 'Admin' || project.ownerId === user.id;
+
 // Refines "can this user touch this project" (canAccessProject having
 // already passed) into edit-vs-view. Admin/creator/owner/department-based
 // access stay full-edit, unchanged; only an explicit ProjectMember whose
@@ -192,13 +205,65 @@ const buildProjectOrderBy = (sortBy: unknown, sortDir: unknown): Prisma.ProjectO
   return field ? field(dir) : { createdAt: 'desc' };
 };
 
+// Filter-only slice of getProjects' where-building (org scope, department
+// access, search, department/category/tag/priority/effort, date ranges) —
+// deliberately excludes the status tabs/`includeDrafts` logic below, since
+// getProjectStats (which is the only other caller) needs to stay
+// tab-independent and always report the full status breakdown.
+const buildProjectFilterWhere = async (req: Request): Promise<Prisma.ProjectWhereInput> => {
+  const where: Prisma.ProjectWhereInput = { organizationId: req.user!.organizationId };
+
+  if (req.user!.role !== 'Admin') {
+    const accessibleIds = await getAccessibleDepartmentIds(req.user!);
+    where.OR = [
+      { departmentId: { in: accessibleIds ?? [] } },
+      { departmentId: null, createdById: req.user!.id },
+      { departmentId: null, ownerId: req.user!.id },
+      { members: { some: { userId: req.user!.id } } },
+    ];
+  }
+
+  const search = (req.query.search as string)?.trim();
+  if (search) where.name = { contains: search, mode: 'insensitive' };
+
+  const departmentIds = parseCsvNumbers(req.query.departmentIds);
+  if (departmentIds.length) where.departmentId = { in: departmentIds };
+
+  const categoryIds = parseCsvNumbers(req.query.categoryIds);
+  if (categoryIds.length) where.categoryId = { in: categoryIds };
+
+  const tagIds = parseCsvNumbers(req.query.tagIds);
+  if (tagIds.length) where.tags = { some: { id: { in: tagIds } } };
+
+  const priorities = parseCsvEnum(req.query.priorities, VALID_PROJECT_PRIORITIES);
+  if (priorities.length) where.priority = { in: priorities as ProjectPriority[] };
+
+  const efforts = parseCsvEnum(req.query.efforts, VALID_PROJECT_PRIORITIES);
+  if (efforts.length) where.effort = { in: efforts as ProjectPriority[] };
+
+  const applyDateRange = (fromParam: string, toParam: string, field: 'startDate' | 'endDate' | 'createdAt') => {
+    const from = req.query[fromParam] as string | undefined;
+    const to = req.query[toParam] as string | undefined;
+    if (!from && !to) return;
+    where[field] = {
+      ...(from ? { gte: new Date(from) } : {}),
+      ...(to ? { lte: new Date(to) } : {}),
+    };
+  };
+  applyDateRange('startDateFrom', 'startDateTo', 'startDate');
+  applyDateRange('endDateFrom', 'endDateTo', 'endDate');
+  applyDateRange('createdAtFrom', 'createdAtTo', 'createdAt');
+
+  return where;
+};
+
 export const getProjects = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 12));
     const skip = (page - 1) * limit;
 
-    const where: Prisma.ProjectWhereInput = { organizationId: req.user!.organizationId };
+    const where = await buildProjectFilterWhere(req);
 
     // The Status column's multiselect (`statuses`) is authoritative over the
     // status tabs (`status`/`includeDrafts`) when present — same fallback
@@ -213,47 +278,6 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
     } else if (req.query.includeDrafts !== 'true') {
       where.status = { not: 'draft' };
     }
-
-    if (req.user!.role !== 'Admin') {
-      const accessibleIds = await getAccessibleDepartmentIds(req.user!);
-      where.OR = [
-        { departmentId: { in: accessibleIds ?? [] } },
-        { departmentId: null, createdById: req.user!.id },
-        { departmentId: null, ownerId: req.user!.id },
-        { members: { some: { userId: req.user!.id } } },
-      ];
-    }
-
-    const search = (req.query.search as string)?.trim();
-    if (search) where.name = { contains: search, mode: 'insensitive' };
-
-    const departmentIds = parseCsvNumbers(req.query.departmentIds);
-    if (departmentIds.length) where.departmentId = { in: departmentIds };
-
-    const categoryIds = parseCsvNumbers(req.query.categoryIds);
-    if (categoryIds.length) where.categoryId = { in: categoryIds };
-
-    const tagIds = parseCsvNumbers(req.query.tagIds);
-    if (tagIds.length) where.tags = { some: { id: { in: tagIds } } };
-
-    const priorities = parseCsvEnum(req.query.priorities, VALID_PROJECT_PRIORITIES);
-    if (priorities.length) where.priority = { in: priorities as ProjectPriority[] };
-
-    const efforts = parseCsvEnum(req.query.efforts, VALID_PROJECT_PRIORITIES);
-    if (efforts.length) where.effort = { in: efforts as ProjectPriority[] };
-
-    const applyDateRange = (fromParam: string, toParam: string, field: 'startDate' | 'endDate' | 'createdAt') => {
-      const from = req.query[fromParam] as string | undefined;
-      const to = req.query[toParam] as string | undefined;
-      if (!from && !to) return;
-      where[field] = {
-        ...(from ? { gte: new Date(from) } : {}),
-        ...(to ? { lte: new Date(to) } : {}),
-      };
-    };
-    applyDateRange('startDateFrom', 'startDateTo', 'startDate');
-    applyDateRange('endDateFrom', 'endDateTo', 'endDate');
-    applyDateRange('createdAtFrom', 'createdAtTo', 'createdAt');
 
     const orderBy = buildProjectOrderBy(req.query.sortBy, req.query.sortDir);
 
@@ -283,6 +307,33 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
       limit,
       totalPages: Math.max(1, Math.ceil(total / limit)),
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Status breakdown + overdue count for the Projects page's stats cards —
+// shares getProjects' filter scoping (search/department/category/tag/
+// priority/effort/date-range) but never reads status/statuses/includeDrafts,
+// so the cards stay independent of the status tabs and the table's own
+// Status column filter, always reporting the full breakdown.
+export const getProjectStats = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const where = await buildProjectFilterWhere(req);
+    const now = new Date();
+
+    const [statusCounts, overdueCount] = await Promise.all([
+      prisma.project.groupBy({ by: ['status'], where, _count: { _all: true } }),
+      prisma.project.count({ where: { AND: [where, { status: 'active', endDate: { lt: now } }] } }),
+    ]);
+
+    const stats = { total: 0, active: 0, completed: 0, archived: 0, draft: 0, overdue: overdueCount };
+    for (const { status, _count } of statusCounts) {
+      stats[status] = _count._all;
+      stats.total += _count._all;
+    }
+
+    res.status(200).json(stats);
   } catch (err) {
     next(err);
   }

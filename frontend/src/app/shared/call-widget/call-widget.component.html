@@ -27,6 +27,28 @@
   </div>
 }
 
+<!-- ══ Incoming group call notification ═════════════════════════════ -->
+@if (meetingSessionSvc.incomingGroupCall && callSvc.callState === 'idle' && !meetingSessionSvc.active) {
+  <div class="incoming-call-card incoming-group-call-card">
+    <div class="ic-icon-wrap">
+      <i class="bi" [class.bi-telephone-fill]="meetingSessionSvc.incomingGroupCall.callType === 'audio'"
+                    [class.bi-camera-video-fill]="meetingSessionSvc.incomingGroupCall.callType === 'video'"></i>
+    </div>
+    <div class="ic-info">
+      <div class="ic-name">{{ meetingSessionSvc.incomingGroupCall.groupName }}</div>
+      <div class="ic-type">{{ meetingSessionSvc.incomingGroupCall.fromName }} started a {{ meetingSessionSvc.incomingGroupCall.callType }} call…</div>
+    </div>
+    <div class="ic-actions">
+      <button class="ic-btn ic-reject" (click)="meetingSessionSvc.dismissIncomingGroupCall()" title="Dismiss">
+        <i class="bi bi-telephone-x-fill"></i>
+      </button>
+      <button class="ic-btn ic-accept" (click)="meetingSessionSvc.acceptIncomingGroupCall()" title="Join">
+        <i class="bi bi-telephone-fill"></i>
+      </button>
+    </div>
+  </div>
+}
+
 <!-- ══ Call overlay (expanded full-screen, or minimized corner box) ══ -->
 @if (callSvc.callState === 'calling' || callSvc.callState === 'in-call') {
   <div class="call-overlay" #callOverlay
@@ -143,6 +165,21 @@
           <app-call-icon name="screen-mirror" [size]="20"></app-call-icon>
         </button>
       }
+      @if (!callSvc.minimized) {
+        <div class="reaction-picker-wrap">
+          @if (showReactionPicker) {
+            <div class="reaction-picker">
+              @for (emoji of quickReactions; track emoji) {
+                <button type="button" class="reaction-picker-btn" (click)="sendReaction(emoji)">{{ emoji }}</button>
+              }
+            </div>
+          }
+          <button class="ctrl-btn" [class.ctrl-active]="showReactionPicker"
+                  (click)="showReactionPicker = !showReactionPicker" title="Send a reaction">
+            <i class="bi bi-emoji-smile-fill"></i>
+          </button>
+        </div>
+      }
       @if (callSvc.minimized) {
         <button class="ctrl-btn" (click)="callSvc.toggleMinimize()" title="Expand">
           <app-call-icon name="quit-pip" [size]="16"></app-call-icon>
@@ -153,6 +190,7 @@
       </button>
     </div>
 
+    <app-reaction-burst></app-reaction-burst>
   </div>
 }
 

@@ -5,7 +5,7 @@ import { AppDatePipe } from '../../shared/pipes/app-date.pipe';
 import { ProjectService } from '../../core/services/project.service';
 import { DepartmentService } from '../../core/services/department.service';
 import { ProjectsViewService, ProjectsViewMode } from '../../core/services/projects-view.service';
-import { Project, ProjectStatus, CreateProjectPayload } from '../../models/project.model';
+import { Project, ProjectStatus, ProjectStats, CreateProjectPayload } from '../../models/project.model';
 import { Department } from '../../models/department.model';
 import { Category } from '../../models/category.model';
 import { CategoryService } from '../../core/services/category.service';
@@ -16,6 +16,7 @@ import { UserService } from '../../core/services/user.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ProjectFormComponent } from '../../shared/project-form/project-form.component';
 import { TagPillComponent } from '../../shared/tag-pill/tag-pill.component';
+import { StatCardComponent } from '../../shared/stat-card/stat-card.component';
 import { DataTableComponent } from '../../shared/data-table/data-table.component';
 import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
 import {
@@ -45,7 +46,7 @@ const STATUS_OPTIONS: DataTableFilterOption[] = [
 @Component({
   selector: 'app-projects',
   standalone: true,
-  imports: [AppDatePipe, ProjectFormComponent, TagPillComponent, DataTableComponent, DataTableCellDirective],
+  imports: [AppDatePipe, ProjectFormComponent, TagPillComponent, StatCardComponent, DataTableComponent, DataTableCellDirective],
   templateUrl: './projects.component.html',
   styleUrl: './projects.component.css',
 })
@@ -105,6 +106,10 @@ export class ProjectsComponent implements OnInit, OnDestroy {
     });
     this.cardsIntersectionObserver.observe(el.nativeElement);
   }
+
+  // Stats cards — status breakdown + overdue count, independent of the
+  // status tabs (see loadStats/loadCurrentView).
+  stats: ProjectStats | null = null;
 
   // Table/List views — server-side page-by-page pagination
   pagedItems: Project[] = [];
@@ -305,6 +310,7 @@ export class ProjectsComponent implements OnInit, OnDestroy {
    *  stay correct regardless of which one the user is looking at. */
   private loadCurrentView() {
     this.error = '';
+    this.loadStats();
     if (this.viewMode === 'cards') {
       this.cardsItems = [];
       this.cardsPage = 1;
@@ -313,6 +319,17 @@ export class ProjectsComponent implements OnInit, OnDestroy {
     } else {
       this.loadPage(1);
     }
+  }
+
+  // Cards stay independent of the status tabs/includeDrafts — buildQueryParams()
+  // only ever carries the table's own filters (department/category/tag/
+  // priority/effort/date-range/search plus its Status column filter), and
+  // the backend's getProjectStats ignores status-related params entirely.
+  loadStats() {
+    this.projectService.getProjectStats(this.buildQueryParams()).subscribe({
+      next: (stats) => (this.stats = stats),
+      error: () => (this.stats = null),
+    });
   }
 
   loadMoreCards() {

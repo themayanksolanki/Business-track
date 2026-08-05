@@ -34,6 +34,20 @@ export class OrganizationComponent implements OnInit {
     return this.userService.users();
   }
 
+  // Search box only renders once there are enough members for it to be
+  // worth the screen space (see the template's members.length > 5 check) —
+  // client-side filter, same as everywhere else this app filters an
+  // already-loaded list rather than round-tripping per keystroke.
+  memberSearchQuery = '';
+
+  get filteredMembers(): User[] {
+    const q = this.memberSearchQuery.trim().toLowerCase();
+    if (!q) return this.members;
+    return this.members.filter(
+      (m) => m.username.toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
+    );
+  }
+
   invites: Invite[] = [];
   invitesLoading = false;
 

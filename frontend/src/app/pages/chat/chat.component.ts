@@ -13,6 +13,9 @@ import { CallSessionService } from '../../core/services/call-session.service';
 import { DateFormatService } from '../../core/services/date-format.service';
 import { GroupService } from '../../core/services/group.service';
 import { MeetingService } from '../../core/services/meeting.service';
+import { MeetingSessionService } from '../../core/services/meeting-session.service';
+import { WebrtcPeerService } from '../../core/services/webrtc-peer.service';
+import { NotificationService } from '../../shared/notification.service';
 import { ContactData, Message } from '../../models/message.model';
 import { User } from '../../models/user.model';
 import { Group, GroupWithActivity, GroupMessage } from '../../models/group.model';
@@ -108,6 +111,12 @@ export class ChatComponent implements OnInit, OnDestroy {
   private groupTypingIndicatorTimeout: any;
   createGroupOpen = false;
   groupMembersOpen = false;
+  // Which groups currently have a live call — keyed by groupId, seeded from
+  // the loaded call-event message on selectGroup() (covers a call already in
+  // progress when this client opens/reopens the group) and kept live via
+  // groupCallIncoming$/groupCallEnded$ regardless of which group is
+  // currently selected. Drives the header's "Join Now" button.
+  liveGroupCalls = new Map<number, { meetingId: number; roomCode: string; callType: 'audio' | 'video' }>();
 
   // ── Emoji picker ──────────────────────────────────────────────
   showEmojiPicker = false;
@@ -128,6 +137,9 @@ export class ChatComponent implements OnInit, OnDestroy {
     private sanitizer: DomSanitizer,
     private groupSvc: GroupService,
     private meetingSvc: MeetingService,
+    public  meetingSessionSvc: MeetingSessionService,
+    private webrtcSvc: WebrtcPeerService,
+    private notifications: NotificationService,
     private router: Router,
     private route: ActivatedRoute,
   ) {}
@@ -324,6 +336,20 @@ export class ChatComponent implements OnInit, OnDestroy {
         this.syncReversedGroup();
         this.groupMessagesLoading = false;
         this.scrollToBottom();
+
+        // Covers opening/reopening a group where a call was already live
+        // before this client asked — the groupCallIncoming$ ring only
+        // reaches clients connected at the moment the call started.
+        const liveCall = [...msgs].reverse().find((m) => m.type === 'call' && m.meeting?.status === 'live');
+        if (liveCall?.meeting) {
+          this.liveGroupCalls.set(g.id, {
+            meetingId: liveCall.meeting.id,
+            roomCode: liveCall.meeting.roomCode,
+            callType: liveCall.meeting.callType,
+          });
+        } else {
+          this.liveGroupCalls.delete(g.id);
+        }
       },
     });
   }
@@ -1165,6 +1191,30 @@ export class ChatComponent implements OnInit, OnDestroy {
       })
     );
 
+    // Group calls — live status for the header's "Join Now" button, kept
+    // regardless of which group is currently selected (a ring for a group
+    // you're not looking at still needs to flip its button on).
+    this.subs.add(
+      this.socketSvc.groupCallIncoming$.subscribe((call) => {
+        this.liveGroupCalls.set(call.groupId, { meetingId: call.meetingId, roomCode: call.roomCode, callType: call.callType });
+        this.cdr.detectChanges();
+      })
+    );
+    this.subs.add(
+      this.socketSvc.groupCallEnded$.subscribe(({ meetingId, groupId, endedAt, participants }) => {
+        if (this.liveGroupCalls.get(groupId)?.meetingId === meetingId) this.liveGroupCalls.delete(groupId);
+        // Patches the call-event bubble in place (if this group's thread is
+        // open) so it settles into its final missed/completed state without
+        // a refetch — mirrors groupMessageEdited$'s in-place patch above.
+        const msg = this.groupMessages.find((m) => m.meeting?.id === meetingId);
+        if (msg?.meeting) {
+          msg.meeting = { ...msg.meeting, status: 'ended', endedAt, participants };
+          this.syncReversedGroup();
+        }
+        this.cdr.detectChanges();
+      })
+    );
+
     // Call log — push into current conversation and call history
     this.subs.add(
       this.socketSvc.callLogged$.subscribe((msg) => {
@@ -1191,29 +1241,84 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   // Group calls go through the Meet Hub Meeting/meeting-room machinery
-  // (N-way mesh, already built in Phase 1-2) rather than the 1:1 call:*
-  // signaling above, which only ever supports two parties. There's no
-  // Notification pipeline for this yet (deferred, same as meeting
-  // invites elsewhere), so instead of a silent push, starting a call posts
-  // a normal group message with the join link — anyone in the thread, online
-  // now or later, can tap it to join.
+  // (N-way mesh) rather than the 1:1 call:* signaling above, which only ever
+  // supports two parties — but joined in place via MeetingSessionService,
+  // same as the 1:1 call, instead of navigating to /meet/:roomCode. Every
+  // other member is rung live (group-call:incoming, see
+  // meetingSessionSvc.incomingGroupCall/CallWidgetComponent) and the backend
+  // posts the call-event bubble itself (see groupCallLabel below) — no
+  // link is ever composed or pasted into the thread.
   groupCallStarting = false;
 
   startGroupCall(type: 'audio' | 'video') {
-    if (!this.selectedGroup || this.callSvc.callState !== 'idle' || this.groupCallStarting) return;
+    if (!this.selectedGroup || this.callSvc.callState !== 'idle' || this.meetingSessionSvc.active || this.groupCallStarting) return;
     const group = this.selectedGroup;
     this.groupCallStarting = true;
     this.meetingSvc.create({ groupId: group.id, callType: type, title: group.name }).subscribe({
       next: (res) => {
-        this.groupCallStarting = false;
-        const meetLink = `${window.location.origin}/meet/${res.meeting.roomCode}`;
-        this.socketSvc.sendGroupMessage(group.id, `📞 Started a ${type} call — ${meetLink}`, 'text');
-        this.router.navigate(['/meet', res.meeting.roomCode]);
+        this.webrtcSvc
+          .getLocalStream({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            video: type !== 'audio',
+          })
+          .then(() => this.meetingSessionSvc.join(res.meeting, false, false))
+          .catch(() => this.notifications.error('Could not access your camera or microphone.'))
+          .finally(() => { this.groupCallStarting = false; });
       },
-      error: () => {
-        this.groupCallStarting = false;
-      },
+      error: () => { this.groupCallStarting = false; },
     });
+  }
+
+  get selectedGroupLiveCall(): { meetingId: number; roomCode: string; callType: 'audio' | 'video' } | null {
+    return this.selectedGroup ? this.liveGroupCalls.get(this.selectedGroup.id) ?? null : null;
+  }
+
+  // Hidden once this client is itself already in that session (the caller,
+  // or someone who already tapped Join) — no point offering to join a call
+  // you're already on.
+  get showJoinNowButton(): boolean {
+    const live = this.selectedGroupLiveCall;
+    return !!live && !this.meetingSessionSvc.hasActiveSession(live.roomCode);
+  }
+
+  joinLiveGroupCall() {
+    const live = this.selectedGroupLiveCall;
+    if (!live || this.callSvc.callState !== 'idle' || this.meetingSessionSvc.active) return;
+    this.meetingSvc.getByRoomCode(live.roomCode).subscribe({
+      next: (meeting) => {
+        this.webrtcSvc
+          .getLocalStream({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            video: meeting.callType !== 'audio',
+          })
+          .then(() => this.meetingSessionSvc.join(meeting, false, false))
+          .catch(() => this.notifications.error('Could not access your camera or microphone.'));
+      },
+      error: () => this.notifications.error('Could not join this call.'),
+    });
+  }
+
+  // Per-viewer outcome — a group call has no single callStatus the way a 1:1
+  // Message does (different members can join or miss the same call), so
+  // this checks THIS user's own participants entry.
+  groupCallMissed(msg: GroupMessage): boolean {
+    if (!msg.meeting || msg.meeting.status !== 'ended') return false;
+    const mine = msg.meeting.participants.find((p) => p.userId === this.myId);
+    return !mine || mine.joinedAt == null;
+  }
+
+  groupCallLabel(msg: GroupMessage): string {
+    const meeting = msg.meeting;
+    if (!meeting) return 'Call';
+    if (meeting.status === 'live') return 'Call in progress';
+    if (meeting.status === 'cancelled') return 'Call cancelled';
+    return this.groupCallMissed(msg) ? 'Missed call' : 'Call ended';
+  }
+
+  groupCallDuration(msg: GroupMessage): number | null {
+    const meeting = msg.meeting;
+    if (!meeting?.startedAt || !meeting.endedAt) return null;
+    return Math.round((new Date(meeting.endedAt).getTime() - new Date(meeting.startedAt).getTime()) / 1000);
   }
 
   // ── Utilities ─────────────────────────────────────────────────

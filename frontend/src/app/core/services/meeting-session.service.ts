@@ -26,6 +26,20 @@ export interface MeetingChatEntry {
   at: string;
 }
 
+// A group call ringing for this client (not yet joined) — mirrors
+// CallSessionService.incomingCall, just fanned out to every group member
+// instead of a single callee. Cleared on accept, dismiss, or the call
+// ending before anyone acted on it.
+export interface IncomingGroupCall {
+  groupId: number;
+  groupName: string;
+  meetingId: number;
+  roomCode: string;
+  callType: 'audio' | 'video';
+  fromUserId: number;
+  fromName: string;
+}
+
 // Owns the Meet Hub group-meeting mesh/session app-wide — previously this
 // lived inside MeetingRoomComponent, so navigating away from /meet/:roomCode
 // (e.g. to check another page) tore down every peer connection outright.
@@ -62,10 +76,20 @@ export class MeetingSessionService {
   // is a root singleton).
   readonly kicked$ = new Subject<void>();
   readonly ended$  = new Subject<void>();
+  // Ringing group call this client hasn't acted on yet — null once accepted,
+  // dismissed, or the call ends first (see subscribeToSocket's groupCallEnded$
+  // handler below). Rendered by CallWidgetComponent regardless of route, same
+  // as the 1:1 incoming-call card.
+  incomingGroupCall: IncomingGroupCall | null = null;
   // Fires once this client has actually acted on a host mute request (see
   // muteParticipant()/meetingForceMute$ below) — the component subscribes
   // to show a "the host muted you" toast, same pattern as kicked$/ended$.
   readonly forceMuted$ = new Subject<void>();
+  // Ephemeral floating-emoji reactions — fires for both the local send (via
+  // sendReaction below, immediately, not waiting on any echo) and every
+  // other participant's reaction arriving over the socket. The room's
+  // <app-reaction-burst> just plays whatever comes through here.
+  readonly reactions$ = new Subject<string>();
 
   private mutedPeers = new Set<string>();
   private camOffPeers = new Set<string>();
@@ -290,6 +314,12 @@ export class MeetingSessionService {
       })
     );
     this.subs.add(
+      // Sender already played its own burst locally (see sendReaction) — the
+      // backend relay only reaches everyone ELSE in the room, so there's no
+      // socketId-equals-self case to filter out here.
+      this.socketSvc.meetingReaction$.subscribe(({ emoji }) => this.reactions$.next(emoji))
+    );
+    this.subs.add(
       this.socketSvc.meetingMobileDevice$.subscribe(({ socketId, mobile }) => {
         if (mobile) this.mobileDevicePeers.add(socketId); else this.mobileDevicePeers.delete(socketId);
       })
@@ -322,6 +352,20 @@ export class MeetingSessionService {
       this.socketSvc.meetingEnded$.subscribe(() => {
         this.leave();
         this.ended$.next();
+      })
+    );
+    this.subs.add(
+      this.socketSvc.groupCallIncoming$.subscribe((call) => {
+        // Already on a call (1:1 or another meeting) — mirrors
+        // CallSessionService.onCallIncoming's own idle check: no way to ring
+        // for a second call while already on one.
+        if (this.active) return;
+        this.incomingGroupCall = call;
+      })
+    );
+    this.subs.add(
+      this.socketSvc.groupCallEnded$.subscribe(({ meetingId }) => {
+        if (this.incomingGroupCall?.meetingId === meetingId) this.incomingGroupCall = null;
       })
     );
     // Browser's native "Stop sharing" bar, not our own toggle button — sync
@@ -416,8 +460,47 @@ export class MeetingSessionService {
     this.socketSvc.sendMeetingHandRaise(this.meeting.id, this.handRaised);
   }
 
+  sendReaction(emoji: string) {
+    if (!this.meeting) return;
+    this.socketSvc.sendMeetingReaction(this.meeting.id, emoji);
+    // Local burst fires immediately rather than waiting for any round-trip
+    // — there's nothing to reconcile (purely visual, never persisted).
+    this.reactions$.next(emoji);
+  }
+
   sendChatMessage(message: string) {
     if (!this.meeting || !message.trim()) return;
     this.socketSvc.sendMeetingChatMessage(this.meeting.id, message.trim());
+  }
+
+  // Accepting a group call ring joins in place — no /meet/:roomCode
+  // navigation, same as starting one (see chat.component.ts's
+  // startGroupCall/joinLiveGroupCall) — CallWidgetComponent already renders
+  // the session from wherever the user currently is.
+  async acceptIncomingGroupCall() {
+    const call = this.incomingGroupCall;
+    if (!call) return;
+    this.incomingGroupCall = null;
+    try {
+      await this.webrtcSvc.getLocalStream({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        video: call.callType !== 'audio',
+      });
+    } catch {
+      this.joinError = 'Could not access your camera or microphone.';
+      return;
+    }
+    this.meetingSvc.getByRoomCode(call.roomCode).subscribe({
+      next: (meeting) => this.join(meeting, false, false),
+      error: () => { this.joinError = 'Could not join this meeting.'; },
+    });
+  }
+
+  // Silent decline — there's no single "callee" to notify the way a 1:1
+  // call:rejected has one; simply never joining is what naturally shows up
+  // as "Missed call" for this user once the call ends (see
+  // chat.component.ts's groupCallMissed()).
+  dismissIncomingGroupCall() {
+    this.incomingGroupCall = null;
   }
 }

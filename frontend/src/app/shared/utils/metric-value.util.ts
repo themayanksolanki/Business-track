@@ -8,6 +8,12 @@ import { MetricDataType, MetricColumnLabels, MetricMembershipLite } from '../../
 import { Currency, MeasurementUnit, CURRENCY_SYMBOLS, MEASUREMENT_UNIT_SYMBOLS } from '../../models/user.model';
 import { MetricRagStatus } from '../../models/metric-tracking.model';
 
+// Single source of truth for RAG status -> color, shared by the Sheet tab's
+// status column cell (metric-sheet.component.ts) and the Bowling View's
+// Actual cell background (metric-bowling.component.ts) — both must render
+// the same status the same color rather than each keeping its own copy.
+export const STATUS_COLORS: Record<MetricRagStatus, string> = { Red: '#ef4444', Yellow: '#f59e0b', Green: '#22c55e' };
+
 // Single source of truth for the Sheet tab's 7 column keys' default display
 // names — shared so every place that names these columns (the grid itself,
 // the Statistics tab's area chart, anything else added later) agrees with
@@ -88,4 +94,16 @@ export function canEditMetricListItem(
   const membership = item.members?.find((m) => m.userId === user.id);
   if (membership) return membership.role !== 'viewer';
   return true;
+}
+
+// Frontend mirror of backend's canLockMetric (metricController.ts) —
+// narrower than canEditMetricListItem on purpose: only the metric's own
+// Owner field or an Admin may lock/unlock, not Manager/createdBy/Team-tab
+// 'owner' member (see canManageMetricMembers for that broader set).
+export function canLockMetricListItem(
+  user: { id: number; role: string } | null | undefined,
+  item: { owner: { id: number } }
+): boolean {
+  if (!user) return false;
+  return user.role === 'Admin' || item.owner.id === user.id;
 }

@@ -25,7 +25,11 @@ model StatusForm {
   createdBy    User          @relation("StatusFormCreatedBy", fields: [createdById], references: [id])
   updatedBy    User?         @relation("StatusFormUpdatedBy", fields: [updatedById], references: [id])
 
-  questions StatusFormQuestion[]
+  questions   StatusFormQuestion[]
+  submissions StatusFormSubmission[]
+  // Projects currently pointing at this template as their selected Status
+  // Report form (Project.activeStatusFormId) — see project.prisma.
+  activeInProjects Project[] @relation("ProjectActiveStatusForm")
 
   @@index([organizationId])
   @@map("status_forms")
@@ -49,4 +53,36 @@ model StatusFormQuestion {
 
   @@index([formId, order])
   @@map("status_form_questions")
+}
+
+// One row per Save/Save-and-Send on a Project's Status Report tab — every
+// click creates a new, permanent, listed entry (never overwritten), so a
+// project accumulates a dated history of reports over time. Answers are a
+// full snapshot (question id/label/type/value as they were at submission
+// time), deliberately NOT a live join to StatusFormQuestion — editing or
+// deleting the template afterward (statusFormController.ts) must never
+// corrupt already-submitted history, so `formId` is nullable/SetNull and
+// `formTitle` is copied in alongside it.
+model StatusFormSubmission {
+  id            Int       @id @default(autoincrement())
+  projectId     Int
+  formId        Int?
+  formTitle     String
+  subject       String    @default("")
+  // [{ questionId: number, label: string, type: StatusFormQuestionType, value: unknown }]
+  answers       Json      @default("[]")
+  submittedById Int
+  submittedAt   DateTime  @default(now())
+  sent          Boolean   @default(false)
+  sentAt        DateTime?
+  // Snapshot of who it was actually emailed to — independent of Project's
+  // own statusReportRecipients default list, which can change afterward.
+  recipients    Json      @default("[]")
+
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  form        StatusForm? @relation(fields: [formId], references: [id], onDelete: SetNull)
+  submittedBy User        @relation("StatusFormSubmissionSubmittedBy", fields: [submittedById], references: [id])
+
+  @@index([projectId, submittedAt])
+  @@map("status_form_submissions")
 }

@@ -15,6 +15,7 @@ import {
 import { canAccessProject } from './projectController.js';
 import { canAccessGroup } from './groupController.js';
 import { notifyUsers } from '../utils/notifications.js';
+import { startGroupCallAnnouncement, endGroupCallAnnouncement } from '../utils/groupCallEvents.js';
 
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
 
@@ -138,7 +139,7 @@ export const createMeeting = async (req: Request, res: Response, next: NextFunct
     // All current members are auto-invited as participants (see below) — a
     // group call is for the group, not an org-wide open link, so it needs
     // the member list up front rather than just an id.
-    let group: { id: number; members: { userId: number }[] } | null = null;
+    let group: { id: number; name: string; members: { userId: number }[] } | null = null;
     if (groupId) {
       const found = await prisma.group.findUnique({
         where: { id: Number(groupId) },
@@ -241,6 +242,7 @@ export const createMeeting = async (req: Request, res: Response, next: NextFunct
               groupId: group.id,
             }
           );
+          void startGroupCallAnnouncement(meeting, group, { id: user.id, username: req.user!.username ?? 'Someone' });
         }
 
         return res.status(201).json({ message: 'Meeting created', meeting });
@@ -439,6 +441,7 @@ export const endMeeting = async (req: Request, res: Response, next: NextFunction
         data: { leftAt: new Date() },
       }),
     ]);
+    void endGroupCallAnnouncement(meeting.id);
 
     res.status(200).json({ message: 'Meeting ended' });
   } catch (err) {

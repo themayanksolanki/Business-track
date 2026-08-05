@@ -4,6 +4,11 @@
     <p class="page-sub">{{ lensLabel }} Actual vs Target tracking</p>
   </div>
   <div class="d-flex align-items-center gap-2">
+    <div class="bowling-search-wrap">
+      <i class="bi bi-search bowling-search-icon"></i>
+      <input type="text" class="bowling-search-input" placeholder="Search metrics…"
+        [(ngModel)]="search" (ngModelChange)="onSearchChange()" />
+    </div>
     <button class="btn btn-primary" type="button" (click)="openCreate()">
       <i class="bi bi-plus-lg me-1"></i>Create Metric
     </button>
@@ -45,13 +50,12 @@
 } @else if (rows.length === 0) {
 <div class="empty-state text-center py-5 text-muted">
   <i class="bi bi-graph-up-arrow display-5 d-block mb-3"></i>
-  <p class="mb-0">No metrics yet — create one to get started.</p>
-</div>
-} @else if (!hasVisibleRows) {
-<div class="empty-state text-center py-5 text-muted">
-  <i class="bi bi-graph-up-arrow display-5 d-block mb-3"></i>
-  <p class="mb-0">No {{ lens }} metrics yet — switch lenses, or set a metric's Frequency to {{ lensLabel }} to see it
-    here.</p>
+  @if (search.trim()) {
+  <p class="mb-0">No {{ lens }} metrics match "{{ search.trim() }}".</p>
+  } @else {
+  <p class="mb-0">No {{ lens }} metrics yet — create one, or switch lenses to see metrics under a different
+    frequency.</p>
+  }
 </div>
 } @else {
 <div class="bowling-grid">
@@ -79,12 +83,10 @@
     <div class="bowling-total-col">Total</div>
   </div>
 
-  <!-- One section per metric — only the row(s) matching the active lens
-         are rendered (see MetricBowlingComponent's `lens`), but the loop
-         still walks the full `rows` array so `rowIndex` keeps lining up
-         with the component's underlying array. -->
+  <!-- One section per metric — `rows` only ever holds the current lens's
+         metrics (loadMetrics() fetches exactly one frequency at a time), so
+         every row here always matches. -->
   @for (row of rows; track row.item.id; let rowIndex = $index) {
-  @if (row.item.frequency === lens) {
   <div class="bowling-row">
     <div class="bowling-info-col">
       @if (auth.avatarUrl(row.item.owner)) {
@@ -101,6 +103,9 @@
           [popoverTitle]="null" triggers="mouseenter:mouseleave" placement="bottom" [openDelay]="200" [closeDelay]="100"
           container="body" popoverClass="metric-info-popover">
           {{ row.item.title }}
+          @if (row.item.isLocked) {
+          <i class="bi bi-lock-fill bowling-metric-lock-icon" title="This metric is locked"></i>
+          }
         </div>
 
         <!-- Department -->
@@ -136,7 +141,11 @@
       <div class="bowling-values-row">
         <span class="bowling-row-label">Actual</span>
         @for (day of visibleDays; track day) {
-        <div class="bowling-cell" (click)="startEdit(rowIndex, 'actual', day)">
+        <div class="bowling-cell"
+             [class.bowling-cell-readonly]="!canEditRow(row)"
+             [style.background-color]="actualCellStatusColor(rowIndex, day)"
+             [style.color]="actualCellStatusColor(rowIndex, day) ? '#fff' : null"
+             (click)="startEdit(rowIndex, 'actual', day)">
           @if (isEditing(rowIndex, 'actual', day)) {
           <input #activeInput type="text" inputmode="decimal" class="bowling-cell-input"
             [class.bowling-cell-input-error]="editError" [(ngModel)]="editValue"
@@ -151,7 +160,7 @@
       <div class="bowling-values-row">
         <span class="bowling-row-label">Target</span>
         @for (day of visibleDays; track day) {
-        <div class="bowling-cell" (click)="startEdit(rowIndex, 'target', day)">
+        <div class="bowling-cell" [class.bowling-cell-readonly]="!canEditRow(row)" (click)="startEdit(rowIndex, 'target', day)">
           @if (isEditing(rowIndex, 'target', day)) {
           <input #activeInput type="text" inputmode="decimal" class="bowling-cell-input"
             [class.bowling-cell-input-error]="editError" [(ngModel)]="editValue"
@@ -174,7 +183,6 @@
       <div class="bowling-total-value">{{ formatTotal(rowIndex, 'target') }}</div>
     </div>
   </div>
-  }
   }
 </div>
 }

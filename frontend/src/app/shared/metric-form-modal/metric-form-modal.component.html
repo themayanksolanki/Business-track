@@ -6,6 +6,9 @@
         <div class="d-flex align-items-center gap-2 mb-4 metric-modal-header">
           <i class="bi bi-graph-up-arrow metric-modal-header-icon"></i>
           <input #titleInput type="text" class="metric-title-input flex-grow-1" [(ngModel)]="title" placeholder="Metric name" [disabled]="!canEditMetric" />
+          @if (initial?.isLocked) {
+            <i class="bi bi-lock-fill metric-title-lock-icon" title="This metric is locked — no fields can be edited until it's unlocked"></i>
+          }
           <div class="d-flex gap-2 flex-shrink-0">
             <button type="button" class="btn btn-light modal-submit-btn-sm" data-bs-dismiss="modal">Cancel</button>
             @if (canEditMetric) {
@@ -172,6 +175,26 @@
           }
 
           @if (activeTab === 'details') {
+            @if (mode === 'edit' && initial && (initial.isLocked || canLockMetric)) {
+              <div class="metric-lock-row mb-3">
+                <div class="metric-lock-status" [class.metric-lock-status-locked]="initial.isLocked">
+                  <i class="bi" [class.bi-lock-fill]="initial.isLocked" [class.bi-unlock-fill]="!initial.isLocked"></i>
+                  {{ initial.isLocked
+                    ? 'This metric is locked — no fields can be edited until it\'s unlocked.'
+                    : 'This metric is unlocked — the owner or an Admin can lock it to freeze all edits.' }}
+                </div>
+                @if (canLockMetric) {
+                  <button type="button" class="btn btn-sm metric-lock-btn"
+                          [class.btn-outline-success]="initial.isLocked"
+                          [class.btn-outline-secondary]="!initial.isLocked"
+                          [disabled]="lockLoading" (click)="toggleLock()">
+                    @if (lockLoading) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    <i class="bi" [class.bi-unlock-fill]="initial.isLocked" [class.bi-lock-fill]="!initial.isLocked"></i>
+                    {{ initial.isLocked ? 'Unlock metric' : 'Lock metric' }}
+                  </button>
+                }
+              </div>
+            }
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label class="field-label">Department <span class="text-danger">*</span></label>

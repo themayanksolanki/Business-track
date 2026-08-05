@@ -60,6 +60,29 @@ export async function sendInviteEmail(to: string, role: string, orgName: string,
   });
 }
 
+// `to` is comma-joined — nodemailer accepts either a single address string or
+// a comma-joined list for SendMailOptions.to, so no array-vs-string branching
+// needed here. `replyTo` is the reporting user's own address: the actual
+// envelope `from` stays the fixed system account (Gmail won't let an
+// arbitrary third-party address send without domain verification/SPF
+// anyway — see statusReportController.ts's own comment on this), so a
+// recipient hitting "Reply" reaches the person who actually filed the
+// report instead of the shared system inbox.
+export async function sendStatusReportEmail(
+  to: string[],
+  subject: string,
+  html: string,
+  replyTo?: string
+): Promise<void> {
+  await dispatch({
+    from: `"Business Tracker" <${process.env.GMAIL_USER}>`,
+    to: to.join(', '),
+    replyTo,
+    subject,
+    html,
+  });
+}
+
 export async function sendPasswordChangedEmail(to: string, username: string, newPassword: string): Promise<void> {
   await dispatch({
     from: `"Business Tracker" <${process.env.GMAIL_USER}>`,

@@ -93,6 +93,17 @@ export const canManageMetricMembers = (user: AuthUser, metric: MetricForManage) 
   metric.ownerId === user.id ||
   (metric.members?.some((m) => m.userId === user.id && m.role === 'owner') ?? false);
 
+interface MetricForLock {
+  ownerId: number;
+}
+
+// Narrower than canManageMetricMembers on purpose — locking freezes every
+// field/tracking edit for everyone (including Admins/Managers who aren't
+// the owner), so only the metric's own Owner field or an Admin may toggle
+// it, not Manager/createdBy/Team-tab 'owner' member.
+export const canLockMetric = (user: AuthUser, metric: MetricForLock) =>
+  user.role === 'Admin' || metric.ownerId === user.id;
+
 const VALID_METRIC_STATUSES = ['active', 'archived', 'deleted'];
 
 // depths 0-6 => 7 levels total, mirroring ProjectItem's MAX_DEPTH
@@ -114,6 +125,16 @@ export const getMetrics = async (req: Request, res: Response, next: NextFunction
     } else {
       where.status = 'active';
     }
+
+    // Case-insensitive partial-or-full match on title — same contains +
+    // mode: 'insensitive' convention as projectController.ts's own search
+    // (and metricMemberController.ts's username/email search). A plain
+    // scalar field, deliberately not folded into the where.OR below (that
+    // OR is the department/membership ACCESS check — merging search into it
+    // would turn "title matches" into another way to bypass access instead
+    // of narrowing an already-accessible list).
+    const search = (req.query.search as string)?.trim();
+    if (search) where.title = { contains: search, mode: 'insensitive' };
 
     // Department access OR an explicit Team-tab membership — without the
     // OR, a Viewer/Editor/Owner added to a metric outside their own
@@ -143,6 +164,65 @@ export const getMetrics = async (req: Request, res: Response, next: NextFunction
       limit,
       totalPages: Math.max(1, Math.ceil(total / limit)),
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Bowling View's combined load — used instead of getMetrics + one getTracking
+// per row. Scoped to exactly one lens per call (the frequency the frontend
+// currently has open, plus a case-insensitive partial-or-full `search` on
+// title, same convention as getMetrics) — switching lenses or searching now
+// means a fresh call here rather than filtering an already-loaded
+// every-frequency batch client-side, so both the Prisma query and the Mongo
+// query only ever touch the metrics actually on screen.
+export const getBowlingMetrics = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const frequency = req.query.frequency as string;
+    const year = Number(req.query.year);
+    const month = req.query.month !== undefined ? Number(req.query.month) : null;
+    const search = (req.query.search as string)?.trim();
+
+    const where: Prisma.MetricWhereInput = {
+      organizationId: req.user!.organizationId,
+      status: 'active',
+      frequency: frequency as any,
+    };
+    if (search) where.title = { contains: search, mode: 'insensitive' };
+
+    // Same department-OR-membership visibility as getMetrics.
+    if (req.user!.role !== 'Admin') {
+      const accessibleIds = await getAccessibleDepartmentIds(req.user!);
+      where.OR = [{ departmentId: { in: accessibleIds ?? [] } }, { members: { some: { userId: req.user!.id } } }];
+    }
+
+    const metrics = await prisma.metric.findMany({
+      where,
+      include: METRIC_LIST_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    const metricIds = metrics.map((m) => m.id);
+    // month is only meaningful for 'daily' — every other frequency's period
+    // key is year-only (see backend/utils/metricPeriods.ts), same convention
+    // getPeriodData/savePeriodDiff already use.
+    const docs = metricIds.length
+      ? await MetricTracking.find({ metricId: { $in: metricIds }, year, month: frequency === 'daily' ? month : null })
+      : [];
+
+    const trackingByMetricId = new Map<number, { periods: Record<string, unknown>; actualTotal: number; targetTotal: number }>();
+    for (const doc of docs) {
+      const obj = doc.toObject({ flattenMaps: true });
+      trackingByMetricId.set(obj.metricId, { periods: obj.periods, actualTotal: obj.actualTotal, targetTotal: obj.targetTotal });
+    }
+
+    const metricsWithTracking = metrics.map((m) => ({
+      ...m,
+      tracking: trackingByMetricId.get(m.id) ?? { periods: {}, actualTotal: 0, targetTotal: 0 },
+    }));
+
+    res.status(200).json({ metrics: metricsWithTracking });
   } catch (err) {
     next(err);
   }
@@ -340,6 +420,11 @@ export const updateMetric = async (req: Request, res: Response, next: NextFuncti
       return next(new AppError('You do not have access to this metric', 403));
     if (!canEditMetric(req.user! as AuthUser, metric))
       return next(new AppError('You do not have edit access to this metric', 403));
+    // Locking freezes every field for everyone, including whoever would
+    // otherwise have edit access — only lockMetric (owner/Admin only) can
+    // change anything while locked, and that only touches isLocked itself.
+    if (metric.isLocked)
+      return next(new AppError('This metric is locked and cannot be edited', 403));
 
     const { title, department, category, owner, parentId, startDate, dueDate, notes, status, dataType, frequency, columnLabels } = req.body;
 
@@ -419,6 +504,37 @@ export const updateMetric = async (req: Request, res: Response, next: NextFuncti
     });
 
     res.status(200).json({ message: 'Metric updated', metric: updated });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Toggles isLocked — deliberately its own endpoint rather than a field on
+// updateMetric's body: the permission for THIS is canLockMetric (owner/Admin
+// only), narrower than updateMetric's canEditMetric, and it must stay callable
+// even while the metric is already locked (that's the only way to unlock it),
+// unlike every other field updateMetric accepts.
+export const lockMetric = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const metric = await prisma.metric.findUnique({
+      where: { id: Number(req.params.metricId) },
+      include: { members: { select: METRIC_MEMBERSHIP_SELECT } },
+    });
+    if (!metric) return next(new AppError('Metric not found', 404));
+
+    if (!(await canAccessMetric(req.user! as AuthUser, metric)))
+      return next(new AppError('You do not have access to this metric', 403));
+    if (!canLockMetric(req.user! as AuthUser, metric))
+      return next(new AppError('Only the metric owner or an Admin can lock or unlock this metric', 403));
+
+    const { locked } = req.body;
+    const updated = await prisma.metric.update({
+      where: { id: metric.id },
+      data: { isLocked: !!locked, updatedById: req.user!.id },
+      include: METRIC_INCLUDE,
+    });
+
+    res.status(200).json({ message: locked ? 'Metric locked' : 'Metric unlocked', metric: updated });
   } catch (err) {
     next(err);
   }

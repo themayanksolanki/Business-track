@@ -167,8 +167,9 @@ model User {
   sentGroupMessages        GroupMessage[]     @relation("GroupMessageSender")
   deletedGroupMessagesFor  GroupMessage[]     @relation("GroupMessageDeletedFor")
   groupMessageReads        GroupMessageRead[] @relation("GroupMessageReadUser")
-  createdStatusForms       StatusForm[]       @relation("StatusFormCreatedBy")
-  updatedStatusForms       StatusForm[]       @relation("StatusFormUpdatedBy")
+  createdStatusForms       StatusForm[]           @relation("StatusFormCreatedBy")
+  updatedStatusForms       StatusForm[]           @relation("StatusFormUpdatedBy")
+  statusFormSubmissions    StatusFormSubmission[] @relation("StatusFormSubmissionSubmittedBy")
 
   @@unique([organizationId, sequenceId])
   @@map("users")

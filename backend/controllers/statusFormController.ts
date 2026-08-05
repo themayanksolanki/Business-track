@@ -2,10 +2,10 @@ import type { Request, Response, NextFunction } from 'express';
 import prisma from '../lib/prisma.js';
 import AppError from '../utils/AppError.js';
 
-const QUESTION_SELECT = { id: true, type: true, label: true, options: true, required: true, order: true };
+export const QUESTION_SELECT = { id: true, type: true, label: true, options: true, required: true, order: true };
 const USER_SELECT = { id: true, username: true, email: true, role: true, profileImage: true };
 
-const FORM_INCLUDE = {
+export const FORM_INCLUDE = {
   questions: { select: QUESTION_SELECT, orderBy: { order: 'asc' as const } },
   createdBy: { select: USER_SELECT },
   updatedBy: { select: USER_SELECT },

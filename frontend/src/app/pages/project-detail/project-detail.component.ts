@@ -58,6 +58,7 @@ import { ProjectListOverlayComponent } from '../../shared/project-list-overlay/p
 import { ProjectMeetingsComponent } from '../../shared/project-meetings/project-meetings.component';
 import { EventDetailDialogComponent } from '../../shared/event-detail-dialog/event-detail-dialog.component';
 import { ProjectStatusComponent } from '../../shared/project-status/project-status.component';
+import { ProjectStatusReportComponent } from '../../shared/project-status-report/project-status-report.component';
 
 @Component({
   selector: 'app-project-detail',
@@ -89,7 +90,8 @@ import { ProjectStatusComponent } from '../../shared/project-status/project-stat
     ProjectListOverlayComponent,
     ProjectMeetingsComponent,
     EventDetailDialogComponent,
-    ProjectStatusComponent
+    ProjectStatusComponent,
+    ProjectStatusReportComponent
   ],
   providers: [DropListRegistryService],
   templateUrl: './project-detail.component.html',
@@ -109,7 +111,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     { key: 'status', label: 'Status', icon: 'bi-graph-up' },
     { key: 'teams', label: 'Teams', icon: 'bi-people' },
     { key: 'meetings', label: 'Meetings', icon: 'bi-camera-video' },
-    { key: 'status-report', label: 'Status Report', icon: 'bi-graph-up' },
+    { key: 'status-report', label: 'Status Report', icon: 'bi-envelope-paper' },
   ];
   activeTab = 'tasks';
 
@@ -253,7 +255,8 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
 
       const tab = this.route.snapshot.queryParamMap.get('tab');
       this.activeTab =
-        tab === 'detail' || tab === 'tasks' || tab === 'kanban' || tab === 'status' || tab === 'teams' || tab === 'meetings'
+        tab === 'detail' || tab === 'tasks' || tab === 'kanban' || tab === 'status' || tab === 'teams' ||
+        tab === 'meetings' || tab === 'status-report'
           ? tab
           : 'tasks';
       const itemParam = this.route.snapshot.queryParamMap.get('item');
@@ -920,6 +923,13 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
         this.notifications.error(err.error?.message || 'Failed to save layout');
       },
     });
+  }
+
+  // ProjectStatusReportComponent owns its own save calls — this just keeps
+  // this page's `project` in sync afterward, same merge-in-place convention
+  // as saveDetailsLayout above.
+  onStatusReportPatched(patch: Partial<Project>) {
+    if (this.project) this.project = { ...this.project, ...patch };
   }
 
   get isValidLinkUrl(): boolean {

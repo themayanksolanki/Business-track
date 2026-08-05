@@ -1,0 +1,212 @@
+<div class="status-report-tab">
+
+  @if (!canManage) {
+    <div class="status-report-readonly-banner">
+      <i class="bi bi-eye me-1"></i>
+      Only the project owner or an Admin can pick a template, fill it out, save, or send a report — you're viewing this tab read-only.
+    </div>
+  }
+
+  @if (canManage) {
+    <div class="mb-3">
+      <label class="field-label">Status Form Template</label>
+      <div class="d-flex align-items-center gap-2">
+        <select class="form-select status-report-template-select" [ngModel]="activeForm?.id ?? null"
+                (ngModelChange)="onSelectTemplate($event)" [disabled]="templateChangeLoading">
+          <option [ngValue]="null">— No Template Selected —</option>
+          @for (form of statusFormSvc.statusForms(); track form.id) {
+            <option [ngValue]="form.id">{{ form.title }}</option>
+          }
+        </select>
+        @if (templateChangeLoading) { <span class="spinner-border spinner-border-sm"></span> }
+      </div>
+    </div>
+  }
+
+  @if (!activeForm) {
+    <div class="status-report-empty text-center py-4 text-muted">
+      <i class="bi bi-file-earmark-text display-6 d-block mb-2"></i>
+      <p class="mb-0 fw-semibold">No Template Selected</p>
+      @if (canManage) {
+        <p class="small mb-0">Pick a Status Form template above to get started.</p>
+      } @else {
+        <p class="small mb-0">The project owner hasn't selected one yet.</p>
+      }
+    </div>
+  } @else {
+    <div class="status-report-form-card">
+      <h5 class="status-report-form-title mb-1">{{ activeForm.title }}</h5>
+      @if (activeForm.description) {
+        <p class="text-muted small">{{ activeForm.description }}</p>
+      }
+
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="field-label">Subject</label>
+          <input type="text" class="form-control" [(ngModel)]="subject" [disabled]="!canManage" placeholder="Auto-generated subject" />
+        </div>
+        <div class="col-md-3 mb-3">
+          <label class="field-label">Date</label>
+          <input type="date" class="form-control" [(ngModel)]="reportDate" [disabled]="!canManage" />
+        </div>
+        <div class="col-md-3 mb-3">
+          <label class="field-label">Prepared by</label>
+          <input type="text" class="form-control" [value]="preparedByName + ' (' + preparedByEmail + ')'" disabled readonly />
+        </div>
+      </div>
+
+      @for (q of activeForm.questions; track q.id) {
+        <div class="mb-3 status-report-question">
+          <label class="field-label">{{ q.label }} @if (q.required) { <span class="text-danger">*</span> }</label>
+
+          @switch (q.type) {
+            @case ('shortText') {
+              <input type="text" class="form-control" [ngModel]="answers[q.id!]"
+                     (ngModelChange)="updateAnswer(q.id!, $event)" [disabled]="!canManage" />
+            }
+            @case ('longText') {
+              <textarea class="form-control" rows="3" [ngModel]="answers[q.id!]"
+                        (ngModelChange)="updateAnswer(q.id!, $event)" [disabled]="!canManage"></textarea>
+            }
+            @case ('richText') {
+              <!-- Plain textarea for now, not a second CKEditor instance per
+                   question — see the component's own top-of-file comment. -->
+              <textarea class="form-control" rows="5" [ngModel]="answers[q.id!]"
+                        (ngModelChange)="updateAnswer(q.id!, $event)" [disabled]="!canManage"></textarea>
+            }
+            @case ('singleSelect') {
+              <select class="form-select" [ngModel]="answers[q.id!]"
+                      (ngModelChange)="updateAnswer(q.id!, $event)" [disabled]="!canManage">
+                <option [ngValue]="null">— Select —</option>
+                @for (opt of q.options; track opt) {
+                  <option [ngValue]="opt">{{ opt }}</option>
+                }
+              </select>
+            }
+            @case ('multiSelect') {
+              <div class="status-report-checkbox-group">
+                @for (opt of q.options; track opt) {
+                  <label class="status-report-checkbox">
+                    <input type="checkbox" [checked]="isMultiSelectChecked(q.id!, opt)"
+                           (change)="toggleMultiSelectOption(q.id!, opt)" [disabled]="!canManage" />
+                    {{ opt }}
+                  </label>
+                }
+              </div>
+            }
+            @case ('attachment') {
+              <input type="url" class="form-control" placeholder="Paste a link to the file…" [ngModel]="answers[q.id!]"
+                     (ngModelChange)="updateAnswer(q.id!, $event)" [disabled]="!canManage" />
+              <p class="field-hint">Link only for now — paste a URL to a file hosted elsewhere.</p>
+            }
+          }
+        </div>
+      }
+
+      @if (formError) {
+        <div class="alert alert-danger py-2">{{ formError }}</div>
+      }
+
+      @if (canManage) {
+        <div class="mb-3">
+          <label class="field-label">Send To</label>
+          <app-email-chip-input [value]="recipients" (valueChange)="recipients = $event"
+                                 placeholder="Type an email and press Enter…"></app-email-chip-input>
+        </div>
+
+        <div class="status-report-actions">
+          <button type="button" class="btn btn-outline-secondary" (click)="clearForm()">Clear</button>
+          <button type="button" class="btn btn-outline-primary" (click)="openPreview('save')">Save</button>
+          <button type="button" class="btn btn-primary" (click)="openPreview('send')">Save and Send</button>
+        </div>
+
+        <div class="status-report-defaults-toggle" (click)="showDefaultRecipients = !showDefaultRecipients">
+          <i class="bi" [class.bi-chevron-right]="!showDefaultRecipients" [class.bi-chevron-down]="showDefaultRecipients"></i>
+          Default recipients for this project
+        </div>
+        @if (showDefaultRecipients) {
+          <div class="status-report-defaults-panel">
+            <app-email-chip-input [value]="defaultRecipients" (valueChange)="defaultRecipients = $event"
+                                   placeholder="Add a default recipient…"></app-email-chip-input>
+            <button type="button" class="btn btn-sm btn-outline-primary mt-2" [disabled]="savingDefaults" (click)="saveDefaultRecipients()">
+              @if (savingDefaults) { <span class="spinner-border spinner-border-sm me-1"></span> }
+              Save defaults
+            </button>
+            <p class="field-hint mb-0">Auto-filled into "Send To" whenever the compose form starts fresh.</p>
+          </div>
+        }
+      }
+    </div>
+  }
+
+  <div class="status-report-history">
+    <h6 class="status-report-history-title">Past Status Reports</h6>
+    @if (submissionsLoading) {
+      <div class="text-center py-3"><span class="spinner-border spinner-border-sm"></span></div>
+    } @else if (submissions.length === 0) {
+      <p class="text-muted small">No status reports have been saved yet.</p>
+    } @else {
+      @for (sub of submissions; track sub.id) {
+        <div class="status-report-history-row" (click)="viewSubmission(sub)">
+          <div class="status-report-history-main">
+            <span class="status-report-history-subject">{{ sub.subject }}</span>
+            <span class="status-report-history-form">{{ sub.formTitle }}</span>
+          </div>
+          <div class="status-report-history-meta">
+            <span>{{ formatSubmittedAt(sub.submittedAt) }}</span>
+            <span>&middot;</span>
+            <span>{{ sub.submittedBy.username }}</span>
+            @if (sub.sent) {
+              <span class="status-report-sent-badge"><i class="bi bi-envelope-check-fill"></i> Sent to {{ sub.recipients.length }}</span>
+            } @else {
+              <span class="status-report-notsent-badge"><i class="bi bi-envelope"></i> Not sent</span>
+            }
+          </div>
+        </div>
+      }
+    }
+  </div>
+</div>
+
+@if (preview) {
+  <div class="status-report-preview-backdrop" (click)="closePreview()">
+    <div class="status-report-preview-modal" (click)="$event.stopPropagation()">
+      <div class="status-report-preview-header">
+        <h5 class="mb-0">{{ previewMode === 'view' ? 'Status Report' : 'Preview' }}</h5>
+        <button type="button" class="btn-close" (click)="closePreview()"></button>
+      </div>
+      <div class="status-report-preview-body">
+        <h4 class="mb-1">{{ preview.subject }}</h4>
+        <p class="text-muted small mb-1">{{ project.name }} &middot; {{ preview.formTitle }} &middot; {{ preview.reportDate }}</p>
+        <p class="text-muted small mb-1">Prepared by {{ preview.preparedByName }} ({{ preview.preparedByEmail }})</p>
+        @if (preview.recipients.length) {
+          <p class="text-muted small"><i class="bi bi-envelope me-1"></i>To: {{ preview.recipients.join(', ') }}</p>
+        }
+        <hr />
+        @for (a of preview.answers; track a.questionId) {
+          <div class="status-report-preview-answer">
+            <div class="status-report-preview-label">{{ a.label }}</div>
+            <div class="status-report-preview-value">
+              @if (answerIsEmpty(a)) {
+                <span class="text-muted">—</span>
+              } @else if (a.type === 'attachment') {
+                <a [href]="a.value" target="_blank" rel="noopener">{{ a.value }}</a>
+              } @else {
+                <span class="status-report-preview-text">{{ answerDisplayValue(a) }}</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+      @if (previewMode !== 'view') {
+        <div class="status-report-preview-footer">
+          <button type="button" class="btn btn-outline-secondary" (click)="closePreview()">Back to edit</button>
+          <button type="button" class="btn btn-primary" [disabled]="saving" (click)="confirmPreview()">
+            @if (saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            {{ previewMode === 'send' ? 'Confirm & Send' : 'Confirm Save' }}
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+}

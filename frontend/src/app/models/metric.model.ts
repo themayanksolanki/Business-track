@@ -59,6 +59,10 @@ export interface Metric {
   startDate: string | null;
   dueDate: string | null;
   columnLabels?: MetricColumnLabels | null;
+  // Freezes every field/tracking edit for everyone (Detail tab, Sheet tab,
+  // Bowling View cells) until the owner or an Admin unlocks it again — see
+  // canLockMetricListItem (metric-value.util.ts).
+  isLocked: boolean;
   department: Pick<Department, 'id' | 'name' | 'color'>;
   category: Pick<Category, 'id' | 'name' | 'color'> | null;
   parent: MetricParentLite | null;
@@ -78,7 +82,7 @@ export interface Metric {
 // canEditMetricListItem) to gate Create/Edit/Delete buttons and Bowling's
 // inline click-to-edit for a Viewer, without breaking existing call sites
 // that build a MetricListItem without it (e.g. the Linked tab's SUB_METRIC_INCLUDE).
-export type MetricListItem = Pick<Metric, 'id' | 'sequenceId' | 'title' | 'department' | 'category' | 'owner' | 'status' | 'dataType' | 'frequency'> & {
+export type MetricListItem = Pick<Metric, 'id' | 'sequenceId' | 'title' | 'department' | 'category' | 'owner' | 'status' | 'dataType' | 'frequency' | 'isLocked'> & {
   members?: MetricMembershipLite[];
 };
 

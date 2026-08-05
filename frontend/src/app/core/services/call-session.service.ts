@@ -51,6 +51,11 @@ export class CallSessionService {
   // Fires whenever a call fully ends/is cleaned up — the widget listens to
   // reset its own view-local state (fullscreen, tap-to-swap tile order).
   readonly ended$ = new Subject<void>();
+  // Ephemeral floating-emoji reactions — fires for BOTH the local send (via
+  // sendReaction below, immediately, not waiting on any echo) and the
+  // remote party's own reaction arriving over the socket. The widget's
+  // <app-reaction-burst> just plays whatever comes through here.
+  readonly reactions$ = new Subject<string>();
 
   private callId: string | null = null;
   private pendingOffer: { from: string; offer: RTCSessionDescriptionInit; callId: string } | null = null;
@@ -117,6 +122,7 @@ export class CallSessionService {
     );
     this.subs.add(this.socketSvc.remoteScreenSharing$.subscribe((sharing) => { this.remoteScreenSharing = sharing; }));
     this.subs.add(this.socketSvc.remoteMobileDevice$.subscribe((mobile) => { this.remoteMobileDevice = mobile; }));
+    this.subs.add(this.socketSvc.remoteReaction$.subscribe((emoji) => this.reactions$.next(emoji)));
 
     // Covers the other side stopping their share via the browser's own
     // "Stop sharing" bar rather than our in-app toggle.
@@ -337,6 +343,14 @@ export class CallSessionService {
     this.remoteVideoOnInAudioCall = false;
     this.minimized       = false;
     this.ended$.next();
+  }
+
+  sendReaction(emoji: string) {
+    if (!this.callId) return;
+    this.socketSvc.sendReaction(this.callId, emoji);
+    // Local burst fires immediately rather than waiting for any round-trip
+    // — there's nothing to reconcile (purely visual, never persisted).
+    this.reactions$.next(emoji);
   }
 
   toggleMute() {

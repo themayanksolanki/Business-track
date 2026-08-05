@@ -23,9 +23,13 @@ import {
   validateApproverAssignment,
   validateApproverUserId,
   validateEventId,
+  validateStatusReportTemplate,
+  validateStatusReportRecipients,
+  validateStatusReportSubmission,
 } from '../middleware/validate.js';
 import {
   getProjects,
+  getProjectStats,
   createProject,
   getProjectById,
   getSharedProject,
@@ -36,6 +40,12 @@ import {
   downloadProjectPlan,
   removeProjectPlan,
 } from '../controllers/projectController.js';
+import {
+  getStatusReportSubmissions,
+  selectStatusReportTemplate,
+  updateStatusReportRecipients,
+  createStatusReportSubmission,
+} from '../controllers/statusReportController.js';
 import {
   getItems,
   getItemsSummary,
@@ -98,6 +108,7 @@ const router = Router();
 
 router.get('/', protect, getProjects);
 router.post('/', protect, validateProject, createProject);
+router.get('/stats', protect, getProjectStats);
 router.get('/:projectId', protect, validateProjectId, getProjectById);
 
 // Shareable "Copy Project Link" surface — resolved by org + per-org sequence
@@ -116,6 +127,29 @@ router.patch(
   validateProjectDetailsLayout,
   updateProjectDetailsLayout
 );
+router.get('/:projectId/status-report/submissions', protect, validateProjectId, getStatusReportSubmissions);
+router.patch(
+  '/:projectId/status-report/template',
+  protect,
+  validateProjectId,
+  validateStatusReportTemplate,
+  selectStatusReportTemplate
+);
+router.patch(
+  '/:projectId/status-report/recipients',
+  protect,
+  validateProjectId,
+  validateStatusReportRecipients,
+  updateStatusReportRecipients
+);
+router.post(
+  '/:projectId/status-report/submissions',
+  protect,
+  validateProjectId,
+  validateStatusReportSubmission,
+  createStatusReportSubmission
+);
+
 router.delete('/:projectId', protect, validateProjectId, deleteProject);
 
 router.get('/:projectId/attachments', protect, validateProjectId, getProjectAttachments);
